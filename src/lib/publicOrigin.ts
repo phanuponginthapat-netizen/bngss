@@ -1,44 +1,18 @@
-// Frontend resolver for the app's public/production origin.
-// Order: CMS `public_origin` → window.location.origin (only when it looks
-// like a real prod URL, not preview/localhost) → null. No literal fallback.
-// Consumers should await getPublicOrigin() and handle null with a UI hint
-// asking admin to set CMS → public_origin.
+const PUBLISHED_ORIGIN = "https://bngss.lovable.app";
+const SCHOOL_ORIGINS = new Set([
+  PUBLISHED_ORIGIN,
+  "https://www.bngss.online",
+  "https://bngss.online",
+]);
 
-import { supabase } from "@/integrations/supabase/client";
-
-function looksLikeProd(o: string): boolean {
-  return !(
-    o.includes("id-preview--") ||
-    o.includes("lovableproject.com") ||
-    o.includes("lovable.dev") ||
-    o.includes("localhost") ||
-    o.includes("127.0.0.1")
-  );
+/** Preserve the school's current domain, but never share preview/local URLs. */
+export function getSchoolPublicOrigin(origin = window.location.origin): string {
+  return SCHOOL_ORIGINS.has(origin) ? origin : PUBLISHED_ORIGIN;
 }
 
-let cache: { at: number; value: string | null } | null = null;
-
-export async function getPublicOrigin(): Promise<string | null> {
-  if (cache && Date.now() - cache.at < 60_000) return cache.value;
-  let value: string | null = null;
-  try {
-    const { data } = await supabase
-      .from("cms_settings")
-      .select("value")
-      .eq("key", "public_origin")
-      .maybeSingle();
-    const cms = (data?.value as string | undefined)?.replace(/\/+$/, "") || null;
-    if (cms) value = cms;
-  } catch {}
-  if (!value && typeof window !== "undefined" && looksLikeProd(window.location.origin)) {
-    value = window.location.origin;
-  }
-  cache = { at: Date.now(), value };
-  return value;
-}
-
-/** Sync best-effort — returns window.origin if prod-looking, else null. Use only for defaults. */
+/** Compatibility for kiosk setup: do not suggest a preview as a public site. */
 export function guessPublicOrigin(): string | null {
-  if (typeof window === "undefined") return null;
-  return looksLikeProd(window.location.origin) ? window.location.origin : null;
+  const origin = window.location.origin;
+  if (SCHOOL_ORIGINS.has(origin) || origin === "https://bngss.vercel.app") return origin;
+  return null;
 }

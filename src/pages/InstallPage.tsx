@@ -19,6 +19,7 @@ import { parseScannerRelease } from "@/lib/scannerRelease";
 import { fetchAppDownloadsJson } from "@/lib/storageUrl";
 import { detectInstallPlatform, isEmbeddedBrowser, type InstallPlatform } from "@/lib/installPlatform";
 import { useQuery } from "@tanstack/react-query";
+import { getSchoolPublicOrigin } from "@/lib/publicOrigin";
 
 interface InstallPrompt extends Event {
   prompt: () => Promise<void>;
@@ -53,7 +54,8 @@ export default function InstallPage() {
     staleTime: 5 * 60_000,
   });
   const scannerFile = scanner.data?.files[0];
-  const publicInstallUrl = "https://bngss.lovable.app/install";
+  const publicOrigin = getSchoolPublicOrigin();
+  const publicInstallUrl = `${publicOrigin}/install`;
 
   async function checkStatus() {
     setStatus("loading");
@@ -111,7 +113,7 @@ export default function InstallPage() {
   }
   async function copyLink() {
     try { await navigator.clipboard.writeText(publicInstallUrl); toast.success("คัดลอกลิงก์ติดตั้งแล้ว"); }
-    catch { toast.error("คัดลอกไม่ได้ กรุณาเปิด bngss.lovable.app/install ในเบราว์เซอร์"); }
+    catch { toast.error(`คัดลอกไม่ได้ กรุณาเปิด ${publicInstallUrl} ในเบราว์เซอร์`); }
   }
 
   return <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10 text-foreground">
@@ -142,7 +144,7 @@ export default function InstallPage() {
           <TabsContent value="ios" className="mt-0 space-y-6">
             <div><Badge variant="secondary" className="mb-3">ติดตั้งจาก Safari</Badge><h2 className="text-xl font-semibold">เพิ่มแอปลงหน้าจอ iPhone / iPad</h2><p className="mt-2 text-sm text-muted-foreground">ไม่ต้องดาวน์โหลด APK และไม่ต้องติดตั้งผ่าน App Store</p></div>
             <Steps items={[
-              <>เปิด <strong>bngss.lovable.app</strong> ด้วย Safari</>,
+              <>เปิด <strong>{new URL(publicOrigin).hostname}</strong> ด้วย Safari</>,
               <>แตะ <Share className="inline h-4 w-4" /> <strong>แชร์</strong> ในแถบเครื่องมือของ Safari</>,
               <>เลือก <strong>เพิ่มไปยังหน้าจอโฮม</strong> หากมี “เปิดเป็นเว็บแอป” ให้เปิดไว้ แล้วแตะ <strong>เพิ่ม</strong></>,
               <>เปิดแอปจากไอคอนบนหน้าจอโฮม แล้วเข้าสู่ระบบ</>,
