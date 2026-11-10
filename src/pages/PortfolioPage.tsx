@@ -103,7 +103,7 @@ export default function PortfolioPage({ embedded = false }: { embedded?: boolean
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="w-4 h-4" />เพิ่มผลงานใหม่</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant={mode === "upload" ? "default" : "outline"} onClick={() => setMode("upload")}>
               <Upload className="w-4 h-4 mr-1" />อัปโหลดไฟล์
             </Button>
