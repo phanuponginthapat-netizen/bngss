@@ -4,6 +4,8 @@
 const ALLOWED_ORIGINS = [
   "https://bngss.vercel.app",
   "https://bngss.lovable.app",
+  "https://www.bngss.online",
+  "https://bngss.online",
   "http://localhost:8080",
   "http://localhost:3000",
 ];
