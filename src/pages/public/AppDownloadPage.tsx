@@ -50,17 +50,13 @@ export default function AppDownloadPage() {
   const versionLabel = release.version ? "v" + release.version : "";
 
   return (
-    <PublicPageLayout title="ดาวน์โหลดแอป BNG Smart" description="ไฟล์ติดตั้งรุ่นล่าสุดจาก GitHub Releases">
+    <PublicPageLayout
+      title="ดาวน์โหลดแอป BNG Smart"
+      subtitle="ไฟล์ติดตั้งรุ่นล่าสุดจาก GitHub Releases"
+      breadcrumbs={[{ label: "ดาวน์โหลดแอป" }]}
+    >
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <a href="/" className="hover:text-foreground hover:underline">
-            {schoolName || "BNG Smart School"}
-          </a>
-          <span aria-hidden="true">/</span>
-          <span className="font-medium text-foreground">ดาวน์โหลดแอป</span>
-        </div>
-
-        <Card className="mt-4 overflow-hidden border-primary/20">
+        <Card className="overflow-hidden border-primary/20">
           <CardHeader className="bg-gradient-to-br from-primary/10 via-secondary/50 to-background">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-4">
