@@ -24,7 +24,7 @@ const CATEGORIES = [
   "อื่นๆ",
 ];
 
-export default function PortfolioPage() {
+export default function PortfolioPage({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuthSession();
   const userId = user?.id;
   const [revision, setRevision] = useState(0);
@@ -91,14 +91,14 @@ export default function PortfolioPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3">
+    <div className={embedded ? "space-y-6" : "space-y-6 p-4 md:p-6 max-w-5xl mx-auto"}>
+      {!embedded && <div className="flex items-center gap-3">
         <Award className="w-8 h-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">ผลงานของฉัน</h1>
           <p className="text-sm text-muted-foreground">แขวนผลงาน เอกสาร วิดีโอ หรือลิงก์ที่ต้องการแสดงในโปรไฟล์สาธารณะ</p>
         </div>
-      </div>
+      </div>}
 
       <Card>
         <CardHeader><CardTitle className="text-base flex items-center gap-2"><Plus className="w-4 h-4" />เพิ่มผลงานใหม่</CardTitle></CardHeader>

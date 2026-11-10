@@ -17,7 +17,7 @@ import { QRCodeSVG } from "qrcode.react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
-  Camera, User, Mail, Phone, MapPin, Heart,
+  Camera, User, Mail, Phone, MapPin, Heart, Award,
   Calendar, Droplets, MessageCircle, Facebook, Briefcase,
   Building, GraduationCap, Shield, Save, Pencil, IdCard,
   BookOpen, Clock, Users, ClipboardList, BarChart3, FileText, TrendingUp,
@@ -32,6 +32,7 @@ import { useProfileImageUrl } from "@/lib/profileImageUrl";
 import { waitForIdCardImages } from "@/lib/idCardImages";
 import MyPostsTab from "@/components/profile/MyPostsTab";
 import MyMembershipsCard from "@/components/profile/MyMembershipsCard";
+import PortfolioPage from "@/pages/PortfolioPage";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { formatDateBE } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
@@ -683,6 +684,7 @@ const ProfilePage = () => {
           <TabsList className="inline-flex h-auto w-max gap-1 p-1 bg-muted/60 backdrop-blur-sm rounded-xl">
             <TabsTrigger value="info" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><User className="w-4 h-4 mr-1.5" /> ข้อมูลส่วนตัว</TabsTrigger>
             <TabsTrigger value="contact" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><Phone className="w-4 h-4 mr-1.5" /> การติดต่อ</TabsTrigger>
+            <TabsTrigger value="portfolio" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><Award className="w-4 h-4 mr-1.5" /> แฟ้มสะสมผลงาน</TabsTrigger>
             {role === "teacher" && <TabsTrigger value="teaching" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><BookOpen className="w-4 h-4 mr-1.5" /> ภาระงานสอน</TabsTrigger>}
             {role === "student" && <TabsTrigger value="academic" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><GraduationCap className="w-4 h-4 mr-1.5" /> ผลการเรียน</TabsTrigger>}
             {role === "student" && <TabsTrigger value="teachers" className="shrink-0 h-9 px-3 text-xs sm:text-sm rounded-lg"><Users className="w-4 h-4 mr-1.5" /> ครูผู้สอน</TabsTrigger>}
@@ -1306,6 +1308,10 @@ const ProfilePage = () => {
         </TabsContent>
 
         {/* My Posts — wall_posts authored by this user */}
+        <TabsContent value="portfolio">
+          <PortfolioPage embedded />
+        </TabsContent>
+
         <TabsContent value="myposts">
           {userId && <MyPostsTab userId={userId} />}
         </TabsContent>
