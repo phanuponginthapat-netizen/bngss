@@ -1,5 +1,6 @@
 - Social profile posts reuse WallFeed, and portfolio media stores durable Storage paths with read-time signed URLs; this prevents divergent rendering and expired saved links.
 - Academic documents and schedule actions gate on every dependent read through academicReadState; throw source errors and offer retry rather than render or print incomplete data as empty success.
+- AI bubble fullscreen mode resizes the same mounted chat via a body portal; preserve drafts, attachments and ongoing inference without changing chat storage or transport.
 - LINE attendance digests resolve saved school attendance plus earliest entry evidence through the shared attendanceDigest helper; missing evidence stays unrecorded until check-in closes (clock_in_end, else late threshold), then counts as absent with names/class unless the day has no evidence at all; reads fail closed, and zero scans never create a holiday.
 - The system is cloud-only (single hosted backend); standalone/self-hosted installers and the district hub were removed to keep the codebase focused on day-to-day school use.
 - Personnel work reports use owner-only staff RLS with auth-derived default ownership, composite template ownership references, immutable daily content snapshots, and shared calendar holidays; UI and print consume the same month-row calculation to prevent cross-user leaks and fabricated work.

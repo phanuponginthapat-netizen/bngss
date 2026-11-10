@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles, FileText, BookOpen, ClipboardCheck, GraduationCap } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles, FileText, BookOpen, ClipboardCheck, GraduationCap, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -93,6 +94,9 @@ export default function AiChatBubble() {
   const { role: userRole } = useUserRole();
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
   const [input, setInput] = useState("");
@@ -109,6 +113,43 @@ export default function AiChatBubble() {
   const [pendingImage, setPendingImage] = useState<string | null>(null); // data URL
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const { schoolLogo } = useSystemSettings();
+
+  // Resizing keeps this same chat mounted: draft, attachment and active replies survive.
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, fullscreen]);
+
+  useEffect(() => {
+    if (!open || !fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (document.querySelector(".swal2-container") || viewerUrl) return;
+        event.preventDefault();
+        setFullscreen(false);
+      }
+      if (event.key !== "Tab") return;
+      const controls = panelRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]):not([type="file"]), a[href], [tabindex="0"]'
+      );
+      if (!controls?.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open, fullscreen, viewerUrl]);
 
   // ===== Voice-loop refs (shared with KioskHelloAi) =====
   const autoLoopRef = useRef(false);
@@ -845,7 +886,7 @@ export default function AiChatBubble() {
   };
 
   // รูปจาก backend เก่าที่ปิดไปแล้วโหลดไม่ได้ — ซ่อนรูปที่เสียแทนการแสดงข้อความแตก
-  return (
+  return createPortal(
     <>
       {/* Floating bubble */}
       {!open && (
@@ -876,13 +917,18 @@ export default function AiChatBubble() {
       {/* Chat panel */}
       {open && (
         <div className={cn(
-          "fixed z-40 rounded-3xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl bg-white/95 border border-white/60",
-          "bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-6",
-          "w-[min(360px,calc(100vw-2rem))] h-[min(520px,calc(100vh-8rem))]",
+          "fixed flex flex-col overflow-hidden bg-background text-foreground",
+          fullscreen
+            ? "inset-0 z-[100] w-full h-[100dvh]"
+            : "z-40 rounded-3xl shadow-2xl border border-border bottom-[calc(env(safe-area-inset-bottom)+76px)] right-3 md:bottom-[calc(env(safe-area-inset-bottom)+24px)] md:right-6 w-[min(360px,calc(100vw-2rem))] h-[min(520px,calc(100dvh-8rem))]",
         )}
-          style={{ backgroundColor: bot.bgColor, boxShadow: "0 20px 60px -12px hsl(var(--primary)/0.25), 0 8px 20px -4px hsl(var(--foreground)/0.1)" }}
+          ref={panelRef}
+          role="dialog"
+          aria-modal={fullscreen || undefined}
+          aria-label={`แชทกับ ${bot.name}`}
+          style={fullscreen ? undefined : { backgroundColor: bot.bgColor, boxShadow: "0 20px 60px -12px hsl(var(--primary)/0.25), 0 8px 20px -4px hsl(var(--foreground)/0.1)" }}
         >
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/50 backdrop-blur-sm" style={{ background: bot.headerGradient || "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}>
+          <div className={cn("flex shrink-0 items-center gap-2.5 px-4 py-3 border-b border-border", fullscreen && "sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))]")} style={fullscreen ? undefined : { background: bot.headerGradient || "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))" }}>
             <Avatar className="w-8 h-8">
               {bot.avatarUrl && !avatarBroken ? <AvatarImage src={bot.avatarUrl} /> : schoolLogo ? <AvatarImage src={schoolLogo} /> : null}
               <AvatarFallback className="gradient-primary text-primary-foreground"><Bot className="w-4 h-4" /></AvatarFallback>
@@ -896,17 +942,20 @@ export default function AiChatBubble() {
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setVoiceOn((v) => !v)} title={voiceOn ? "ปิดเสียง" : "เปิดเสียง"}>
               {voiceOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { stopVoiceLoop(); setOpen(false); window.speechSynthesis?.cancel(); try { remoteAudioRef.current?.pause(); } catch {} try { elevenAudioRef.current?.pause(); } catch {} }}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setFullscreen(value => !value)} title={fullscreen ? "ย่อแชท" : "เปิดแชทเต็มจอ"} aria-label={fullscreen ? "ย่อแชท" : "เปิดแชทเต็มจอ"}>
+              {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="ปิดแชท AI" title="ปิดแชท AI" onClick={() => { stopVoiceLoop(); setOpen(false); setFullscreen(false); window.speechSynthesis?.cancel(); try { remoteAudioRef.current?.pause(); } catch {} try { elevenAudioRef.current?.pause(); } catch {} }}>
               <X className="w-4 h-4" />
             </Button>
           </div>
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto"
-            style={bot.bgImageUrl ? { backgroundImage: `url(${bot.bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+            style={!fullscreen && bot.bgImageUrl ? { backgroundImage: `url(${bot.bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
           >
-            <div className="p-3 space-y-2">
+            <div className={cn("p-3 space-y-2", fullscreen && "w-full max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-5")}>
               {messages.map((m, i) => {
                 // Parse markdown ![](url) → render text + image segments
                 const segments: Array<{ type: "text" | "img"; value: string }> = [];
@@ -979,7 +1028,7 @@ export default function AiChatBubble() {
 
           <form
             onSubmit={(e) => { e.preventDefault(); send(); }}
-            className="flex flex-col gap-1 p-2 border-t bg-card"
+            className={cn("flex shrink-0 flex-col gap-1 p-2 border-t bg-card", fullscreen && "w-full max-w-4xl mx-auto px-4 sm:px-8 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]")}
           >
             {pendingImage && (
               <div className="relative inline-block self-start">
@@ -1008,10 +1057,11 @@ export default function AiChatBubble() {
               {(["teacher","admin","director","student"].includes(userRole||"")) && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างข้อสอบ ")} title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>}
               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : userRole==="parent" ? "ดูผลการเรียน " : "สรุปผลการเรียน ")} title={userRole==="parent" ? "ดูผลการเรียนลูก" : "สรุปผลการเรียน"} disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
               <Input
+                ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value.slice(0, 2000))}
                 placeholder={pendingImage ? "เพิ่มคำถามเกี่ยวกับรูป (ไม่บังคับ)..." : "พิมพ์ข้อความ..."}
-                className="h-8 text-sm"
+                className={cn("h-8 text-sm", fullscreen && "h-12")}
                 disabled={busy}
                 maxLength={2000}
               />
@@ -1036,6 +1086,7 @@ export default function AiChatBubble() {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
