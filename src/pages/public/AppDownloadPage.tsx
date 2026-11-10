@@ -23,17 +23,17 @@ import {
 } from "@/lib/githubRelease";
 
 const STEPS = [
-  "แตะปุม ดาวน์โหลด APK ดานบน แลวรอไฟลต์ิดตังใหเสร็จ",
-  "เปดแจงเตือนหรือโฟลเดอรด์านโหลด แลวแตะไฟลบงss-app.apk",
-  'กอนติดตัง ระบบอาจถามให้อนุญาต "ติดตังแอปจากแหลงที้ไมรูจัก" — เลือก อนุญาต/ติดตัง',
-  "เปดแอปแลวยืนยันเขาสู่ระบบดวยบัญชีโรงเรียน",
+  "แตะปุม ดาวนโหลด APK ดานบน แลวรอไฟลต์ิิดตังใหเสร็จ",
+  "เปดแจงเตือนหรอโฟลเดอรด์านโหลด แลวแตะไฟลบngss-app.apk",
+  'กอนติดตัง ระบบอาจถามให้อนุญาต "ติดตังแอปจากแหลงที้ไมรจูัก" — เลือก อนุญาต',
+  "เปดแอปแลวเขาสู่ระบบดวยบัญชีโรงเรียน",
 ];
 
 const FACTS = [
-  { title: "Android 7.0 ข้ึนไป", detail: "รองรบัต้งแต่ Android 7.0 (เวอร์ชันวา่ นั้ น) ถืงรุ่นล่าสุด" },
-  { title: "ไฟลเ์ดียวจบ", detail: "ไมตองตอกลิงก ไม่เกบข้อมูลไวในเซิรฟร์ภายนอก" },
-  { title: "แจงเตือนผานแอป", detail: "ร บแจงเตือนผาน Firebase โดยตรง ไม่เก นโควตา LINE" },
-  { title: "อัปเดตไดท นที", detail: "ร นใหมเผยแพรผาน GitHub Releases แลวหนานี้แสดงใหอตนมัติ" },
+  { title: "Android 7.0 ข้ึนไป", detail: "รองรบัต้งแต่ Android 7.0 ถืงรุนล่าสุด" },
+  { title: "ไฟลเ์ดียวจบ", detail: "ไมตองตอกลิงก และไมเกบขอมูลไวในเซิรฟรภายนอก" },
+  { title: "แจงเตือนผานแอป", detail: "ร บแจงเตือนผาน Firebase โดยตรง ไมเกนโควตา LINE" },
+  { title: "อัปเดตไดท นที", detail: "รุนใหมเผยแพรผาน GitHub Releases แลวหนานี้แสดงใหอตนมัต" },
 ];
 
 export default function AppDownloadPage() {
@@ -44,9 +44,9 @@ export default function AppDownloadPage() {
 
   return (
     <PublicPageLayout
-      title="ดาวนโหลดแแอป BNG Smart"
-      subtitle="ไฟลติดตังสำหรบครื่อง Android (APK) รุนล่าสุดจาก GitHub Releases"
-      breadcrumbs={[{ label: "ดาวนโหลดแแอป" }]}
+      title="ดาวนโหลดแอป BNG Smart"
+      subtitle="ไฟลติดตังสำหรบเครื่อง Android (APK) รุนล่าสุดจาก GitHub Releases"
+      breadcrumbs={[{ label: "ดาวนโหลดแอป" }]}
     >
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -62,7 +62,7 @@ export default function AppDownloadPage() {
                 </div>
                 <div className="min-w-0">
                   <CardTitle className="text-xl sm:text-2xl">
-                    แอป {s.appShortName || s.appName || schoolName}
+                    แอป {s.appShortName || schoolName}
                   </CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
                     เขาดูคะแนน การเชคชื่อ แจงเตือน และงานตาง ๆ ไดจากมือถือ
@@ -87,12 +87,12 @@ export default function AppDownloadPage() {
               <a href={ANDROID_APK_DOWNLOAD_URL} download={release.fileName} className="block">
                 <Button size="lg" className="w-full gap-2 text-base">
                   <Download className="h-5 w-5" />
-                  ดาวนโหลดแ APK {release.version ? `(รุน ${release.version})` : ""}
+                  ดาวนโหลด APK {release.version ? `(รุน ${release.version})` : ""}
                 </Button>
               </a>
 
               <p className="text-center text-xs text-muted-foreground">
-                ไฟลบงss-app.apk · {formatReleaseSize(release.sizeBytes)} · มาจาก GitHub Releases
+                ไฟลบngss-app.apk · {formatReleaseSize(release.sizeBytes)} · มาจาก GitHub Releases
                 ของโรงเรียนเทานั้ น
               </p>
 
@@ -107,7 +107,7 @@ export default function AppDownloadPage() {
                   <AlertTriangle className="h-4 w-4" />
                   <AlertTitle>อานขอมูลเวอร์ชันลสดุจาก GitHub ไมได</AlertTitle>
                   <AlertDescription className="text-xs">
-                    หนานี้ยังดาวนโหลดไฟลรุนลสดุไดตามปกต แต่ขอมูล版本号ที้แสดงอาจเปนคาทีตรวจไว
+                    หนานี้ยังดาวนโหลดไฟลรุนลสดุไดตามปกต แตขอมูลที้แสดงอาจเปนคาที้ตรวจไว
                     <Button
                       variant="outline"
                       size="sm"
@@ -151,7 +151,7 @@ export default function AppDownloadPage() {
                   <QRCodeSVG value={ANDROID_APK_DOWNLOAD_URL} size={168} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  แตะปุมสแกนในโทรศัพท แลวเลอกดาวนโหลดไฟลไดทันที
+                  แตะปุมสแกนในโทรศัพท แลวเลอกดาวนโหลดไฟลไดทันท
                 </p>
               </CardContent>
             </Card>
@@ -170,7 +170,7 @@ export default function AppDownloadPage() {
                 <Button asChild variant="outline" className="w-full justify-start gap-2">
                   <a href="/install">
                     <Smartphone className="h-4 w-4" />
-                    iPhone / iPad หรือติดตังลงหนาจอ
+                    iPhone / iPad หรอติดตังลงหนาจอ
                   </a>
                 </Button>
               </CardContent>
@@ -194,11 +194,11 @@ export default function AppDownloadPage() {
           <AlertTitle className="text-sm">ถาดาวนโหลดแลวติดตังไมได</AlertTitle>
           <AlertDescription className="text-xs space-y-1">
             <p>
-              • โฟน/แท็บเลตบางรนุ ตองเปดอนุญาต "ติดตังแอปจากแหลงที้ไมรูจัก" กอน (การตังคา &gt;
+              • โฟน/แท็บเลตบางรนุ ตองเปดอนุญาต ติดตังแอปจากแหลงที้ไมรจูัก กอน (ในหนาตังคา
               ความปลอดภ ัย)
             </p>
-            <p>• ถาเคยติดตังรนุ เกาไว ใหติดตังทบทับไดเลย ขอมูลในแอปไม่หาย</p>
-            <p>• ถาไฟลหายกอนติดตัง ใหกดดาวนโหลดใหม (ลิงกมียอายสั้ น)</p>
+            <p>• ถาเคยติดตังรนุ เกาไว แตะติดตังทบทับไดเลย ขอมูลในแอปไมหาย</p>
+            <p>• ถาไฟลหายกอนติดตัง ใหกดดาวนโหลดใหม</p>
           </AlertDescription>
         </Alert>
       </div>
