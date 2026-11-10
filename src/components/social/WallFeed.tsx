@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useAuthSession } from "@/hooks/useAuthSession";
+import { resolveSocialMedia, validSocialLink } from "@/lib/socialMedia";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -49,7 +51,10 @@ interface StagedMedia {
 }
 
 export default function WallFeed({ profileUserId }: { profileUserId?: string }) {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isReady } = useAuthSession();
+  const userId = user?.id ?? null;
+  const request = useRef(0);
+  const [loadError, setLoadError] = useState("");
   const [posts, setPosts] = useState<WallPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
@@ -59,30 +64,23 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   const [uploading, setUploading] = useState(false);
   const { isAdmin: _rawA, isDirector: _rawD } = useUserRole(); const isAdmin = _rawA || _rawD;
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-  }, []);
-
-  const resolveMediaUrl = async (val: string): Promise<string> => {
-    if (!val) return val;
-    if (/^(https?:|data:|blob:)/.test(val)) return val;
-    const { data } = await supabase.storage.from("wall-media").createSignedUrl(val, 60 * 60);
-    return data?.signedUrl || val;
-  };
-
   const load = async () => {
+    const version = ++request.current;
     setLoading(true);
+    setLoadError("");
+    try {
     let q = supabase
       .from("wall_posts")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
     if (profileUserId) q = q.eq("author_id", profileUserId);
-    const { data: rows } = await q;
+    const { data: rows, error } = await q;
+    if (error) throw error;
     const list = await Promise.all(
       (rows || []).map(async (p: any) => ({
         ...p,
-        media_urls: await Promise.all((p.media_urls || []).map(resolveMediaUrl)),
+        media_urls: await Promise.all((p.media_urls || []).map((url: string) => resolveSocialMedia(url, "wall-media"))),
       }))
     ) as WallPost[];
 
@@ -90,7 +88,8 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
     const authors = new Map<string, any>();
     await Promise.all(
       ids.map(async (id) => {
-        const { data } = await supabase.rpc("get_public_profile", { _id: id });
+        const { data, error } = await supabase.rpc("get_public_profile", { _id: id });
+        if (error) throw error;
         const row = Array.isArray(data) ? data[0] : data;
         if (row) authors.set(id, row);
       })
@@ -98,31 +97,37 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
     const myReactions = new Map<string, string>();
     if (userId && list.length) {
-      const { data: rxs } = await supabase
+      const { data: rxs, error: reactionError } = await supabase
         .from("wall_post_reactions")
         .select("post_id, reaction_type")
         .eq("user_id", userId)
         .in("post_id", list.map((p) => p.id));
+      if (reactionError) throw reactionError;
       (rxs || []).forEach((r: any) => myReactions.set(r.post_id, r.reaction_type));
     }
 
+    if (version !== request.current) return;
     setPosts(list.map((p) => ({ ...p, author: authors.get(p.author_id), my_reaction: myReactions.get(p.id) ?? null })));
-    setLoading(false);
+    } catch (e: any) { if (version === request.current) setLoadError(e.message || "โหลดฟีดไม่สำเร็จ"); }
+    finally { if (version === request.current) setLoading(false); }
   };
 
   useEffect(() => {
+    if (!isReady) return;
+    setPosts([]);
     load();
     const ch = supabase
-      .channel("wall_feed")
+      .channel(`wall_feed-${profileUserId || "school"}-${userId || "guest"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_posts" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_reactions" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_comments" }, () => load())
       .subscribe();
     return () => {
+      request.current++;
       supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, profileUserId]);
+  }, [userId, profileUserId, isReady]);
 
   const stageFiles = async (files: FileList | null) => {
     if (!files || !userId) return;
@@ -151,6 +156,8 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const submit = async () => {
+    if (posting || uploading) return;
+    if (linkUrl.trim() && !validSocialLink(linkUrl)) return toast.error("ใส่ลิงก์ที่ขึ้นต้นด้วย https:// หรือ http://");
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
     if (!content.trim() && !linkUrl.trim() && staged.length === 0)
       return toast.error("เพิ่มข้อความ ลิงก์ หรือรูป/วิดีโอ");
@@ -170,6 +177,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
     setContent("");
     setLinkUrl("");
     toast.success("โพสต์เรียบร้อย");
+    await load();
   };
 
   const react = async (post: WallPost, type: string) => {
@@ -283,7 +291,9 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
       {loading && <div className="text-center text-muted-foreground py-8">กำลังโหลด...</div>}
 
-      {!loading && posts.length === 0 && (
+      {loadError && <div role="alert" className="text-destructive text-center py-6">{loadError}<Button variant="outline" onClick={load} className="ml-2">ลองใหม่</Button></div>}
+
+      {!loading && !loadError && posts.length === 0 && (
         <Card><CardContent className="p-8 text-center text-muted-foreground">ยังไม่มีโพสต์</CardContent></Card>
       )}
 
@@ -312,7 +322,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               )}
             </div>
 
-            {p.content && <p className="whitespace-pre-wrap text-sm">{p.content}</p>}
+            {p.content && <p className="whitespace-pre-wrap break-words text-sm">{p.content}</p>}
 
             {p.media_urls?.map((url, i) => (
               <MediaRenderer key={i} mediaType={detectMediaTypeFromUrl(url)} mediaUrl={url} />
@@ -360,19 +370,22 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("wall_post_comments")
       .select("*")
       .eq("post_id", postId)
       .order("created_at");
+    if (error) return toast.error(saveErrorMessage(error));
     const list = (data || []) as Comment[];
     const ids = Array.from(new Set(list.map((c) => c.user_id)));
     const authors = new Map<string, any>();
     await Promise.all(
       ids.map(async (id) => {
-        const { data } = await supabase.rpc("get_public_profile", { _id: id });
+        const { data, error } = await supabase.rpc("get_public_profile", { _id: id });
+        if (error) throw error;
         const row = Array.isArray(data) ? data[0] : data;
         if (row) authors.set(id, row);
       })
@@ -403,12 +416,15 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
   }, [postId]);
 
   const submit = async () => {
-    if (!userId || !text.trim()) return;
+    if (!userId || !text.trim() || sending) return;
+    setSending(true);
     const { error } = await supabase
       .from("wall_post_comments")
       .insert({ post_id: postId, user_id: userId, content: text.trim() });
+    setSending(false);
     if (error) return toast.error(saveErrorMessage(error));
     setText("");
+    await load();
   };
 
   const visible = expanded ? comments : comments.slice(-PREVIEW_LIMIT);
@@ -430,7 +446,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
           </Avatar>
           <div className="flex-1 bg-muted/50 rounded-2xl px-3 py-2">
             <p className="font-medium text-xs">{fullName(c.author)}</p>
-            <p className="whitespace-pre-wrap text-sm">{c.content}</p>
+            <p className="whitespace-pre-wrap break-words text-sm">{c.content}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
               {new Date(c.created_at).toLocaleString("th-TH", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })}
             </p>
@@ -451,7 +467,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
             className="rounded-full"
           />
-          <Button size="sm" onClick={submit} className="rounded-full"><Send className="w-4 h-4" /></Button>
+          <Button size="sm" disabled={sending || !text.trim()} aria-label="ส่งความคิดเห็น" onClick={submit} className="rounded-full"><Send className="w-4 h-4" /></Button>
         </div>
       )}
     </div>

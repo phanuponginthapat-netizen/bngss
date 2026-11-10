@@ -86,6 +86,7 @@ const ProfilePage = () => {
   const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileError, setProfileError] = useState("");
   const [subjectGroup, setSubjectGroup] = useState<string>("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -108,29 +109,24 @@ const ProfilePage = () => {
   }, [sigCanvasRef.current]);
 
   useEffect(() => {
+    let active = true;
+    setProfile(null);
+    setProfileError("");
+    setEditing(false);
     if (!userId) return;
     const fetchProfile = async () => {
       const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-      if (error) {
-        console.error("Profile fetch error:", error);
+      if (!active) return;
+      if (error || !data) {
+        setProfileError(error ? saveErrorMessage(error, "โหลดโปรไฟล์ไม่สำเร็จ") : "ไม่พบข้อมูลโปรไฟล์ กรุณาแจ้งผู้ดูแลระบบ");
+        return;
       }
-      if (data) {
-        setProfile(data as unknown as Profile);
-      } else {
-        // Create a default empty profile so page doesn't stay loading
-        setProfile({
-          id: userId,
-          first_name: null, last_name: null, nickname: null, phone: null,
-          avatar_url: null, cover_photo_url: null, bio: null, date_of_birth: null,
-          gender: null, address: null, line_id: null, facebook_url: null,
-          emergency_contact: null, emergency_phone: null, blood_type: null,
-          student_code: null, employee_code: null, position_title: null, department: null,
-        });
-      }
+      setProfile(data as unknown as Profile);
       const { data: { session } } = await supabase.auth.getSession();
-      setUserEmail(session?.user?.email || "");
+      if (active) setUserEmail(session?.user?.email || "");
     };
     fetchProfile();
+    return () => { active = false; };
   }, [userId]);
 
   // === Teacher data (linked via user_id) ===
@@ -497,7 +493,7 @@ const ProfilePage = () => {
   };
 
   const handleSave = async () => {
-    if (!profile || !userId) return;
+    if (!profile || !userId || saving) return;
     const __tid_save_1 = toast.loading("กำลังบันทึก...");
     setSaving(true);
     const { error } = await supabase.from("profiles").update({
@@ -514,11 +510,17 @@ const ProfilePage = () => {
       emergency_contact: profile.emergency_contact,
       emergency_phone: profile.emergency_phone,
       blood_type: profile.blood_type,
-      student_code: profile.student_code,
       employee_code: profile.employee_code,
       position_title: profile.position_title,
       department: profile.department,
     } as any).eq("id", userId);
+
+    if (error) {
+      toast.dismiss(__tid_save_1);
+      setSaving(false);
+      toast.error(saveErrorMessage(error));
+      return;
+    }
 
     // Sync subject_group (หมวดวิชา) to personnel for teachers/director
     let personnelErr: any = null;
@@ -600,6 +602,8 @@ const ProfilePage = () => {
   }, [profile]);
 
   const resolvedAvatarUrl = useProfileImageUrl((profile as any)?.avatar_full_url || profile?.avatar_url);
+
+  if (profileError) return <div role="alert" className="py-12 text-center text-destructive">{profileError}<Button variant="outline" onClick={() => window.location.reload()} className="ml-2">ลองใหม่</Button></div>;
 
   if (!profile) {
     return (
