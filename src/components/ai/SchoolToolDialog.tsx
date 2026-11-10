@@ -10,7 +10,7 @@ export function SchoolToolDialog({ tool, draft, busy, onClose, onGenerate }: { t
   const [topic, setTopic] = useState(""); const [grade, setGrade] = useState(""); const [count, setCount] = useState(5);
   useEffect(() => { if (tool) setTopic(draft); }, [tool, draft]);
   return <Dialog open={Boolean(tool)} onOpenChange={open => { if (!open && !busy) onClose(); }}>
-    <DialogContent className="z-[150] max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+    <DialogContent className="z-[150] flex flex-col gap-5 max-h-[100dvh] overflow-y-auto sm:max-w-lg">
       <DialogHeader><DialogTitle>{tool ? schoolToolLabels[tool] : "เครื่องมือ AI"}</DialogTitle></DialogHeader>
       <form className="space-y-4" onSubmit={event => { event.preventDefault(); if (topic.trim() && !busy) onGenerate(topic.trim(), grade.trim(), count); }}>
         <div className="space-y-2"><Label htmlFor="school-ai-topic">{tool === "grades" ? "คะแนน/เกรด พร้อมปีการศึกษาและภาคเรียน" : "วิชา หัวข้อ และรายละเอียดที่ต้องการ"}</Label><Textarea id="school-ai-topic" value={topic} onChange={e => setTopic(e.target.value)} maxLength={2000} rows={5} required placeholder={tool === "grades" ? "วางข้อมูลคะแนนที่ต้องการสรุป โดยไม่ใส่ข้อมูลส่วนตัวที่ไม่จำเป็น" : "เช่น คณิตศาสตร์ เรื่องร้อยละ ฝึกประยุกต์ในชีวิตประจำวัน"} /></div>
