@@ -39,9 +39,7 @@ describe("parseAndroidRelease", () => {
   it("never follows a download URL supplied by the API", () => {
     const tampered = {
       ...realRelease,
-      assets: [
-        { ...realRelease.assets[0], browser_download_url: "https://evil.example/apk.apk" },
-      ],
+      assets: [{ ...realRelease.assets[0], browser_download_url: "https://evil.example/apk.apk" }],
     };
     expect(parseAndroidRelease(tampered)!.downloadUrl).toBe(ANDROID_APK_DOWNLOAD_URL);
   });

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 /**
- * ข้อมูลรุ่น Android ที่ publishes จาก GitHub Releases (tag: android-latest)
- * ลิงก์ดาวน์โหลดเป็นลิงก์ถาวร — GitHub จะส่งไฟล์รุ่นล่าสุดที่แนบไว้กบัตางนั้นเสมอ
+ * ข้อมูลรุ่ Android ที่เผยแพร่จาก GitHub Releases (tag: android-latest)
+ * ลิงก์ดาวน์โหลดเป็นลิงก์ถาวร — GitHub จะส่งไฟล์รุ่ล่าสุดที่แนบไว้กบัตางนั้นเสมอ
  */
 export const ANDROID_APK_DOWNLOAD_URL =
   "https://github.com/phanuponginthapat-netizen/bngss/releases/download/android-latest/bngss-app.apk";
@@ -16,7 +16,7 @@ const RELEASE_API_URL =
   "https://api.github.com/repos/phanuponginthapat-netizen/bngss/releases/tags/android-latest";
 
 export type AndroidRelease = {
-  /** เชน 1.0.169-169 — ว่างถ้ายังอ่านไม่ได้ */
+  /** เชน 1.0.169-169 — ว่างถ้ายังอ่านไมได้ */
   version: string;
   fileName: string;
   sizeBytes: number;
@@ -27,8 +27,8 @@ export type AndroidRelease = {
 };
 
 /**
- * ค่าที่ตรวจจาก GitHub แล้ว (10 พ.ย. 2569) — ใช้เป็นตวัสำรองเมื่อ API อ่านไม่ได้
- * เพื่อใหหน้าดาน์โหลดยังแสดงข้อมูลและดาวน์โหลดได้
+ * ค่าที่ตรวจจาก GitHub แล้ว (10 พ.ย. 2569) — ใช้เป็นตวสำรองเมื่่อ API อ่านไมได้
+ * เพื่่อใหหนาดาน์โหลดยังแสดงข้อมูลและดาวน์โหลดได้
  */
 export const FALLBACK_ANDROID_RELEASE: AndroidRelease = {
   version: "1.0.169",
@@ -39,7 +39,7 @@ export const FALLBACK_ANDROID_RELEASE: AndroidRelease = {
   notes: "",
 };
 
-/** ตรวจข้อมูลจาก GitHub API แล้วคืนรุ่นที่ใชไดเทา那น้ัน (ไมยอน URL จาก API มาใช) */
+/** ตรวจข้อมูลจาก GitHub API แล้วคืนรุ่ที่ใชได้เทา那ั้น (ไมยอน URL จาก API มาใช) */
 export function parseAndroidRelease(value: unknown): AndroidRelease | null {
   if (!value || typeof value !== "object") return null;
   const r = value as Record<string, unknown>;
@@ -74,7 +74,7 @@ export function parseAndroidRelease(value: unknown): AndroidRelease | null {
   };
 }
 
-/** อ่านข้อมูลรุ่นล่าสุดจาก GitHub — คืน null เม่ืออ่านไมได้ (เน็ตขาด/โควตาหมด) */
+/** อ่านข้อมูลรุ่ล่าสุดจาก GitHub — คืน null เมื่่ออ่านไมได้ (เน็ตขาด/โควตาหมด) */
 export async function fetchAndroidRelease(timeoutMs = 8000): Promise<AndroidRelease | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -93,7 +93,7 @@ export async function fetchAndroidRelease(timeoutMs = 8000): Promise<AndroidRele
   }
 }
 
-/** ขอดาน์โหลดรุ่นล่าสุด: ใชขอมูลจริงจาก GitHub ถาอ่านได้ ไม่งั้ันใชคท่ี ี่ตรวจไว */
+/** ขอดาน์โหลดรุ่ล่าสุด: ใชข้อมูลจริงจาก GitHub ถาอ่านได้ ไมงั้ันใชคท่ี ี่ตรวจไว */
 export function useAndroidRelease() {
   const query = useQuery({
     queryKey: ["github-android-release"],
