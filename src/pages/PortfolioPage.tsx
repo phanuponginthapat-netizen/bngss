@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuthSession } from "@/hooks/useAuthSession";
+import { validSocialLink } from "@/lib/socialMedia";
 import { Award, Upload, Link2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import PortfolioGrid from "@/components/social/PortfolioGrid";
@@ -23,7 +25,9 @@ const CATEGORIES = [
 ];
 
 export default function PortfolioPage() {
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuthSession();
+  const userId = user?.id;
+  const [revision, setRevision] = useState(0);
   const [mode, setMode] = useState<"upload" | "link">("upload");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -33,17 +37,15 @@ export default function PortfolioPage() {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-  }, []);
-
   const reset = () => {
     setTitle(""); setDescription(""); setUrl(""); setFile(null);
   };
 
   const submit = async () => {
+    if (saving) return;
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
     if (!title.trim()) return toast.error("กรอกชื่อผลงาน");
+    if (mode === "link" && !validSocialLink(url)) return toast.error("ใส่ลิงก์ที่ขึ้นต้นด้วย https:// หรือ http://");
     setSaving(true);
     try {
       let mediaUrl = "";
@@ -56,10 +58,7 @@ export default function PortfolioPage() {
         const path = sanitizeStorageKey(`${userId}/${Date.now()}-${file.name}`);
         const { error: upErr } = await supabase.storage.from("portfolio").upload(path, file);
         if (upErr) throw upErr;
-        const { data: signed } = await supabase.storage
-          .from("portfolio")
-          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
-        mediaUrl = signed?.signedUrl || "";
+        mediaUrl = path;
         mediaType = detectTypeFromFile(file);
         fileName = file.name;
         fileSize = file.size;
@@ -83,6 +82,7 @@ export default function PortfolioPage() {
       if (error) throw error;
       toast.success("เพิ่มผลงานเรียบร้อย");
       reset();
+      setRevision(v => v + 1);
     } catch (e: any) {
       toast.error(e.message || "เกิดข้อผิดพลาด");
     } finally {
@@ -171,7 +171,7 @@ export default function PortfolioPage() {
       {userId && (
         <div>
           <h2 className="text-lg font-semibold mb-3">ผลงานที่แขวนไว้</h2>
-          <PortfolioGrid userId={userId} ownerView />
+          <PortfolioGrid userId={userId} ownerView revision={revision} />
         </div>
       )}
     </div>
