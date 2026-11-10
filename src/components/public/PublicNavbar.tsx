@@ -41,7 +41,8 @@ export default function PublicNavbar() {
       const all = (data ?? []) as NavItem[];
       const roots = all.filter((i) => !i.parent_id);
       roots.forEach((r) => (r.children = all.filter((c) => c.parent_id === r.id)));
-      setItems(roots);
+      // แถวที่ไม่มที ั้ง URL และไม่มลี ูก → เป็นลิงก์ว่างที่ชไี้ ปหน้าปัจจบุ น → แสดงเป็นรายการที่กดไมไ่ ด
+      setItems(roots.filter((r) => r.url || (r.children?.length ?? 0) > 0));
     })();
   }, []);
 
