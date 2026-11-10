@@ -52,8 +52,14 @@ function buildLeaveCard(p: any): { msg: any; title: string } {
 }
 
 function buildSubstituteCard(p: any) {
-  const title = "🔁 มอบหมายสอนแทน";
+  const kind = String(p.kind || "substitute");
+  const title = kind === "changed" ? "🔄 เปลี่ยนครูสอนแทน"
+    : kind === "released" ? "↩️ ยกเลิกสอนแทน (ครูมาปฏิบัติงาน)"
+    : kind === "cancelled" ? "❌ ยกเลิกรายการสอนแทน"
+    : "🔁 มอบหมายสอนแทน";
+  const color = kind === "released" || kind === "cancelled" ? "#64748B" : kind === "changed" ? "#F59E0B" : "#6366F1";
   const rows = [
+    ...(kind === "changed" && p.previous ? [{ label: "เดิม", value: String(p.previous) }] : []),
     { label: "ครูประจำ", value: p.original || "-" },
     { label: "ครูสอนแทน", value: p.substitute || "รอมอบหมาย" },
     { label: "วันที่", value: thDate(p.date) },
@@ -62,7 +68,7 @@ function buildSubstituteCard(p: any) {
     ...(p.classroom ? [{ label: "ห้อง", value: p.classroom }] : []),
     ...(p.notes ? [{ label: "หมายเหตุ", value: String(p.notes).slice(0, 120) }] : []),
   ];
-  return { msg: { type: "flex", altText: title, contents: buildInfoCard(title, rows, "#6366F1") }, title };
+  return { msg: { type: "flex", altText: title, contents: buildInfoCard(title, rows, color) }, title };
 }
 
 function buildCalendarCard(events: any[]) {
