@@ -35,6 +35,7 @@ export default function PadletListPage() {
 
   const [boards, setBoards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -49,11 +50,12 @@ export default function PadletListPage() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError("");
     const { data, error } = await supabase
       .from("padlet_boards")
       .select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)")
       .order("updated_at", { ascending: false });
-    if (error) toast.error(saveErrorMessage(error));
+    if (error) { setLoadError(saveErrorMessage(error)); setLoading(false); return; }
     setBoards(data || []);
     setLoading(false);
     const covers = (data || []).map((b: any) => b.cover_image_url).filter(Boolean);
@@ -76,6 +78,7 @@ export default function PadletListPage() {
   }, []);
 
   const create = async () => {
+    if (saving || uploadingCover) return;
     if (!title.trim()) { toast.error("กรุณาตั้งชื่อกระดาน"); return; }
     if (!user) return;
     setSaving(true);
@@ -108,7 +111,7 @@ export default function PadletListPage() {
     setDeletingId(id);
     const { error } = await supabase.from("padlet_boards").delete().eq("id", id);
     setDeletingId(null);
-    if (error) toast.error(saveErrorMessage(error)); else toast.success("ลบแล้ว");
+    if (error) toast.error(saveErrorMessage(error)); else { toast.success("ลบแล้ว"); await load(); }
   };
 
   const copyLink = async (b: any) => {
@@ -154,6 +157,8 @@ export default function PadletListPage() {
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
+      ) : loadError ? (
+        <div role="alert" className="text-center py-12 text-destructive">{loadError}<Button variant="outline" onClick={load} className="ml-2">ลองใหม่</Button></div>
       ) : boards.length === 0 ? (
         <Card><CardContent className="py-16 text-center space-y-3">
           <StickyNote className="w-12 h-12 mx-auto text-muted-foreground/50" />
@@ -277,7 +282,7 @@ export default function PadletListPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={create} disabled={saving}>{saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}สร้าง</Button>
+            <Button onClick={create} disabled={saving || uploadingCover}>{saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}สร้าง</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
