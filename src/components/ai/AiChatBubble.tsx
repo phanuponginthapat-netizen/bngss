@@ -1,4 +1,6 @@
 import { SchoolToolDialog } from "./SchoolToolDialog";
+import { AiFileAttachment } from "./AiFileAttachment";
+import { readAiAttachment, type AiAttachment } from "@/lib/aiAttachments";
 import ReactMarkdown from "react-markdown";
 import { streamSchoolTool, schoolToolLabels, type SchoolTool } from "@/lib/schoolTools";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -117,6 +119,14 @@ export default function AiChatBubble() {
   const recRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImage, setPendingImage] = useState<string | null>(null); // data URL
+  const [pendingFile, setPendingFile] = useState<AiAttachment | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
+  const pickDocument = async (file: File) => {
+    setReadingFile(true);
+    try { setPendingFile(await readAiAttachment(file)); }
+    catch (error) { swal.error(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ"); }
+    finally { setReadingFile(false); }
+  };
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const { schoolLogo } = useSystemSettings();
 
@@ -711,6 +721,11 @@ export default function AiChatBubble() {
 
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
+    if (readingFile || busy) return;
+    if (pendingFile) {
+      await runSchoolTool(content || "ช่วยวิเคราะห์และสรุปไฟล์นี้", "", 5, "analyze");
+      return;
+    }
     if ((!content && !pendingImage) || busy) return;
     // Build user content: text + optional image
     const userContent: any = pendingImage
@@ -771,19 +786,20 @@ export default function AiChatBubble() {
     }
   };
 
-  const runSchoolTool = async (topic: string, grade: string, count: number) => {
-    if (!activeTool || busy) return;
-    const tool = activeTool;
+  const runSchoolTool = async (topic: string, grade: string, count: number, requestedTool?: SchoolTool) => {
+    const tool = requestedTool || activeTool;
+    if (!tool || busy || readingFile) return;
     const label = schoolToolLabels[tool];
-    const next: Msg[] = [...messages, { role: "user", content: `${label}: ${topic}` }];
+    const next: Msg[] = [...messages, { role: "user", content: `${label}: ${topic}${pendingFile ? `\nไฟล์ประกอบ: ${pendingFile.name}` : ""}` }];
     setMessages([...next, { role: "assistant", content: "" }]);
     setActiveTool(null);
     setBusy(true);
     try {
-      await streamSchoolTool({ tool, topic, grade, count }, text => {
+      await streamSchoolTool({ tool, topic, grade, count, attachment: pendingFile || undefined }, text => {
         setMessages([...next, { role: "assistant", content: text }]);
       });
       setInput("");
+      setPendingFile(null);
     } catch (error) {
       swal.error(error instanceof Error ? error.message : "สร้างงานไม่สำเร็จ");
       setInput(topic);
@@ -1063,6 +1079,7 @@ export default function AiChatBubble() {
               </div>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
+            <AiFileAttachment file={pendingFile} reading={readingFile} disabled={busy} onPick={pickDocument} onRemove={() => setPendingFile(null)} />
             <div className="flex items-center gap-1 flex-wrap">
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={toggleMic} title="พูดใส่ไมค์">
                 {listening ? <MicOff className="w-4 h-4 text-destructive animate-pulse" /> : <Mic className="w-4 h-4" />}
@@ -1086,7 +1103,7 @@ export default function AiChatBubble() {
                 disabled={busy}
                 maxLength={2000}
               />
-              <Button type="submit" size="icon" className="h-8 w-8 shrink-0" disabled={busy || (!input.trim() && !pendingImage)}>
+              <Button type="submit" size="icon" className="h-8 w-8 shrink-0" disabled={busy || readingFile || (!input.trim() && !pendingImage && !pendingFile)}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>
@@ -1096,7 +1113,7 @@ export default function AiChatBubble() {
           </form>
         </div>
       )}
-      <SchoolToolDialog tool={activeTool} draft={input} busy={busy} onClose={() => setActiveTool(null)} onGenerate={runSchoolTool} />
+      <SchoolToolDialog tool={activeTool} draft={input} busy={busy} attachment={pendingFile} reading={readingFile} onPick={pickDocument} onRemove={() => setPendingFile(null)} onClose={() => setActiveTool(null)} onGenerate={runSchoolTool} />
       {viewerUrl && (
         <div className="fixed inset-0 z-[200] bg-background/95 flex flex-col" role="dialog" aria-label="ดูภาพเต็ม" onClick={() => setViewerUrl(null)}>
           <div className="flex justify-end gap-2 p-3" onClick={(e) => e.stopPropagation()}>
