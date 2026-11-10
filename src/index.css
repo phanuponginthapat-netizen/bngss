@@ -55,6 +55,60 @@ a[href*="lovable.dev"][href*="utm"] {
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --loader-background: 210 45% 6%;
+  --loader-foreground: 0 0% 98%;
+  --loader-track: 210 22% 24%;
+  --loader-progress: 192 85% 65%;
+}
+.school-system-loader {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: hsl(var(--loader-background));
+  color: hsl(var(--loader-foreground));
+}
+.school-system-loader-media {
+  height: 100dvh;
+  width: min(100%, 56.25dvh);
+  flex-shrink: 0;
+}
+.school-system-loader-status {
+  position: absolute;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(15rem, calc(100% - 3rem));
+  text-align: center;
+  background: hsl(var(--loader-background) / 0.88);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+.school-system-loader-track {
+  height: 3px;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  background: hsl(var(--loader-track));
+}
+.school-system-loader-track span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: hsl(var(--loader-progress));
+  animation: school-loader-progress 1.6s ease-in-out infinite;
+}
+@keyframes school-loader-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .school-system-loader-track span { animation: none; width: 100%; }
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;
