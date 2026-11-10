@@ -156,7 +156,7 @@ export default function AppDownloadPage() {
                 {[
                   { n: 1, t: "แตะปุ่มดาวน์โหลด แล้วรอไฟล์ติดตั้งให้สำเร็จ", icon: Download },
                   { n: 2, t: "เปิดการแจ้งเตือน หรือเปิดไฟล์ที่ดาวน์โหลดล่าสุด", icon: CheckCircle2 },
-                  { n: 3, t: "ก่อนติดตั้ง ระบบอาจถามอนุญาตให้ติดตั้งแอปจากแหล่างที่ไม่รู้จัก", icon: Info },
+                  { n: 3, t: "ก่อนติดตั้ง ระบบอาจถามอนุญาตให้ติดตั้งแอปจากแหล่งที่ไม่รู้จัก", icon: Info },
                   { n: 4, t: "เปิดแอปแล้วเข้าสู่ระบบด้วยบัญชีโรงเรียน", icon: Smartphone },
                 ].map(({ n, t, icon: Icon }) => (
                   <li key={n} className="flex gap-3 rounded-lg border bg-card p-3">
