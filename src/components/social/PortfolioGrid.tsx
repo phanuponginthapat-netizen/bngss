@@ -1,10 +1,12 @@
 import { swal } from "@/lib/swal";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { resolveSocialMedia } from "@/lib/socialMedia";
 import { Pin, Trash2 } from "lucide-react";
 import MediaRenderer from "./MediaRenderer";
 import type { MediaType } from "@/lib/media";
@@ -26,26 +28,39 @@ interface Portfolio {
 export default function PortfolioGrid({
   userId,
   ownerView = false,
+  revision = 0,
 }: {
   userId: string;
   ownerView?: boolean;
+  revision?: number;
 }) {
   const [items, setItems] = useState<Portfolio[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [loadError, setLoadError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const request = useRef(0);
+
   const load = async () => {
+    const version = ++request.current;
+    setLoadError("");
+    try {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("portfolio_items")
       .select("*")
       .eq("user_id", userId)
       .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false });
-    setItems((data || []) as Portfolio[]);
-    setLoading(false);
+    if (error) throw error;
+    const resolved = await Promise.all((data || []).map(async item => ({ ...item, media_url: await resolveSocialMedia(item.media_url, "portfolio") })));
+    if (version === request.current) setItems(resolved as Portfolio[]);
+    } catch (e: any) { if (version === request.current) setLoadError(e.message || "โหลดผลงานไม่สำเร็จ"); }
+    finally { if (version === request.current) setLoading(false); }
   };
 
   useEffect(() => {
+    setItems([]);
     load();
     const ch = supabase
       .channel(`portfolio-${userId}`)
@@ -55,19 +70,30 @@ export default function PortfolioGrid({
         () => load()
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { request.current++; supabase.removeChannel(ch); };
     // eslint-disable-next-line
-  }, [userId]);
+  }, [userId, revision]);
 
   const togglePin = async (it: Portfolio) => {
-    await supabase.from("portfolio_items").update({ is_pinned: !it.is_pinned }).eq("id", it.id);
+    if (!ownerView || busyId) return;
+    setBusyId(it.id);
+    const { data, error } = await supabase.from("portfolio_items").update({ is_pinned: !it.is_pinned }).eq("id", it.id).select("id").single();
+    setBusyId(null);
+    if (error || !data) return toast.error(error?.message || "ไม่สามารถปักหมุดผลงานได้");
+    await load();
   };
   const remove = async (it: Portfolio) => {
+    if (!ownerView || busyId) return;
     if (!(await swal.confirm({ title: "ลบผลงานนี้?" }))) return;
-    await supabase.from("portfolio_items").delete().eq("id", it.id);
+    setBusyId(it.id);
+    const { data, error } = await supabase.from("portfolio_items").delete().eq("id", it.id).select("id").single();
+    setBusyId(null);
+    if (error || !data) return toast.error(error?.message || "ลบผลงานไม่สำเร็จ");
+    await load();
   };
 
   if (loading) return <div className="text-center text-muted-foreground py-8">กำลังโหลด...</div>;
+  if (loadError) return <div role="alert" className="py-8 text-center text-destructive">{loadError}<Button variant="outline" onClick={load} className="ml-2">ลองใหม่</Button></div>;
   if (items.length === 0)
     return <Card><CardContent className="p-8 text-center text-muted-foreground">ยังไม่มีผลงาน</CardContent></Card>;
 
@@ -86,10 +112,10 @@ export default function PortfolioGrid({
               </div>
               {ownerView && (
                 <>
-                  <Button size="icon" variant="ghost" onClick={() => togglePin(it)} title="ปักหมุด">
+                  <Button size="icon" variant="ghost" disabled={busyId === it.id} onClick={() => togglePin(it)} title="ปักหมุด">
                     <Pin className={`w-4 h-4 ${it.is_pinned ? "text-amber-500 fill-amber-500" : ""}`} />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(it)}>
+                  <Button size="icon" variant="ghost" disabled={busyId === it.id} title="ลบผลงาน" onClick={() => remove(it)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </>

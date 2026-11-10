@@ -30,21 +30,30 @@ const PublicProfilePage = () => {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setNotFound(false);
+    setLoadError("");
+    setProfile(null);
     const load = async () => {
       if (!id) { setNotFound(true); setLoading(false); return; }
       const [{ data: userRes }, { data, error }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.rpc("get_public_profile", { _id: id }),
       ]);
+      if (!active) return;
       setCurrentUserId(userRes?.user?.id ?? null);
-      if (error || !data || (Array.isArray(data) && data.length === 0)) setNotFound(true);
+      if (error) setLoadError("โหลดโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่");
+      else if (!data || (Array.isArray(data) && data.length === 0)) setNotFound(true);
       else setProfile(Array.isArray(data) ? data[0] : data);
       setLoading(false);
     };
     load();
+    return () => { active = false; };
   }, [id]);
   const isOwner = !!currentUserId && currentUserId === profile?.id;
 
@@ -54,6 +63,7 @@ const PublicProfilePage = () => {
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><div className="text-muted-foreground">กำลังโหลด...</div></div>;
   }
+  if (loadError) return <div role="alert" className="p-8 text-center text-destructive">{loadError}<Button variant="outline" onClick={() => window.location.reload()} className="ml-2">ลองใหม่</Button></div>;
   if (notFound || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">

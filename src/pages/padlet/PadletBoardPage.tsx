@@ -19,6 +19,7 @@ import DOMPurify from "dompurify";
 import PadletNoteEditor, { padletNoteEditorEmpty } from "./PadletNoteEditor";
 import { shortenUrl } from "@/lib/shortlink";
 import { saveErrorMessage } from "@/lib/saveError";
+import { validSocialLink } from "@/lib/socialMedia";
 import { swal } from "@/lib/swal";
 
 const BG_MAP: Record<string, string> = {
@@ -73,6 +74,8 @@ export default function PadletBoardPage() {
   const [board, setBoard] = useState<any>(null);
   const [notes, setNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const originalAttachments = useRef<Attachment[]>([]);
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -109,7 +112,8 @@ export default function PadletBoardPage() {
   }, [recVideo]);
 
   const openEdit = () => {
-    if (!board) return;
+    if (loadError) return <div role="alert" className="text-center py-20 text-destructive">{loadError}<Button variant="outline" onClick={() => window.location.reload()} className="ml-2">ลองใหม่</Button></div>;
+  if (!board) return;
     setEditTitle(board.title || "");
     setEditDesc(board.description || "");
     setEditBg(board.background || "paper");
@@ -131,6 +135,7 @@ export default function PadletBoardPage() {
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกการแก้ไขแล้ว");
     setEditOpen(false);
+    await loadBoard();
   };
 
   const deleteBoard = async () => {
@@ -152,7 +157,7 @@ export default function PadletBoardPage() {
   const loadBoard = async () => {
     if (!id) return;
     const { data, error } = await supabase.from("padlet_boards").select("*, subjects:subject_id(name_th, code), classrooms:classroom_id(name, grade_level)").eq("id", id).maybeSingle();
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (error) { setLoadError(saveErrorMessage(error)); return; }
     setBoard(data);
     if (data?.cover_image_url) {
       const { data: signed } = await supabase.storage.from("padlet").createSignedUrl(data.cover_image_url, 3600);
@@ -170,11 +175,12 @@ export default function PadletBoardPage() {
     const path = `covers/${user.id}/${board.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
     const { error: upErr } = await supabase.storage.from("padlet").upload(path, file, { upsert: false, contentType: file.type });
     if (upErr) { setUploadingCover(false); toast.error(upErr.message); return; }
-    if (board.cover_image_url) await supabase.storage.from("padlet").remove([board.cover_image_url]);
     const { error } = await supabase.from("padlet_boards").update({ cover_image_url: path }).eq("id", board.id);
     setUploadingCover(false);
     if (coverInputRef.current) coverInputRef.current.value = "";
     if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (board.cover_image_url) await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    await loadBoard();
     toast.success("อัปเดตรูปปกแล้ว");
   };
 
@@ -182,20 +188,22 @@ export default function PadletBoardPage() {
     if (!board?.cover_image_url) return;
     const ok = await swal.confirm({ title: "ลบภาพปก?", danger: true });
     if (!ok) return;
-    const { error: rmErr } = await supabase.storage.from("padlet").remove([board.cover_image_url]);
-    if (rmErr) { toast.error(saveErrorMessage(rmErr)); return; }
     const { error } = await supabase.from("padlet_boards").update({ cover_image_url: null }).eq("id", board.id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
+    const { error: rmErr } = await supabase.storage.from("padlet").remove([board.cover_image_url]);
+    if (rmErr) toast.error("ลบภาพปกจากกระดานแล้ว แต่ล้างไฟล์ไม่สำเร็จ");
+    await loadBoard();
     toast.success("ลบภาพปกแล้ว");
   };
 
   const loadNotes = async () => {
     if (!id) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("padlet_notes")
       .select("*")
       .eq("board_id", id)
       .order("created_at", { ascending: false });
+    if (error) { setLoadError(saveErrorMessage(error)); return; }
     setNotes(data || []);
     const paths: string[] = [];
     (data || []).forEach((n: any) => {
@@ -212,7 +220,8 @@ export default function PadletBoardPage() {
   };
 
   useEffect(() => {
-    (async () => { setLoading(true); await loadBoard(); await loadNotes(); setLoading(false); })();
+    setBoard(null); setNotes([]); setSignedUrls({}); setCoverSigned(""); setLoadError("");
+    (async () => { setLoading(true); try { await Promise.all([loadBoard(), loadNotes()]); } catch (e: any) { setLoadError(saveErrorMessage(e)); } finally { setLoading(false); } })();
     const ch = supabase
       .channel(`padlet_board_${id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "padlet_notes", filter: `board_id=eq.${id}` }, loadNotes)
@@ -223,6 +232,7 @@ export default function PadletBoardPage() {
   }, [id]);
 
   const resetForm = () => {
+    originalAttachments.current = [];
     setEditingId(null);
     setContentHtml(""); setLinkUrl(""); setColor("yellow"); setAttachments([]);
     if (fileRef.current) fileRef.current.value = "";
@@ -259,7 +269,11 @@ export default function PadletBoardPage() {
 
   const removeAttachment = async (a: Attachment) => {
     if (saving) return;
-    await supabase.storage.from("padlet").remove([a.path]);
+    // Existing attachments remain intact until the edited note is saved.
+    if (!originalAttachments.current.some(x => x.path === a.path)) {
+      const { error } = await supabase.storage.from("padlet").remove([a.path]);
+      if (error) { toast.error(saveErrorMessage(error)); return; }
+    }
     setAttachments(prev => prev.filter(x => x.path !== a.path));
   };
 
@@ -306,7 +320,8 @@ export default function PadletBoardPage() {
   };
 
   const submitNote = async () => {
-    if (!user || !id) return;
+    if (!user || !id || saving || uploading || recAudio || recVideo) return;
+    if (linkUrl.trim() && !validSocialLink(linkUrl)) { toast.error("ใส่ลิงก์ที่ขึ้นต้นด้วย https:// หรือ http://"); return; }
     const empty = padletNoteEditorEmpty(contentHtml);
     if (empty && !attachments.length && !linkUrl.trim()) {
       toast.error("กรอกข้อความ ลิงก์ หรือแนบไฟล์");
@@ -321,11 +336,16 @@ export default function PadletBoardPage() {
     if (editingId) {
       const { error } = await supabase.from("padlet_notes").update({
         content: clean || null, color, link_url: linkUrl.trim() || null, attachments: attachments as any,
-      }).eq("id", editingId);
+      }).eq("id", editingId).select("id").single();
       setSaving(false);
       if (error) { toast.error(saveErrorMessage(error)); return; }
+      const removed = originalAttachments.current.filter(a => !attachments.some(x => x.path === a.path)).map(a => a.path);
+      if (removed.length) {
+        const { error: cleanupError } = await supabase.storage.from("padlet").remove(removed);
+        if (cleanupError) toast.error("บันทึกแล้ว แต่ล้างไฟล์ที่ถอดออกไม่สำเร็จ");
+      }
       toast.success("บันทึกแล้ว");
-      loadNotes();
+      await loadNotes();
     } else {
       const { error } = await supabase.from("padlet_notes").insert({
         board_id: id, author_id: user.id, author_name: authorName,
@@ -335,13 +355,14 @@ export default function PadletBoardPage() {
       setSaving(false);
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("แปะโน้ตแล้ว");
-      loadNotes();
+      await loadNotes();
     }
     setOpen(false);
     resetForm();
   };
 
   const startEdit = (n: any) => {
+    originalAttachments.current = (n.attachments as Attachment[]) || [];
     setEditingId(n.id);
     setContentHtml(n.content || "");
     setColor(n.color || "yellow");
@@ -357,16 +378,20 @@ export default function PadletBoardPage() {
       ...(n.image_url ? [n.image_url] : []),
       ...((n.attachments || []) as Attachment[]).map(a => a.path),
     ];
-    if (paths.length) await supabase.storage.from("padlet").remove(paths);
-    const { error } = await supabase.from("padlet_notes").delete().eq("id", n.id);
+    const { error } = await supabase.from("padlet_notes").delete().eq("id", n.id).select("id").single();
     if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (paths.length) {
+      const { error: cleanupError } = await supabase.storage.from("padlet").remove(paths);
+      if (cleanupError) toast.error("ลบโน้ตแล้ว แต่ล้างไฟล์แนบไม่สำเร็จ");
+    }
     toast.success("ลบแล้ว");
-    loadNotes();
+    await loadNotes();
   };
 
   const likeNote = async (n: any) => {
     const { error } = await supabase.rpc("padlet_like_note" as any, { _note_id: n.id });
     if (error) toast.error(saveErrorMessage(error));
+    else await loadNotes();
   };
 
   const copyLink = async () => {
@@ -422,13 +447,14 @@ export default function PadletBoardPage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={copyLink} className="gap-1"><Copy className="w-3.5 h-3.5" /> คัดลอกลิงก์</Button>
           {canManageBoard && (
             <Button variant="outline" size="sm"
               onClick={async () => {
                 const { error } = await supabase.from("padlet_boards").update({ allow_guest_post: !board.allow_guest_post }).eq("id", board.id);
                 if (error) toast.error(saveErrorMessage(error));
+                else await loadBoard();
               }}
             >{board.allow_guest_post ? "ปิดการแปะ" : "เปิดการแปะ"}</Button>
           )}
@@ -566,7 +592,7 @@ export default function PadletBoardPage() {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+      <Dialog open={open} onOpenChange={(o) => { if (saving || uploading || recAudio || recVideo) return; setOpen(o); if (!o) resetForm(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingId ? "แก้ไขโน้ต" : "แปะโน้ตใหม่"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -638,8 +664,8 @@ export default function PadletBoardPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>ยกเลิก</Button>
-            <Button onClick={submitNote} disabled={saving || uploading}>
+            <Button variant="outline" disabled={saving || uploading || !!recAudio || !!recVideo} onClick={() => { setOpen(false); resetForm(); }}>ยกเลิก</Button>
+            <Button onClick={submitNote} disabled={saving || uploading || !!recAudio || !!recVideo}>
               {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
               {editingId ? "บันทึก" : "แปะโน้ต"}
             </Button>
