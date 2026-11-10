@@ -229,6 +229,10 @@ export function getEmbedUrl(link: Pick<SocialLink, "platform" | "url">): string 
     }
 
     if (link.platform === "facebook") {
+      // Facebook's Page Plugin cannot show profile.php?id=… links (personal profiles /
+      // unclaimed page IDs): Facebook redirects the frame and blocks it, leaving an empty box.
+      // Show the link button instead until the page has a username URL.
+      if (path.toLowerCase().startsWith("/profile.php")) return null;
       const lower = (path + u.search).toLowerCase();
       if (/\/(posts|videos|photos|watch|reel|share)\//.test(lower) || (u.searchParams.has("v") && path.includes("watch"))) {
         const href = encodeURIComponent(url);

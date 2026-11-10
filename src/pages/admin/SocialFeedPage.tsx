@@ -262,7 +262,7 @@ export default function SocialFeedPage() {
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     {editing.platform === "youtube" && "รองรับ: ลิงค์วิดีโอ (watch?v=…), youtu.be/…, shorts, ลิงค์ช่อง /@handle หรือ /channel/UC…"}
-                    {editing.platform === "facebook" && "วางลิงค์เพจ Facebook — จะแสดง Timeline ล่าสุดของเพจอัตโนมัติ (ต้องเป็นเพจสาธารณะ)"}
+                    {editing.platform === "facebook" && "วางลิงค์เพจ Facebook — จะแสดง Timeline ล่าสุดของเพจอัตโนมัติ (ต้องเป็นเพจสาธารณะ และใช้ลิงค์ชื่อเพจ เช่น facebook.com/ชื่อเพจ — ลิงค์ profile.php?id=… Facebook ไม่ยอมให้ฝัง)"}
                     {editing.platform === "tiktok" && "รองรับ: ลิงค์วิดีโอ TikTok (/@user/video/…) — จะฝังตัวเล่นวิดีโอ"}
                   </p>
                   {editing.embed && !canEmbed(editing) && (
