@@ -1,3 +1,5 @@
+import { SchoolToolDialog } from "./SchoolToolDialog";
+import { streamSchoolTool, schoolToolLabels, type SchoolTool } from "@/lib/schoolTools";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bot, Mic, MicOff, Send, Volume2, VolumeX, X, MessageCircle, Loader2, Play, ImagePlus, Sparkles, FileText, BookOpen, ClipboardCheck, GraduationCap, Maximize2, Minimize2 } from "lucide-react";
@@ -95,6 +97,7 @@ export default function AiChatBubble() {
   const greetingMsg: Msg = useMemo(() => ({ role: "assistant", content: bot.greeting }), [bot.greeting]);
   const [open, setOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [activeTool, setActiveTool] = useState<SchoolTool | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
@@ -127,11 +130,11 @@ export default function AiChatBubble() {
     document.body.style.overflow = "hidden";
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (document.querySelector(".swal2-container") || viewerUrl) return;
+        if (document.querySelector(".swal2-container") || viewerUrl || activeTool) return;
         event.preventDefault();
         setFullscreen(false);
       }
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab" || activeTool) return;
       const controls = panelRef.current?.querySelectorAll<HTMLElement>(
         'button:not([disabled]), input:not([disabled]):not([type="file"]), a[href], [tabindex="0"]'
       );
@@ -149,7 +152,7 @@ export default function AiChatBubble() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKey);
     };
-  }, [open, fullscreen, viewerUrl]);
+  }, [open, fullscreen, viewerUrl, activeTool]);
 
   // ===== Voice-loop refs (shared with KioskHelloAi) =====
   const autoLoopRef = useRef(false);
@@ -731,15 +734,6 @@ export default function AiChatBubble() {
       await createCreditImage(prompt, nextDisplay);
       return;
     }
-    if (/(สร้างใบงาน|ใบงาน|worksheet)/i.test(lower)) {
-      try { const { generateFreeWorksheet } = await import("@/lib/freeAI"); const t=content.replace(/.*(สร้างใบงาน|ใบงาน)\s*/i,"").trim()||"ใบงานทั่วไป"; const html=(await generateFreeWorksheet(t)).slice(0,800); const reply=`สร้างใบงานเรื่อง "${t}" ให้แล้วค่ะ\n\n${html}\n\n_(สร้างด้วย AI ฟรี)_`; setMessages([...nextDisplay, {role:"assistant", content: reply}]); speak(reply); setBusy(false); return; } catch {}
-    }
-    if (/(สร้างแผนการสอน|แผนการสอน|lesson plan)/i.test(lower)) {
-      try { const { askFreeAI } = await import("@/lib/freeAI"); const r=await askFreeAI(`สร้างแผนการสอนเรื่อง ${content} แบบ สพฐ. 5 ขั้น`); setMessages([...nextDisplay,{role:"assistant", content:r}]); speak(r); setBusy(false); return; } catch {}
-    }
-    if (/(สร้างข้อสอบ|ข้อสอบ|exam)/i.test(lower)) {
-      try { const { askFreeAI } = await import("@/lib/freeAI"); const r=await askFreeAI(`สร้างข้อสอบ 5 ข้อ เรื่อง ${content} พร้อมเฉลย`); setMessages([...nextDisplay,{role:"assistant", content:r}]); speak(r); setBusy(false); return; } catch {}
-    }
     try {
       const { data, error } = await supabase.functions.invoke("ai-chat", {
         body: { messages: nextSend },
@@ -771,6 +765,25 @@ export default function AiChatBubble() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const runSchoolTool = async (topic: string, grade: string, count: number) => {
+    if (!activeTool || busy) return;
+    const tool = activeTool;
+    const label = schoolToolLabels[tool];
+    const next: Msg[] = [...messages, { role: "user", content: `${label}: ${topic}` }];
+    setMessages([...next, { role: "assistant", content: "" }]);
+    setActiveTool(null);
+    setBusy(true);
+    try {
+      await streamSchoolTool({ tool, topic, grade, count }, text => {
+        setMessages([...next, { role: "assistant", content: text }]);
+      });
+      setInput("");
+    } catch (error) {
+      swal.error(error instanceof Error ? error.message : "สร้างงานไม่สำเร็จ");
+      setInput(topic);
+    } finally { setBusy(false); }
   };
 
   const generateImage = async () => {
@@ -1052,10 +1065,10 @@ export default function AiChatBubble() {
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={generateImage} title="สร้างภาพด้วยเครดิต Lovable AI" disabled={busy || !input.trim()}>
                 <Sparkles className="w-4 h-4 text-amber-500" />
               </Button>
-              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างใบงาน ")} title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>}
-              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างแผนการสอน ")} title="สร้างแผนการสอน" disabled={busy}><BookOpen className="w-3.5 h-3.5 text-emerald-600" /></Button>}
-              {(["teacher","admin","director","student"].includes(userRole||"")) && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : "สร้างข้อสอบ ")} title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>}
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setInput(v=> v? v : userRole==="parent" ? "ดูผลการเรียน " : "สรุปผลการเรียน ")} title={userRole==="parent" ? "ดูผลการเรียนลูก" : "สรุปผลการเรียน"} disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
+              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setActiveTool("worksheet")} aria-label="สร้างใบงาน" title="สร้างใบงาน" disabled={busy}><FileText className="w-3.5 h-3.5 text-sky-600" /></Button>}
+              {["teacher","admin","director"].includes(userRole||"") && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setActiveTool("lesson")} aria-label="สร้างแผนการสอน" title="สร้างแผนการสอน" disabled={busy}><BookOpen className="w-3.5 h-3.5 text-emerald-600" /></Button>}
+              {(["teacher","admin","director","student"].includes(userRole||"")) && <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setActiveTool("quiz")} aria-label="สร้างข้อสอบ" title="สร้างข้อสอบ" disabled={busy}><ClipboardCheck className="w-3.5 h-3.5 text-violet-600" /></Button>}
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={()=> setActiveTool("grades")} aria-label="สรุปผลการเรียน" title="สรุปผลการเรียนจากข้อมูลที่ให้" disabled={busy}><GraduationCap className="w-3.5 h-3.5 text-amber-600" /></Button>
               <Input
                 ref={inputRef}
                 value={input}
@@ -1075,6 +1088,7 @@ export default function AiChatBubble() {
           </form>
         </div>
       )}
+      <SchoolToolDialog tool={activeTool} draft={input} busy={busy} onClose={() => setActiveTool(null)} onGenerate={runSchoolTool} />
       {viewerUrl && (
         <div className="fixed inset-0 z-[200] bg-background/95 flex flex-col" role="dialog" aria-label="ดูภาพเต็ม" onClick={() => setViewerUrl(null)}>
           <div className="flex justify-end gap-2 p-3" onClick={(e) => e.stopPropagation()}>
