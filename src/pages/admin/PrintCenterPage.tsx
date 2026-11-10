@@ -341,7 +341,7 @@ function CardTab() {
       pdf.save(`id-cards-${fname}.pdf`);
       toast.success(`สร้าง PDF สำเร็จ (${students.length} ใบ · ${totalPages} หน้า · ${layout === "a4" ? `A4 ${A4_PER_PAGE} ใบ/แผ่น · ${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm` : `${CARD_WIDTH_MM}×${CARD_HEIGHT_MM}mm`})`);
     } catch (e) {
-      console.error(e); toast.error("สร้าง PDF บัตรไม่สำเร็จ กรุณาลองใหม่");
+      console.error(e); toast.error(saveErrorMessage(e, "สร้าง PDF บัตรไม่สำเร็จ กรุณาลองใหม่"));
     } finally {
       setGenerating(false);
     }
