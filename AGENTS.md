@@ -1,3 +1,4 @@
+- LINE Vault previews use an auth-scoped revocable blob cache and explicit retry states; lists page completely and ZIP exports fail on any unreadable file so missing files never look like successful exports.
 - Social profile posts reuse WallFeed, and portfolio media stores durable Storage paths with read-time signed URLs; this prevents divergent rendering and expired saved links.
 - Database triggers synchronize alumni roles to non-active student rosters and clear both classroom links; preserve transferred/graduated states and never infer graduation from an account role.
 - Academic documents and schedule actions gate on every dependent read through academicReadState; throw source errors and offer retry rather than render or print incomplete data as empty success.
