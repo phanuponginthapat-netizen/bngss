@@ -190,6 +190,13 @@
       "when": 1794273075987,
       "tag": "0026_line_vault_dispatch_via_cron_invoke",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794273270916,
+      "tag": "0027_line_vault_substitute_updates",
+      "breakpoints": true
     }
   ]
 }
