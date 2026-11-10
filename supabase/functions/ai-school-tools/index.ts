@@ -53,7 +53,7 @@ Deno.serve(async req => {
           if (!completed || !reply.trim()) throw new Error("การสร้างงานยังไม่สมบูรณ์ กรุณาตรวจข้อความที่ได้รับก่อนลองใหม่");
           const now = Date.now();
           const { error } = await db.from("ai_chat_logs").insert([
-            { user_id: userId, role: "user", content: `${toolNames[tool]}: ${body.topic}${attachment ? `\nไฟล์ประกอบ: ${attachment.name}` : ""}`, model: "openai/gpt-6-astra", created_at: new Date(now).toISOString() },
+            { user_id: userId, role: "user", content: `${({ analyze: "วิเคราะห์ไฟล์", worksheet: "สร้างใบงาน", lesson: "สร้างแผนการสอน", quiz: "สร้างข้อสอบฝึกทบทวน", grades: "สรุปผลการเรียน" })[tool]}: ${body.topic}${attachment ? `\nไฟล์ประกอบ: ${attachment.name}` : ""}`, model: "openai/gpt-6-astra", created_at: new Date(now).toISOString() },
             { user_id: userId, role: "assistant", content: reply, model: "openai/gpt-6-astra", created_at: new Date(now + 1).toISOString() },
           ]);
           if (error) throw new Error("สร้างงานแล้ว แต่บันทึกประวัติไม่สำเร็จ กรุณาคัดลอกงานเก็บไว้");

@@ -123,7 +123,7 @@ export default function AiChatBubble() {
   const [readingFile, setReadingFile] = useState(false);
   const pickDocument = async (file: File) => {
     setReadingFile(true);
-    try { setPendingFile(await readAiAttachment(file)); }
+    try { setPendingFile(await readAiAttachment(file)); setPendingImage(null); }
     catch (error) { swal.error(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ"); }
     finally { setReadingFile(false); }
   };
@@ -662,6 +662,7 @@ export default function AiChatBubble() {
     try {
       const url = await compressImage(f);
       setPendingImage(url);
+      setPendingFile(null);
     } catch { swal.info("อ่านรูปไม่สำเร็จ"); }
   };
 
