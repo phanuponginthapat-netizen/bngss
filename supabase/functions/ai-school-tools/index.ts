@@ -25,8 +25,9 @@ Deno.serve(async req => {
   if (roleError) return json(503, "ตรวจสิทธิ์ไม่สำเร็จ");
   if (!canUseSchoolTool(tool, (roles || []).map(row => row.role))) return json(403, "บัญชีนี้ไม่มีสิทธิ์ใช้เครื่องมือนี้");
   try {
-    const quota = await checkDailyChatQuota(db, userId);
-    if (!quota.allowed) return json(quota.status, quota.error);
+    const quota = await checkDailyChatQuota(db, userId, 30);
+    if (quota === "unavailable") return json(503, "ตรวจโควต้า AI ไม่สำเร็จ");
+    if (quota === "limited") return json(429, "วันนี้ใช้ AI ครบ 30 ข้อความแล้ว กรุณากลับมาใหม่พรุ่งนี้");
     const { data: settings, error: settingsError } = await db.from("cms_settings").select("key,value").in("key", ["ai_bot_name", "ai_bot_persona", "school_name"]);
     if (settingsError) return json(503, "โหลดการตั้งค่าโรงเรียนไม่สำเร็จ");
     const config = Object.fromEntries((settings || []).map(row => [row.key, row.value]));
