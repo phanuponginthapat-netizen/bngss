@@ -14,6 +14,8 @@ import jsPDF from "jspdf";
 import { useIdCardSettings } from "@/hooks/useIdCardSettings";
 import { IdCardFront, IdCardBack } from "@/components/IdCardRenderer";
 import { gradeRank } from "@/lib/gradeOrder";
+import { waitForIdCardImages } from "@/lib/idCardImages";
+import { saveErrorMessage } from "@/lib/saveError";
 
 const BulkIdCardPrintPage = () => {
   const { lang } = useLanguage();
@@ -48,10 +50,10 @@ const BulkIdCardPrintPage = () => {
       if (studentCodes.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("student_code, avatar_url")
+          .select("student_code, avatar_url, avatar_full_url")
           .in("student_code", studentCodes);
         (profiles || []).forEach((p: any) => {
-          if (p.student_code && p.avatar_url) avatarMap[p.student_code] = p.avatar_url;
+          if (p.student_code && (p.avatar_full_url || p.avatar_url)) avatarMap[p.student_code] = p.avatar_full_url || p.avatar_url;
         });
       }
 
@@ -73,6 +75,8 @@ const BulkIdCardPrintPage = () => {
     toast.info("กำลังสร้าง PDF... อาจใช้เวลาสักครู่");
 
     try {
+      await document.fonts.ready;
+      await waitForIdCardImages(printRef.current);
       // Card dimensions in mm (5.4 x 8.6 cm portrait — ISO ID-1)
       const cardW = 54;
       const cardH = 86;
@@ -158,7 +162,7 @@ const BulkIdCardPrintPage = () => {
       toast.success(`สร้าง PDF บัตร ${students.length} ใบสำเร็จ`);
     } catch (err) {
       console.error(err);
-      toast.error("เกิดข้อผิดพลาดในการสร้าง PDF");
+      toast.error(saveErrorMessage(err, "เกิดข้อผิดพลาดในการสร้าง PDF"));
     }
     setGenerating(false);
   };

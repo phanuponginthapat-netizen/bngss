@@ -16,22 +16,24 @@ export function extractProfileImagePath(url: string | null | undefined): string 
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-export async function resolveProfileImageUrl(url: string | null | undefined): Promise<string | null> {
+export async function resolveProfileImageUrl(url: string | null | undefined, forceRefresh = false): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith("data:") || url.startsWith("blob:")) return url;
   const path = extractProfileImagePath(url);
   if (!path) return url;
   // Already a live signed URL
-  if (url.includes("/object/sign/") && url.includes("token=")) return url;
-  const cached = cache.get(path) || readStored(path);
+  if (!forceRefresh && url.includes("/object/sign/") && url.includes("token=")) return url;
+  const cached = !forceRefresh && (cache.get(path) || readStored(path));
   if (cached) { cache.set(path, cached); return cached; }
   const pending = inflight.get(path);
   if (pending) return pending;
   const p = (async () => {
     const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LONG_EXPIRY_SEC);
     const signed = data?.signedUrl || url;
-    cache.set(path, signed);
-    if (data?.signedUrl) writeStored(path, data.signedUrl);
+    if (data?.signedUrl) {
+      cache.set(path, signed);
+      writeStored(path, data.signedUrl);
+    }
     return signed;
   })().finally(() => inflight.delete(path));
   inflight.set(path, p);

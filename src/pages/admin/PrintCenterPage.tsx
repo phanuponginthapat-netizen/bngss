@@ -22,6 +22,7 @@ import BackButton from "@/components/BackButton";
 import { compressImage } from "@/lib/imageCompress";
 import { gradeRank } from "@/lib/gradeOrder";
 import { saveErrorMessage } from "@/lib/saveError";
+import { waitForIdCardImages } from "@/lib/idCardImages";
 
 type ClassroomForCard = {
   id: string;
@@ -54,7 +55,7 @@ const studentToPerson = (s: StudentForCard) => ({
   name: `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim(),
   code: s.student_code || "",
   className: s.classrooms?.name || "",
-  avatarUrl: s.avatar_url || undefined,
+  avatarUrl: s.photo_url || s.avatar_url || undefined,
   dateOfBirth: s.date_of_birth || undefined,
   bloodType: s.blood_type || undefined,
   emergencyContact: s.emergency_contact_name || s.guardian_name || undefined,
@@ -99,14 +100,7 @@ function drawCropMarks(pdf: jsPDF, x: number, y: number, w: number, h: number) {
 }
 
 async function waitForImages(root: HTMLElement) {
-  const images = Array.from(root.querySelectorAll("img"));
-  await Promise.all(images.map((img) => {
-    if (img.complete) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      img.addEventListener("load", () => resolve(), { once: true });
-      img.addEventListener("error", () => resolve(), { once: true });
-    });
-  }));
+  await waitForIdCardImages(root);
 }
 
 export default function PrintCenterPage({ embedded = false }: { embedded?: boolean }) {
@@ -188,13 +182,16 @@ function CardTab() {
 
       // 2) sync to profiles.avatar_url (matched by student_code)
       if (student.student_code) {
-        const { error: profErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("student_code", student.student_code);
+        const { error: profErr } = await supabase.from("profiles").update({ avatar_url: url, avatar_full_url: url }).eq("student_code", student.student_code);
         if (profErr) throw profErr;
       }
 
       toast.success(`อัปโหลดรูปสำเร็จ — ตั้งเป็นรูปโปรไฟล์ของ ${student.first_name} แล้ว`);
       qc.invalidateQueries({ queryKey: ["students_for_cards"] });
       qc.invalidateQueries({ queryKey: ["search_students_for_cards"] });
+      qc.invalidateQueries({ queryKey: ["cart_class_students"] });
+      qc.invalidateQueries({ queryKey: ["cart_search_students"] });
+      setCartStudents(current => current.map(item => item.id === student.id ? { ...item, photo_url: url, avatar_url: url } : item));
     } catch (e: any) {
       console.error(e);
       toast.error(saveErrorMessage(e));
@@ -597,9 +594,9 @@ async function loadStudents({ classroomId, search }: { classroomId?: string; sea
   const codes = students.map((s) => s.student_code).filter((code): code is string => Boolean(code));
   const avatarMap: Record<string, string> = {};
   if (codes.length > 0) {
-    const { data: profiles, error: profileError } = await supabase.from("profiles").select("student_code, avatar_url").in("student_code", codes);
+    const { data: profiles, error: profileError } = await supabase.from("profiles").select("student_code, avatar_url, avatar_full_url").in("student_code", codes);
     if (profileError) throw profileError;
-    (profiles || []).forEach((p) => { if (p.student_code && p.avatar_url) avatarMap[p.student_code] = p.avatar_url; });
+    (profiles || []).forEach((p) => { if (p.student_code && (p.avatar_full_url || p.avatar_url)) avatarMap[p.student_code] = p.avatar_full_url || p.avatar_url || ""; });
   }
   return students.map((s) => ({ ...s, avatar_url: s.photo_url || (s.student_code ? avatarMap[s.student_code] : null) || null }));
 }

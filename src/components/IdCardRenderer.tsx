@@ -6,6 +6,7 @@ import type { IdCardSettings } from "@/hooks/useIdCardSettings";
 import AutoFitText from "@/components/AutoFitText";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { useCmsValue } from "@/hooks/useCmsSettings";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 
 interface CardPersonData {
   name: string;
@@ -235,17 +236,7 @@ export const IdCardFront = ({ cs, person, width = 360, className = "", id }: IdC
               className="w-[88px] h-[118px] rounded-lg overflow-hidden border-2 shadow-md flex items-center justify-center shrink-0"
               style={{ borderColor: cs.accent_color, background: `linear-gradient(135deg, ${cs.accent_color}20, ${cs.accent_color}05)` }}
             >
-              {person.avatarUrl ? (
-                <img
-                  src={person.avatarUrl}
-                  alt={person.name}
-                  loading="eager"
-                  decoding="sync"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User className="w-8 h-8" style={{ color: cs.accent_color }} />
-              )}
+              <IdCardPhoto url={person.avatarUrl} name={person.name} />
             </div>
           </div>
 
