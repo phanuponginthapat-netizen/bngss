@@ -1,4 +1,5 @@
 import { SchoolToolDialog } from "./SchoolToolDialog";
+import ReactMarkdown from "react-markdown";
 import { streamSchoolTool, schoolToolLabels, type SchoolTool } from "@/lib/schoolTools";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -104,6 +105,8 @@ export default function AiChatBubble() {
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  busyRef.current = busy;
   const [listening, setListening] = useState(false);
   const [voiceOn, setVoiceOn] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -247,6 +250,7 @@ export default function AiChatBubble() {
           (payload: any) => {
             const r = payload.new;
             if (!r || (r.role !== "user" && r.role !== "assistant")) return;
+            if (busyRef.current) return;
             setMessages((prev) => {
               // dedupe: skip if same role+content exists in recent messages
               // (handles the case where realtime arrives after we already appended locally,
@@ -999,11 +1003,14 @@ export default function AiChatBubble() {
                         s.type === "img" ? (
                           <ChatImage key={idx} src={s.value} partial={m.imagePartial} onOpen={setViewerUrl} />
                         ) : (
-                          s.value && <div key={idx}>{s.value.split(/\*{2,3}(.+?)\*{2,3}/g).map((part, j) => j % 2 ? <strong key={j}>{part}</strong> : part)}</div>
+                          s.value && <div key={idx} className="prose prose-sm max-w-none dark:prose-invert text-inherit prose-headings:text-inherit prose-p:text-inherit prose-strong:text-inherit"><ReactMarkdown>{s.value}</ReactMarkdown></div>
                         )
                       )}
                     </div>
                     {m.role === "assistant" && textOnly && (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={async () => { try { await navigator.clipboard.writeText(textOnly); swal.success("คัดลอกแล้ว"); } catch { swal.error("คัดลอกไม่สำเร็จ"); } }}>คัดลอก</Button>
+                        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { const url = URL.createObjectURL(new Blob([textOnly], { type: "text/plain;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = "school-ai-draft.txt"; a.click(); URL.revokeObjectURL(url); }}>บันทึกร่าง</Button>
                       <button
                         type="button"
                         onClick={() => speak(textOnly, true)}
@@ -1012,6 +1019,7 @@ export default function AiChatBubble() {
                       >
                         <Play className="w-3 h-3" /> ฟังอีกครั้ง
                       </button>
+                      </div>
                     )}
                   </div>
                 );
