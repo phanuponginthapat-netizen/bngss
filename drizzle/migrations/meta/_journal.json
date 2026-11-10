@@ -204,6 +204,13 @@
       "when": 1794285607840,
       "tag": "0028_restore_portfolio_owner_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794290714003,
+      "tag": "0029_alumni_student_roster_sync",
+      "breakpoints": true
     }
   ]
 }

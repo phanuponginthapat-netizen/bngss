@@ -454,6 +454,9 @@ const UserManagement = () => {
       else swal.toast.success("แก้ไขผู้ใช้สำเร็จ");
       queryClient.invalidateQueries({ queryKey: ["user-roles"] });
       setEditOpen(false); setEditUser(null); fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["all_students_dmc"] });
+      queryClient.invalidateQueries({ queryKey: ["alumni"] });
     } catch (e: any) {
       swal.error(e.message || "Failed to update user");
     }
@@ -630,6 +633,9 @@ const UserManagement = () => {
       else swal.toast.success(`เปลี่ยน Role เป็น ${t(`role.${newRole}`)} สำเร็จ`);
       queryClient.invalidateQueries({ queryKey: ["user-roles"] });
       queryClient.invalidateQueries({ queryKey: ["user-roles", userId] });
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["all_students_dmc"] });
+      queryClient.invalidateQueries({ queryKey: ["alumni"] });
       await fetchUsers();
     } catch (e: any) {
       if (previousRole) {
