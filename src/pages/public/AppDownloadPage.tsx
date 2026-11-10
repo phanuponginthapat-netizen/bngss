@@ -206,7 +206,7 @@ export default function AppDownloadPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <p>ไฟล์เดียวจบ</p>
-                  <p className="text-muted-foreground">ไม่ต้องต่อลิงก์ และไม่เก็บข้อมูลไว้ ภายนอก</p>
+                  <p className="text-muted-foreground">ไมต่องเปิດแอปอื่ນ และไมเก็บข้อมูลไว້ ภายนอก</p>
                 </CardContent>
               </Card>
               <Card>
