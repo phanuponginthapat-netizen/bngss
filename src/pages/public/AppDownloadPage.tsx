@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
-  Android,
   CheckCircle2,
   Download,
   ExternalLink,
@@ -75,7 +74,7 @@ export default function AppDownloadPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary" className="gap-1">
-                      <Android className="h-3.5 w-3.5" />
+                      <Smartphone className="h-3.5 w-3.5" />
                       สำหรับ Android
                     </Badge>
                     {versionLabel ? (
@@ -185,7 +184,6 @@ export default function AppDownloadPage() {
                     size={148}
                     level="M"
                     marginSize={1}
-                    bgMode="transparent"
                     aria-label="สแกนจากมือถือ"
                   />
                   <p className="text-xs text-muted-foreground">สแกนจากมือถือ</p>
