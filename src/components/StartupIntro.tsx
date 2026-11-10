@@ -42,7 +42,7 @@ export default function StartupIntro({ children }: { children: React.ReactNode }
   const play = () => { setBlocked(false); videoRef.current?.play().catch(() => setBlocked(true)); };
   return <LoadingContext.Provider value={active ? register : null}>
     <div aria-hidden={active || undefined} {...(active ? { inert: "" } : {})}>{children}</div>
-    {active && <div className="school-system-loader fixed inset-0 z-[300]" role="dialog" aria-modal="true" aria-label="วิดีโอเปิดระบบ">
+    {active && <div className="school-system-loader school-startup-intro" role="dialog" aria-modal="true" aria-label="วิดีโอเปิดระบบ">
       <div className="school-system-loader-media">
         {failed || reducedMotion ? <img src={posterAsset.url} alt="โลโก้โรงเรียน" className="h-full w-full object-contain" /> : <video ref={videoRef} src={videoAsset.url} poster={posterAsset.url} autoPlay muted playsInline preload="auto" onEnded={() => setFinished(true)} onError={() => setFailed(true)} className="h-full w-full object-contain" />}
       </div>

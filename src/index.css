@@ -77,6 +77,11 @@ a[href*="lovable.dev"][href*="utm"] {
   width: min(100%, 56.25dvh);
   flex-shrink: 0;
 }
+.school-system-loader.school-startup-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+}
 .school-system-loader-status {
   position: absolute;
   bottom: max(1.25rem, env(safe-area-inset-bottom));
