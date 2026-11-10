@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
+import { getVaultFileUrl, requireArchiveFile } from "@/lib/vaultFiles";
 
 
 type Item = {
@@ -123,26 +124,9 @@ function formatBytes(n: number | null) {
 // a blob: URL that <img>/<video>/<audio>/<iframe> can consume without needing
 // to send Authorization headers. This works for Google Drive files too, which
 // can't be embedded via webContentLink from a private account.
-const _urlCache = new Map<string, { url: string; ts: number }>();
-const SUPABASE_URL = getBackendConfig().url;
-const SUPABASE_ANON = getBackendConfig().anonKey;
-
 async function getSignedUrl(itemId: string): Promise<string | null> {
-  const cached = _urlCache.get(itemId);
-  if (cached && Date.now() - cached.ts < 50 * 60 * 1000) return cached.url;
   try {
-    const { data: sess } = await supabase.auth.getSession();
-    const token = sess?.session?.access_token;
-    if (!token) return null;
-    const res = await fetch(
-      `${SUPABASE_URL}/functions/v1/line-vault-stream?id=${encodeURIComponent(itemId)}`,
-      { headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON } },
-    );
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    _urlCache.set(itemId, { url, ts: Date.now() });
-    return url;
+    return await getVaultFileUrl(itemId);
   } catch (e) {
     console.error("[getSignedUrl]", e);
     return null;
@@ -322,11 +306,19 @@ function LineVaultThumb({ item, className }: { item: Item; className?: string })
 function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | null; onClose: () => void; onDownload: (i: Item) => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!item) { setUrl(null); return; }
+    let cancelled = false;
+    setUrl(null);
+    setError(null);
+    if (!item) { setLoading(false); return; }
     setLoading(true);
-    getSignedUrl(item.id).then(u => { setUrl(u); setLoading(false); });
-  }, [item?.id]);
+    getVaultFileUrl(item.id).then(u => { if (!cancelled) setUrl(u); })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : "เปิดไฟล์ไม่สำเร็จ"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [item?.id, attempt]);
 
   if (!item) return null;
   const isImg = isImageMime(item.mime_type) || item.kind === "photo";
@@ -334,7 +326,6 @@ function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | nu
   const isAud = isAudioMime(item.mime_type);
   const isPdf = isPdfMime(item.mime_type, item.original_filename);
   const isOffice = isOfficeMime(item.mime_type, item.original_filename);
-  const officeViewer = url && isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : null;
 
   return (
     <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
@@ -356,9 +347,16 @@ function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | nu
             <div className="whitespace-pre-wrap">{item.description}</div>
           </div>
         )}
-        <div className="min-h-[300px] max-h-[70vh] overflow-auto rounded border bg-black/5 dark:bg-white/5 flex items-center justify-center">
-          {loading || !url ? (
+        <div className="min-h-[300px] max-h-[70vh] overflow-auto rounded border bg-muted/50 flex items-center justify-center">
+          {loading ? (
             <div className="text-sm text-muted-foreground py-16">กำลังโหลด...</div>
+          ) : error ? (
+            <div role="alert" className="p-6 text-center space-y-3">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button variant="outline" onClick={() => setAttempt(a => a + 1)}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
+            </div>
+          ) : !url ? null : isOffice ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">กรุณาดาวน์โหลดเพื่อเปิดไฟล์ Word, Excel หรือ PowerPoint</div>
           ) : isImg ? (
             <img src={url} alt={item.title} className="max-h-[70vh] object-contain" onContextMenu={(e) => e.preventDefault()} draggable={false} />
           ) : isVid ? (
@@ -367,8 +365,6 @@ function LineVaultPreviewDialog({ item, onClose, onDownload }: { item: Item | nu
             <audio src={url} controls className="w-full my-6" />
           ) : isPdf ? (
             <iframe src={url} title={item.title} className="w-full h-[70vh]" />
-          ) : officeViewer ? (
-            <iframe src={officeViewer} title={item.title} className="w-full h-[70vh]" />
           ) : (
             <div className="p-6 text-center text-sm text-muted-foreground">
               ไม่รองรับการแสดงตัวอย่างสำหรับไฟล์ประเภทนี้ กรุณาดาวน์โหลดเพื่อเปิด
@@ -391,26 +387,40 @@ export default function LineVaultPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadVersion = useRef(0);
   const [q, setQ] = useState("");
   const [yearFilter, setYearFilter] = useState<string>("all");
   const [semFilter, setSemFilter] = useState<string>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
 
   async function load() {
+    const version = ++loadVersion.current;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("line_vault_items")
-      .select("*")
-      .order("is_pinned", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) toast.error(saveErrorMessage(error));
-    setItems((data as any) || []);
-    if (isAdmin) {
-      const { data: g } = await supabase.from("line_vault_groups").select("*").order("created_at", { ascending: false });
-      setGroups((g as any) || []);
+    setLoadError(null);
+    try {
+      const all: Item[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from("line_vault_items").select("*")
+          .order("is_pinned", { ascending: false }).order("created_at", { ascending: false })
+          .order("id", { ascending: false }).range(offset, offset + 499);
+        if (error) throw error;
+        if (!data) throw new Error("โหลดรายการไฟล์ไม่สำเร็จ");
+        all.push(...data as Item[]);
+        if (data.length < 500) break;
+      }
+      let nextGroups: Group[] = [];
+      if (isAdmin) {
+        const { data, error } = await supabase.from("line_vault_groups").select("*").order("created_at", { ascending: false });
+        if (error) throw error;
+        nextGroups = (data ?? []) as Group[];
+      }
+      if (version === loadVersion.current) { setItems(all); setGroups(nextGroups); }
+    } catch (error) {
+      if (version === loadVersion.current) setLoadError(saveErrorMessage(error));
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => { load();   }, [isAdmin]);
@@ -528,11 +538,10 @@ export default function LineVaultPage() {
       {isAdmin && legacyDriveOnly > 0 && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <p className="font-medium">
-            มี {legacyDriveOnly} ไฟล์เก่าที่ยังเก็บอยู่บน Google Drive อย่างเดียว จึงยังแสดงตัวอย่างไม่ได้
+            มี {legacyDriveOnly} ไฟล์ที่เก็บอยู่บน Google Drive อย่างเดียว
           </p>
           <p className="mt-1 text-muted-foreground">
-            หลังย้ายฐานข้อมูล ระบบยังไม่ได้เชื่อมบัญชี Google Drive ใหม่ ทำให้ดึงไฟล์เก่ามาแสดงไม่ได้
-            กรุณาไปที่แท็บ “ตั้งค่า Vault OA” → เชื่อม Google Drive แล้วกด “เริ่มสำรองไฟล์” เพื่อคัดลอกไฟล์เก่าเข้าระบบให้แสดงตัวอย่างได้ถาวร
+            หากเปิดไฟล์ไม่ได้ กรุณาตรวจบัญชี Google Drive และสิทธิ์เข้าถึงไฟล์เดิม โดยไม่ต้องคัดลอกไฟล์กลับเข้าระบบ
           </p>
           <Button size="sm" variant="outline" className="mt-2" onClick={() => setTab("settings")}>
             ไปที่การตั้งค่า Drive
@@ -541,7 +550,10 @@ export default function LineVaultPage() {
       )}
 
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+      {loadError ? <div role="alert" className="border border-destructive rounded p-4 space-y-3">
+        <p className="text-destructive">โหลดคลังไฟล์ไม่สำเร็จ: {loadError}</p>
+        <Button variant="outline" onClick={load}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
+      </div> : <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="all">ทั้งหมด <Badge variant="secondary" className="ml-2">{items.length}</Badge></TabsTrigger>
           <TabsTrigger value="photo"><ImageIcon className="h-4 w-4 mr-1" />รูปภาพ</TabsTrigger>
@@ -603,7 +615,7 @@ export default function LineVaultPage() {
 
           )}
         </div>
-      </Tabs>
+      </Tabs>}
     </div>
   );
 }
@@ -637,10 +649,9 @@ function ItemGrid({ items, loading, isAdmin, onOpen, onDelete, onBulkDelete, fet
       let done = 0;
       // Sequential fetch to avoid overwhelming edge function + signed url quota
       for (const it of itemsToZip) {
-        const res = await fetchBlob(it);
+        const res = requireArchiveFile(await fetchBlob(it), it.original_filename || it.title);
         done += 1;
         setZipProgress({ done, total: itemsToZip.length });
-        if (!res) continue;
         let name = res.filename;
         if (usedNames.has(name)) {
           const dot = name.lastIndexOf(".");
