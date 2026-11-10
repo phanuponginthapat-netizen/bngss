@@ -1,8 +1,10 @@
+import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
+import { academicReadState } from "@/lib/academicReadState";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { formatGPA } from "@/lib/gradeUtils";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,57 +22,65 @@ import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
 
 const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [studentCode, setStudentCode] = useState("");
-  const { currentSemester: _curSem } = useAcademicYear();
+  const qc = useQueryClient();
+  const { currentSemester: _curSem, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
   const [semester, setSemester] = useState(String(_curSem || 1));
   const _semSynced = useRef(false);
-  useEffect(() => { if (!_semSynced.current && _curSem) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem]);
-  const [academicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
+  useEffect(() => { if (!_semSynced.current && !calendarLoading && !calendarError) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem, calendarLoading, calendarError]);
+  const academicYear = String(currentAcademicYear);
+  const yearCE = currentAcademicYear - BE_OFFSET;
   const schoolInfo = useSchoolInfo();
 
-  const { data: classrooms = [] } = useQuery({
+  const { data: classrooms = [], ...classroomsRead } = useQuery({
     queryKey: ["classrooms_for_selector"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      const { data, error } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      if (error) throw error;
       return data || [];
     },
   });
-  const { data: students = [] } = useStudentsWithClass();
-  const { data: subjects = [] } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data } = await supabase.from("subjects").select("*"); return data || []; } });
-  const { data: scores = [] } = useQuery({
-    queryKey: ["report_scores", studentCode, semester],
+  const { data: students = [], ...studentsRead } = useStudentsWithClass();
+  const { data: subjects = [], ...subjectsRead } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data, error } = await supabase.from("subjects").select("*"); if (error) throw error;
+      return data || []; } });
+  const { data: scores = [], ...scoresRead } = useQuery({
+    queryKey: ["report_scores", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode) return [];
-      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode);
+      let q = supabase.from("student_scores").select("*").eq("student_code", studentCode).eq("academic_year", yearCE);
       if (semester) q = q.eq("semester", parseInt(semester));
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode,
+    enabled: !!studentCode && !calendarLoading && !calendarError,
   });
 
   const student = students.find((s: any) => s.student_code === studentCode);
 
-  const { data: assessmentScores = [] } = useQuery({
-    queryKey: ["report_assessments", studentCode, semester],
+  const { data: assessmentScores = [], ...assessmentsRead } = useQuery({
+    queryKey: ["report_assessments", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode || !student) return [];
-      const { data } = await supabase.from("student_assessment_scores")
+      const { data, error } = await supabase.from("student_assessment_scores")
         .select("*, assessment_criteria(*)")
         .eq("student_id", student.id)
+        .eq("academic_year", yearCE)
         .eq("semester", parseInt(semester));
+      if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode && !!student,
+    enabled: !!studentCode && !!student && !calendarLoading && !calendarError,
   });
 
-  const { data: attendance = [] } = useQuery({
-    queryKey: ["report_attendance", studentCode, semester],
+  const { data: attendance = [], ...attendanceRead } = useQuery({
+    queryKey: ["report_attendance", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode || !student) return [];
-      const { data } = await supabase.from("attendance").select("*").eq("student_id", student.id).eq("semester", parseInt(semester));
+      const { data, error } = await supabase.from("attendance").select("*").eq("student_id", student.id).eq("academic_year", yearCE).eq("semester", parseInt(semester));
+      if (error) throw error;
       return data || [];
     },
-    enabled: !!studentCode && !!student,
+    enabled: !!studentCode && !!student && !calendarLoading && !calendarError,
   });
 
   const getSubject = (sid: string) => subjects.find((s: any) => s.id === sid);
@@ -95,8 +105,11 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
+  const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead, attendanceRead], calendarLoading, calendarError);
+  const retryReads = () => { void qc.refetchQueries({ type: "active" }); };
+
   const handlePrint = async () => {
-    if (!student) return;
+    if (!student || !readState.ready) return;
     const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
@@ -208,14 +221,14 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
             <p className="text-sm text-muted-foreground">รายงานผลการเรียน คุณลักษณะ และสมรรถนะ รายภาคเรียน</p>
           </div>
           <div className="flex items-center gap-2">
-            {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+            {studentCode && <Button variant="outline" onClick={handlePrint} disabled={!student || !readState.ready}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
             <ClassBookletDialog kind="pp6" school={schoolInfo} defaultSemester={semester} />
           </div>
         </div>
       )}
       {embedded && (
         <div className="flex justify-end gap-2">
-          {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+          {studentCode && <Button variant="outline" onClick={handlePrint} disabled={!student || !readState.ready}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
           <ClassBookletDialog kind="pp6" school={schoolInfo} defaultSemester={semester} />
         </div>
       )}
@@ -234,7 +247,9 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
       </div>
 
-      {studentCode && student && (
+      <AcademicReadNotice {...readState} onRetry={retryReads} />
+
+      {studentCode && student && readState.ready && (
         <Card className="border shadow-sm">
           <CardContent className="p-8">
             <div className="text-center border-b border-b-foreground/20 pb-4 mb-4">

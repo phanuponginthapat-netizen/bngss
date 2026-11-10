@@ -1,8 +1,10 @@
+import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
+import { academicReadState } from "@/lib/academicReadState";
 import { formatGPA } from "@/lib/gradeUtils";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,38 +20,43 @@ import ClassBookletDialog from "@/components/academic/ClassBookletDialog";
 
 
 const TranscriptPage = () => {
+  const qc = useQueryClient();
   const { lang } = useLanguage();
   const [studentCode, setStudentCode] = useState("");
   const schoolInfo = useSchoolInfo();
 
-  const { data: classrooms = [] } = useQuery({
+  const { data: classrooms = [], ...classroomsRead } = useQuery({
     queryKey: ["classrooms_for_selector"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      const { data, error } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
+      if (error) throw error;
       return data || [];
     },
   });
-  const { data: students = [] } = useStudentsWithClass();
-  const { data: scores = [] } = useQuery({
+  const { data: students = [], ...studentsRead } = useStudentsWithClass();
+  const { data: scores = [], ...scoresRead } = useQuery({
     queryKey: ["transcript_scores", studentCode],
     queryFn: async () => {
       if (!studentCode) return [];
-      const { data } = await supabase.from("student_scores").select("*").eq("student_code", studentCode).order("academic_year").order("semester");
+      const { data, error } = await supabase.from("student_scores").select("*").eq("student_code", studentCode).order("academic_year").order("semester");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!studentCode,
   });
-  const { data: subjects = [] } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data } = await supabase.from("subjects").select("*"); return data || []; } });
+  const { data: subjects = [], ...subjectsRead } = useQuery({ queryKey: ["subjects"], queryFn: async () => { const { data, error } = await supabase.from("subjects").select("*"); if (error) throw error;
+      return data || []; } });
 
   const student = students.find((s: any) => s.student_code === studentCode);
-  const { data: assessmentScores = [] } = useQuery({
+  const { data: assessmentScores = [], ...assessmentsRead } = useQuery({
     queryKey: ["transcript_assessments", student?.id],
     queryFn: async () => {
       if (!student) return [];
-      const { data } = await supabase.from("student_assessment_scores")
+      const { data, error } = await supabase.from("student_assessment_scores")
         .select("*, assessment_criteria(*)")
         .eq("student_id", student.id)
         .order("semester");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!student,
@@ -77,8 +84,11 @@ const TranscriptPage = () => {
     }
   };
 
+  const readState = academicReadState([classroomsRead, studentsRead, scoresRead, subjectsRead, assessmentsRead]);
+  const retryReads = () => { void qc.refetchQueries({ type: "active" }); };
+
   const handlePrint = async () => {
-    if (!student) return;
+    if (!student || !readState.ready) return;
     const { printByCode } = await import("@/lib/printTemplate");
     const cls = (student as any).classrooms;
 
@@ -192,7 +202,7 @@ const TranscriptPage = () => {
           <p className="text-sm text-muted-foreground">แบบแสดงผลการเรียนตลอดหลักสูตร ครบทุกระดับชั้น</p>
         </div>
         <div className="flex items-center gap-2">
-          {studentCode && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
+          {studentCode && <Button variant="outline" onClick={handlePrint} disabled={!student || !readState.ready}><Printer className="w-4 h-4 mr-2" />พิมพ์เอกสาร</Button>}
           <ClassBookletDialog kind="pp1" school={schoolInfo} />
         </div>
       </div>
@@ -200,7 +210,9 @@ const TranscriptPage = () => {
 
       <StudentSelector students={students} classrooms={classrooms} studentCode={studentCode} onStudentChange={setStudentCode} />
 
-      {studentCode && student && (
+      <AcademicReadNotice {...readState} onRetry={retryReads} />
+
+      {studentCode && student && readState.ready && (
         <Card className="border shadow-sm">
           <CardContent className="p-8">
             <div className="text-center border-b border-b-foreground/20 pb-4 mb-4">
