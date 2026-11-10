@@ -20,7 +20,8 @@ export async function readAiAttachment(file: File): Promise<AiAttachment> {
   } else if (ext === "pdf") {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
     pdfjs.GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
-    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+    const task = pdfjs.getDocument({ data: await file.arrayBuffer() });
+    const pdf = await task.promise;
     try {
       if (pdf.numPages > 50) throw new Error("PDF เกิน 50 หน้า กรุณาแบ่งไฟล์ก่อนแนบ");
       const pages: string[] = [];
@@ -32,7 +33,7 @@ export async function readAiAttachment(file: File): Promise<AiAttachment> {
         pages.push(`หน้า ${n}\n${pageText}`);
       }
       text = pages.join("\n\n");
-    } finally { await pdf.destroy(); }
+    } finally { await task.destroy(); }
   } else throw new Error("รองรับ PDF, DOCX, Excel, CSV, TXT, MD และ JSON");
   return { name: file.name, text: validateAttachmentText(text) };
 }
