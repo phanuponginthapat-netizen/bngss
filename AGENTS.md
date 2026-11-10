@@ -1,4 +1,5 @@
 - Social profile posts reuse WallFeed, and portfolio media stores durable Storage paths with read-time signed URLs; this prevents divergent rendering and expired saved links.
+- Database triggers synchronize alumni roles to non-active student rosters and clear both classroom links; preserve transferred/graduated states and never infer graduation from an account role.
 - Academic documents and schedule actions gate on every dependent read through academicReadState; throw source errors and offer retry rather than render or print incomplete data as empty success.
 - AI bubble fullscreen mode resizes the same mounted chat via a body portal; preserve drafts, attachments and ongoing inference without changing chat storage or transport.
 - Explicit school AI tools use the server-only Gateway SDK with role checks, shared daily chat quota, streamed output and awaited chat history; grade summaries consume supplied data only and never grant school-record access.
