@@ -1,3 +1,4 @@
+import type {} from "../_shared/generated-ai-gateway/models.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { GatewayError, streamResponse } from "npm:@lovable.dev/ai-gateway@0.1.11";
@@ -21,6 +22,7 @@ Deno.serve(async req => {
   const body = await req.json().catch(() => null);
   if (!body || !isSchoolTool(body.tool) || typeof body.topic !== "string" || !body.topic.trim() || body.topic.length > 2000 || typeof body.grade !== "string" || body.grade.length > 80 || !Number.isInteger(body.count) || body.count < 1 || body.count > 20) return json(400, "กรุณาระบุหัวข้อและจำนวนข้อ 1–20 ให้ถูกต้อง");
   const tool = body.tool;
+  if (!isSchoolTool(tool)) return json(400, "เครื่องมือไม่ถูกต้อง");
   const { data: roles, error: roleError } = await db.from("user_roles").select("role").eq("user_id", userId);
   if (roleError) return json(503, "ตรวจสิทธิ์ไม่สำเร็จ");
   if (!canUseSchoolTool(tool, (roles || []).map(row => row.role))) return json(403, "บัญชีนี้ไม่มีสิทธิ์ใช้เครื่องมือนี้");

@@ -1,7 +1,7 @@
 export const toolNames = { worksheet: "ใบงาน", lesson: "แผนการสอน", quiz: "ข้อสอบฝึกทบทวน", grades: "สรุปผลการเรียน" } as const;
 export type SchoolTool = keyof typeof toolNames;
 export function isSchoolTool(value: unknown): value is SchoolTool {
-  return typeof value === "string" && Object.hasOwn(toolNames, value);
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(toolNames, value);
 }
 export function canUseSchoolTool(tool: SchoolTool, roles: string[]) {
   if (tool === "grades") return true;
