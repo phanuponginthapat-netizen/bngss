@@ -80,7 +80,7 @@ a[href*="lovable.dev"][href*="utm"] {
 .school-system-loader.school-startup-intro {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: 100000;
 }
 .school-system-loader-status {
   position: absolute;
