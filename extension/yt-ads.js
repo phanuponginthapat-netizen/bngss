@@ -24,6 +24,14 @@
   css.textContent = HIDE_SELECTORS.join(",") + "{display:none!important;height:0!important}";
   (document.head || document.documentElement).appendChild(css);
 
+  const originals = new Map();
+  const restore = () => {
+    for (const [video, state] of originals) {
+      video.muted = state.muted; video.playbackRate = state.rate;
+    }
+    originals.clear();
+  };
+  window.addEventListener("yt-navigate-start", restore);
   const skipTick = () => {
     // Click skip button when it appears
     document.querySelectorAll(
@@ -31,13 +39,14 @@
     ).forEach((b) => { try { b.click(); } catch {} });
 
     // If an ad is playing, fast-forward the video
-    const adShowing = document.querySelector(".ad-showing, .ytp-ad-player-overlay, .ytp-ad-persistent-progress-bar-container");
+    const adShowing = document.querySelector(".html5-video-player.ad-showing");
     if (adShowing) {
-      const v = document.querySelector("video");
+      const v = adShowing.querySelector("video");
       if (v && isFinite(v.duration) && v.duration > 0) {
+        if (!originals.has(v)) originals.set(v, { muted: v.muted, rate: v.playbackRate });
         try { v.muted = true; v.currentTime = v.duration; v.playbackRate = 16; } catch {}
       }
-    }
+    } else restore();
     // Close ad overlays
     document.querySelectorAll(".ytp-ad-overlay-close-button").forEach((b) => { try { b.click(); } catch {} });
   };

@@ -503,7 +503,7 @@ function wifiCall(payload) {
         finish({ ok: false, error: err });
       });
       port.postMessage(payload);
-      setTimeout(() => finish({ ok: false, error: "timeout" }), 30000);
+      setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
     } catch (e) {
       resolve({ ok: false, error: String(e?.message || e) });
     }
