@@ -859,6 +859,7 @@ export default function AiChatBubble() {
       if (error) throw error;
       const reply = (data as any)?.reply || (data as any)?.error || "ขออภัยค่ะ ตอบไม่ได้";
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
+      if (data?.historySaved === false) swal.error("สร้างคำตอบแล้ว แต่ยังบันทึกแชทไม่สำเร็จ กรุณาคัดลอกหรือบันทึกร่างเก็บไว้ก่อนปิดหน้า");
       return reply;
     } catch {
       setMessages([...nextDisplay, { role: "assistant", content: "ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว 🙏" }]);
