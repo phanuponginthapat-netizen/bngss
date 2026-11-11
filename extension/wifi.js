@@ -3,14 +3,12 @@
 const $ = (id) => document.getElementById(id);
 
 function toast(msg, kind = "") {
-  const t = $("toast");
-  t.textContent = msg;
-  t.className = "toast show " + kind;
-  setTimeout(() => (t.className = "toast " + kind), 2500);
+  Swal.fire({ toast: true, position: "bottom", text: msg, icon: kind === "err" ? "error" : kind === "ok" ? "success" : "info", timer: 2500, showConfirmButton: false });
 }
 
 async function call(cmd, extra = {}) {
-  return await chrome.runtime.sendMessage({ type: "WIFI", cmd, ...extra });
+  try { return await chrome.runtime.sendMessage({ type: "WIFI", cmd, ...extra }); }
+  catch { return { ok: false, error: "เชื่อมต่อเครื่องไม่ได้ กรุณาลองใหม่" }; }
 }
 
 function signalIcon(sig) {
@@ -64,7 +62,8 @@ function renderSaved(saved) {
     `;
     row.querySelector("[data-forget]").onclick = async (e) => {
       e.stopPropagation();
-      if (!confirm(`ลบ Wi-Fi "${s.name}" ออก?`)) return;
+      const decision = await Swal.fire({ title: "ลบ Wi-Fi ที่บันทึก?", text: s.name, icon: "warning", showCancelButton: true, confirmButtonText: "ลบ", cancelButtonText: "ยกเลิก" });
+      if (!decision.isConfirmed) return;
       const r = await call("forget", { ssid: s.name });
       if (r?.ok) { toast("ลบแล้ว", "ok"); refreshAll(); }
       else toast(r?.error || "ลบไม่สำเร็จ", "err");
@@ -131,7 +130,7 @@ async function refreshStatus() {
     if (r.connectivity === "full") { b.className = "badge ok"; b.textContent = "ออนไลน์"; }
     else if (r.connectivity === "limited" || r.connectivity === "portal") { b.className = "badge warn"; b.textContent = r.connectivity; }
     else { b.className = "badge no"; b.textContent = "ตัดขาด"; }
-  }
+  } else { $("conn-badge").className = "badge no"; $("conn-badge").textContent = "อ่านสถานะไม่ได้"; }
 }
 
 async function refreshAll() {
@@ -145,7 +144,9 @@ async function refreshAll() {
   await refreshStatus();
   const [list, saved] = await Promise.all([call("list"), call("saved")]);
   if (list?.ok) renderList(list.networks);
+  else { $("list").textContent = list?.error || "อ่านเครือข่ายไม่สำเร็จ"; }
   if (saved?.ok) renderSaved(saved.saved);
+  else { $("saved-list").textContent = saved?.error || "อ่านเครือข่ายที่บันทึกไม่สำเร็จ"; }
 }
 
 $("rescan").onclick = async () => {

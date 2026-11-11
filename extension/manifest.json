@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3Z2lvNTwrqRdavG1O6vkoBDrl2KPiGFPwYzbSAvvC37qaS3v05mmxo104dR5Q1PII6cDq/JWVQbUx0IbgEwuJZR/dq1hn289TYGeu9OCfAliIWbjfYhbLfG7I2ZZKQzp5g0pn82YY1kWoyT/yFP4RlCPGTy24wFkTkm8XD/b0BT2esb0gVOQRfmReeLl5J9n2Fnm1nVfYK8KGyvavGDHyPPXtQiUnlYwQ5OKp3zOMcsUVG9PMvpJpKPqh99GUdPSX/+kSLEKIAIXAg7VpcVqbUe8nXyLVy+dbT8kaCEYV7aoVlsJI8KQlnRNvI2b+I37bwmSdGnsXealt+Co4dYn2QIDAQAB",
   "name": "โรงเรียนของฉัน — Safe Browser",
   "version": "1.8.0",
   "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน/สื่อลามก ด้วยโดเมนและคำต้องห้าม (keyword filter) จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
