@@ -52,4 +52,3 @@
 - Public app download page (/download-app) resolves the APK through src/lib/githubRelease.ts (canonical GitHub release URL + verified fallback, never API-provided URLs) so the file schools download always matches the published release.
 - Install uses shared release/platform resolvers and publicOrigin for domain-aware QR links; keep scanner packages separate and retain the old origin until custom DNS is ready.
 
-- Statistical consumers use complete deterministic paged reads that reject every source failure and exhausted cap; chartMetrics preserves measured zero, unknown values, record-weighted means and undefined zero-baseline changes, preventing partial or invented chart success.
