@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,11 +61,11 @@ function useAiDashboardData() {
         supabase.from("ai_provider_keys")
           .select("id,provider_type,label,status,used_today,used_total,daily_limit,cooldown_until,last_used_at,priority")
           .order("priority", { ascending: true }),
-        supabase.from("ai_usage_logs")
+        fetchAllRows((from,to)=>supabase.from("ai_usage_logs")
           .select("provider_name,model,function_name,tokens_input,tokens_output,estimated_cost,success,latency_ms,created_at")
           .gte("created_at", since30)
           .order("created_at", { ascending: false })
-          .limit(5000),
+          .order("id").range(from,to)).then(data=>({data,error:null})),
       ]);
       if (keysRes.error) throw keysRes.error;
       if (usageRes.error) throw usageRes.error;
@@ -181,9 +182,9 @@ export default function AiUsageDashboardPage() {
   const totalTokensOut = usage.reduce((s, r) => s + (r.tokens_output || 0), 0);
   const totalCost = usage.reduce((s, r) => s + (Number(r.estimated_cost) || 0), 0);
   const totalCalls = usage.length;
-  const successCalls = usage.filter((r) => r.success !== false).length;
+  const successCalls = usage.filter((r) => r.success === true).length;
   const failedCalls = totalCalls - successCalls;
-  const successRate = totalCalls > 0 ? (successCalls / totalCalls) * 100 : 100;
+  const successRate = totalCalls > 0 ? (successCalls / totalCalls) * 100 : null;
   const avgLatency = totalCalls > 0
     ? Math.round(usage.reduce((s, r) => s + (r.latency_ms || 0), 0) / totalCalls)
     : 0;
@@ -379,7 +380,7 @@ export default function AiUsageDashboardPage() {
           <StatCard label="Tokens วันนี้" value={fmtCompact(todayTokens)} icon={Coins} tone="warning" hint={`ค่าใช้จ่าย ${fmtMoney(todayCost)}`} />
           <StatCard label="Tokens (30 วัน)" value={fmtCompact(totalTokensIn + totalTokensOut)} icon={Coins} tone="primary" hint={`in ${fmtCompact(totalTokensIn)} · out ${fmtCompact(totalTokensOut)}`} />
           <StatCard label="ค่าใช้จ่าย (30 วัน)" value={fmtMoney(totalCost)} icon={Wallet} tone="success" hint={`ต่อวันเฉลี่ย ${fmtMoney(totalCost / Math.max(1, dailyTrend.length))}`} />
-          <StatCard label="จำนวนคำขอ" value={fmtInt(totalCalls)} icon={ArrowDownUp} tone="info" hint={`สำเร็จ ${successRate.toFixed(1)}%`} />
+          <StatCard label="จำนวนคำขอ" value={fmtInt(totalCalls)} icon={ArrowDownUp} tone="info" hint={`สำเร็จ ${successRate === null ? "—" : `${successRate.toFixed(1)}%`}`} />
           <StatCard label="Latency เฉลี่ย" value={`${fmtInt(avgLatency)} ms`} icon={Gauge} tone="accent" />
           <StatCard label="คำขอที่ล้มเหลว" value={fmtInt(failedCalls)} icon={AlertTriangle} tone={failedCalls > 0 ? "destructive" : "muted"} />
           <StatCard label="Models ที่ใช้" value={modelMap.size} icon={Cpu} tone="accent" />
