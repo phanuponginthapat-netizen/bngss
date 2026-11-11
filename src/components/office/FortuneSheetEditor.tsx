@@ -143,7 +143,7 @@ export const FortuneSheetEditor = forwardRef<FortuneSheetHandle, Props>(function
       <Workbook
         key={key}
         ref={wbRef}
-        data={source as any}
+        data={source.map(sheet => ({ ...sheet, luckysheet_select_save: sheet.luckysheet_select_save?.length ? sheet.luckysheet_select_save : [{row: [0,0], column: [0,0], row_focus: 0, column_focus: 0}] })) as any}
         lang="zh" // FortuneSheet ships zh/en — zh is closer to MS Excel button layout
         onChange={(sheets) => {
           dataRef.current = sheets as Sheet[];

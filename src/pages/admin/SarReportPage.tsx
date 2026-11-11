@@ -33,7 +33,7 @@ export default function SarReportPage() {
       const [students, scores, screenings, attendance, personnel, consents, roles, plans] = await Promise.all([
         fetchAll("students", "id, gender, status, classrooms!students_classroom_id_fkey(grade_level)"),
         fetchAll("student_scores", "student_code, grade, academic_year"),
-        fetchAll("student_screenings", "student_id, category"),
+        fetchAll("student_screenings", "id, student_id, category, academic_year, created_at"),
         (async () => {
           const { data: periods, error } = await supabase.from("academic_periods").select("semester").eq("academic_year_be", yearCE + BE_OFFSET);
           if (error) throw error;
@@ -74,7 +74,13 @@ export default function SarReportPage() {
       const present = attendance.reduce((n: number, a: any) => n + a.present + a.late, 0);
       const attendanceBase = attendance.reduce((n: number, a: any) => n + a.total, 0);
       const scr = { normal: 0, risk: 0, problem: 0 } as Record<string, number>;
-      for (const s of screenings as any[]) if (s.category in scr) scr[s.category]++;
+      const activeIds = new Set(active.map((s: any) => s.id));
+      const latestScreenings = new Map<string, any>();
+      for (const row of [...screenings].sort((a: any,b: any) => String(b.created_at).localeCompare(String(a.created_at)))) {
+        if (!activeIds.has(row.student_id) || ![yearCE,yearCE + BE_OFFSET].includes(Number(row.academic_year))) continue;
+        if (!latestScreenings.has(row.student_id)) latestScreenings.set(row.student_id,row);
+      }
+      for (const row of latestScreenings.values()) if (row.category in scr) scr[row.category]++;
       return {
         total: active.length,
         byGrade: [...byGrade.entries()].sort(),
