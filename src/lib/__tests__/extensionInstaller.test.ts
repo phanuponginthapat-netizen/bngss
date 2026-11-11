@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { CANONICAL_BACKEND } from "../runtimeConfig";
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -63,6 +64,15 @@ describe("Safe Browser installer package", () => {
 
   it("contains exactly the current extension/ sources (no stale build)", () => {
     expect([...zip.keys()].sort()).toEqual(walk("extension"));
+    for (const [name, contents] of zip) expect(contents.equals(read(`extension/${name}`)), name).toBe(true);
+  });
+  it("has a stable extension identity matching native Wi-Fi manifests and browser policy", () => {
+    const manifest = JSON.parse(read("extension/manifest.json").toString());
+    const hash = crypto.createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0,32);
+    const id = [...hash].map(x => String.fromCharCode(97 + parseInt(x,16))).join("");
+    expect(id).toBe("pmkbhlpecjcgmcmbfiaggbockmmfpbig");
+    expect(read("public/setup.sh").toString()).toContain(`EXT_ID="${id}"`);
+    expect(read("public/wifi-helper/install.sh").toString()).toContain(`EXT_ID="\u0024{EXT_ID:-${id}}"`);
   });
 
   it("carries the live backend so config loads before any login", () => {

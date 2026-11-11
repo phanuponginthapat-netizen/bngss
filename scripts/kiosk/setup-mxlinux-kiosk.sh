@@ -544,7 +544,9 @@ def sh(cmd):
 
 class H(BaseHTTPRequestHandler):
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin")
+        if origin in ("https://bngss.online", "https://www.bngss.online", "https://bngss.lovable.app"):
+            self.send_header("Access-Control-Allow-Origin", origin)
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
     def _ok(self, code=204, body=b""):
@@ -560,7 +562,13 @@ class H(BaseHTTPRequestHandler):
             return self._ok(200, json.dumps(read_battery()).encode())
         return self._ok(404)
     def do_POST(self):
+        origin = self.headers.get("Origin")
+        if self.headers.get("Host") != "127.0.0.1:9998" or (origin is not None and origin not in ("https://bngss.online", "https://www.bngss.online", "https://bngss.lovable.app")):
+            return self._ok(403)
+        if origin is not None and self.headers.get("Content-Type") != "application/json":
+            return self._ok(403)
         length = int(self.headers.get("Content-Length") or 0)
+        if length < 0 or length > 8192: return self._ok(413)
         body = self.rfile.read(length) if length else b""
         try: data = json.loads(body or b"{}")
         except: data = {}
@@ -573,7 +581,7 @@ class H(BaseHTTPRequestHandler):
             sh(["pkill","-KILL","-u",USER])
         elif p == "/open-url":
             url = str(data.get("url",""))
-            if url:
+            if url.startswith(("https://", "http://")):
                 # เปิดใน chromium ปัจจุบัน (ใช้ xdotool + chromium CLI)
                 sh(["chromium","--new-tab",url]) if os.path.exists("/usr/bin/chromium") else sh(["chromium-browser","--new-tab",url])
         elif p == "/screen-off":
