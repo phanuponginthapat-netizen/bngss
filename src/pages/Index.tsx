@@ -23,7 +23,8 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
 import EmbedRenderer, { isFullHtml } from "@/components/cms/EmbedRenderer";
-import SocialWallWidget from "@/components/social/SocialWallWidget";
+import WallFeed from "@/components/social/WallFeed";
+import PublicAttendanceSummary from "@/components/attendance/PublicAttendanceSummary";
 import { BE_OFFSET } from "@/lib/dateBE";
 import {
   icons as lucideIcons,
@@ -478,18 +479,21 @@ const Index = () => {
           })()}
 
           {(() => {
-            const defaultOrder = ["stats", "banner", "director", "quicklinks", "content", "page_content", "features", "gallery", "videos", "cta", "news", "social", "embed"];
+            const defaultOrder = ["stats", "attendance", "social", "banner", "director", "quicklinks", "content", "page_content", "features", "gallery", "videos", "cta", "news", "embed"];
             let order: string[] = defaultOrder;
             try {
               const saved = JSON.parse(get("homepage_sections_order", "[]"));
               if (Array.isArray(saved) && saved.length > 0) {
                 const valid = saved.filter((k: string) => defaultOrder.includes(k));
                 const missing = defaultOrder.filter(k => !valid.includes(k));
-                order = [...valid, ...missing];
+                order = [...valid.filter(k => k !== "social" && k !== "attendance"), ...missing.filter(k => k !== "social" && k !== "attendance")];
+                const insertAt = order.includes("stats") ? order.indexOf("stats") + 1 : 0;
+                order.splice(insertAt, 0, "attendance", "social");
               }
             } catch {}
 
             const sectionMap: Record<string, JSX.Element | null> = {
+              attendance: <PublicAttendanceSummary />,
               stats: showStats && stats.length > 0 ? (
                 <section ref={animateRef} className="relative -mt-14 z-10 max-w-4xl mx-auto px-4 scroll-animate opacity-0 translate-y-6">
                   <Card className="border-0 shadow-2xl rounded-[2rem] bg-white/95 backdrop-blur-xl ring-1 ring-[#fecaca]/40 overflow-hidden">
@@ -684,20 +688,15 @@ const Index = () => {
               ) : null,
 
               social: socialFeedEnabled ? (
-                <section ref={animateRef} className="max-w-6xl mx-auto px-4 py-16 scroll-animate opacity-0 translate-y-6">
+                <section aria-label="ประชาสัมพันธ์ออนไลน์" className="bg-background border-b border-border py-10 sm:py-14">
+                <div className="max-w-3xl mx-auto px-4">
                   <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
                     <div>
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs font-medium mb-3">
-                        <Facebook className="h-3.5 w-3.5" />
-                        Facebook Page
-                      </div>
-                      <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2 tracking-tight">Social Wall</h2>
-                      <p className="text-sm text-muted-foreground max-w-xl">
-                        โพสต์ล่าสุดจากเพจ Facebook ของโรงเรียน — อัปเดตอัตโนมัติทุก 15 นาที
-                      </p>
+                      <h2 className="text-2xl sm:text-3xl font-bold text-foreground">ประชาสัมพันธ์ออนไลน์</h2>
                     </div>
                   </div>
-                  <SocialWallWidget title="" variant="bare" />
+                  <WallFeed readOnly />
+                </div>
                 </section>
               ) : null,
 

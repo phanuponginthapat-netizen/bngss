@@ -16,6 +16,7 @@ import { swal } from "@/lib/swal";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
 import { saveErrorMessage } from "@/lib/saveError";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface WallPost {
   id: string;
@@ -50,7 +51,7 @@ interface StagedMedia {
   file: File;
 }
 
-export default function WallFeed({ profileUserId }: { profileUserId?: string }) {
+export default function WallFeed({ profileUserId, readOnly = false }: { profileUserId?: string; readOnly?: boolean }) {
   const { user, isReady } = useAuthSession();
   const userId = user?.id ?? null;
   const request = useRef(0);
@@ -58,6 +59,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   const [posts, setPosts] = useState<WallPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
+  const [visibility, setVisibility] = useState("school");
   const [linkUrl, setLinkUrl] = useState("");
   const [posting, setPosting] = useState(false);
   const [staged, setStaged] = useState<StagedMedia[]>([]);
@@ -71,6 +73,12 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
     setLoading(true);
     setLoadError("");
     try {
+    if (readOnly) {
+      const { data, error } = await supabase.functions.invoke("public-wall-feed", { body: {} });
+      if (error || data?.error) throw new Error(data?.error || "โหลดประชาสัมพันธ์ไม่สำเร็จ");
+      if (version === request.current) setPosts(data.posts || []);
+      return;
+    }
     let q = supabase
       .from("wall_posts")
       .select("*")
@@ -129,7 +137,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, profileUserId, isReady]);
+  }, [userId, profileUserId, isReady, readOnly]);
 
   const stageFiles = async (files: FileList | null) => {
     if (!files || !userId) return;
@@ -158,6 +166,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const submit = async () => {
+    if (readOnly) return;
     if (posting || uploading) return;
     if (linkUrl.trim() && !validSocialLink(linkUrl)) return toast.error("ใส่ลิงก์ที่ขึ้นต้นด้วย https:// หรือ http://");
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
@@ -171,6 +180,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
       link_url: linkUrl.trim() || null,
       link_type,
       media_urls: staged.map((s) => s.path),
+      visibility,
     });
     setPosting(false);
     if (error) return toast.error(saveErrorMessage(error));
@@ -183,6 +193,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const react = async (post: WallPost, type: string) => {
+    if (readOnly) return;
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
     if (reactionLocks.current.has(post.id)) return;
     reactionLocks.current.add(post.id);
@@ -222,6 +233,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
   };
 
   const removePost = async (id: string) => {
+    if (readOnly) return;
     const ok = await swal.confirm({
       title: "ยืนยันการลบโพสต์?",
       text: "โพสต์นี้จะถูกลบถาวร ไม่สามารถกู้คืนได้",
@@ -238,7 +250,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
 
   return (
     <div className="space-y-4">
-      {userId && !profileUserId && (
+      {!readOnly && userId && !profileUserId && (
         <Card>
           <CardContent className="p-4 space-y-3">
             <Textarea
@@ -271,6 +283,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
             )}
 
             <div className="flex flex-wrap items-center gap-2">
+              <Select value={visibility} onValueChange={setVisibility}><SelectTrigger aria-label="ผู้ที่เห็นโพสต์" className="w-52"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="school">เฉพาะในโรงเรียน</SelectItem><SelectItem value="public">สาธารณะ · แสดงหน้าเว็บ</SelectItem></SelectContent></Select>
               <Input
                 placeholder="แนบลิงก์ YouTube / Drive / เว็บไซต์ (ไม่บังคับ)"
                 value={linkUrl}
@@ -326,7 +339,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
                   {new Date(p.created_at).toLocaleString("th-TH")}
                 </p>
               </div>
-              {(p.author_id === userId || isAdmin) && (
+              {!readOnly && (p.author_id === userId || isAdmin) && (
                 <Button size="icon" variant="ghost" onClick={() => removePost(p.id)} title={isAdmin && p.author_id !== userId ? "ลบ (แอดมิน)" : "ลบโพสต์"}>
                   <Trash2 className="w-4 h-4 text-destructive" />
                 </Button>
@@ -346,7 +359,7 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               />
             )}
 
-            <div className="flex items-center gap-2 pt-2 border-t">
+            {!readOnly && <div className="flex items-center gap-2 pt-2 border-t">
               <Button
                 size="sm"
                 variant={p.my_reaction === "like" ? "default" : "ghost"}
@@ -366,9 +379,9 @@ export default function WallFeed({ profileUserId }: { profileUserId?: string }) 
               <div className="text-xs text-muted-foreground ml-auto">
                 {p.reaction_count} ถูกใจ • {p.comment_count} ความคิดเห็น
               </div>
-            </div>
+            </div>}
 
-            <CommentSection postId={p.id} userId={userId} commentCount={p.comment_count} />
+            {!readOnly && <CommentSection postId={p.id} userId={userId} commentCount={p.comment_count} />}
           </CardContent>
         </Card>
       ))}
