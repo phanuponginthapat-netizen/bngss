@@ -1,0 +1,1 @@
+- Statistical consumers use complete deterministic paged reads that reject every source failure and exhausted cap; chartMetrics preserves measured zero, unknown values, record-weighted means and undefined zero-baseline changes, preventing partial or invented chart success.

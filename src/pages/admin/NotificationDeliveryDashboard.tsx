@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,18 +60,18 @@ export default function NotificationDeliveryDashboard() {
   const { data: rows = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["notif_delivery_log", since, channel, status, type],
     queryFn: async () => {
+      return fetchAllRows((from,to)=> {
       let q = supabase
         .from("notification_delivery_log")
         .select("*")
         .gte("created_at", since)
         .order("created_at", { ascending: false })
-        .limit(1000);
+        .order("id");
       if (channel !== "all") q = q.eq("channel", channel);
       if (status !== "all") q = q.eq("status", status);
       if (type !== "all") q = q.eq("notification_type", type);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as LogRow[];
+      return q.range(from,to);
+      }) as Promise<LogRow[]>;
     },
     refetchInterval: 30_000,
   });

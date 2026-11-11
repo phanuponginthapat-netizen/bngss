@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +65,7 @@ type UserBucket = "student" | "staff";
 
 export default function AiAnalyticsPage() {
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [students, setStudents] = useState<Record<string, StudentInfo>>({});
@@ -86,16 +88,11 @@ export default function AiAnalyticsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("ai_chat_logs" as any)
+    setReadError(false);
+    try {
+    const data = await fetchAllRows((from,to)=>supabase.from("ai_chat_logs")
       .select("id,user_id,role,content,topic,sentiment,risk_level,risk_flags,user_role,created_at")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    if (error) {
-      toast.error("โหลดข้อมูลไม่สำเร็จ: " + error.message);
-      setLoading(false);
-      return;
-    }
+      .order("created_at",{ascending:false}).order("id").range(from,to));
     const rows = (data || []) as any as LogRow[];
     setLogs(rows);
 
@@ -106,6 +103,7 @@ export default function AiAnalyticsPage() {
         supabase.from("students").select("auth_user_id,student_code,first_name,last_name,classroom_id").in("auth_user_id", ids),
         supabase.from("personnel").select("user_id,employee_code,first_name,last_name,position,department").in("user_id", ids),
       ]);
+      for (const result of [profsRes,stuRes,perRes]) if (result.error) throw result.error;
       const pMap: Record<string, Profile> = {};
       (profsRes.data || []).forEach((p: any) => { pMap[p.id] = p; });
       setProfiles(pMap);
@@ -126,7 +124,8 @@ export default function AiAnalyticsPage() {
         setClassrooms(cMap);
       }
     }
-    setLoading(false);
+    } catch(e) { setReadError(true); toast.error("อ่านข้อมูลวิเคราะห์ AI ไม่สำเร็จ"); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -249,6 +248,8 @@ export default function AiAnalyticsPage() {
     if (p) return [p.first_name, p.last_name].filter(Boolean).join(" ") || p.nickname || uid.slice(0, 8);
     return uid.slice(0, 8);
   };
+
+  if (loading || readError) return <div role="status">{readError ? "อ่านข้อมูลวิเคราะห์ AI ไม่สำเร็จ" : "กำลังโหลดข้อมูลวิเคราะห์ AI"}<Button variant="outline" onClick={()=>void load()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-6">

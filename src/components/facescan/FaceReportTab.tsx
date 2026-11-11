@@ -1,3 +1,5 @@
+import { useQuery as useCalendarQuery } from "@tanstack/react-query";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,6 +88,14 @@ const FaceReportTab = () => {
 
   const today = new Date();
   // ค่าเริ่มต้นเป็น "รายวัน" เพื่อให้ครูเห็นข้อมูลของวันนี้ทันที ไม่สับสนกับยอดรวมทั้งเดือน
+  const {data: calendarPeriods = [], isLoading: calendarLoading, error: calendarError} = useCalendarQuery({
+    queryKey: ["academic-periods"],
+    queryFn: async()=> {
+      const {data,error} = await supabase.from("academic_periods").select("academic_year_be,semester,start_date,end_date").order("start_date");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const [period, setPeriod] = useState<Period>("day");
   const [refDate, setRefDate] = useState(bkkDateISO(today));
   const [search, setSearch] = useState("");
@@ -192,7 +202,7 @@ const FaceReportTab = () => {
   const buildSummaryText = (): string => {
     const t = accurate?.totals;
     if (!t) return `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
-    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`;
+    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.cd} คน-วัน • ยังไม่บันทึก ${t.cd-t.present-t.leave-t.absent} คน-วัน • เข้าเรียน ${t.pct}%`;
     const abs = accurate?.absentees || [];
     if (abs.length > 0) {
       // group by grade (prefix before "/")
@@ -236,7 +246,7 @@ const FaceReportTab = () => {
     const leave   = labels.map(l => byGrade[l].leave);
     const absent  = labels.map(l => byGrade[l].absent);
     const t = accurate?.totals;
-    const subtitle = t ? `📅 ${range.label}   |   รวม ${t.size} คน   |   มา ${t.present} (${t.pct}%)  •  สาย ${t.late}  •  ลา ${t.leave}  •  ขาด ${t.absent}` : `📅 ${range.label}`;
+    const subtitle = t ? `📅 ${range.label}   |   รวม ${t.cd} คน-วัน • ยังไม่บันทึก ${t.cd-t.present-t.leave-t.absent}   |   มา ${t.present} (${t.pct}%)  •  สาย ${t.late}  •  ลา ${t.leave}  •  ขาด ${t.absent}` : `📅 ${range.label}`;
     return {
       type: "bar",
       data: {
@@ -310,7 +320,8 @@ const FaceReportTab = () => {
 
 
 
-  const range = useMemo(() => getRange(period, new Date(refDate)), [period, refDate]);
+  const registeredTerm = calendarPeriods.find(p=>p.start_date && p.end_date && p.start_date <= refDate && p.end_date >= refDate);
+  const range = useMemo(() => period === "term" && registeredTerm ? {start:String(registeredTerm.start_date),end:String(registeredTerm.end_date),label:`ภาคเรียน ${registeredTerm.semester}/${registeredTerm.academic_year_be}`} : getRange(period, new Date(refDate)), [period, refDate, registeredTerm]);
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["face-logs-range", range.start, range.end],
@@ -365,30 +376,23 @@ const FaceReportTab = () => {
 
   // ===== Accurate attendance summary (skip weekend/future/holiday, merge face_scan ∪ attendance ∪ leaves) =====
   const todayStr = todayBangkok();
-  const { data: accurate } = useQuery({
+  const { data: accurate, isLoading: accurateLoading, error: accurateError, refetch: refetchAccurate } = useQuery({
     queryKey: ["face-report-accurate", range.start, range.end, todayStr],
+    enabled: period !== "term" || (!!registeredTerm && !calendarLoading && !calendarError),
     queryFn: async () => {
       // ดึงข้อมูลแบบแบ่งหน้า — ไม่ให้ถูกตัดที่ 1,000 แถว (ทำให้ยอด "ขาด" เพี้ยน)
-      const fetchAll = async (build: (from: number, to: number) => any) => {
-        const PAGE = 1000;
-        const out: any[] = [];
-        for (let from = 0; from < 200_000; from += PAGE) {
-          const { data, error } = await build(from, from + PAGE - 1);
-          if (error) break;
-          out.push(...((data as any[]) || []));
-          if (!data || (data as any[]).length < PAGE) break;
-        }
-        return out;
-      };
+      const fetchAll = fetchAllRows;
 
-      const [settingRes, studentsRes, scanRows, attRows, leaveRows, eventsRes] = await Promise.all([
+      const [settingRes, studentsRes, scanRows, attRows, leaveRows, eventsRes, cutoffRes] = await Promise.all([
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
         supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
-        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").range(f, t)),
-        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").is("subject_id", null).gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").range(f, t)),
-        fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").range(f, t)),
+        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").eq("scan_type","entry").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").order("id").range(f, t)),
+        fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").is("subject_id", null).gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").order("id").range(f, t)),
+        fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").order("id").range(f, t)),
         supabase.from("academic_events").select("event_date, end_date, event_type").eq("event_type", "holiday").lte("event_date", range.end),
+        supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_in_end").maybeSingle(),
       ]);
+      for (const result of [settingRes, studentsRes, eventsRes, cutoffRes]) if (result.error) throw result.error;
       const scansRes = { data: scanRows };
       const attRes = { data: attRows };
       const leavesRes = { data: leaveRows };
@@ -417,7 +421,7 @@ const FaceReportTab = () => {
       const scanIdx = new Map<string, Map<string, string>>();
       for (const r of (scansRes.data as any[]) || []) {
         if (!effSet.has(r.scan_date)) continue;
-        const t = new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false });
+        const t = new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, timeZone: "Asia/Bangkok" });
         const m = scanIdx.get(r.scan_date) || new Map<string, string>();
         const p = m.get(r.student_id);
         if (!p || t < p) m.set(r.student_id, t);
@@ -437,7 +441,7 @@ const FaceReportTab = () => {
       // Leave coverage: studentId -> Set<date> (approved or pending — count as ลา, not ขาด)
       const leaveIdx = new Map<string, Set<string>>();
       for (const lv of (leavesRes.data as any[]) || []) {
-        if (lv.status === "rejected") continue;
+        if (lv.status !== "approved") continue;
         const s = new Date(lv.start_date), e = new Date(lv.end_date);
         for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
           const iso = bkkDateISO(d);
@@ -481,29 +485,32 @@ const FaceReportTab = () => {
       }
       // Accumulate per (date, student)
       const absentMap = new Map<string, { id: string; name: string; code: string; cls: string; gender: string; dates: string[] }>();
+      const cutoff = String(cutoffRes.data?.setting_value || lateThreshold);
+      const currentTime = new Date().toLocaleTimeString("en-GB", {hour12:false,timeZone:"Asia/Bangkok"}).slice(0,5);
       for (const date of eff) {
         const dayScan = scanIdx.get(date) || new Map<string, string>();
         const dayAtt = attIdx.get(date) || new Map<string, string>();
         for (const s of students) {
           const k = classKey(s);
-          const c = classMap.get(k)!;
+          const c = classMap.get(k);
+          if (!c) continue;
           c.cd++;
           const isM = s.gender === "ชาย";
           const t = dayScan.get(s.id);
           const a = dayAtt.get(s.id);
           const onLeave = leaveIdx.get(s.id)?.has(date);
-          let kind: "present" | "late" | "leave" | "absent";
+          let kind: "present" | "late" | "leave" | "absent" | "unrecorded";
           if (t) {
             kind = t > lateThreshold + ":00" ? "late" : "present";
           } else if (a === "present") kind = "present";
           else if (a === "late") kind = "late";
           else if (a === "leave" || a === "sick" || onLeave) kind = "leave";
           else if (a === "absent") kind = "absent";
-          else kind = "absent"; // ไม่มีข้อมูล = ถือว่าขาด
+          else kind = (dayScan.size > 0 || dayAtt.size > 0) && (date < todayStr || currentTime >= cutoff) ? "absent" : "unrecorded";
           if (kind === "present") { c.present++; if (isM) c.presentM++; else c.presentF++; }
           else if (kind === "late") { c.late++; if (isM) c.lateM++; else c.lateF++; c.present++; if (isM) c.presentM++; else c.presentF++; }
           else if (kind === "leave") c.leave++;
-          else {
+          else if (kind === "absent") {
             c.absent++; if (isM) c.absentM++; else c.absentF++;
             const entry = absentMap.get(s.id) || {
               id: s.id,
@@ -620,7 +627,7 @@ const FaceReportTab = () => {
       // index logs: date -> studentId -> earliest time (HH:mm:ss)
       const logIdx = new Map<string, Map<string, string>>();
       for (const r of filtered as any[]) {
-        const t = new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false });
+        const t = new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, timeZone: "Asia/Bangkok" });
         const m = logIdx.get(r.scan_date) || new Map<string, string>();
         const prev = m.get(r.students.id);
         if (!prev || t < prev) m.set(r.students.id, t);
@@ -817,7 +824,7 @@ const FaceReportTab = () => {
         const method = r.entry_method === "manual" ? "กรอกรหัส" : r.entry_method === "qr" ? "QR" : "ใบหน้า";
         logAoa.push([
           r.scan_date,
-          new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false }),
+          new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, timeZone: "Asia/Bangkok" }),
           s.student_code || "",
           `${s.prefix || ""}${s.first_name} ${s.last_name}`,
           s.gender || "-",
@@ -1070,6 +1077,9 @@ const FaceReportTab = () => {
       setSending(false);
     }
   };
+
+  if (period === "term" && (calendarLoading || calendarError || !registeredTerm)) return <div role="status">{calendarLoading ? "กำลังโหลดปฏิทิน" : "ยังไม่มีวันเปิด–ปิดภาคเรียนที่ยืนยัน"}<Button variant="outline" onClick={()=>setPeriod("day")}>รายวัน</Button></div>;
+  if (accurateLoading || accurateError) return <div role="status" className="p-6">{accurateError ? "อ่านข้อมูลรายงานสแกนไม่สำเร็จ" : "กำลังโหลดรายงานสแกน"}<Button variant="outline" onClick={()=>void refetchAccurate()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-4">

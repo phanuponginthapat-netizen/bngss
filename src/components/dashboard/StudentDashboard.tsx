@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
@@ -83,7 +84,7 @@ const StudentDashboard = () => {
         student.classroom_id
           ? supabase.from("classrooms").select("name, grade_level, homeroom_teacher").eq("id", student.classroom_id).maybeSingle()
           : Promise.resolve({ data: null } as any),
-        supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id),
+        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
         supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
           .eq("student_id", student.id).order("record_date", { ascending: false }).limit(5),
         supabase.from("student_leaves").select("id, status, start_date, end_date, reason")
@@ -121,7 +122,7 @@ const StudentDashboard = () => {
       const absent = days.filter((s) => s === "absent").length;
       const late = days.filter((s) => s === "late").length;
       const leaveDays = days.filter((s) => s === "leave" || s === "sick").length;
-      const rate = total > 0 ? (((present + late) / total) * 100).toFixed(1) : "0";
+      const rate = total > 0 ? (((present + late) / total) * 100).toFixed(1) : "—";
 
       const positiveB = behavior.data?.filter((b: any) => b.behavior_type === "positive").length || 0;
       const negativeB = behavior.data?.filter((b: any) => b.behavior_type === "negative").length || 0;
@@ -377,17 +378,17 @@ const StudentDashboard = () => {
                       <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shadow-lg">
                         <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
                       </div>
-                      <Badge variant="secondary" className={`text-[10px] border-0 ${parseFloat(data.rate) >= 80 ? "bg-success/10 text-success" : parseFloat(data.rate) >= 60 ? "bg-amber-100 text-amber-700" : "bg-destructive/10 text-destructive"}`}>{data.rate}%</Badge>
+                      <Badge variant="secondary" className={`text-[10px] border-0 ${parseFloat(data.rate) >= 80 ? "bg-success/10 text-success" : parseFloat(data.rate) >= 60 ? "bg-amber-100 text-amber-700" : "bg-destructive/10 text-destructive"}`}>{data.rate === "—" ? "—" : `${data.rate}%`}</Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground font-medium">{L("อัตรามาเรียน", "Attendance %")}</p>
-                    <p className="text-2xl font-extrabold tabular-nums">{data.rate}%</p>
-                    <Progress value={parseFloat(data.rate)} className="h-1.5 mt-2" />
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("อัตรามาเรียนจากวันที่บันทึก", "Recorded attendance %")}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{data.rate === "—" ? "—" : `${data.rate}%`}</p>
+                    <Progress value={parseFloat(data.rate) || 0} className="h-1.5 mt-2" />
                     <p className="text-[10px] text-muted-foreground mt-1 truncate">{L(`มา ${data.present} · ขาด ${data.absent} · สาย ${data.late}`, `Present ${data.present} · Absent ${data.absent} · Late ${data.late}`)}</p>
                     <div className="mt-2 h-[28px] flex gap-1 items-end">
-                      <div className="flex-1 bg-success rounded-t-sm" style={{ height: `${Math.max(12, (data.present / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
-                      <div className="flex-1 bg-warning rounded-t-sm" style={{ height: `${Math.max(6, (data.late / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
-                      <div className="flex-1 bg-destructive rounded-t-sm" style={{ height: `${Math.max(6, (data.absent / Math.max(1, data.present + data.absent + data.late)) * 100)}%` }} />
-                      <div className="flex-1 bg-muted rounded-t-sm h-[18%]" />
+                      <div className="flex-1 bg-success rounded-t-sm" style={{ height: `${(data.present / Math.max(1, data.present + data.absent + data.late + data.leaveDays)) * 100}%` }} />
+                      <div className="flex-1 bg-warning rounded-t-sm" style={{ height: `${(data.late / Math.max(1, data.present + data.absent + data.late + data.leaveDays)) * 100}%` }} />
+                      <div className="flex-1 bg-destructive rounded-t-sm" style={{ height: `${(data.absent / Math.max(1, data.present + data.absent + data.late + data.leaveDays)) * 100}%` }} />
+                      <div className="flex-1 bg-muted rounded-t-sm" style={{height: `${data.leaveDays / Math.max(1,data.present+data.absent+data.late+data.leaveDays)*100}%`}} />
                     </div>
                   </CardContent>
                 </Card>

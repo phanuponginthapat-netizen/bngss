@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,19 +73,17 @@ const BudgetAccountingPage = () => {
   const [balAmount, setBalAmount] = useState("");
   const [balNotes, setBalNotes] = useState("");
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading: recordsLoading, error: recordsError, refetch: refetchRecords } = useQuery({
     queryKey: ["budget_transactions"],
     queryFn: async () => {
-      const { data } = await supabase.from("budget_transactions").select("*").order("transaction_date", { ascending: false });
-      return data || [];
+      return fetchAllRows((from,to)=>supabase.from("budget_transactions").select("*").order("transaction_date",{ascending:false}).order("id").range(from,to));
     },
   });
 
-  const { data: balances = [] } = useQuery({
+  const { data: balances = [], isLoading: balancesLoading, error: balancesError, refetch: refetchBalances } = useQuery({
     queryKey: ["account_balances"],
     queryFn: async () => {
-      const { data } = await supabase.from("account_balances").select("*").order("updated_at", { ascending: false });
-      return data || [];
+      return fetchAllRows((from,to)=>supabase.from("account_balances").select("*").order("updated_at",{ascending:false}).order("id").range(from,to));
     },
   });
 
@@ -180,6 +179,8 @@ const BudgetAccountingPage = () => {
     const d = new Date(dateStr);
     return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${toBE(d.getFullYear())}`;
   };
+
+  if (recordsLoading || balancesLoading || recordsError || balancesError) return <div role="status" className="p-6">{recordsError || balancesError ? "อ่านข้อมูลการเงินไม่สำเร็จ" : "กำลังโหลดข้อมูลการเงิน"}<Button variant="outline" onClick={() => { void refetchRecords(); void refetchBalances(); }}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-6">

@@ -315,15 +315,8 @@ export default function BigDataDashboardPage() {
   // ---- Derived chart data --------------------------------------------------
   const chartData = useMemo(() => {
     if (!data) return null;
-    // attendance sparkline: fake 7-day trend around total_today
-    const attTotal = data.attendance?.total_today ?? 0;
-    const attSpark = Array.from({ length: 7 }, (_, i) => ({
-      name: `D-${6 - i}`,
-      value: Math.max(0, Math.round(attTotal * (0.6 + Math.random() * 0.8))),
-    }));
-    // keep last point = actual today
-    if (attSpark.length) attSpark[attSpark.length - 1].value = attTotal;
-
+    // A single current snapshot is not a historical trend.
+    const attSpark = data.attendance?.total_today == null ? [] : [{name: "วันนี้", value: data.attendance.total_today}];
     // grades distribution bar
     const gradesDist = data.grades?.distribution ?? {};
     const gradesBar = Object.entries(gradesDist).map(([grade, cnt]) => ({ name: grade, value: cnt as number }));
@@ -344,13 +337,7 @@ export default function BigDataDashboardPage() {
     ];
     // bus pie-like bar
     const busBar = Object.entries(data.bus?.by_status ?? {}).map(([k, v]) => ({ name: k, value: v as number }));
-    // kiosk area
-    const kioskCount = data.kiosk?.students_count ?? 0;
-    const kioskSpark = Array.from({ length: 6 }, (_, i) => ({
-      name: `H-${5 - i}`,
-      value: Math.max(0, Math.round(kioskCount * (0.4 + Math.random() * 0.9))),
-    }));
-    if (kioskSpark.length) kioskSpark[kioskSpark.length - 1].value = kioskCount;
+    const kioskSpark = data.kiosk?.students_count == null ? [] : [{name: "ปัจจุบัน", value: data.kiosk.students_count}];
 
     return { attSpark, gradesBar, financeBar, pettyBar, libBar, busBar, kioskSpark };
   }, [data]);
@@ -549,7 +536,7 @@ export default function BigDataDashboardPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full w-full rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">ไม่มีข้อมูล sparkline</div>
+                <div className="h-full w-full rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">ยังไม่มีข้อมูลย้อนหลังสำหรับแสดงแนวโน้ม</div>
               )}
             </div>
             <div className="flex items-center justify-between pt-1">
@@ -782,7 +769,7 @@ export default function BigDataDashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">proxy: face_scan_logs + iot_devices</p>
             <div className="h-[72px] w-full -mx-1">
-              {chartData?.kioskSpark ? (
+              {chartData?.kioskSpark && chartData.kioskSpark.length > 1 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData.kioskSpark}>
                     <Tooltip contentStyle={{ fontSize: 12 }} />
