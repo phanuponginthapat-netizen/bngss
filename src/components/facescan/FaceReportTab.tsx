@@ -202,7 +202,7 @@ const FaceReportTab = () => {
   const buildSummaryText = (): string => {
     const t = accurate?.totals;
     if (!t) return `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}`;
-    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.size} คน • เข้าเรียน ${t.pct}%`;
+    let s = `📊 รายงานการสแกนเข้าโรงเรียน\n📅 ${range.label}\n\n✅ มา ${t.present} คน\n⏰ สาย ${t.late} คน\n📝 ลา ${t.leave} คน\n❌ ขาด ${t.absent} คน\n────────\nรวม ${t.cd} คน-วัน • ยังไม่บันทึก ${t.cd-t.present-t.leave-t.absent} คน-วัน • เข้าเรียน ${t.pct}%`;
     const abs = accurate?.absentees || [];
     if (abs.length > 0) {
       // group by grade (prefix before "/")
@@ -246,7 +246,7 @@ const FaceReportTab = () => {
     const leave   = labels.map(l => byGrade[l].leave);
     const absent  = labels.map(l => byGrade[l].absent);
     const t = accurate?.totals;
-    const subtitle = t ? `📅 ${range.label}   |   รวม ${t.size} คน   |   มา ${t.present} (${t.pct}%)  •  สาย ${t.late}  •  ลา ${t.leave}  •  ขาด ${t.absent}` : `📅 ${range.label}`;
+    const subtitle = t ? `📅 ${range.label}   |   รวม ${t.cd} คน-วัน • ยังไม่บันทึก ${t.cd-t.present-t.leave-t.absent}   |   มา ${t.present} (${t.pct}%)  •  สาย ${t.late}  •  ลา ${t.leave}  •  ขาด ${t.absent}` : `📅 ${range.label}`;
     return {
       type: "bar",
       data: {
@@ -492,7 +492,8 @@ const FaceReportTab = () => {
         const dayAtt = attIdx.get(date) || new Map<string, string>();
         for (const s of students) {
           const k = classKey(s);
-          const c = classMap.get(k)!;
+          const c = classMap.get(k);
+          if (!c) continue;
           c.cd++;
           const isM = s.gender === "ชาย";
           const t = dayScan.get(s.id);

@@ -42,7 +42,7 @@ export function SubjectScanDashboardTab({ records, students }: Props) {
     subjectRecords.forEach((r: any) => {
       byStatus[r.status] = (byStatus[r.status] || 0) + 1;
     });
-    const presentRate = total ? (byStatus.present / total) * 100 : 0;
+    const presentRate = total ? ((byStatus.present + byStatus.late) / total) * 100 : 0;
     const absentRate = total ? ((byStatus.absent + byStatus.sick + byStatus.leave) / total) * 100 : 0;
     const lateRate = total ? (byStatus.late / total) * 100 : 0;
     return { total, byStatus, presentRate, absentRate, lateRate };
@@ -145,7 +145,7 @@ export function SubjectScanDashboardTab({ records, students }: Props) {
           hint={lang === "th" ? `${uniqueDays} วันที่ผ่านมา` : `${uniqueDays} days`}
         />
         <StatCard
-          label={lang === "th" ? "อัตรามาเรียน" : "Present rate"}
+          label={lang === "th" ? "มา/สายจากคาบที่บันทึก" : "Recorded present/late rate"}
           value={`${stats.presentRate.toFixed(1)}%`}
           icon={CheckCircle2}
           tone="success"
@@ -213,7 +213,7 @@ export function SubjectScanDashboardTab({ records, students }: Props) {
                 />
                 <Legend wrapperStyle={{ fontSize: "12px" }} />
                 <Line type="monotone" dataKey="present" name={lang === "th" ? "มา" : "Present"} stroke={STATUS_COLORS.present} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="absent" name={lang === "th" ? "ขาด" : "Absent"} stroke={STATUS_COLORS.absent} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="absent" name={lang === "th" ? "ขาด/ป่วย/ลา" : "Absent/Sick/Leave"} stroke={STATUS_COLORS.absent} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="late" name={lang === "th" ? "สาย" : "Late"} stroke={STATUS_COLORS.late} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

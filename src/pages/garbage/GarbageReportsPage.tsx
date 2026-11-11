@@ -438,7 +438,7 @@ export default function GarbageReportsPage() {
       setExporting(true);
       // Fetch full datasets
       const [allDeps, allReds, items, rewards, spts, ppts] = await Promise.all([
-        fetchAllRows((from,to)=>supabase.from("garbage_deposits").select("created_at, quantity, points_earned, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name, department)").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_deposits").select("created_at, quantity, points_earned, student_id, personnel_id, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name, department)").order("id").range(from,to)),
         fetchAllRows((from,to)=>supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)").order("id").range(from,to)),
         fetchAllRows((from,to)=>supabase.from("garbage_items").select("name, unit, points_per_unit, is_active").order("id").range(from,to)),
         fetchAllRows((from,to)=>supabase.from("garbage_rewards").select("name, points_cost, stock, is_active").order("id").range(from,to)),
