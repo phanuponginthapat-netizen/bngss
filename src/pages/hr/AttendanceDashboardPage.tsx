@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,16 +14,19 @@ import { BarChart3, Download, Users, UserCheck, Clock, AlertTriangle, Calendar, 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { StatCard } from "@/components/shared";
+import { readDigestRows } from "../../../supabase/functions/_shared/attendanceDigest";
+import { staffAttendanceSummary, staffPercentage, staffReportDates, STAFF_STATUSES } from "@/lib/staffAttendanceSummary";
+import { useUserRole } from "@/hooks/useUserRole";
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  normal: { label: "ปกติ", color: "bg-emerald-100 text-emerald-800" },
-  late: { label: "มาสาย", color: "bg-amber-100 text-amber-800" },
-  absent: { label: "ขาด", color: "bg-red-100 text-red-800" },
-  leave: { label: "ลา", color: "bg-blue-100 text-blue-800" },
-  official: { label: "ไปราชการ", color: "bg-purple-100 text-purple-800" },
+const STATUS_MAP: Record<string, { label: string; color: string; fill: string }> = {
+  normal: { label: "ตรงเวลา", color: "bg-success/15 text-success", fill: "hsl(var(--success))" },
+  late: { label: "มาสาย", color: "bg-warning/15 text-warning", fill: "hsl(var(--warning))" },
+  offsite: { label: "นอกพื้นที่", color: "bg-accent/15 text-accent", fill: "hsl(var(--accent))" },
+  absent: { label: "ขาด (มีบันทึก)", color: "bg-destructive/15 text-destructive", fill: "hsl(var(--destructive))" },
+  leave: { label: "ลา", color: "bg-primary/15 text-primary", fill: "hsl(var(--primary))" },
+  official: { label: "ไปราชการ", color: "bg-secondary text-secondary-foreground", fill: "hsl(var(--secondary-foreground))" },
+  unrecorded: { label: "ยังไม่ลงเวลา", color: "bg-muted text-muted-foreground", fill: "hsl(var(--muted-foreground))" },
 };
-
-const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6"];
 
 const todayIso = () => todayBangkok();
 const monthAgo = () => {
@@ -38,27 +41,37 @@ export default function AttendanceDashboardPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: personnel = [] } = useQuery({
-    queryKey: ["personnel-active"],
+  const { userId } = useUserRole();
+  const [today, setToday] = useState(todayIso);
+  useEffect(() => { const timer = window.setInterval(() => setToday(todayIso()), 30_000); return () => window.clearInterval(timer); }, []);
+  const validRange = Boolean(startDate && endDate && startDate <= endDate && startDate <= today);
+  const finish = endDate < today ? endDate : today;
+  const reportQuery = useQuery({
+    queryKey: ["staff-attendance-dashboard-v2", userId, startDate, finish, today],
+    enabled: Boolean(userId) && validRange,
     queryFn: async () => {
-      const { data } = await supabase.from("personnel").select("id, prefix, first_name, last_name, employee_code, position, department").eq("status", "active").order("first_name");
-      return data || [];
+      const [personnel, records, todayRecords, holidays] = await Promise.all([
+        readDigestRows<any>((a,b) => supabase.from("personnel").select("id,prefix,first_name,last_name,employee_code,position,department").eq("status","active").order("id").range(a,b)),
+        readDigestRows<any>((a,b) => supabase.from("time_clock").select("*,personnel(prefix,first_name,last_name,employee_code,department,position)").gte("clock_date",startDate).lte("clock_date",finish).order("clock_date",{ascending:false}).order("id").range(a,b)),
+        readDigestRows<any>((a,b) => supabase.from("time_clock").select("id,personnel_id,clock_date,clock_in,status,created_at").eq("clock_date",today).order("id").range(a,b)),
+        readDigestRows<any>((a,b) => supabase.from("academic_events").select("id,event_date,end_date").eq("event_type","holiday").lte("event_date",finish).or(`end_date.gte.${startDate},and(end_date.is.null,event_date.gte.${startDate})`).order("id").range(a,b)),
+      ]);
+      return {personnel, records, todayRecords, holidays};
     },
+    staleTime: 30_000, refetchInterval: 60_000,
   });
-
-  const { data: records = [], isLoading } = useQuery({
-    queryKey: ["attendance-dashboard", startDate, endDate],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("time_clock")
-        .select("*, personnel(prefix, first_name, last_name, employee_code, department, position)")
-        .gte("clock_date", startDate)
-        .lte("clock_date", endDate)
-        .order("clock_date", { ascending: false })
-        .limit(2000);
-      return data || [];
-    },
-  });
+  const personnel = reportQuery.data?.personnel ?? [];
+  const records = reportQuery.data?.records ?? [];
+  const isLoading = reportQuery.isLoading;
+  const ready = validRange && reportQuery.isSuccess;
+  const dates = useMemo(() => staffReportDates(startDate,finish,today,reportQuery.data?.holidays ?? []),[startDate,finish,today,reportQuery.data]);
+  const summary = useMemo(() => staffAttendanceSummary(personnel.map(p=>p.id),dates,records),[personnel,dates,records]);
+  const todaySummary = staffAttendanceSummary(personnel.map(p=>p.id),[today],reportQuery.data?.todayRecords ?? []).totals;
+  const byDate = summary.daily;
+  const pieData = STAFF_STATUSES.map(key=>({key,name:STATUS_MAP[key].label,value:summary.totals[key],fill:STATUS_MAP[key].fill})).filter(row=>row.value>0);
+  const onTime = todaySummary.normal, late = todaySummary.late, absent = todaySummary.unrecorded;
+  const periodRate = staffPercentage(summary.totals.normal + summary.totals.late + summary.totals.offsite,summary.totals.total);
+  const todayRate = staffPercentage(todaySummary.normal + todaySummary.late + todaySummary.offsite,todaySummary.total);
 
   // Filter by search/status
   const filtered = useMemo(() => {
@@ -71,54 +84,14 @@ export default function AttendanceDashboardPage() {
     });
   }, [records, search, statusFilter]);
 
-  // KPI today
-  const today = todayIso();
-  const todayRecs = (records as any[]).filter((r) => r.clock_date === today);
-  const onTime = todayRecs.filter((r) => r.status === "normal").length;
-  const late = todayRecs.filter((r) => r.status === "late").length;
-  const absent = Math.max(0, personnel.length - todayRecs.length);
-
-  // Group by date for chart
-  const byDate = useMemo(() => {
-    const map: Record<string, { date: string; normal: number; late: number; total: number }> = {};
-    (records as any[]).forEach((r) => {
-      const d = r.clock_date;
-      if (!map[d]) map[d] = { date: d, normal: 0, late: 0, total: 0 };
-      map[d].total++;
-      if (r.status === "normal") map[d].normal++;
-      if (r.status === "late") map[d].late++;
-    });
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  }, [records]);
-
-  // Pie data
-  const pieData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    (records as any[]).forEach((r) => { counts[r.status] = (counts[r.status] || 0) + 1; });
-    return Object.entries(counts).map(([k, v]) => ({ name: STATUS_MAP[k]?.label || k, value: v }));
-  }, [records]);
-
-  // Per-person summary
-  const perPerson = useMemo(() => {
-    const map: Record<string, any> = {};
-    personnel.forEach((p: any) => {
-      map[p.id] = {
-        ...p,
-        total: 0, normal: 0, late: 0, absent: 0,
-      };
-    });
-    (records as any[]).forEach((r) => {
-      const p = map[r.personnel_id];
-      if (!p) return;
-      p.total++;
-      if (r.status === "normal") p.normal++;
-      if (r.status === "late") p.late++;
-      if (r.status === "absent") p.absent++;
-    });
-    return Object.values(map).sort((a: any, b: any) => b.late - a.late);
-  }, [personnel, records]);
+  const perPerson = useMemo(() => personnel.map(p => {
+    const counts = {normal:0,late:0,offsite:0,official:0,leave:0,absent:0,unrecorded:0};
+    for (const date of dates) { const status = summary.statuses.get(`${date}/${p.id}`) ?? "unrecorded"; counts[status]++; }
+    return {...p,...counts,total:counts.normal+counts.late+counts.offsite,expected:dates.length};
+  }).sort((a,b)=>b.unrecorded-a.unrecorded),[personnel,dates,summary]);
 
   const exportCsv = () => {
+    if (!ready) return;
     const rows = [
       ["วันที่", "รหัส", "ชื่อ-สกุล", "ฝ่าย/กลุ่ม", "เข้างาน", "ออกงาน", "สถานะ", "GPS", "หมายเหตุ"],
       ...filtered.map((r: any) => [
@@ -126,8 +99,8 @@ export default function AttendanceDashboardPage() {
         r.personnel?.employee_code || "",
         `${r.personnel?.prefix || ""}${r.personnel?.first_name || ""} ${r.personnel?.last_name || ""}`,
         r.personnel?.department || "",
-        r.clock_in ? new Date(r.clock_in).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "",
-        r.clock_out ? new Date(r.clock_out).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "",
+        r.clock_in ? new Date(r.clock_in).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "",
+        r.clock_out ? new Date(r.clock_out).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "",
         STATUS_MAP[r.status]?.label || r.status,
         r.gps_verified ? "ผ่าน" : "-",
         (r.notes || "").replace(/\n/g, " "),
@@ -143,7 +116,7 @@ export default function AttendanceDashboardPage() {
     URL.revokeObjectURL(url);
   };
 
-  const formatTime = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
+  const formatTime = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "-";
 
   return (
     <div className="space-y-6">
@@ -160,7 +133,7 @@ export default function AttendanceDashboardPage() {
                 <p className="text-sm text-muted-foreground">ภาพรวมการลงเวลาเข้า-ออกของบุคลากร</p>
               </div>
             </div>
-            <Button onClick={exportCsv} variant="outline">
+            <Button onClick={exportCsv} variant="outline" disabled={!ready}>
               <Download className="w-4 h-4 mr-2" />ส่งออก CSV
             </Button>
           </div>
@@ -195,6 +168,10 @@ export default function AttendanceDashboardPage() {
         </CardContent>
       </Card>
 
+      {!validRange && <p role="alert" className="text-destructive">เลือกช่วงวันที่ให้ถูกต้องและไม่เริ่มในอนาคต</p>}
+      {isLoading && <p role="status" className="text-muted-foreground">กำลังโหลดข้อมูล…</p>}
+      {reportQuery.isError && <div role="alert" className="flex gap-3 items-center text-destructive"><span>โหลดรายงานไม่สำเร็จ</span><Button variant="outline" onClick={()=>reportQuery.refetch()}>ลองใหม่</Button></div>}
+      {ready && <>
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="บุคลากรทั้งหมด" value={personnel.length} icon={Users} tone="muted" />
@@ -203,6 +180,8 @@ export default function AttendanceDashboardPage() {
         <StatCard label="ยังไม่ลงเวลา" value={absent} icon={AlertTriangle} tone="destructive" />
       </div>
 
+      <p className="text-sm font-medium">ลงเวลาวันนี้ {todaySummary.normal+todaySummary.late+todaySummary.offsite}/{todaySummary.total} คน ({todayRate ?? "—"}%)</p>
+      <p className="text-xs text-muted-foreground">ช่วงที่เลือก: {dates.length} วันทำงาน · ฐานบุคลากรกำลังปฏิบัติงานปัจจุบัน {personnel.length} คน · ไม่รวมเสาร์–อาทิตย์และวันหยุดที่บันทึกไว้</p>
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
@@ -214,23 +193,24 @@ export default function AttendanceDashboardPage() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="normal" stackId="a" fill="#10b981" name="ปกติ" />
-                <Bar dataKey="late" stackId="a" fill="#f59e0b" name="สาย" />
+                {STAFF_STATUSES.map(key=><Bar key={key} dataKey={key} stackId="a" fill={STATUS_MAP[key].fill} name={STATUS_MAP[key].label} />)}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-base">สัดส่วนสถานะ</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">สัดส่วนสถานะช่วงที่เลือก</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {pieData.map(row => <Cell key={row.key} fill={row.fill} />)}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value:number)=>[`${value} คน-วัน (${staffPercentage(value,summary.totals.total)}%)`,"ยอดสะสม"]} />
               </PieChart>
             </ResponsiveContainer>
+            <p className="text-sm font-medium mb-3">ลงเวลาเข้างาน {periodRate ?? "—"}%</p>
+            <div className="space-y-2">{pieData.map(row=><div key={row.key} className="flex justify-between gap-2 text-xs"><span>{row.name}</span><span>{row.value} คน-วัน · {staffPercentage(row.value,summary.totals.total)}%</span></div>)}</div>
           </CardContent>
         </Card>
       </div>
@@ -301,23 +281,25 @@ export default function AttendanceDashboardPage() {
                 <TableHead>ชื่อ-สกุล</TableHead>
                 <TableHead>ฝ่าย/ตำแหน่ง</TableHead>
                 <TableHead className="text-right">มาทั้งหมด</TableHead>
-                <TableHead className="text-right text-emerald-600">ปกติ</TableHead>
-                <TableHead className="text-right text-amber-600">สาย</TableHead>
-                <TableHead className="text-right">% ตรงเวลา</TableHead>
+                <TableHead className="text-right text-success">ปกติ</TableHead>
+                <TableHead className="text-right text-warning">สาย</TableHead>
+                <TableHead className="text-right">ยังไม่ลงเวลา</TableHead>
+                <TableHead className="text-right">% ตรงเวลา / วันทำงาน</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {(perPerson as any[]).map((p) => {
-                  const pct = p.total > 0 ? Math.round((p.normal / p.total) * 100) : 0;
+                  const pct = staffPercentage(p.normal,p.expected);
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-xs">{p.employee_code}</TableCell>
                       <TableCell>{p.prefix}{p.first_name} {p.last_name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{p.department || p.position || "-"}</TableCell>
                       <TableCell className="text-right">{p.total}</TableCell>
-                      <TableCell className="text-right text-emerald-600">{p.normal}</TableCell>
-                      <TableCell className="text-right text-amber-600">{p.late}</TableCell>
+                      <TableCell className="text-right text-success">{p.normal}</TableCell>
+                      <TableCell className="text-right text-warning">{p.late}</TableCell>
+                      <TableCell className="text-right">{p.unrecorded}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant={pct >= 90 ? "default" : pct >= 70 ? "secondary" : "destructive"}>{pct}%</Badge>
+                        <Badge variant="secondary">{pct === null ? "—" : `${pct}%`}</Badge>
                       </TableCell>
                     </TableRow>
                   );
@@ -327,6 +309,7 @@ export default function AttendanceDashboardPage() {
           </CardContent></Card>
         </TabsContent>
       </Tabs>
+      </>}
     </div>
   );
 }
