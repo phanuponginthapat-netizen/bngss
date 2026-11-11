@@ -3,6 +3,7 @@
 - Database triggers synchronize alumni roles to non-active student rosters and clear both classroom links; preserve transferred/graduated states and never infer graduation from an account role.
 - Academic documents and schedule actions gate on every dependent read through academicReadState; throw source errors and offer retry rather than render or print incomplete data as empty success.
 - AI bubble fullscreen mode resizes the same mounted chat via a body portal; preserve drafts, attachments and ongoing inference without changing chat storage or transport.
+- AI history loads all owner rows and checks full text/image writes to prevent silent loss.
 - Explicit school AI tools use the server-only Gateway SDK with role checks, shared daily chat quota, streamed output and awaited chat history; grade summaries consume supplied data only and never grant school-record access.
 - AI document attachments are extracted locally and sent as bounded untrusted context to school tools; reject unreadable or oversized content without truncation, retain files after errors, and never store raw attachment text in chat history.
 - Routes mount directly without a startup overlay; SystemLoader handles pending page loads independently so opening the app is not delayed by intro playback.

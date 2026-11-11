@@ -7,6 +7,7 @@ import { checkDailyChatQuota, bangkokDayStart } from "../_shared/aiDailyQuota.ts
 import { dailyImageLimit, isImagePromptAllowed, safeImagePrompt } from "../_shared/imagePolicy.ts";
 import { ensureFolderPath, uploadFile } from "../_shared/googleDrive.ts";
 import { DEFAULT_PERSONA, answerMode, buildCharacterPolicy, normalizeChatHistory } from "./promptPolicy.ts";
+import { chatHistoryRows, durableChatContent } from "../_shared/chatPersistence.ts";
 
 import { corsHeadersPost as corsHeaders } from "../_shared/cors.ts";
 
@@ -509,7 +510,8 @@ Deno.serve(async (req) => {
       return { risk_level, risk_flags: flags, topic, sentiment };
     };
 
-    // ---- Best-effort log (don't block response on failure) ----
+    // Persist complete output before reporting success; never hide a failed save.
+    let historySaved = false;
     if (identifier) {
       try {
         const sb = createClient(
@@ -521,22 +523,28 @@ Deno.serve(async (req) => {
         const userRole = (roleRow as any)?.role || null;
         const cls = classify(lastUser);
         const baseCreatedAt = Date.now();
-        const rows = [
-          {
-            user_id: identifier, session_id: sessionId, role: "user", content: lastUser.slice(0, 4000),
+        const storedContent = await durableChatContent(String(result.content || ""), async (mime, base64) => {
+          const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+          const extension = mime === "image/jpeg" ? "jpg" : mime.split("/")[1];
+          const path = `${identifier}/${crypto.randomUUID()}.${extension}`;
+          const { error } = await sb.storage.from("ai-chat-images").upload(path, bytes, { contentType: mime });
+          if (error) throw error;
+          return path;
+        });
+        const rows = chatHistoryRows(identifier, lastUser, storedContent, result.model || null, sessionId, baseCreatedAt);
+        const { error: historyError } = await sb.from("ai_chat_logs").insert([
+          { ...rows[0],
             topic: cls.topic, sentiment: cls.sentiment, risk_level: cls.risk_level, risk_flags: cls.risk_flags,
             tokens_in: (result as any).tokens_input ?? null, user_role: userRole,
-            model: (result as any).model ?? null,
-            created_at: new Date(baseCreatedAt).toISOString(),
           },
-          {
-            user_id: identifier, session_id: sessionId, role: "assistant", content: String(result.content || "").slice(0, 4000),
+          { ...rows[1],
             tokens_out: (result as any).tokens_output ?? null, model: (result as any).model ?? null,
             user_role: userRole,
-            created_at: new Date(baseCreatedAt + 1).toISOString(),
           },
-        ];
-        await sb.from("ai_chat_logs").insert(rows);
+        ]);
+        if (historyError) throw historyError;
+        historySaved = true;
+        result.content = storedContent;
 
         // Keep the quota-relevant chat log awaited, but don't delay the answer for memory synthesis.
         const updateMemory = async () => {
@@ -575,10 +583,10 @@ AI ตอบ: ${String(result.content || "").slice(0, 400)}
         await sb.from("ai_user_memory").upsert(payload, { onConflict: "user_id" });
         };
         EdgeRuntime.waitUntil(updateMemory().catch(() => { console.warn("AI memory update unavailable"); }));
-      } catch (_) { /* ignore logging errors */ }
+      } catch (_) { console.warn("AI chat history save failed"); }
     }
 
-    return new Response(JSON.stringify({ reply: result.content, provider: result.provider, model: result.model }), {
+    return new Response(JSON.stringify({ reply: result.content, provider: result.provider, model: result.model, historySaved }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
