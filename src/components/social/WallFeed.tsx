@@ -17,6 +17,7 @@ import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
 import { saveErrorMessage } from "@/lib/saveError";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { wallInteractionAllowed } from "@/lib/wallAccess";
 
 interface WallPost {
   id: string;
@@ -54,6 +55,7 @@ interface StagedMedia {
 export default function WallFeed({ profileUserId, readOnly = false }: { profileUserId?: string; readOnly?: boolean }) {
   const { user, isReady } = useAuthSession();
   const userId = user?.id ?? null;
+  const canInteract = wallInteractionAllowed(readOnly, userId);
   const request = useRef(0);
   const [loadError, setLoadError] = useState("");
   const [posts, setPosts] = useState<WallPost[]>([]);
@@ -166,7 +168,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
   };
 
   const submit = async () => {
-    if (readOnly) return;
+    if (!canInteract) return;
     if (posting || uploading) return;
     if (linkUrl.trim() && !validSocialLink(linkUrl)) return toast.error("ใส่ลิงก์ที่ขึ้นต้นด้วย https:// หรือ http://");
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
@@ -193,7 +195,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
   };
 
   const react = async (post: WallPost, type: string) => {
-    if (readOnly) return;
+    if (!canInteract) return;
     if (!userId) return toast.error("กรุณาเข้าสู่ระบบ");
     if (reactionLocks.current.has(post.id)) return;
     reactionLocks.current.add(post.id);
@@ -233,7 +235,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
   };
 
   const removePost = async (id: string) => {
-    if (readOnly) return;
+    if (!canInteract) return;
     const ok = await swal.confirm({
       title: "ยืนยันการลบโพสต์?",
       text: "โพสต์นี้จะถูกลบถาวร ไม่สามารถกู้คืนได้",
@@ -250,7 +252,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
 
   return (
     <div className="space-y-4">
-      {!readOnly && userId && !profileUserId && (
+      {canInteract && !profileUserId && (
         <Card>
           <CardContent className="p-4 space-y-3">
             <Textarea
