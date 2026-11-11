@@ -18,6 +18,7 @@ import {
   createMonitorChannel,
   callLocalCtl,
   RTC_CONFIG,
+  sendMonitorEvent, readMonitorEvent,
   type MonitorEvent,
   type AgentPresence,
 } from "@/lib/monitorSignal";
@@ -232,7 +233,13 @@ export default function StudentAgentPage() {
     const ch = createMonitorChannel(me.id);
     channelRef.current = ch;
 
-    const onBroadcast = ({ payload }: { payload: MonitorEvent }) => {
+    const seen = new Set<string>();
+    const onBroadcast = async ({ payload: raw }: { payload: any }) => {
+      if (!raw?.receipt || seen.has(raw.receipt)) return;
+      seen.add(raw.receipt);
+      if (seen.size > 500) seen.delete(seen.values().next().value as string);
+      const payload = await readMonitorEvent(raw).catch(() => null);
+      if (!payload) return;
       if (payload.to !== me.id && payload.to !== "*") return;
       switch (payload.type) {
         case "request-stream": startSharing(payload.from); break;
@@ -248,13 +255,6 @@ export default function StudentAgentPage() {
       if (s === "SUBSCRIBED") {
         const p: AgentPresence = { user_id: me.id, name: me.name, classroom: me.classroom, room, role: me.role, online_at: new Date().toISOString() };
         await ch.track(p);
-        // ⚡ auto-prewarm stream หลัง 1 วิ — ใน kiosk chromium จะ auto-pick โดยไม่มี dialog
-        // ถ้าไม่ใช่ kiosk (ทดสอบใน browser ปกติ) จะ fail เงียบ ๆ ไม่รบกวน นร
-        setTimeout(() => {
-          if (kioskConfig?.mode === "student" || document.fullscreenElement) {
-            ensureStream().catch(() => { /* silent */ });
-          }
-        }, 1000);
       }
     });
 
@@ -289,12 +289,12 @@ export default function StudentAgentPage() {
         break;
       case "open-url": {
         const url = String(payload?.url || "");
-        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) return;
         toast(`ครูเปิดลิงก์: ${url}`);
         // แจ้ง extension เพื่อเปิด tab ใหม่ใน chromium หลัก (นักเรียน)
-        window.postMessage({ type: "SB_OPEN_URL", url }, "*");
-        // เผื่อไม่มี extension — เปิดเองด้วย
-        window.open(url, "_blank", "noopener");
+        if (document.documentElement.getAttribute("data-school-safe-browser") === "1") {
+          window.postMessage({ type: "SB_OPEN_URL", url }, window.location.origin);
+        } else window.open(url, "_blank", "noopener");
         break;
       }
       case "shutdown": {
@@ -323,7 +323,7 @@ export default function StudentAgentPage() {
       }
       case "screenshot": {
         const img = await captureScreenshot();
-        if (img) send({ type: "screenshot-image", from: me!.id, to: from, image: img });
+        if (img && me) send({ type: "screenshot-image", from: me.id, to: from, image: img });
         break;
       }
     }
@@ -361,7 +361,9 @@ export default function StudentAgentPage() {
       }
       const canvas = document.createElement("canvas");
       canvas.width = bitmap.width; canvas.height = bitmap.height;
-      canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("ไม่สามารถสร้างภาพได้");
+      context.drawImage(bitmap, 0, 0);
       if (stream !== streamRef.current) stream.getTracks().forEach((t) => t.stop());
       return canvas.toDataURL("image/jpeg", 0.7);
     } catch (e) {
@@ -488,7 +490,7 @@ export default function StudentAgentPage() {
     try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
   }
   function send(ev: MonitorEvent) {
-    channelRef.current?.send({ type: "broadcast", event: "monitor", payload: ev });
+    sendMonitorEvent(channelRef.current, ev).catch(e => toast.error(e.message));
   }
 
   async function selfShutdown() {

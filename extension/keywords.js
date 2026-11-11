@@ -58,7 +58,7 @@ function sbBuildKeywordList(cfg) {
       const raw = cfg?.browser_keyword_categories;
       if (!raw) return SB_DEFAULT_CATEGORIES;
       const v = typeof raw === "string" ? JSON.parse(raw) : raw;
-      return Array.isArray(v) && v.length ? v : SB_DEFAULT_CATEGORIES;
+      return Array.isArray(v) ? v : SB_DEFAULT_CATEGORIES;
     } catch { return SB_DEFAULT_CATEGORIES; }
   })();
 

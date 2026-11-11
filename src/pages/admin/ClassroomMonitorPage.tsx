@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createMonitorChannel, RTC_CONFIG,
+  createMonitorChannel, RTC_CONFIG, sendMonitorEvent, readMonitorEvent,
   type MonitorEvent, type AgentPresence, type CommandAction,
 } from "@/lib/monitorSignal";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -72,7 +72,9 @@ export default function ClassroomMonitorPage() {
       setAgents(next);
     });
 
-    ch.on("broadcast", { event: "monitor" }, ({ payload }: { payload: MonitorEvent }) => {
+    ch.on("broadcast", { event: "monitor" }, async ({ payload: raw }) => {
+      const payload = await readMonitorEvent(raw).catch(() => null);
+      if (!payload) return;
       if (payload.type === "screenshot-image") {
         // ครูขอ → to=me.id, นักเรียนส่งเอง → to="*"
         if (payload.to !== me.id && payload.to !== "*") return;
@@ -108,7 +110,7 @@ export default function ClassroomMonitorPage() {
   }, [me?.id]);
 
   function send(ev: MonitorEvent) {
-    channelRef.current?.send({ type: "broadcast", event: "monitor", payload: ev });
+    sendMonitorEvent(channelRef.current, ev).catch(e => toast.error(e.message));
   }
 
   function cmd(agentId: string, action: CommandAction, payload?: any) {
@@ -227,15 +229,12 @@ export default function ClassroomMonitorPage() {
           }
         });
       });
-      await ch.send({
-        type: "broadcast",
-        event: "force-logout",
-        payload: {
+      await sendMonitorEvent(ch, {
+          type: "force-logout", from: me?.id, to: "*",
           classroom: classFilter === "all" ? "*" : classFilter,
           role: "student",
           reason: "ครูสั่งออกจากระบบ",
-        },
-      });
+      }, "force-logout");
       toast.success("ส่งคำสั่ง logout ไปยังนักเรียนทั้งหมดแล้ว");
     } catch (e) {
       toast.error("ส่ง broadcast ไม่สำเร็จ");

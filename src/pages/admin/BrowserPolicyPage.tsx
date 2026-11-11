@@ -64,6 +64,7 @@ const emptyRule = (): TimeRule => ({
 
 export default function BrowserPolicyPage() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rules, setRules] = useState<TimeRule[]>([]);
   const [loginUrl, setLoginUrl] = useState("");
@@ -74,15 +75,17 @@ export default function BrowserPolicyPage() {
   const [kwAllow, setKwAllow] = useState("");
   const [kwScan, setKwScan] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
+  const load = async () => {
+    setLoading(true); setLoadError(false);
+    try {
+      const { data, error } = await supabase
         .from("cms_settings")
         .select("key,value")
         .in("key", [
           "browser_time_rules", "browser_login_url", "browser_blocklist", "browser_block_message",
           "browser_keywords", "browser_keyword_categories", "browser_keyword_allowlist", "browser_keyword_scan_page",
         ]);
+      if (error) throw error;
       const m = new Map((data || []).map((r: any) => [r.key, r.value]));
       const raw = m.get("browser_time_rules");
       if (raw) {
@@ -109,11 +112,12 @@ export default function BrowserPolicyPage() {
       setKwScan(String(m.get("browser_keyword_scan_page") ?? "1") !== "0");
       try {
         const cats = JSON.parse(String(m.get("browser_keyword_categories") || "[]"));
-        if (Array.isArray(cats) && cats.length) setKwCats(cats.map(String));
+        if (Array.isArray(cats)) setKwCats(cats.map(String));
       } catch { /* ignore */ }
-      setLoading(false);
-    })();
-  }, []);
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, []);
 
   const upsert = async (key: string, value: string) => {
     const { error } = await supabase.from("cms_settings").upsert({ key, value } as any, { onConflict: "key" });
@@ -123,6 +127,7 @@ export default function BrowserPolicyPage() {
   const save = async () => {
     setSaving(true);
     try {
+      if (loadError) throw new Error("อ่านนโยบายไม่สำเร็จ กรุณาลองใหม่ก่อนบันทึก");
       const normalized = rules
         .filter((r) => r.name.trim() && r.domains.trim())
         .map((r) => ({
@@ -135,14 +140,11 @@ export default function BrowserPolicyPage() {
           start: r.start,
           end: r.end,
         }));
-      await upsert("browser_time_rules", JSON.stringify(normalized));
-      await upsert("browser_login_url", loginUrl.trim());
-      await upsert("browser_blocklist", blocklist.trim());
-      await upsert("browser_block_message", blockMsg.trim());
-      await upsert("browser_keyword_categories", JSON.stringify(kwCats));
-      await upsert("browser_keywords", kwCustom.trim());
-      await upsert("browser_keyword_allowlist", kwAllow.trim());
-      await upsert("browser_keyword_scan_page", kwScan ? "1" : "0");
+      if (normalized.some(r => !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.end))) throw new Error("กรุณาระบุเวลาให้ถูกต้อง");
+      if (loginUrl.trim() && !/^https?:\/\//i.test(loginUrl.trim())) throw new Error("ลิงก์เข้าสู่ระบบไม่ถูกต้อง");
+      const entries = Object.entries({ browser_time_rules: JSON.stringify(normalized), browser_login_url: loginUrl.trim(), browser_blocklist: blocklist.trim(), browser_block_message: blockMsg.trim(), browser_keyword_categories: JSON.stringify(kwCats), browser_keywords: kwCustom.trim(), browser_keyword_allowlist: kwAllow.trim(), browser_keyword_scan_page: kwScan ? "1" : "0" }).map(([key,value]) => ({key,value}));
+      const result = await supabase.from("cms_settings").upsert(entries, { onConflict: "key" });
+      if (result.error) throw result.error;
       toast.success("บันทึกแล้ว · Extension จะรีเฟรช config ภายใน 5 นาที (หรือกด 'รีเฟรช' จาก popup)");
     } catch (e: any) {
       toast.error(e.message || String(e));
@@ -167,6 +169,7 @@ export default function BrowserPolicyPage() {
   };
 
   if (loading) return <div className="p-4 text-sm text-muted-foreground">กำลังโหลด…</div>;
+  if (loadError) return <div className="space-y-3"><p className="text-destructive">อ่านนโยบายไม่สำเร็จ</p><Button onClick={load}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-5">

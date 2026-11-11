@@ -218,6 +218,13 @@
       "when": 1794379683778,
       "tag": "0030_restore_audit_modules_and_safe_admin_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794382469657,
+      "tag": "0031_authorize_monitor_events",
+      "breakpoints": true
     }
   ]
 }

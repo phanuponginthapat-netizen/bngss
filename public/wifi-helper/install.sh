@@ -6,7 +6,10 @@
 # ============================================================================
 set -e
 
-EXT_ID="${EXT_ID:-icacgdjhgabapdfflndkjclpkggckdbk}"
+EXT_ID="${EXT_ID:-pmkbhlpecjcgmcmbfiaggbockmmfpbig}"
+[[ "$EXT_ID" =~ ^[a-p]{32}$ ]] || { echo "รหัสส่วนขยายไม่ถูกต้อง"; exit 1; }
+KIOSK_USER="${KIOSK_USER:-guest}"
+[[ "$KIOSK_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "ชื่อผู้ใช้ไม่ถูกต้อง"; exit 1; }
 HOST_NAME="com.bngss.wifi"
 HELPER_DIR="/opt/bngss"
 HELPER_BIN="$HELPER_DIR/wifi-helper.py"
@@ -23,11 +26,16 @@ fi
 
 # --- 2) วาง helper script ---
 mkdir -p "$HELPER_DIR"
-if [ -f "./wifi-helper.py" ]; then
-  cp -f "./wifi-helper.py" "$HELPER_BIN"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+if [ -f "$SCRIPT_DIR/wifi-helper.py" ]; then
+  cp -f "$SCRIPT_DIR/wifi-helper.py" "$STAGE/helper.py"
 else
-  curl -fsSL "$SYSTEM_URL/wifi-helper/wifi-helper.py" -o "$HELPER_BIN"
+  curl --proto '=https' --proto-redir '=https' -fsSL "$SYSTEM_URL/wifi-helper/wifi-helper.py" -o "$STAGE/helper.py"
 fi
+python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' "$STAGE/helper.py"
+install -o root -g root -m 0755 "$STAGE/helper.py" "$HELPER_BIN"
 chmod 0755 "$HELPER_BIN"
 chown root:root "$HELPER_BIN"
 
@@ -56,11 +64,11 @@ done
 
 # --- 4) polkit: อนุญาต user "guest" ใช้ NetworkManager โดยไม่ต้องถามรหัส ---
 mkdir -p /etc/polkit-1/rules.d
-cat >/etc/polkit-1/rules.d/50-bngss-nm.rules <<'PKR'
+cat >/etc/polkit-1/rules.d/50-bngss-nm.rules <<PKR
 // BNGSS: อนุญาตให้ user "guest" จัดการ Wi-Fi ผ่าน NetworkManager
 polkit.addRule(function(action, subject) {
-  if (subject.user !== "guest") return;
-  if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
+  if (subject.user !== "$KIOSK_USER" || !subject.local || !subject.active) return;
+  if (["org.freedesktop.NetworkManager.network-control", "org.freedesktop.NetworkManager.settings.modify.own", "org.freedesktop.NetworkManager.wifi.scan"].indexOf(action.id) >= 0) {
     return polkit.Result.YES;
   }
 });

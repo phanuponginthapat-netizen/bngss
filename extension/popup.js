@@ -14,7 +14,7 @@ async function render() {
   const status = document.getElementById("status");
   const user = document.getElementById("user");
   const bl = document.getElementById("bl");
-  if (s?.session?.access_token) {
+  if (s?.session?.connected) {
     status.textContent = "เชื่อมแล้ว"; status.className = "badge ok";
     user.textContent = s.session.user?.email || s.session.user?.id?.slice(0,8) || "—";
   } else {
@@ -24,6 +24,11 @@ async function render() {
   const list = (cfg.browser_blocklist || "").split(/[\n,]+/).filter(Boolean).length;
   const ads = (cfg.browser_ad_domains || "").split(/[\n,]+/).filter(Boolean).length;
   bl.textContent = `${list} เว็บ + ${ads} โฆษณา`;
+  if (s?.configError || s?.logError) {
+    status.textContent = s.configError ? "โหลดนโยบายไม่สำเร็จ" : "บันทึกประวัติไม่สำเร็จ";
+    status.className = "badge no";
+    status.title = s.configError || s.logError;
+  }
 }
 
 document.getElementById("open").onclick = () => chrome.runtime.sendMessage({ type: "OPEN_HOME" });
@@ -35,4 +40,4 @@ document.getElementById("refresh").onclick = async () => {
   await chrome.runtime.sendMessage({ type: "REFRESH_CONFIG" });
   render();
 };
-render();
+render().catch(() => { document.getElementById("status").textContent = "เชื่อมต่อไม่สำเร็จ"; });

@@ -1,5 +1,5 @@
 // Safe Browser — background service worker
-try { importScripts("keywords.js"); } catch (e) { /* ignore */ }
+importScripts("trust.js", "keywords.js");
 // backend ถูกกำหนดตอน runtime (ระบบเว็บส่งมาให้ผ่าน SET_SESSION) — ค่าด้านล่างเป็นค่าเริ่มต้นเท่านั้น
 const DEFAULT_SUPABASE_URL = "https://dlkyxvhnnffblerwedjz.supabase.co";
 const DEFAULT_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4";
@@ -9,16 +9,18 @@ let ANON_KEY = DEFAULT_ANON_KEY;
 async function loadBackend() {
   try {
     const { backend } = await chrome.storage.local.get(["backend"]);
-    if (backend?.url) SUPABASE_URL = String(backend.url).replace(/\/+$/, "");
-    if (backend?.anonKey) ANON_KEY = backend.anonKey;
+    if (backend?.url !== DEFAULT_SUPABASE_URL || backend?.anonKey !== DEFAULT_ANON_KEY) {
+      await chrome.storage.local.set({ backend: { url: DEFAULT_SUPABASE_URL, anonKey: DEFAULT_ANON_KEY } });
+    }
   } catch {}
   return { SUPABASE_URL, ANON_KEY };
 }
 const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
+chrome.storage.local.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
 loadBackend();
 
 // ---- App (school system) origin — ปรับตาม deploy ได้ (lovable.app / vercel.app / โดเมนโรงเรียน)
-const DEFAULT_APP_ORIGIN = "https://bngss.lovable.app";
+const DEFAULT_APP_ORIGIN = "https://bngss.online";
 let APP_ORIGIN = DEFAULT_APP_ORIGIN;
 let DEFAULT_SYSTEM_HOME = `${APP_ORIGIN}/dashboard/browser`;
 let AGENT_URL = `${APP_ORIGIN}/dashboard/monitor/agent`;
@@ -26,6 +28,7 @@ let DEFAULT_LOGIN_URL = `${APP_ORIGIN}/login`;
 
 function setAppOrigin(origin) {
   try {
+    if (!self.sbTrustedSchoolUrl(origin)) return;
     const o = new URL(origin).origin;
     if (!o || o === APP_ORIGIN) return;
     APP_ORIGIN = o;
@@ -45,15 +48,11 @@ loadAppOrigin();
 
 // URL/domains ที่ถือว่า "ระบบโรงเรียน" — อนุญาตเข้าเสมอเพื่อให้ login ได้
 // หมายเหตุ: ไม่อนุญาต *.vercel.app / *.lovable.app ทั้งหมด (เป็นช่องโหว่) — เฉพาะโดเมนระบบเท่านั้น
-const SCHOOL_HOST_SUFFIXES = ["supabase.co", "supabase.io"];
 function isSchoolUrl(url) {
   try {
     const u = new URL(url);
     if (u.protocol === "chrome-extension:" || u.protocol === "chrome:" || u.protocol === "about:" || u.protocol === "edge:") return true;
-    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
-    if (APP_ORIGIN && u.origin === APP_ORIGIN) return true;
-    try { if (DEFAULT_APP_ORIGIN && u.origin === DEFAULT_APP_ORIGIN) return true; } catch {}
-    return SCHOOL_HOST_SUFFIXES.some((s) => u.hostname === s || u.hostname.endsWith("." + s));
+    return self.sbTrustedSchoolUrl(url) || u.origin === DEFAULT_SUPABASE_URL;
   } catch { return false; }
 }
 
@@ -88,7 +87,7 @@ let _agentSpawnFails = 0;
 // เปิดเฉพาะ role นักเรียนเท่านั้น — บุคลากร/ครู ใช้ extension แบบบันทึก log ปกติ
 function isStudentSession(session) {
   const r = session?.role;
-  return !r || r === "student";
+  return r === "student";
 }
 
 async function ensureAgentTab() {
@@ -183,8 +182,8 @@ chrome.alarms?.onAlarm.addListener(async (a) => {
 
 
 async function getState() {
-  const s = await chrome.storage.local.get(["session", "config", "configAt", "systemHome"]);
-  return s;
+  const s = await chrome.storage.local.get(["session", "config", "configAt", "configError", "systemHome", "logError"]);
+  return { ...s, session: s.session ? { user: s.session.user, role: s.session.role, connected: !!s.session.access_token } : null };
 }
 
 async function getConfig() {
@@ -210,7 +209,10 @@ async function clearSession(reason) {
     const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
     if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
   } catch {}
-  await chrome.storage.local.remove(["session", "agentTabId"]);
+  await chrome.storage.local.remove(["session", "agentTabId", "config", "configAt"]);
+  await chrome.storage.local.set({ locked: false, lockMsg: "" });
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) if (tab.id) chrome.scripting?.executeScript({ target: { tabId: tab.id }, func: () => document.getElementById("__sb_lock")?.remove() }).catch(() => {});
   _remoteOk = true;
   _lastRemoteCheck = 0;
   if (reason) notify("🔒 ออกจากระบบแล้ว", "กรุณาเข้าสู่ระบบใหม่เพื่อใช้งานอินเทอร์เน็ต");
@@ -274,25 +276,35 @@ async function getValidSession({ force = false } = {}) {
 
 async function getSystemHome() {
   const { systemHome } = await chrome.storage.local.get(["systemHome"]);
-  return systemHome || DEFAULT_SYSTEM_HOME;
+  return self.sbTrustedSchoolUrl(systemHome) ? systemHome : DEFAULT_SYSTEM_HOME;
 }
 
+let _configRequest = null;
 async function refreshConfig() {
-  try {
+  if (_configRequest) return _configRequest;
+  _configRequest = (async () => { try {
     await loadBackend();
-    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } });
-    if (!r.ok) return;
+    const { session } = await chrome.storage.local.get(["session"]);
+    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${session?.access_token || ANON_KEY}` }, signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error(`อ่านนโยบายไม่สำเร็จ (${r.status})`);
     const cfg = await r.json();
-    await chrome.storage.local.set({ config: cfg, configAt: Date.now() });
-  } catch (e) { /* ignore */ }
+    if (!cfg || typeof cfg !== "object" || Array.isArray(cfg) || cfg.error) throw new Error("นโยบายไม่ถูกต้อง");
+    await chrome.storage.local.set({ config: cfg, configAt: Date.now(), configError: null });
+    return { ok: true };
+  } catch (e) {
+    const error = String(e?.message || e);
+    await chrome.storage.local.set({ configError: error });
+    return { ok: false, error };
+  } finally { _configRequest = null; } })();
+  return _configRequest;
 }
 
 function parseList(s) {
-  return (s || "").split(/[\n,]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
+  return String(s || "").split(/[\n,]+/).map(x => x.trim().toLowerCase().replace(/^\*\./, "")).filter(Boolean);
 }
 function hostMatches(host, list) {
   host = (host || "").toLowerCase();
-  for (const t of list) if (host === t || host.endsWith("." + t) || host.includes(t)) return t;
+  for (const t of list) if (host === t || host.endsWith("." + t)) return t;
   return null;
 }
 
@@ -309,18 +321,21 @@ function parseTimeRules(raw) {
 function hhmmToMin(s) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
   if (!m) return null;
+  if (+m[1] > 23 || +m[2] > 59) return null;
   return (+m[1]) * 60 + (+m[2]);
 }
 function checkTimeRules(host, rules) {
-  const now = new Date();
-  const day = now.getDay();
-  const cur = now.getHours() * 60 + now.getMinutes();
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bangkok", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  const value = (type) => parts.find(p => p.type === type)?.value;
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(value("weekday"));
+  const cur = Number(value("hour")) * 60 + Number(value("minute"));
   for (const r of rules) {
     if (!r || !Array.isArray(r.domains) || r.domains.length === 0) continue;
-    if (Array.isArray(r.days) && r.days.length > 0 && !r.days.includes(day)) continue;
     const s = hhmmToMin(r.start);
     const e = hhmmToMin(r.end);
     if (s == null || e == null) continue;
+    const ruleDay = s > e && cur < e ? (day + 6) % 7 : day;
+    if (Array.isArray(r.days) && r.days.length > 0 && !r.days.includes(ruleDay)) continue;
     const inWindow = s <= e ? (cur >= s && cur < e) : (cur >= s || cur < e); // ข้ามเที่ยงคืน
     if (!inWindow) continue;
     const list = r.domains.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
@@ -330,25 +345,39 @@ function checkTimeRules(host, rules) {
   return null;
 }
 
+const recentLogs = new Map();
 async function logVisit(url, action, reason) {
-  const { session } = await getState();
+  const { session } = await chrome.storage.local.get(["session"]);
   if (!session?.access_token) return;
   try {
-    await fetch(fnUrl("ext-log"), {
+    await loadBackend();
+    const safeUrl = new URL(url);
+    if (!/^https?:$/.test(safeUrl.protocol) || isSchoolUrl(url)) return;
+    safeUrl.username = ""; safeUrl.password = ""; safeUrl.hash = "";
+    for (const key of [...safeUrl.searchParams.keys()]) if (/token|password|secret|code|key/i.test(key)) safeUrl.searchParams.delete(key);
+    const dedup = `${session.user?.id}:${action}:${safeUrl.href}`;
+    if (Date.now() - (recentLogs.get(dedup) || 0) < 2000) return;
+    recentLogs.set(dedup, Date.now());
+    if (recentLogs.size > 1000) recentLogs.delete(recentLogs.keys().next().value);
+    const response = await fetch(fnUrl("ext-log"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: ANON_KEY,
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ url, action, reason }),
+      body: JSON.stringify({ url: safeUrl.href, action, reason }),
+      signal: AbortSignal.timeout(15000),
     });
-  } catch { /* ignore */ }
+    if (!response.ok) throw new Error(`บันทึกประวัติไม่สำเร็จ (${response.status})`);
+    await chrome.storage.local.set({ logError: null });
+  } catch (e) { await chrome.storage.local.set({ logError: String(e?.message || e) }); }
 }
 
 chrome.runtime.onInstalled.addListener(() => { refreshConfig(); ensureAgentTab(); });
 chrome.runtime.onStartup.addListener(() => { refreshConfig(); ensureAgentTab(); });
-setInterval(refreshConfig, 5 * 60 * 1000);
+chrome.alarms?.create?.("config-refresh", { periodInMinutes: 5 });
+chrome.alarms?.onAlarm.addListener(a => { if (a.name === "config-refresh") refreshConfig(); });
 
 // -------------------------------------------------------------
 // Enforcement — ใช้ร่วมกันทั้ง onBeforeNavigate / onCommitted / SPA / sweep
@@ -366,6 +395,8 @@ async function enforceUrl(tabId, url) {
   if (!/^https?:/.test(url || "")) return false;
   let host = "";
   try { host = new URL(url).hostname; } catch { return false; }
+  await loadAppOrigin();
+  if (isSchoolUrl(url)) return false;
 
   const config = await getConfig();
   const session = await getValidSession();
@@ -373,7 +404,7 @@ async function enforceUrl(tabId, url) {
   // ===== AUTH GATE: ยังไม่ login (หรือ session หมดอายุ/ถูก logout) → บังคับไปหน้าเข้าสู่ระบบ =====
   if (!session?.access_token) {
     if (isSchoolUrl(url)) return false;
-    const loginUrl = (config?.browser_login_url && String(config.browser_login_url).trim()) || DEFAULT_LOGIN_URL;
+    const loginUrl = self.sbTrustedSchoolUrl(config?.browser_login_url) ? config.browser_login_url : DEFAULT_LOGIN_URL;
     const reason = "ต้องเข้าสู่ระบบด้วยบัญชีของโรงเรียนก่อนจึงจะใช้งานอินเทอร์เน็ตได้";
     logVisit(url, "auth_required", "no session");
     notify("🔒 ต้องเข้าสู่ระบบก่อน", "เบราว์เซอร์นี้ใช้ได้เฉพาะนักเรียน/ครูของโรงเรียน กรุณาเข้าสู่ระบบก่อน");
@@ -480,7 +511,7 @@ function wifiCall(payload) {
         finish({ ok: false, error: err });
       });
       port.postMessage(payload);
-      setTimeout(() => finish({ ok: false, error: "timeout" }), 30000);
+      setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
     } catch (e) {
       resolve({ ok: false, error: String(e?.message || e) });
     }
@@ -488,6 +519,18 @@ function wifiCall(payload) {
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  const source = sender.url || sender.tab?.url || "";
+  const school = self.sbTrustedSchoolUrl(source);
+  const internal = source.startsWith(chrome.runtime.getURL("")) && !sender.tab;
+  const agent = school && new URL(source).pathname === "/dashboard/monitor/agent";
+  if ((["SET_SESSION", "CLEAR_SESSION", "GET_BACKEND"].includes(msg?.type) && !school) ||
+      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL"].includes(msg?.type) && !agent) ||
+      (msg?.type === "WIFI" && source !== chrome.runtime.getURL("wifi.html"))) {
+    sendResponse({ ok: false, error: "ไม่อนุญาตคำสั่งจากหน้านี้" }); return false;
+  }
+  if (msg?.type === "GET_BACKEND") {
+    sendResponse({ url: DEFAULT_SUPABASE_URL, anonKey: DEFAULT_ANON_KEY }); return false;
+  }
   if (msg?.type === "WIFI") {
     const { type, ...rest } = msg;
     wifiCall(rest).then((r) => sendResponse(r));
@@ -495,7 +538,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg?.type === "KEYWORD_HIT") {
     const tabId = sender.tab?.id;
-    if (tabId && msg.url && !isBlockedPage(msg.url)) {
+    if (tabId && msg.url === source && !isSchoolUrl(source) && !isBlockedPage(msg.url)) {
       getConfig().then((cfg) => {
         const base = cfg?.browser_block_message || "เว็บไซต์นี้ไม่อนุญาตตามนโยบายของโรงเรียน";
         const reason = `🚫 พบคำต้องห้าม "${msg.word}" (${categoryLabel(msg.category)}) ใน${msg.where || "หน้าเว็บ"} — ${base}`;
@@ -512,28 +555,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     _agentSpawnFails = 0;
     _remoteOk = true;
     _lastRemoteCheck = 0;
-    if (msg.backend?.url) { SUPABASE_URL = String(msg.backend.url).replace(/\/+$/, ""); }
-    if (msg.backend?.anonKey) { ANON_KEY = msg.backend.anonKey; }
     if (msg.systemHome) setAppOrigin(msg.systemHome);
-    chrome.storage.local.set({
+    (async () => { await chrome.storage.local.set({
       session: msg.session,
-      ...(msg.backend?.url ? { backend: { url: SUPABASE_URL, anonKey: ANON_KEY } } : {}),
       ...(msg.systemHome ? { systemHome: msg.systemHome } : {}),
     });
     // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
-    if (msg.session?.access_token) ensureAgentTab();
-    sendResponse({ ok: true });
+    await chrome.storage.local.remove(["config", "configAt"]);
+    await refreshConfig();
+    if (msg.session?.access_token) await ensureAgentTab();
+    sendResponse({ ok: true }); })().catch(() => sendResponse({ ok: false }));
+    return true;
   } else if (msg?.type === "CLEAR_SESSION") {
     clearSession().then(() => sweepTabs());
     sendResponse({ ok: true });
 
 
   } else if (msg?.type === "REFRESH_CONFIG") {
-    refreshConfig().then(() => sendResponse({ ok: true }));
+    refreshConfig().then(sendResponse);
     return true;
   } else if (msg?.type === "GO_HOME") {
     getSystemHome().then((url) => {
       if (sender.tab?.id) chrome.tabs.update(sender.tab.id, { url });
+      sendResponse({ ok: true });
     });
     return true;
   } else if (msg?.type === "OPEN_HOME") {
@@ -542,19 +586,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   } else if (msg?.type === "CLOSE_TAB") {
     if (sender.tab?.id) chrome.tabs.remove(sender.tab.id);
+    sendResponse({ ok: true });
   } else if (msg?.type === "GET_STATE") {
     getState().then((s) => sendResponse(s));
     return true;
   } else if (msg?.type === "SB_OPEN_URL") {
     // ครูสั่งเปิดลิงก์ให้นักเรียน → เปิดแท็บใหม่ในเครื่องนักเรียน
-    if (msg.url) chrome.tabs.create({ url: msg.url, active: true });
+    if (!/^https?:\/\//i.test(msg.url || "")) { sendResponse({ ok: false }); return false; }
+    chrome.tabs.create({ url: msg.url, active: true });
     sendResponse({ ok: true });
   } else if (msg?.type === "SB_LOCK_ALL") {
     // ล็อกทุกแท็บ — inject overlay
     chrome.storage.local.set({ locked: true, lockMsg: msg.message || "ครูล็อกจอ" });
     chrome.tabs.query({}, (tabs) => {
       for (const t of tabs) {
-        if (!t.id || !t.url || !/^https?:/.test(t.url)) continue;
+        if (!t.id || !t.url || !/^https?:/.test(t.url) || (self.sbTrustedSchoolUrl(t.url) && new URL(t.url).pathname === "/dashboard/monitor/agent")) continue;
         chrome.scripting.executeScript({
           target: { tabId: t.id },
           func: (message) => {
@@ -562,7 +608,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             const o = document.createElement("div");
             o.id = "__sb_lock";
             o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.98);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center;padding:2rem";
-            o.innerHTML = `<div style="font-size:64px">🔒</div><h1 style="font-size:28px;margin:1rem 0">หน้าจอถูกล็อกโดยครู</h1><p style="opacity:.8">${message}</p>`;
+            o.textContent = `🔒 หน้าจอถูกล็อกโดยครู — ${message}`;
             document.documentElement.appendChild(o);
           },
           args: [msg.message || "ครูล็อกจอ"],
@@ -583,15 +629,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     sendResponse({ ok: true });
   } else if (msg?.type === "SB_SCREENSHOT") {
+    if (!internal && !sender.tab?.active) { sendResponse({ ok: false, error: "เลือกแท็บนี้ก่อนจับภาพ" }); return false; }
     // แคปหน้าจอแท็บปัจจุบันแล้วดาวน์โหลด
-    chrome.tabs.captureVisibleTab({ format: "png" }, (dataUrl) => {
-      if (!dataUrl) { sendResponse({ ok: false }); return; }
+    chrome.tabs.captureVisibleTab(sender.tab?.windowId, { format: "png" }, (dataUrl) => {
+      const error = chrome.runtime.lastError;
+      if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
       chrome.downloads?.download({
         url: dataUrl,
         filename: `screenshot-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
         saveAs: false,
       }).catch(() => {});
-      sendResponse({ ok: true, dataUrl });
+      sendResponse({ ok: true });
     });
     return true;
   }
@@ -602,6 +650,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, ci) => {
   if (ci.status !== "loading" && ci.status !== "complete") return;
   const { locked, lockMsg } = await chrome.storage.local.get(["locked", "lockMsg"]);
   if (!locked) return;
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab?.url || (self.sbTrustedSchoolUrl(tab.url) && new URL(tab.url).pathname === "/dashboard/monitor/agent")) return;
   chrome.scripting.executeScript({
     target: { tabId },
     func: (message) => {
@@ -609,7 +659,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, ci) => {
       const o = document.createElement("div");
       o.id = "__sb_lock";
       o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.98);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center;padding:2rem";
-      o.innerHTML = `<div style="font-size:64px">🔒</div><h1 style="font-size:28px;margin:1rem 0">หน้าจอถูกล็อก</h1><p style="opacity:.8">${message}</p>`;
+      o.textContent = `🔒 หน้าจอถูกล็อก — ${message}`;
       document.documentElement.appendChild(o);
     },
     args: [lockMsg || "ครูล็อกจอ"],

@@ -26,7 +26,7 @@ export const RTC_CONFIG: RTCConfiguration = {
 
 export function createMonitorChannel(userId: string): RealtimeChannel {
   return supabase.channel(MONITOR_CHANNEL, {
-    config: { presence: { key: userId }, broadcast: { self: false, ack: false } },
+    config: { presence: { key: userId }, broadcast: { self: false, ack: true } },
   });
 }
 
@@ -48,6 +48,21 @@ export type MonitorEvent =
   | { type: "ice"; from: string; to: string; candidate: RTCIceCandidateInit }
   | { type: "command"; from: string; to: string; action: CommandAction; payload?: any }
   | { type: "screenshot-image"; from: string; to: string; image: string /* dataURL */ };
+
+/** Broadcast contains only a receipt; identity, payload and expiry are verified by Cloud. */
+export async function sendMonitorEvent(channel: RealtimeChannel | null, event: MonitorEvent | Record<string, unknown>, name = "monitor") {
+  if (!channel) throw new Error("ยังไม่ได้เชื่อมต่อเครื่องนักเรียน");
+  const { data, error } = await supabase.rpc("issue_monitor_event", { _event: event as any });
+  if (error || !data) throw error || new Error("ไม่สามารถอนุญาตคำสั่งได้");
+  const result = await channel.send({ type: "broadcast", event: name, payload: { receipt: data } });
+  if (result !== "ok") throw new Error("ส่งคำสั่งไม่สำเร็จ กรุณาลองใหม่");
+}
+export async function readMonitorEvent(payload: unknown): Promise<MonitorEvent | null> {
+  if (!payload || typeof payload !== "object" || !("receipt" in payload) || typeof payload.receipt !== "string") return null;
+  const { data, error } = await supabase.rpc("read_monitor_event", { _id: payload.receipt });
+  if (error) throw error;
+  return data && typeof data === "object" ? data as unknown as MonitorEvent : null;
+}
 
 export interface AgentPresence {
   user_id: string;

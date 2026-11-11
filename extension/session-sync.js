@@ -1,5 +1,6 @@
 // Runs on the school system pages — sync Supabase session into extension storage.
 (function () {
+  if (!self.sbTrustedSchoolUrl(location.href)) return;
   // ค้นหา backend จาก localStorage ของหน้าเว็บ (ไม่ hardcode project อีกต่อไป)
   function detect() {
     let ref = null, url = "", anon = "";
@@ -24,13 +25,10 @@
 
   // ดึง anon key จาก /app-config.js ของหน้าเว็บ (content script อ่าน window ของเพจไม่ได้)
   async function loadConfig() {
-    try {
-      const txt = await (await fetch(`${location.origin}/app-config.js`, { cache: "no-store" })).text();
-      const u = txt.match(/SUPABASE_URL:\s*"([^"]+)"/);
-      const a = txt.match(/SUPABASE_ANON_KEY:\s*"([^"]+)"/);
-      if (u && u[1] && !DET.url) SUPA_URL = u[1].replace(/\/+$/, "");
-      if (a && a[1] && !ANON) ANON = a[1];
-    } catch {}
+    const backend = await chrome.runtime.sendMessage({ type: "GET_BACKEND" });
+    if (!backend?.url || !backend?.anonKey) throw new Error("ไม่พบระบบโรงเรียน");
+    SUPA_URL = backend.url; ANON = backend.anonKey;
+    KEY = `sb-${new URL(SUPA_URL).hostname.split(".")[0]}-auth-token`;
   }
 
   function read() {
@@ -54,6 +52,7 @@
       const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${userId}&select=first_name,last_name,nickname`, {
         headers: { apikey: ANON, Authorization: `Bearer ${token}` },
       });
+      if (!r.ok) throw new Error("อ่านชื่อไม่สำเร็จ");
       const arr = await r.json();
       const p = arr?.[0];
       if (p) {
@@ -65,6 +64,7 @@
       const r2 = await fetch(`${SUPA_URL}/rest/v1/user_roles?user_id=eq.${userId}&select=role`, {
         headers: { apikey: ANON, Authorization: `Bearer ${token}` },
       });
+      if (!r2.ok) throw new Error("อ่านบทบาทไม่สำเร็จ");
       const rows = await r2.json();
       const roles = Array.isArray(rows) ? rows.map((x) => x.role) : [];
       // ครู/บุคลากร/ผู้บริหาร ถือเป็น staff — ไม่ต้องเปิด Monitor Agent
@@ -86,9 +86,9 @@
       return;
     }
     if (s.access_token === lastToken) return;
-    lastToken = s.access_token;
     const prof = s.user?.id ? await fetchProfile(s.user.id, s.access_token) : { name: null, role: null };
-    chrome.runtime.sendMessage({
+    if (!prof.role) return; // Retry incomplete identity; never infer student access.
+    const result = await chrome.runtime.sendMessage({
       type: "SET_SESSION",
       backend: { url: SUPA_URL, anonKey: ANON },
       systemHome: `${location.origin}/dashboard/browser`,
@@ -100,16 +100,18 @@
         user: s.user ? { id: s.user.id, email: s.user.email, name: prof.name } : null,
       },
     });
+    if (result?.ok) lastToken = s.access_token;
   }
 
-  (async () => { await loadConfig(); push(); })();
-  window.addEventListener("storage", (e) => { if (e.key === KEY) push(); });
-  setInterval(push, 10 * 1000);
+  const sync = () => push().catch(() => {});
+  (async () => { await loadConfig(); sync(); })().catch(() => {});
+  window.addEventListener("storage", (e) => { if (e.key === KEY) sync(); });
+  setInterval(sync, 10 * 1000);
 
 
   // Relay Monitor Agent commands (จาก StudentAgentPage) → extension background
   window.addEventListener("message", (ev) => {
-    if (ev.source !== window || !ev.data || typeof ev.data !== "object") return;
+    if (ev.source !== window || ev.origin !== location.origin || location.pathname !== "/dashboard/monitor/agent" || !ev.data || typeof ev.data !== "object") return;
     const t = ev.data.type;
     if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_SCREENSHOT") {
       try { chrome.runtime.sendMessage(ev.data); } catch {}

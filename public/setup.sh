@@ -233,7 +233,7 @@ step "[5/13] โหลด BNGSS Safe Browser extension"
 sudo rm -rf "$EXT_DIR"
 sudo mkdir -p "$EXT_DIR"
 # EXT_ID เป็น deterministic — มาจาก "key" field ใน manifest.json (ไม่ต้องคำนวณ)
-EXT_ID="icacgdjhgabapdfflndkjclpkggckdbk"
+EXT_ID="pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 EXT_OK=0
 if curl -fsSL "${SYSTEM_URL}/extension.zip" -o /tmp/ext.zip 2>/dev/null && [ -s /tmp/ext.zip ]; then
   sudo unzip -oq /tmp/ext.zip -d "$EXT_DIR"
@@ -254,20 +254,22 @@ fi
 # PHASE 5b — Wi-Fi Native Helper (สำหรับ kiosk mode ให้เลือก Wi-Fi ใน extension)
 # ============================================================================
 step "[5b/13] Wi-Fi Helper (Native Messaging → nmcli)"
-EXT_ID="icacgdjhgabapdfflndkjclpkggckdbk"
+EXT_ID="pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 HOST_NAME="com.bngss.wifi"
 HELPER_DIR="/opt/bngss"
 HELPER_BIN="$HELPER_DIR/wifi-helper.py"
 
 sudo mkdir -p "$HELPER_DIR"
-if curl -fsSL "${SYSTEM_URL}/wifi-helper/wifi-helper.py" -o /tmp/wifi-helper.py 2>/dev/null && [ -s /tmp/wifi-helper.py ]; then
-  sudo mv /tmp/wifi-helper.py "$HELPER_BIN"
+WIFI_STAGE=$(mktemp -d)
+if curl --proto '=https' --proto-redir '=https' -fsSL "${SYSTEM_URL}/wifi-helper/wifi-helper.py" -o "$WIFI_STAGE/helper.py" 2>/dev/null && [ -s "$WIFI_STAGE/helper.py" ]; then
+  sudo install -o root -g root -m 0755 "$WIFI_STAGE/helper.py" "$HELPER_BIN"
   sudo chmod 0755 "$HELPER_BIN"
   sudo chown root:root "$HELPER_BIN"
   ok "Wi-Fi helper: $HELPER_BIN"
 else
   warn "โหลด wifi-helper.py ไม่สำเร็จ — จะข้าม (extension เลือก Wi-Fi ไม่ได้)"
 fi
+rm -rf "$WIFI_STAGE"
 
 # เขียน native-messaging manifest สำหรับ Chromium/Chrome/Edge
 for NM_DIR in \
@@ -293,8 +295,8 @@ done
 sudo mkdir -p /etc/polkit-1/rules.d
 sudo tee /etc/polkit-1/rules.d/50-bngss-nm.rules >/dev/null <<'PKR'
 polkit.addRule(function(action, subject) {
-  if (subject.user !== "guest") return;
-  if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
+  if (subject.user !== "guest" || !subject.local || !subject.active) return;
+  if (["org.freedesktop.NetworkManager.network-control", "org.freedesktop.NetworkManager.settings.modify.own", "org.freedesktop.NetworkManager.wifi.scan"].indexOf(action.id) >= 0) {
     return polkit.Result.YES;
   }
 });
@@ -482,13 +484,19 @@ def run(cmd):
     except Exception as e: log(f"err {e}"); return False
 class H(http.server.BaseHTTPRequestHandler):
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin","*")
+        if self.headers.get("Origin") in ("https://bngss.online", "https://www.bngss.online", "https://bngss.lovable.app"):
+            self.send_header("Access-Control-Allow-Origin",self.headers.get("Origin"))
         self.send_header("Access-Control-Allow-Methods","POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers","Content-Type")
     def do_OPTIONS(self):
         self.send_response(204); self._cors(); self.end_headers()
     def do_POST(self):
         p = self.path.rstrip("/"); ok = False
+        origin = self.headers.get("Origin")
+        if self.headers.get("Host") != f"127.0.0.1:{PORT}" or (origin is not None and origin not in ("https://bngss.online", "https://www.bngss.online", "https://bngss.lovable.app")):
+            self.send_response(403); self.end_headers(); return
+        if origin is not None and self.headers.get("Content-Type") != "application/json":
+            self.send_response(403); self.end_headers(); return
         if   p == "/reboot":     ok = run("sleep 2 && systemctl reboot")
         elif p == "/shutdown":   ok = run("sleep 2 && systemctl poweroff")
         elif p == "/logout":     ok = run("pkill -KILL -u guest")

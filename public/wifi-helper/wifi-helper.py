@@ -21,6 +21,7 @@ import json
 import struct
 import subprocess
 import sys
+import os
 
 VERSION = "1.0.0"
 
@@ -30,6 +31,8 @@ def read_message():
     if len(raw_len) < 4:
         return None
     (n,) = struct.unpack("<I", raw_len)
+    if n > 65536:
+        raise ValueError("message too large")
     data = sys.stdin.buffer.read(n)
     return json.loads(data.decode("utf-8"))
 
@@ -99,25 +102,25 @@ def nmcli_list():
 
 
 def nmcli_scan():
-    run(["nmcli", "device", "wifi", "rescan"], timeout=15)
-    return {"ok": True}
+    code, out, err = run(["nmcli", "device", "wifi", "rescan"], timeout=15)
+    return {"ok": code == 0, "error": err or out if code else None}
 
 
 def nmcli_connect(ssid, password):
     if not ssid:
         return {"ok": False, "error": "missing ssid"}
-    args = ["nmcli", "device", "wifi", "connect", ssid]
+    args = ["nmcli", "device", "wifi", "connect", ssid, "name", ssid, "private", "yes"]
     if password:
         args += ["password", password]
     code, out, err = run(args, timeout=45)
     if code != 0:
         return {"ok": False, "error": err or out or "connect failed"}
     # ensure autoconnect=yes so it survives reboot
-    run(
+    code, out, err = run(
         ["nmcli", "connection", "modify", ssid, "connection.autoconnect", "yes"],
         timeout=10,
     )
-    return {"ok": True}
+    return {"ok": code == 0, "error": err or out if code else None}
 
 
 def nmcli_disconnect():
@@ -127,7 +130,9 @@ def nmcli_disconnect():
     for line in out.splitlines():
         parts = line.split(":")
         if len(parts) >= 2 and parts[1] == "wifi":
-            run(["nmcli", "device", "disconnect", parts[0]], timeout=15)
+            result, _, error = run(["nmcli", "device", "disconnect", parts[0]], timeout=15)
+            if result != 0:
+                return {"ok": False, "error": error or "disconnect failed"}
     return {"ok": True}
 
 
@@ -164,16 +169,20 @@ def nmcli_saved():
 
 
 def nmcli_status():
-    code, out, _ = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"])
+    code, out, err = run(["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general"])
+    if code != 0:
+        return {"ok": False, "error": err or "status failed"}
     state, conn = "unknown", "unknown"
     if code == 0 and out:
         parts = out.splitlines()[0].split(":")
         if len(parts) >= 2:
             state, conn = parts[0], parts[1]
     active_ssid = ""
-    code2, out2, _ = run(
+    code2, out2, err2 = run(
         ["nmcli", "-t", "-f", "ACTIVE,SSID", "device", "wifi", "list"]
     )
+    if code2 != 0:
+        return {"ok": False, "error": err2 or "status failed"}
     if code2 == 0:
         for line in out2.splitlines():
             if line.startswith("yes:"):
