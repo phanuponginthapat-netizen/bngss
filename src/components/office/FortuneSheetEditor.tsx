@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useEffect } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Workbook } from "@fortune-sheet/react";
 import type { Sheet } from "@fortune-sheet/core";
 import "@fortune-sheet/react/dist/index.css";
@@ -74,7 +74,11 @@ export function sheetsToXlsxBlob(sheets: Sheet[]): Blob {
   const wb = XLSX.utils.book_new();
   for (const s of sheets) {
     const ws: any = {};
-    const celldata: any[] = (s as any).celldata ?? [];
+    // FortuneSheet edits its dense data; celldata can still contain the original import.
+    const dense = (s as any).data;
+    const celldata: any[] = Array.isArray(dense)
+      ? dense.flatMap((row: any[], r: number) => (row || []).flatMap((v, c) => v == null ? [] : [{ r, c, v }]))
+      : (s as any).celldata ?? [];
     let maxR = 0;
     let maxC = 0;
     for (const cell of celldata) {
@@ -111,17 +115,20 @@ export const FortuneSheetEditor = forwardRef<FortuneSheetHandle, Props>(function
       ? initialSheets
       : ([{ name: "Sheet1", id: "sheet_0", order: 0, status: 1, celldata: [], row: 100, column: 26 } as unknown as Sheet]),
   );
-  // key remount when initialSheets identity changes
-  const key = useMemo(() => Math.random().toString(36).slice(2), [initialSheets]);
+  const [replacement, setReplacement] = useState<Sheet[] | null>(null);
+  const source = useMemo(() => replacement ?? initialSheets ?? dataRef.current, [replacement, initialSheets]);
+  const key = useMemo(() => Math.random().toString(36).slice(2), [source]);
 
   useImperativeHandle(ref, () => ({
     getSheets: () => (wbRef.current?.getAllSheets?.() as Sheet[]) ?? dataRef.current,
     setSheets: (sheets) => {
       dataRef.current = sheets;
-      // Setting via ref is limited; consumer should key-remount via prop.
+      setReplacement(sheets);
     },
     loadXlsx: (data) => {
-      dataRef.current = workbookToSheets(data);
+      const sheets = workbookToSheets(data);
+      dataRef.current = sheets;
+      setReplacement(sheets);
     },
     exportXlsx: async () => {
       const s = (wbRef.current?.getAllSheets?.() as Sheet[]) ?? dataRef.current;
@@ -129,16 +136,14 @@ export const FortuneSheetEditor = forwardRef<FortuneSheetHandle, Props>(function
     },
   }));
 
-  useEffect(() => {
-    if (initialSheets) dataRef.current = initialSheets;
-  }, [initialSheets]);
+
 
   return (
     <div className={className ?? "w-full h-[calc(100vh-220px)]"}>
       <Workbook
         key={key}
         ref={wbRef}
-        data={dataRef.current as any}
+        data={source as any}
         lang="zh" // FortuneSheet ships zh/en — zh is closer to MS Excel button layout
         onChange={(sheets) => {
           dataRef.current = sheets as Sheet[];

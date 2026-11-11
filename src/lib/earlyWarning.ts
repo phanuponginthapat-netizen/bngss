@@ -4,6 +4,7 @@
  * Risk: low / medium / high + reasons[]
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 export type RiskLevel = "low" | "medium" | "high";
 
@@ -50,7 +51,7 @@ function sdqLevelThai(total: number): string {
 
 /**
  * Calculate risk for a single student.
- * Thread-safe: never throws, returns low with error reason on failure.
+ * Reject unavailable evidence instead of classifying a failed read as low risk.
  */
 export async function calculateRisk(studentId: string): Promise<RiskResult> {
   const reasons: string[] = [];
@@ -63,12 +64,14 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
 
   try {
     // fetch student meta first (for name/code and fallback GPA lookup)
-    const { data: stu } = await supabase
+    const { data: stu, error: studentError } = await supabase
       .from("students")
       .select("id, student_code, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(name)")
       .eq("id", studentId)
       .maybeSingle();
 
+    if (studentError) throw studentError;
+    if (!stu) throw new Error("ไม่พบข้อมูลนักเรียน");
     if (stu) {
       studentCode = (stu as any).student_code ?? null;
       classroomId = (stu as any).classroom_id ?? null;
@@ -109,29 +112,14 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // GPA — try student_scores by student_id then student_code fallback
-      (async () => {
-        // try by student_id
-        const r1 = await supabase
-          .from("student_scores" as any)
-          .select("gpax, grade_point, grade, academic_year, semester")
-          .eq("student_id", studentId)
-          .order("academic_year", { ascending: false })
-          .order("semester", { ascending: false })
-          .limit(10);
-        if (r1.data && r1.data.length > 0) return r1;
-        if (studentCode) {
-          const r2 = await supabase
-            .from("student_scores" as any)
-            .select("gpax, grade_point, grade, academic_year, semester")
-            .eq("student_code", studentCode)
-            .order("academic_year", { ascending: false })
-            .limit(10);
-          return r2;
-        }
-        return r1;
-      })(),
+      // GPAX is a saved cross-subject result, not a column of student_scores.
+      supabase.from("academic_probation").select("gpax").eq("student_id", studentId)
+        .order("academic_year", { ascending: false }).order("semester", { ascending: false })
+        .limit(1).maybeSingle(),
     ]);
+    for (const result of [attRes, remRes, behaviorRes, sdqRes, scoreRes]) {
+      if (result.error) throw result.error;
+    }
 
     // 1) Attendance <80%
     const attRows: any[] = (attRes.data as any[]) || [];
@@ -166,45 +154,8 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
     }
 
     // 3) GPA <2.0
-    let gpa: number | null = null;
-    const scoreRows: any[] = (scoreRes as any)?.data || [];
-    if (scoreRows.length > 0) {
-      // prefer gpax field if present
-      const withGpax = scoreRows.find((r) => r.gpax !== null && r.gpax !== undefined);
-      if (withGpax?.gpax !== null && withGpax?.gpax !== undefined) {
-        gpa = Number(withGpax.gpax);
-      } else {
-        // fallback compute from grade_point
-        const pts = scoreRows
-          .map((r) => (r.grade_point != null ? Number(r.grade_point) : null))
-          .filter((v) => v !== null && !Number.isNaN(v)) as number[];
-        if (pts.length > 0) {
-          gpa = Math.round((pts.reduce((a, b) => a + b, 0) / pts.length) * 100) / 100;
-        } else {
-          // try academic_probation as fallback
-          const { data: prob } = await supabase
-            .from("academic_probation" as any)
-            .select("gpax")
-            .eq("student_id", studentId)
-            .order("academic_year", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if ((prob as any)?.gpax != null) gpa = Number((prob as any).gpax);
-        }
-      }
-    } else {
-      // try probation direct
-      try {
-        const { data: prob } = await supabase
-          .from("academic_probation" as any)
-          .select("gpax")
-          .eq("student_id", studentId)
-          .order("academic_year", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if ((prob as any)?.gpax != null) gpa = Number((prob as any).gpax);
-      } catch {}
-    }
+    const rawGpax = scoreRes.data?.gpax;
+    const gpa = rawGpax !== null && rawGpax !== undefined && Number.isFinite(Number(rawGpax)) ? Number(rawGpax) : null;
     details.gpa = gpa;
     if (gpa !== null && gpa < GPA_THRESHOLD) {
       score += gpa < 1.5 ? 2 : 1;
@@ -243,9 +194,7 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
       details.sdqTotal = null;
     }
   } catch (e) {
-    console.warn("[earlyWarning] calculateRisk error", e);
-    // return low with error reason so caller knows
-    // Do not throw — keep low
+    throw e;
   }
 
   const riskLevel = toLevel(score);
@@ -281,14 +230,8 @@ export async function getAtRiskStudents(options?: {
   const limit = options?.limit ?? 500;
   const concurrency = options?.concurrency ?? 10;
 
-  const { data: students, error } = await supabase
-    .from("students")
-    .select("id")
-    .eq("status", "active")
-    .order("student_code", { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
+  const students = await fetchAllRows((from, to) => supabase.from("students")
+    .select("id").eq("status", "active").order("student_code").order("id").range(from, to));
   const ids = ((students as any[]) || []).map((s) => s.id);
   if (ids.length === 0) return [];
 
@@ -305,7 +248,7 @@ export async function getAtRiskStudents(options?: {
           results.push(r);
         }
       } catch (e) {
-        console.warn("[earlyWarning] getAtRiskStudents worker error", id, e);
+        throw e;
       }
     }
   }
