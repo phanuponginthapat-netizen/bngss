@@ -36,7 +36,7 @@ const monthAgo = () => {
 };
 
 export default function AttendanceDashboardPage() {
-  const [startDate, setStartDate] = useState(monthAgo());
+  const [startDate, setStartDate] = useState(todayIso());
   const [endDate, setEndDate] = useState(todayIso());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
