@@ -1,3 +1,5 @@
+import { measuredAverage, measuredNumber } from "@/lib/chartMetrics";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { openPrintWindow } from "@/lib/printUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -15,37 +17,33 @@ export default function PAReportTab() {
   const [yearFilter, setYearFilter] = useState<string>("all");
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const { data: agreements = [] } = useQuery({
+  const { data: agreements = [], isLoading, error: readError, refetch } = useQuery({
     queryKey: ["pa_agreements_report"],
     queryFn: async () => {
-      const { data } = await supabase.from("pa_agreements")
-        .select("*, personnel(prefix, first_name, last_name, employee_code, position, position_level, department)")
-        .order("created_at", { ascending: false });
-      return (data || []) as any[];
+      return fetchAllRows((from,to)=>supabase.from("pa_agreements").select("*, personnel(prefix, first_name, last_name, employee_code, position, position_level, department)").order("created_at",{ascending:false}).order("id").range(from,to));
     },
   });
 
   const filtered = yearFilter === "all"
     ? agreements
-    : agreements.filter((a: any) => String((a.academic_year || 0) + BE_OFFSET) === yearFilter);
+    : agreements.filter((a: any) => String(a.academic_year + BE_OFFSET) === yearFilter);
 
   const approved = filtered.filter((a: any) => a.status === "approved");
-  const avgScore = approved.length > 0
-    ? approved.reduce((s: number, a: any) => s + Number(a.total_score || 0), 0) / approved.length
-    : 0;
+  const scored = approved.filter(a => measuredNumber(a.total_score) !== null);
+  const avgScore = measuredAverage(scored.map(a=>a.total_score));
 
   const teacherPAs = approved.filter((a: any) => a.position_type === "teacher");
   const directorPAs = approved.filter((a: any) => a.position_type !== "teacher");
 
   const levelDistribution = RESULT_LEVELS.map(l => ({
     ...l,
-    count: approved.filter((a: any) => {
-      const score = Number(a.total_score || 0);
+    count: scored.filter((a: any) => {
+      const score = Number(a.total_score);
       return score >= l.min && score <= l.max;
     }).length,
   }));
 
-  const years = [...new Set(agreements.map((a: any) => String((a.academic_year || 0) + BE_OFFSET)))].sort().reverse();
+  const years = [...new Set(agreements.filter((a: any)=>a.academic_year != null).map((a: any) => String(a.academic_year + BE_OFFSET)))].sort().reverse();
 
   const handlePrint = () => {
     const el = reportRef.current;
@@ -55,6 +53,8 @@ export default function PAReportTab() {
       { title: "รายงาน PA ผู้อำนวยการ" },
     );
   };
+
+  if (isLoading || readError) return <div role="status">{readError ? "อ่านผลประเมินไม่สำเร็จ" : "กำลังโหลดผลประเมิน"}<Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-4">
@@ -91,13 +91,13 @@ export default function PAReportTab() {
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3 flex items-center gap-3">
             <TrendingUp className="w-8 h-8 text-blue-200" />
-            <div><p className="text-xs text-muted-foreground">คะแนนเฉลี่ย</p><p className="text-2xl font-bold">{avgScore > 0 ? avgScore.toFixed(2) : "-"}</p></div>
+            <div><p className="text-xs text-muted-foreground">คะแนนเฉลี่ย</p><p className="text-2xl font-bold">{avgScore !== null ? avgScore.toFixed(2) : "-"}</p></div>
           </CardContent></Card>
           <Card><CardContent className="pt-4 pb-3 flex items-center gap-3">
             <Award className="w-8 h-8 text-amber-200" />
             <div><p className="text-xs text-muted-foreground">ระดับเฉลี่ย</p>
-              <p className={`text-lg font-bold ${avgScore > 0 ? getResultLevel(avgScore).color : ""}`}>
-                {avgScore > 0 ? getResultLevel(avgScore).label : "-"}
+              <p className={`text-lg font-bold ${avgScore !== null ? getResultLevel(avgScore).color : ""}`}>
+                {avgScore !== null ? getResultLevel(avgScore).label : "-"}
               </p>
             </div>
           </CardContent></Card>
@@ -112,7 +112,7 @@ export default function PAReportTab() {
                 <div key={l.label} className="text-center p-2 rounded-lg bg-muted/50">
                   <p className={`text-lg font-bold ${l.color}`}>{l.count}</p>
                   <p className="text-xs text-muted-foreground">{l.label}</p>
-                  <Progress value={approved.length > 0 ? (l.count / approved.length) * 100 : 0} className="h-1.5 mt-1" />
+                  <Progress value={scored.length > 0 ? (l.count / scored.length) * 100 : 0} className="h-1.5 mt-1" />
                 </div>
               ))}
             </div>

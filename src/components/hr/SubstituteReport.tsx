@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,22 +40,19 @@ export default function SubstituteReport() {
   const [month, setMonth] = useState(thisMonthYm());
   const { start, end } = useMemo(() => ymToRange(month), [month]);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading, error: readError, refetch } = useQuery({
     queryKey: ["substitute_teaching_report", start, end],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("substitute_teaching")
+      return fetchAllRows((from,to) => supabase.from("substitute_teaching")
         .select("*, subjects(name_th, name_en, code), classrooms(name, grade_level)")
-        .gte("teaching_date", start)
-        .lte("teaching_date", end)
-        .order("teaching_date", { ascending: false });
-      return data || [];
+        .gte("teaching_date",start).lte("teaching_date",end)
+        .order("teaching_date",{ascending:false}).order("id").range(from,to));
     },
   });
 
   const byTeacher = useMemo(() => {
     const map = new Map<string, { name: string; periods: number; days: Set<string>; withProof: number }>();
-    rows.forEach((r: any) => {
+    rows.filter((r: any) => r.status !== "released" && r.status !== "cancelled").forEach((r: any) => {
       const key = r.substitute_teacher || "-";
       if (!map.has(key)) map.set(key, { name: key, periods: 0, days: new Set(), withProof: 0 });
       const x = map.get(key)!;
@@ -103,6 +101,8 @@ export default function SubstituteReport() {
     qc.invalidateQueries({ queryKey: ["substitute_teaching_report"] });
     qc.invalidateQueries({ queryKey: ["substitute_teaching"] });
   };
+
+  if (isLoading || readError) return <Card><CardContent className="pt-6" role="status">{readError ? "อ่านรายงานสอนแทนไม่สำเร็จ" : "กำลังโหลดรายงาน"}<Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></CardContent></Card>;
 
   return (
     <Card className="border-primary/30">

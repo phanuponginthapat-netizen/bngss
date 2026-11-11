@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useState, useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,16 +94,15 @@ const ScreeningPage = () => {
       .map((s: any) => s.id);
   }, [studentData.homeroomClassroomIds, studentData.students]);
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading: recordsLoading, error: recordsError, refetch } = useQuery({
     queryKey: ["student_screenings", scopedStudentIds?.join(",") || "all"],
     queryFn: async () => {
-      let q = supabase.from("student_screenings").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false });
-      if (scopedStudentIds) {
-        if (scopedStudentIds.length === 0) return [];
-        q = q.in("student_id", scopedStudentIds);
-      }
-      const { data } = await q;
-      return data || [];
+      if (scopedStudentIds?.length === 0) return [];
+      return fetchAllRows((from,to)=> {
+        let q = supabase.from("student_screenings").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at",{ascending:false}).order("id");
+        if (scopedStudentIds) q = q.in("student_id",scopedStudentIds);
+        return q.range(from,to);
+      });
     },
   });
 
@@ -167,6 +167,8 @@ const ScreeningPage = () => {
 
   const catColors: Record<string, string> = { normal: "bg-green-100 text-green-800", risk: "bg-yellow-100 text-yellow-800", problem: "bg-red-100 text-red-800" };
   const catLabels: Record<string, any> = { normal: { th: "ปกติ", en: "Normal" }, risk: { th: "กลุ่มเสี่ยง", en: "At Risk" }, problem: { th: "มีปัญหา", en: "Problem" } };
+
+  if (recordsLoading || recordsError || studentData.isLoading) return <div role="status" className="p-6">{recordsError ? "อ่านข้อมูลคัดกรองไม่สำเร็จ" : "กำลังโหลดข้อมูลคัดกรอง"}<Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-4 sm:space-y-6">

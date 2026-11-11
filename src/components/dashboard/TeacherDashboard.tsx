@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
@@ -237,7 +238,7 @@ const TeacherDashboard = () => {
         supabase.from("student_leaves").select("id, status").in("student_id", studentIds),
         supabase.from("home_visits").select("id").in("classroom_id", classIds),
         supabase.from("sdq_records").select("id").in("student_id", studentIds),
-        supabase.from("face_scan_logs").select("student_id, scan_time").in("student_id", studentIds).eq("scan_date", today),
+        supabase.from("face_scan_logs").select("student_id, scan_time").in("student_id", studentIds).eq("scan_date", today).eq("scan_type", "entry"),
         supabase.from("school_settings").select("setting_value").eq("setting_key", "face_scan_late_threshold").maybeSingle(),
       ]);
 
@@ -269,7 +270,7 @@ const TeacherDashboard = () => {
       const explicitAbsent = Array.from(statusByStudent.values()).filter(s => s === "absent").length;
       const absent = explicitAbsent;
       const totalAtt = Math.max(totalStu, present + late + explicitAbsent);
-      const rate = totalAtt > 0 ? ((present / totalAtt) * 100) : 0;
+      const rate = totalAtt > 0 ? (((present + late) / totalAtt) * 100) : 0;
       const maleCount = studentList?.filter(s => s.gender === "ช" || s.gender === "ชาย" || s.gender === "male").length || 0;
 
       return {
@@ -408,27 +409,20 @@ const TeacherDashboard = () => {
       const sids = (studs || []).map(s => s.id);
       if (sids.length === 0) return [] as { date: string; rate: number }[];
       const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-      const { data: rows, error } = await supabase
-        .from("attendance")
-        .select("attendance_date, status")
-        .in("student_id", sids)
-        .gte("attendance_date", since)
-        .limit(500);
-      if (error) throw error;
-      if (rows?.length === 500) throw new Error("ข้อมูลการมาเรียนเกินขอบเขตที่โหลด ไม่สามารถยืนยันสรุปได้");
-      const byDate: Record<string, { p: number; t: number }> = {};
-      (rows || []).forEach((r: any) => {
-        const k = r.attendance_date;
-        if (!k) return;
-        if (!byDate[k]) byDate[k] = { p: 0, t: 0 };
-        byDate[k].t += 1;
-        if (r.status === "present" || r.status === "late") byDate[k].p += 1;
+      const rows = await fetchAllRows((from,to) => supabase.from("attendance")
+        .select("student_id, attendance_date, status")
+        .in("student_id",sids).gte("attendance_date",since).lte("attendance_date",schoolDate)
+        .order("id").range(from,to));
+      const byDate: Record<string, Set<string>> = {};
+      rows.forEach(r=> {
+        if (!r.attendance_date || (r.status !== "present" && r.status !== "late")) return;
+        (byDate[r.attendance_date] ??= new Set()).add(r.student_id);
       });
       const out: { date: string; rate: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
         const v = byDate[d];
-        if (v?.t) out.push({ date: d.slice(5), rate: Math.round((v.p / v.t) * 100) });
+        if (rows.some(r=>r.attendance_date === d)) out.push({ date: d.slice(5), rate: Math.round(((v?.size ?? 0) / sids.length) * 100) });
       }
       return out;
     },
