@@ -4,6 +4,7 @@ import { downloadFile, ensureFolderPath, uploadFile } from "../_shared/googleDri
 
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { NEVER_OFFLOAD, verifyCopy } from "../_shared/storageSafety.ts";
+import { inventoryRows, storageFootprint } from "../_shared/storageInventory.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -93,9 +94,10 @@ Deno.serve(async (req) => {
     // -------------------------------------------------------------
     if (action === "usage") {
       // Get offloaded cold storage metrics
-      const { data: coldRows = [] } = await supabaseAdmin
+      const coldRows = await inventoryRows((from, to) => supabaseAdmin
         .from("cold_storage_registry")
-        .select("id, bucket_name, size_bytes, offloaded_at");
+        .select("id, bucket_name, size_bytes, offloaded_at")
+        .order("id").range(from, to));
 
       const offloadedBytes = (coldRows || []).reduce((sum, r) => sum + Number(r.size_bytes || 0), 0);
       const offloadedCount = (coldRows || []).length;
@@ -110,7 +112,9 @@ Deno.serve(async (req) => {
       });
 
       // Get Supabase Storage buckets
-      const { data: buckets = [] } = await supabaseAdmin.storage.listBuckets();
+      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
+      if (bucketsError) throw bucketsError;
+      if (!buckets) throw new Error("Storage buckets unavailable");
       const bucketStats: Array<{
         name: string;
         public: boolean;
@@ -125,30 +129,10 @@ Deno.serve(async (req) => {
 
       for (const b of buckets || []) {
         // นับไฟล์แบบ recursive (รวมโฟลเดอร์ย่อย) เพื่อให้ตัวเลขตรงกับที่ใช้จริง
-        let bBytes = 0;
-        let bFiles = 0;
-
-        const countRecursive = async (prefix = "", depth = 0): Promise<void> => {
-          if (depth > 5) return;
-          let offset = 0;
-          for (;;) {
-            const { data = [] } = await supabaseAdmin.storage
-              .from(b.name)
-              .list(prefix, { limit: 1000, offset, sortBy: { column: "name", order: "asc" } });
-            if (!data || data.length === 0) break;
-            for (const obj of data) {
-              if (obj.id) {
-                bFiles += 1;
-                bBytes += obj.metadata?.size || 0;
-              } else if (obj.name) {
-                await countRecursive(prefix ? `${prefix}/${obj.name}` : obj.name, depth + 1);
-              }
-            }
-            if (data.length < 1000) break;
-            offset += 1000;
-          }
-        };
-        await countRecursive();
+        const footprint = await storageFootprint((prefix, from, to) => supabaseAdmin.storage
+          .from(b.name).list(prefix, { limit: to - from + 1, offset: from, sortBy: { column: "name", order: "asc" } }));
+        const bBytes = footprint.bytes;
+        const bFiles = footprint.files;
 
         totalSupabaseBytes += bBytes;
         totalSupabaseFiles += bFiles;
@@ -165,9 +149,10 @@ Deno.serve(async (req) => {
       }
 
       // แนบโควต้าที่ตั้งไว้ต่อบัคเก็ต เพื่อให้หน้าเว็บแสดงสัดส่วนการใช้งานได้
-      const { data: quotaRows = [] } = await supabaseAdmin
+      const quotaRows = await inventoryRows((from, to) => supabaseAdmin
         .from("storage_tier_policies")
-        .select("bucket, quota_mb, enabled, dedupe_drive, older_than_days, keep_recent, priority");
+        .select("bucket, quota_mb, enabled, dedupe_drive, older_than_days, keep_recent, priority")
+        .order("bucket").range(from, to));
       const quotaMap = new Map<string, any>((quotaRows || []).map((p: any) => [p.bucket, p]));
       const withQuota = bucketStats.map((b) => {
         const p = quotaMap.get(b.name);
