@@ -9965,6 +9965,33 @@ export type Database = {
         }
         Relationships: []
       }
+      monitor_event_receipts: {
+        Row: {
+          created_at: string
+          event: Json
+          expires_at: string
+          id: string
+          issuer_id: string
+          recipient: string
+        }
+        Insert: {
+          created_at?: string
+          event: Json
+          expires_at?: string
+          id?: string
+          issuer_id: string
+          recipient: string
+        }
+        Update: {
+          created_at?: string
+          event?: Json
+          expires_at?: string
+          id?: string
+          issuer_id?: string
+          recipient?: string
+        }
+        Relationships: []
+      }
       mou_records: {
         Row: {
           created_at: string
@@ -17679,6 +17706,7 @@ export type Database = {
       }
       is_template_public: { Args: { _tid: string }; Returns: boolean }
       is_year_archived: { Args: { _year_be: number }; Returns: boolean }
+      issue_monitor_event: { Args: { _event: Json }; Returns: string }
       kiosk_clock_personnel: {
         Args: {
           _confidence?: number
@@ -17883,6 +17911,7 @@ export type Database = {
         }
         Returns: string
       }
+      read_monitor_event: { Args: { _id: string }; Returns: Json }
       recompute_budget_usage: {
         Args: {
           p_category_id: string
