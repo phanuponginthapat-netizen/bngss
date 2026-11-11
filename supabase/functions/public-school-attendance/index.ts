@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { readDigestRows } from "../_shared/attendanceDigest.ts";
-import { aggregatePublicAttendance, type SchoolAttendanceRow, type SchoolScanRow } from "../_shared/publicAttendance.ts";
+import { aggregatePublicAttendance, aggregatePublicClasses, type SchoolAttendanceRow, type SchoolScanRow } from "../_shared/publicAttendance.ts";
 
 serve(async req => {
   const headers = { ...getCorsHeaders(req), "Content-Type": "application/json", "Cache-Control": "no-store" };
@@ -46,13 +46,15 @@ serve(async req => {
       if ((Date.parse(finish) - Date.parse(start)) / 86400000 > 370) throw new Error("Date range too long");
       for (let time = Date.parse(start); time <= Date.parse(finish); time += 86400000) dates.push(new Date(time).toISOString().slice(0, 10));
     }
-    const students = await readDigestRows<{ id: string }>((a, b) => sb.from("students").select("id").eq("status", "active").order("id").range(a, b));
+    const students = await readDigestRows<{ id: string; classrooms: { grade_level: string | null; name: string | null; reference_grade_level: string | null } | null }>((a, b) => sb.from("students").select("id,classrooms!students_classroom_id_fkey(grade_level,name,reference_grade_level)").eq("status", "active").order("id").range(a, b));
     const [attendance, scans] = dates.length ? await Promise.all([
       readDigestRows<SchoolAttendanceRow>((a, b) => sb.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).gte("attendance_date", start).lte("attendance_date", finish).order("id").range(a, b)),
       readDigestRows<SchoolScanRow>((a, b) => sb.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).gte("scan_date", start).lte("scan_date", finish).order("id").range(a, b)),
     ]) : [[], []];
     const daily = aggregatePublicAttendance(students.map(s => s.id), dates, attendance, scans, today, clock, settings.clock_late_threshold || "08:30", settings.clock_in_end || settings.clock_late_threshold || "08:30");
-    return new Response(JSON.stringify({ today, current: current ?? null, periods, rosterTotal: students.length, daily, updatedAt: now.toISOString() }), { headers });
+    const roster = students.map(s=>({id:s.id, className:s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น"}));
+    const classes = aggregatePublicClasses(roster, dates, attendance, scans, today, clock, settings.clock_late_threshold || "08:30", settings.clock_in_end || settings.clock_late_threshold || "08:30");
+    return new Response(JSON.stringify({ today, current: current ?? null, periods, rosterTotal: students.length, daily, classes, updatedAt: now.toISOString() }), { headers });
   } catch {
     return new Response(JSON.stringify({ error: "ไม่สามารถโหลดสถิติการมาโรงเรียนได้ กรุณาลองใหม่" }), { status: 400, headers });
   }
