@@ -18,6 +18,7 @@ import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPrev
 import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
 import { streamImage } from "@/lib/streamImage";
+import { loadAiChatHistory } from "@/lib/aiChatHistory";
 
 const AI_IMAGE_PREFIX = "ai-image://";
 const signedCache = new Map<string, string>();
@@ -105,6 +106,8 @@ export default function AiChatBubble() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([greetingMsg]);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyRetry, setHistoryRetry] = useState(0);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -241,17 +244,12 @@ export default function AiChatBubble() {
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       if (!uid) return;
-      const { data } = await supabase
-        .from("ai_chat_logs")
-        .select("role,content,created_at")
-        .eq("user_id", uid)
-        .in("role", ["user", "assistant"])
-        .order("created_at", { ascending: false })
-        .limit(40);
+      const data = await loadAiChatHistory(uid);
       if (cancelled) return;
-      if (data && data.length) {
+      if (data.length && !busyRef.current) {
         setMessages([greetingMsg, ...orderChatRows(data as ChatLogRow[])]);
       }
+      setHistoryError(false);
       // Realtime: pick up messages from other devices/sessions
       channel = supabase
         .channel(`ai-chat-${uid}`)
@@ -271,7 +269,7 @@ export default function AiChatBubble() {
             });
           })
         .subscribe();
-    })();
+    })().catch(() => { if (!cancelled) setHistoryError(true); });
     return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
   }, [greetingMsg]);
 
@@ -283,18 +281,14 @@ export default function AiChatBubble() {
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       if (!uid) return;
-      const { data } = await supabase
-        .from("ai_chat_logs")
-        .select("role,content,created_at")
-        .eq("user_id", uid)
-        .in("role", ["user", "assistant"])
-        .order("created_at", { ascending: false })
-        .limit(40);
-      if (cancelled || !data) return;
-      setMessages([greetingMsg, ...orderChatRows(data as ChatLogRow[])]);
-    })();
+      const data = await loadAiChatHistory(uid);
+      if (cancelled || busyRef.current) return;
+      // Do not erase locally generated output while the server is catching up.
+      if (data.length) setMessages([greetingMsg, ...orderChatRows(data as ChatLogRow[])]);
+      setHistoryError(false);
+    })().catch(() => { if (!cancelled) setHistoryError(true); });
     return () => { cancelled = true; };
-  }, [open, greetingMsg]);
+  }, [open, greetingMsg, historyRetry]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -761,6 +755,7 @@ export default function AiChatBubble() {
       if (error) throw error;
       const reply = (data as any)?.reply || (data as any)?.error || "ขอโทษค่ะ ตอบไม่ได้";
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
+      if (data?.historySaved === false) swal.error("สร้างคำตอบแล้ว แต่ยังบันทึกแชทไม่สำเร็จ กรุณาคัดลอกหรือบันทึกร่างเก็บไว้ก่อนปิดหน้า");
       speak(reply);
     } catch (e: any) {
       // ลอง AI ฟรีในเครื่องก่อน (ไม่ต้องใช้ API)
@@ -984,6 +979,10 @@ export default function AiChatBubble() {
             </Button>
           </div>
 
+          {historyError && <div role="alert" className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-sm text-destructive bg-background">
+            <span>โหลดประวัติแชทไม่สำเร็จ</span>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => setHistoryRetry(value => value + 1)}>ลองใหม่</Button>
+          </div>}
           <div
             ref={scrollRef}
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
