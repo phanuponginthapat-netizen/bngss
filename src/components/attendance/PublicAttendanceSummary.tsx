@@ -11,7 +11,8 @@ import { CalendarCheck, RefreshCw, Users } from "lucide-react";
 type Mode = "day" | "month" | "term";
 interface Cell { date: string; total: number; present: number; late: number; leave: number; absent: number; unrecorded: number; evidence: boolean }
 interface Period { academic_year_be: number; semester: number; start_date: string; end_date: string }
-interface Report { today: string; rosterTotal: number; current: Period | null; periods: Period[]; daily: Cell[]; updatedAt: string }
+interface ClassSummary { name: string; rosterTotal: number; daily: Cell[] }
+interface Report { today: string; rosterTotal: number; current: Period | null; periods: Period[]; daily: Cell[]; classes: ClassSummary[]; updatedAt: string }
 const dateLabel = (date: string) => new Date(`${date}T00:00:00+07:00`).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
 
 export default function PublicAttendanceSummary() {
@@ -48,6 +49,11 @@ export default function PublicAttendanceSummary() {
   const totals = selected.reduce((sum, row) => ({ total: sum.total + row.total, present: sum.present + row.present, late: sum.late + row.late, leave: sum.leave + row.leave, absent: sum.absent + row.absent, unrecorded: sum.unrecorded + row.unrecorded }), { total: 0, present: 0, late: 0, leave: 0, absent: 0, unrecorded: 0 });
   const rate = totals.total ? ((totals.present + totals.late) / totals.total * 100).toFixed(1) : null;
   const units = mode === "day" ? "คน" : "คน-วัน";
+  const classRows = (query.data?.classes ?? []).map(group => {
+    const cells = mode === "day" ? group.daily : group.daily.filter(row => row.evidence);
+    const sum = cells.reduce((s,r)=>({total:s.total+r.total,present:s.present+r.present,late:s.late+r.late,leave:s.leave+r.leave,absent:s.absent+r.absent,unrecorded:s.unrecorded+r.unrecorded}),{total:0,present:0,late:0,leave:0,absent:0,unrecorded:0});
+    return {...sum,name:group.name,rosterTotal:group.rosterTotal,evidence:cells.some(r=>r.evidence)};
+  });
   return (
     <section aria-label="สถิติการมาโรงเรียน" className="bg-background border-y border-border py-10 sm:py-14">
       <div className="max-w-6xl mx-auto px-4 space-y-6">
@@ -71,6 +77,16 @@ export default function PublicAttendanceSummary() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4"><p className="font-medium text-foreground">อัตราการมาโรงเรียน <span className="text-primary">{rate === null || !recorded.length ? "—" : `${rate}%`}</span></p><p className="text-xs text-muted-foreground">ฐานทะเบียนนักเรียนกำลังศึกษาปัจจุบัน</p></div>
           {!recorded.length && <p className="text-sm text-muted-foreground">ยังไม่มีข้อมูลการมาโรงเรียนในช่วงที่เลือก</p>}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-foreground">สรุปการเข้าเรียนรายชั้น</h3>
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table aria-label="สรุปการเข้าเรียนรายชั้น" className="w-full text-sm whitespace-nowrap">
+                <thead className="bg-muted text-muted-foreground"><tr>{["ชั้น","นักเรียนทั้งหมด",`ฐาน (${units})`,`มา (รวมสาย)`,"สาย","ลา / ป่วย","ขาด","ยังไม่มีบันทึก","% เข้าเรียน"].map(h=><th key={h} className="px-3 py-3 text-right font-medium first:text-left">{h}</th>)}</tr></thead>
+                <tbody>{classRows.map(row=><tr key={row.name} className="border-t border-border"><th scope="row" className="px-3 py-3 text-left font-medium">{row.name}</th>{[row.rosterTotal,row.total,row.present+row.late,row.late,row.leave,row.absent,row.unrecorded].map((v,i)=><td key={i} className="px-3 py-3 text-right tabular-nums">{v.toLocaleString("th-TH")}</td>)}<td className="px-3 py-3 text-right font-semibold tabular-nums text-primary">{row.evidence && row.total ? `${((row.present+row.late)/row.total*100).toFixed(1)}%` : "—"}</td></tr>)}</tbody>
+                <tfoot className="bg-muted font-semibold"><tr className="border-t border-border"><th scope="row" className="px-3 py-3 text-left">รวมทั้งหมด</th>{[query.data.rosterTotal,totals.total,totals.present+totals.late,totals.late,totals.leave,totals.absent,totals.unrecorded].map((v,i)=><td key={i} className="px-3 py-3 text-right tabular-nums">{v.toLocaleString("th-TH")}</td>)}<td className="px-3 py-3 text-right text-primary">{rate === null || !recorded.length ? "—" : `${rate}%`}</td></tr></tfoot>
+              </table>
+            </div>
+          </div>
           {mode !== "day" && <>
             <p className="text-xs text-muted-foreground">ยอดสะสมเป็นคน-วัน เฉพาะวันที่มีหลักฐานการมาโรงเรียน · วันที่ไม่มีหลักฐาน {daily.length - recorded.length} วัน ไม่นับเป็นขาด</p>
             {daily.length > 0 && <div className="overflow-x-auto max-h-80"><table className="w-full text-sm whitespace-nowrap"><thead className="bg-muted text-muted-foreground sticky top-0"><tr>{["วันที่", "มา (รวมสาย)", "สาย", "ลา / ป่วย", "ขาด", "ยังไม่มีบันทึก"].map(h => <th key={h} className="text-left px-3 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{daily.map(row => <tr key={row.date} className="border-b border-border"><td className="px-3 py-3">{dateLabel(row.date)}</td>{(row.evidence ? [row.present + row.late, row.late, row.leave, row.absent, row.unrecorded] : ["—", "—", "—", "—", "ไม่มีหลักฐาน"]).map((value, i) => <td key={i} className="px-3 py-3 tabular-nums">{value}</td>)}</tr>)}</tbody></table></div>}

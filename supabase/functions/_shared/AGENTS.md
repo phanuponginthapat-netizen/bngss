@@ -1,0 +1,1 @@
+- Public attendance class cells partition the same resolved school-wide daily statuses; never resolve missing attendance separately per class, as classes without scans must reconcile with school totals. Return aggregates only, never student identities.
