@@ -19,6 +19,7 @@ import { getBackendConfig } from "@/lib/runtimeConfig";
 import { saveErrorMessage } from "@/lib/saveError";
 import { notifyExamScheduled } from "@/lib/notificationTriggers";
 import { formatDateBE } from "@/lib/dateBE";
+import { canCreateAcademicEvent } from "@/lib/academicCalendarAccess";
 
 const ICS_FEED_URL = `${getBackendConfig().url}/functions/v1/calendar-ics`;
 
@@ -41,9 +42,20 @@ const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 const AcademicCalendarPage = () => {
   const { lang } = useLanguage();
-  const { role } = useUserRole();
+  const { role, userId, readOnly } = useUserRole();
   const qc = useQueryClient();
-  const canManage = role === "admin" || role === "director";
+  const canManage = !readOnly && (role === "admin" || role === "director");
+  const { data: isStaff = false } = useQuery({
+    queryKey: ["academic-calendar-staff", userId],
+    enabled: !!userId && !readOnly,
+    queryFn: async () => {
+      if (!userId) return false;
+      const { data, error } = await supabase.rpc("is_staff_any", { _uid: userId });
+      if (error) throw error;
+      return data === true;
+    },
+  });
+  const canCreate = canCreateAcademicEvent(isStaff, readOnly);
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -78,6 +90,10 @@ const AcademicCalendarPage = () => {
   };
 
   const handleSave = async () => {
+    if (!canCreate || (editingEvent && !canManage)) {
+      toast.error("ไม่มีสิทธิ์บันทึกกิจกรรม");
+      return;
+    }
     if (!form.title || !form.event_date) {
       toast.error("กรุณากรอกชื่อกิจกรรมและวันที่");
       return;
@@ -106,7 +122,7 @@ const AcademicCalendarPage = () => {
         }).catch((e) => console.warn("[Calendar] exam notify failed", e));
       }
     } else {
-      const { data, error } = await supabase.from("academic_events").insert(payload).select("id").single();
+      const { data, error } = await supabase.from("academic_events").insert({ ...payload, created_by: userId }).select("id").single();
       if (error) { toast.error(saveErrorMessage(error)); return; }
       toast.success("เพิ่มกิจกรรมสำเร็จ");
       if (payload.event_type === "exam" && (data as any)?.id) {
@@ -131,6 +147,7 @@ const AcademicCalendarPage = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canManage) return;
     const { error } = await supabase.from("academic_events").delete().eq("id", id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบกิจกรรมสำเร็จ");
@@ -138,6 +155,7 @@ const AcademicCalendarPage = () => {
   };
 
   const handleEdit = (ev: any) => {
+    if (!canManage) return;
     setForm({
       title: ev.title,
       description: ev.description || "",
@@ -152,7 +170,7 @@ const AcademicCalendarPage = () => {
 
   const handleDateClick = (dateStr: string) => {
     setSelectedDate(selectedDate === dateStr ? null : dateStr);
-    if (canManage) {
+    if (canCreate) {
       setForm({ ...form, event_date: dateStr });
     }
   };
@@ -235,7 +253,7 @@ const AcademicCalendarPage = () => {
           >
             <Download className="w-4 h-4 mr-1" /> ICS Feed
           </Button>
-        {canManage && (
+        {canCreate && (
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> เพิ่มกิจกรรม</Button>
@@ -378,7 +396,7 @@ const AcademicCalendarPage = () => {
                     );
                   })
                 )}
-                {canManage && (
+                {canCreate && (
                   <Button variant="outline" size="sm" className="w-full" onClick={() => { setForm({ ...form, event_date: selectedDate }); setOpen(true); }}>
                     <Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มกิจกรรมวันนี้
                   </Button>
