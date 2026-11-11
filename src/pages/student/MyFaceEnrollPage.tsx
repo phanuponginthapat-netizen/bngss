@@ -129,7 +129,7 @@ const MyFaceEnrollPage = () => {
   // สำรองสุดท้าย: ให้เซิร์ฟเวอร์หาข้อมูลให้ (ข้าม RLS อย่างปลอดภัย) + ผูกบัญชีอัตโนมัติ
   const { data: serverIdentity, isLoading: loadingIdentity } = useQuery({
     queryKey: ["my-face-identity", user?.id],
-    enabled: !isLoading && !loadingP && !me && !mePersonnel,
+    enabled: authReady && !!user && !isLoading && !loadingP && !me && !mePersonnel,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("get_my_face_identity");
       if (error) throw error;

@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { AlertTriangle, RefreshCw, Send, ShieldAlert, Activity, Loader2, Search, Bell } from "lucide-react";
-import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { calculateRisk, getAtRiskStudents, riskBadgeClass, riskLabel, type RiskResult, type RiskLevel } from "@/lib/earlyWarning";
 
 type AtRiskRow = RiskResult & {
@@ -32,15 +31,14 @@ export default function EarlyWarningPage() {
   // Main query — live calculation via getAtRiskStudents() when filter is high/medium,
   // otherwise fetch via calculateRisk batch. Also loads early_warnings history for notified flag.
   const { data: atRisk = [], isLoading, isFetching, refetch, error } = useQuery({
-    queryKey: ["early-warning-at-risk", filterRisk],
+    queryKey: ["early-warning-at-risk"],
     queryFn: async () => {
       // For "all" we want all levels; for specific we filter after
       const onlyHigh = filterRisk === "high";
       // Use lib that scans all students — returns live risk
       // For broader filters, get all then filter client-side
       const list = await getAtRiskStudents({ onlyHigh: false, limit: 800, concurrency: 8 });
-      if (filterRisk === "all") return list;
-      return list.filter((r) => r.riskLevel === filterRisk);
+      return list;
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -68,16 +66,17 @@ export default function EarlyWarningPage() {
   }, [history]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return atRisk;
+    const riskRows = filterRisk === "all" ? atRisk : atRisk.filter(row => row.riskLevel === filterRisk);
+    if (!search.trim()) return riskRows;
     const q = search.trim().toLowerCase();
-    return atRisk.filter(
+    return riskRows.filter(
       (r) =>
         (r.studentCode || "").toLowerCase().includes(q) ||
         (r.studentName || "").toLowerCase().includes(q) ||
         (r.classroomName || "").toLowerCase().includes(q) ||
         r.reasons.join(" ").toLowerCase().includes(q)
     );
-  }, [atRisk, search]);
+  }, [atRisk, search, filterRisk]);
 
   const counts = useMemo(() => {
     const c: Record<RiskLevel, number> = { high: 0, medium: 0, low: 0 };
@@ -88,17 +87,8 @@ export default function EarlyWarningPage() {
     return c;
   }, [atRisk]);
 
-  // Also compute totals across all levels for cards (fetch once extra for cards)
-  const { data: allCountsRaw, error: countsError } = useQuery({
-    queryKey: ["early-warning-counts"],
-    queryFn: async () => {
-      const list = await getAtRiskStudents({ onlyHigh: false, limit: 800, concurrency: 8 });
-      const cc: Record<string, number> = { high: 0, medium: 0, low: 0, total: list.length };
-      list.forEach((r) => (cc[r.riskLevel] = (cc[r.riskLevel] || 0) + 1));
-      return cc;
-    },
-    staleTime: 2 * 60 * 1000,
-  });
+  const countsError = error;
+  const allCountsRaw = isLoading || error ? undefined : { ...counts, total: atRisk.length };
 
   const handleNotify = async (row: RiskResult) => {
     setNotifyingId(row.studentId);
