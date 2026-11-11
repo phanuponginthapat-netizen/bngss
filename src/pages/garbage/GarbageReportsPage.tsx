@@ -1,3 +1,5 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { percentageChange } from "@/lib/chartMetrics";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +60,8 @@ export default function GarbageReportsPage() {
   const [year, setYear] = useState<number>(currentAcademicYear);
   const [semester, setSemester] = useState<number>(currentSemester);
   const [exporting, setExporting] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => { setYear(currentAcademicYear); setSemester(currentSemester); }, [currentAcademicYear, currentSemester]);
 
@@ -198,24 +202,22 @@ export default function GarbageReportsPage() {
   const fetchRange = async (from: Date, to: Date) => {
     const fromIso = from.toISOString();
     const toIso = to.toISOString();
-    const [{ data: deps }, { data: reds }] = await Promise.all([
-      supabase.from("garbage_deposits")
-        .select("created_at, quantity, points_earned, student_id, personnel_id, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)")
-        .gte("created_at", fromIso).lte("created_at", toIso),
-      supabase.from("garbage_redemptions")
-        .select("created_at, quantity, points_used, garbage_rewards(name)")
-        .gte("created_at", fromIso).lte("created_at", toIso),
+    const [deps, reds] = await Promise.all([
+      fetchAllRows((from,to)=>supabase.from("garbage_deposits").select("created_at, quantity, points_earned, student_id, personnel_id, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)")
+        .gte("created_at", fromIso).lte("created_at", toIso).order("id").range(from,to)),
+      fetchAllRows((from,to)=>supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name)")
+        .gte("created_at", fromIso).lte("created_at", toIso).order("id").range(from,to)),
     ]);
     return aggregate((deps || []) as any[], (reds || []) as any[], from, to);
   };
 
   const load = async () => {
-    const [cur, prev] = await Promise.all([
-      fetchRange(ranges.from, ranges.to),
-      fetchRange(ranges.prevFrom, ranges.prevTo),
-    ]);
-    setCurrent(cur);
-    setPrevious(prev);
+    setLoading(true); setReadError(null);
+    try {
+      const [cur,prev] = await Promise.all([fetchRange(ranges.from,ranges.to),fetchRange(ranges.prevFrom,ranges.prevTo)]);
+      setCurrent(cur); setPrevious(prev);
+    } catch(e) { setReadError(e instanceof Error ? e.message : "อ่านรายงานไม่สำเร็จ"); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, [ranges.from.getTime(), ranges.to.getTime()]);
@@ -230,10 +232,7 @@ export default function GarbageReportsPage() {
     }));
   }, [current, previous]);
 
-  const pctChange = (cur: number, prev: number) => {
-    if (!prev) return cur > 0 ? 100 : 0;
-    return ((cur - prev) / prev) * 100;
-  };
+  const pctChange = percentageChange;
 
   const stat = (icon: any, label: string, value: string | number, prevVal: number, curVal: number, color: string) => {
     const change = pctChange(curVal, prevVal);
@@ -246,7 +245,7 @@ export default function GarbageReportsPage() {
                 <div className="text-xs uppercase tracking-wider opacity-90">{label}</div>
                 <div className="text-2xl font-bold mt-1">{value}</div>
                 <div className="text-xs mt-1 opacity-90">
-                  {change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(1)}% vs ก่อนหน้า
+                  {change === null ? "ไม่มีฐานเปรียบเทียบ" : `${change >= 0 ? "▲" : "▼"} ${Math.abs(change).toFixed(1)}% vs ก่อนหน้า`}
                 </div>
               </div>
               {icon}
@@ -261,13 +260,13 @@ export default function GarbageReportsPage() {
     setExporting(true);
     try {
       // Fetch overall (entire bank lifetime) data
-      const [{ data: allDeps }, { data: allReds }, { data: spts }, { data: ppts }, { data: items }, { data: rewards }] = await Promise.all([
-        supabase.from("garbage_deposits").select("created_at, quantity, points_earned, student_id, personnel_id, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)"),
-        supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name)"),
-        supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))"),
-        supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name)"),
-        supabase.from("garbage_items").select("name, unit, points_per_unit"),
-        supabase.from("garbage_rewards").select("name, points_cost, stock"),
+      const [allDeps, allReds, spts, ppts, items, rewards] = await Promise.all([
+        fetchAllRows((from,to)=>supabase.from("garbage_deposits").select("created_at, quantity, points_earned, student_id, personnel_id, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name)").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))").order("student_id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name)").order("personnel_id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_items").select("name, unit, points_per_unit").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_rewards").select("name, points_cost, stock").order("id").range(from,to)),
       ]);
 
       const D = (allDeps || []) as any[];
@@ -432,13 +431,13 @@ export default function GarbageReportsPage() {
     try {
       setExporting(true);
       // Fetch full datasets
-      const [{ data: allDeps }, { data: allReds }, { data: items }, { data: rewards }, { data: spts }, { data: ppts }] = await Promise.all([
-        supabase.from("garbage_deposits").select("created_at, quantity, points_earned, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name, department)"),
-        supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)"),
-        supabase.from("garbage_items").select("name, unit, points_per_unit, is_active"),
-        supabase.from("garbage_rewards").select("name, points_cost, stock, is_active"),
-        supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(name))"),
-        supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name, employee_code, department)"),
+      const [allDeps, allReds, items, rewards, spts, ppts] = await Promise.all([
+        fetchAllRows((from,to)=>supabase.from("garbage_deposits").select("created_at, quantity, points_earned, garbage_items(name, unit), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name, department)").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_redemptions").select("created_at, quantity, points_used, garbage_rewards(name), students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name)), personnel(prefix, first_name, last_name)").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_items").select("name, unit, points_per_unit, is_active").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_rewards").select("name, points_cost, stock, is_active").order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_student_points").select("total_points, students(prefix, first_name, last_name, student_code, classrooms!students_classroom_id_fkey(name))").order("student_id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("garbage_personnel_points").select("total_points, personnel(prefix, first_name, last_name, employee_code, department)").order("personnel_id").range(from,to)),
       ]);
 
       const wb = XLSX.utils.book_new();
@@ -521,6 +520,8 @@ export default function GarbageReportsPage() {
       setExporting(false);
     }
   };
+
+  if (loading || readError) return <div role="status" className="p-6">{readError ? "อ่านรายงานธนาคารขยะไม่สำเร็จ" : "กำลังโหลดรายงานธนาคารขยะ"}<Button variant="outline" onClick={() => void load()}>ลองใหม่</Button></div>;
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4">

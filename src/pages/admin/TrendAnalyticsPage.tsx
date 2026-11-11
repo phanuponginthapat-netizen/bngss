@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,8 +24,8 @@ type TrendRow = {
 type SummaryCard = {
   subject: string;
   status: "improving" | "declining" | "stable";
-  latest: number;
-  previous: number;
+  latest: number | null;
+  previous: number | null;
 };
 
 const CHART_COLORS = [
@@ -37,8 +38,8 @@ function analyzeTrend(rows: TrendRow[], subject: string): SummaryCard {
     .sort((a, b) => a.academic_year - b.academic_year);
   const latest = filtered[filtered.length - 1];
   const previous = filtered[filtered.length - 2];
-  if (!latest) return { subject, status: "stable", latest: 0, previous: 0 };
-  if (!previous) return { subject, status: "stable", latest: latest.avg_score, previous: 0 };
+  if (!latest) return { subject, status: "stable", latest: null, previous: null };
+  if (!previous) return { subject, status: "stable", latest: latest.avg_score, previous: null };
   const diff = latest.avg_score - previous.avg_score;
   return {
     subject,
@@ -63,27 +64,14 @@ const statusLabel = (s: "improving" | "declining" | "stable") => {
 export default function TrendAnalyticsPage() {
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
 
-  const { data: allScores = [], isLoading } = useQuery({
+  const { data: allScores = [], isLoading, error: readError, refetch } = useQuery({
     queryKey: ["trend-analytics"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_trend_analytics" as any);
-      if (!error && data) return (data as any[]) as TrendRow[];
-      // Fallback: client grouping with limit to avoid OOM (old path, now with limit 5000)
-      const raw: any[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data: page, error: e2 } = await supabase.from("student_scores" as any).select("academic_year, subject, score").order("id", { ascending: true }).range(from, from + 999);
-        if (e2) throw e2;
-        raw.push(...((page as any[]) || []));
-        if (!page || page.length < 1000) break;
-      }
-      const grouped: Record<string, TrendRow> = {};
-      for (const r of (raw as any[]) || []) {
-        const key = `${r.academic_year}-${r.subject}`;
-        if (!grouped[key]) grouped[key] = { academic_year: r.academic_year, subject: r.subject, avg_score: 0, student_count: 0 };
-        grouped[key].avg_score += r.score;
-        grouped[key].student_count += 1;
-      }
-      return Object.values(grouped).map((g) => ({ ...g, avg_score: g.student_count ? Math.round((g.avg_score / g.student_count) * 100) / 100 : 0 }));
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error("ข้อมูลแนวโน้มไม่ครบ");
+      return (data as TrendRow[]).filter(r=> r.academic_year != null && r.avg_score != null && Number.isFinite(Number(r.avg_score)) && r.student_count > 0);
+
     },
   });
 
@@ -98,10 +86,10 @@ export default function TrendAnalyticsPage() {
 
   const chartData = useMemo(() => {
     return years.map((year) => {
-      const row: Record<string, number | string> = { academic_year: String(year) };
+      const row: Record<string, number | string | null> = { academic_year: String(year) };
       for (const subj of visibleSubjects) {
         const match = allScores.find((r) => r.academic_year === year && r.subject === subj);
-        row[subj] = match ? match.avg_score : 0;
+        row[subj] = match ? match.avg_score : null;
       }
       return row;
     });
@@ -113,6 +101,8 @@ export default function TrendAnalyticsPage() {
       : [selectedSubject];
     return subjects.map((s) => analyzeTrend(allScores, s));
   }, [allScores, selectedSubject]);
+
+  if (readError) return <div role="alert" className="p-6">อ่านแนวโน้มคะแนนไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-6">
@@ -186,9 +176,9 @@ export default function TrendAnalyticsPage() {
               {statusIcon(s.status)}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{s.latest}</div>
+              <div className="text-2xl font-bold">{s.latest ?? "—"}</div>
               <p className="text-xs text-muted-foreground">
-                {s.previous > 0 ? `${s.previous} → ` : ""}{statusLabel(s.status)}
+                {s.previous !== null ? `${s.previous} → ` : ""}{s.previous === null ? "ข้อมูลเปรียบเทียบไม่ครบ" : statusLabel(s.status)}
               </p>
             </CardContent>
           </Card>
