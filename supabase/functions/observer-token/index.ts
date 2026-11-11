@@ -1,15 +1,11 @@
 // Manages time-limited observer tokens (replaces shared account).
 // Actions: create, verify, revoke
+import { authorizeObserverAdmin } from "../_shared/observerAuthorization.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeadersPost } from "../_shared/cors.ts";
 
 function generateToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, "0")).join("");
 }
 
 Deno.serve(async (req) => {
@@ -26,7 +22,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, observer_name, token, note, expires_hours } = body;
+    const { action, observer_name, token, token_id, note, expires_hours, observer_role } = body;
 
     if (!action || !["create", "verify", "revoke"].includes(action)) {
       return new Response(JSON.stringify({ error: "invalid_action" }), {
@@ -56,13 +52,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!profile || profile.role !== "admin") {
+      const adminId = await authorizeObserverAdmin(admin, jwt);
+      if (!adminId) {
         return new Response(JSON.stringify({ error: "forbidden" }), {
           status: 403,
           headers: { ...corsHeadersPost, "Content-Type": "application/json" },
@@ -76,13 +67,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      const hours = typeof expires_hours === "number" && expires_hours > 0 ? expires_hours : 24;
+      const hours = typeof expires_hours === "number" && Number.isFinite(expires_hours) && expires_hours > 0 && expires_hours <= 72 ? expires_hours : 24;
       const newToken = generateToken();
       const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 
       const { error: insertErr } = await admin.from("observer_tokens").insert({
         token: newToken,
         observer_name: observer_name.trim(),
+        observer_role: typeof observer_role === "string" ? observer_role.slice(0, 80) : "ศึกษานิเทศก์",
         note: note || null,
         expires_at: expiresAt,
         created_by: user.id,
@@ -170,33 +162,26 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!profile || profile.role !== "admin") {
+      const adminId = await authorizeObserverAdmin(admin, jwt);
+      if (!adminId) {
         return new Response(JSON.stringify({ error: "forbidden" }), {
           status: 403,
           headers: { ...corsHeadersPost, "Content-Type": "application/json" },
         });
       }
 
-      if (!token || typeof token !== "string") {
+      if ((!token || typeof token !== "string") && (!token_id || typeof token_id !== "string")) {
         return new Response(JSON.stringify({ error: "token_required" }), {
           status: 400,
           headers: { ...corsHeadersPost, "Content-Type": "application/json" },
         });
       }
 
-      const { error: updErr } = await admin
-        .from("observer_tokens")
-        .update({ is_active: false })
-        .eq("token", token);
+      const query = admin.from("observer_tokens").update({ is_active: false });
+      const { data: revoked, error: updErr } = await (token_id ? query.eq("id", token_id) : query.eq("token", token)).select("id");
 
-      if (updErr) {
-        return new Response(JSON.stringify({ error: "revoke_failed", detail: updErr.message }), {
+      if (updErr || !revoked?.length) {
+        return new Response(JSON.stringify({ error: "revoke_failed", detail: updErr?.message || "Token not found" }), {
           status: 500,
           headers: { ...corsHeadersPost, "Content-Type": "application/json" },
         });

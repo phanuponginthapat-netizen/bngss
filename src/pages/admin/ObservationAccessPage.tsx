@@ -45,6 +45,7 @@ export default function ObservationAccessPage() {
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const [tokens, setTokens] = useState<ObserverToken[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("ศึกษานิเทศก์");
@@ -56,11 +57,13 @@ export default function ObservationAccessPage() {
 
   const fetchTokens = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     const { data, error } = await supabase
       .from("observer_tokens" as any)
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error) setTokens((data as any) || []);
+    if (error) { setLoadError(true); setTokens([]); }
+    else setTokens((data as any) || []);
     setLoading(false);
   }, []);
 
@@ -132,11 +135,12 @@ export default function ObservationAccessPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
-            <Button onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" /> {L("สร้าง Token ใหม่", "New Token")}</Button>
+            <Button disabled={loading || loadError} onClick={() => setShowCreate(true)}><Plus className="h-4 w-4 mr-1" /> {L("สร้าง Token ใหม่", "New Token")}</Button>
             <Button variant="outline" onClick={fetchTokens}>{L("รีเฟรช", "Refresh")}</Button>
           </div>
 
-          <div className="border rounded-lg overflow-hidden">
+          {loadError && <div role="alert" className="text-destructive">อ่านรายการผู้สังเกตการณ์ไม่สำเร็จ กรุณากดรีเฟรช</div>}
+          <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50"><tr>
                 <th className="p-2 text-left">{L("ชื่อ", "Name")}</th>
@@ -171,7 +175,7 @@ export default function ObservationAccessPage() {
                     </td>
                   </tr>
                 ))}
-                {tokens.length === 0 && !loading && (
+                {tokens.length === 0 && !loading && !loadError && (
                   <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">{L("ยังไม่มี Token", "No tokens yet")}</td></tr>
                 )}
               </tbody>

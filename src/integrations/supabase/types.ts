@@ -5021,6 +5021,60 @@ export type Database = {
           },
         ]
       }
+      early_warnings: {
+        Row: {
+          calculated_at: string
+          created_at: string
+          details: Json
+          id: string
+          notified: boolean
+          notified_at: string | null
+          reasons: Json
+          risk_level: string
+          score: number
+          student_id: string
+        }
+        Insert: {
+          calculated_at?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          notified?: boolean
+          notified_at?: string | null
+          reasons?: Json
+          risk_level: string
+          score?: number
+          student_id: string
+        }
+        Update: {
+          calculated_at?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          notified?: boolean
+          notified_at?: string | null
+          reasons?: Json
+          risk_level?: string
+          score?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_warnings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warnings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eform_attachments: {
         Row: {
           created_at: string
@@ -10164,6 +10218,65 @@ export type Database = {
         }
         Relationships: []
       }
+      observation_records: {
+        Row: {
+          comments: Json
+          created_at: string
+          id: string
+          is_draft: boolean
+          max_score: number
+          overall_comment: string | null
+          percentage: number
+          scores: Json
+          session_id: string
+          strengths: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          suggestions: string | null
+          total_score: number
+        }
+        Insert: {
+          comments?: Json
+          created_at?: string
+          id?: string
+          is_draft?: boolean
+          max_score?: number
+          overall_comment?: string | null
+          percentage?: number
+          scores?: Json
+          session_id: string
+          strengths?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          suggestions?: string | null
+          total_score?: number
+        }
+        Update: {
+          comments?: Json
+          created_at?: string
+          id?: string
+          is_draft?: boolean
+          max_score?: number
+          overall_comment?: string | null
+          percentage?: number
+          scores?: Json
+          session_id?: string
+          strengths?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          suggestions?: string | null
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "observation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       observation_rubrics: {
         Row: {
           created_at: string | null
@@ -10188,6 +10301,114 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+        }
+        Relationships: []
+      }
+      observation_sessions: {
+        Row: {
+          classroom: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          observation_date: string
+          observer_name: string | null
+          observer_token_id: string | null
+          scheduled_date: string
+          status: string
+          subject: string
+          teacher_id: string
+          teacher_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          classroom: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          observation_date: string
+          observer_name?: string | null
+          observer_token_id?: string | null
+          scheduled_date: string
+          status?: string
+          subject: string
+          teacher_id: string
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          classroom?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          observation_date?: string
+          observer_name?: string | null
+          observer_token_id?: string | null
+          scheduled_date?: string
+          status?: string
+          subject?: string
+          teacher_id?: string
+          teacher_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observation_sessions_observer_token_id_fkey"
+            columns: ["observer_token_id"]
+            isOneToOne: false
+            referencedRelation: "observer_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observation_sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "personnel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observer_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          is_active: boolean
+          max_uses: number
+          note: string | null
+          observer_name: string
+          observer_role: string
+          token: string
+          use_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          observer_name: string
+          observer_role?: string
+          token: string
+          use_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          note?: string | null
+          observer_name?: string
+          observer_role?: string
+          token?: string
+          use_count?: number
         }
         Relationships: []
       }

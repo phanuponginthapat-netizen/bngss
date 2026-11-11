@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ClipboardCheck, FileText, Plus, Eye, Printer, CheckCircle2, Clock, AlertCircle, Calendar, User, School, BookOpen, Star } from "lucide-react";
 import { toast } from "sonner";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 
 interface Personnel { id: string; first_name: string; last_name: string; prefix: string | null; position: string; department: string; subject_group: string | null; }
@@ -24,34 +25,34 @@ interface RubricCriterion { key: string; label_th: string; label_en: string; gro
 interface ObservationRecord { id: string; session_id: string; scores: Record<string, number>; comments: Record<string, string>; overall_comment: string; strengths: string; suggestions: string; total_score: number; max_score: number; percentage: number; is_draft: boolean; submitted_by: string; submitted_at: string; }
 
 const RUBRIC_CRITERIA: RubricCriterion[] = [
-  { key: "step1", label_th: "��鹷�� 1 ��鹹�", label_en: "Step 1: Motivation", group: "5-step" },
-  { key: "step2", label_th: "��鹷�� 2 ����ʹ�", label_en: "Step 2: Presentation", group: "5-step" },
-  { key: "step3", label_th: "��鹷�� 3 ��鹽֡��", label_en: "Step 3: Practice", group: "5-step" },
-  { key: "step4", label_th: "��鹷�� 4 �����ػ", label_en: "Step 4: Summary", group: "5-step" },
-  { key: "step5", label_th: "��鹷�� 5 ��鹢���", label_en: "Step 5: Application", group: "5-step" },
-  { key: "cls_mgmt", label_th: "��èѴ�����ͧ���¹", label_en: "Classroom Management", group: "general" },
-  { key: "active_learn", label_th: "��èѴ������¹����ԧ�ء", label_en: "Active Learning", group: "general" },
-  { key: "assess", label_th: "��û����Թ��", label_en: "Assessment", group: "general" },
+  { key: "step1", label_th: "ขั้นที่ 1 สร้างความสนใจ", label_en: "Step 1: Motivation", group: "5-step" },
+  { key: "step2", label_th: "ขั้นที่ 2 นำเสนอ", label_en: "Step 2: Presentation", group: "5-step" },
+  { key: "step3", label_th: "ขั้นที่ 3 ฝึกปฏิบัติ", label_en: "Step 3: Practice", group: "5-step" },
+  { key: "step4", label_th: "ขั้นที่ 4 สรุป", label_en: "Step 4: Summary", group: "5-step" },
+  { key: "step5", label_th: "ขั้นที่ 5 ประยุกต์ใช้", label_en: "Step 5: Application", group: "5-step" },
+  { key: "cls_mgmt", label_th: "การจัดการชั้นเรียน", label_en: "Classroom Management", group: "general" },
+  { key: "active_learn", label_th: "การเรียนรู้เชิงรุก", label_en: "Active Learning", group: "general" },
+  { key: "assess", label_th: "การประเมินผล", label_en: "Assessment", group: "general" },
 ];
 
 const CRITERION_GROUPS = [
-  { key: "5-step", label_th: "����͹ 5 ���", label_en: "5-Step Teaching" },
-  { key: "general", label_th: "ࡳ������", label_en: "General Criteria" },
+  { key: "5-step", label_th: "การสอน 5 ขั้นตอน", label_en: "5-Step Teaching" },
+  { key: "general", label_th: "เกณฑ์ทั่วไป", label_en: "General Criteria" },
 ];
 
 const STATUS_MAP: Record<string, { label_th: string; label_en: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  draft: { label_th: "��ҧ", label_en: "Draft", variant: "secondary" },
-  in_progress: { label_th: "���ѧ���Թ���", label_en: "In Progress", variant: "default" },
-  completed: { label_th: "�������", label_en: "Completed", variant: "outline" },
-  cancelled: { label_th: "¡��ԡ", label_en: "Cancelled", variant: "destructive" },
+  draft: { label_th: "ร่าง", label_en: "Draft", variant: "secondary" },
+  in_progress: { label_th: "กำลังดำเนินการ", label_en: "In Progress", variant: "default" },
+  completed: { label_th: "เสร็จสิ้น", label_en: "Completed", variant: "outline" },
+  cancelled: { label_th: "ยกเลิก", label_en: "Cancelled", variant: "destructive" },
 };
 
 const SCORE_LABELS: Record<number, { th: string; en: string }> = {
-  1: { th: "��辺", en: "Not Observed" },
-  2: { th: "����", en: "Poor" },
-  3: { th: "����", en: "Fair" },
-  4: { th: "��", en: "Good" },
-  5: { th: "���ҡ", en: "Excellent" },
+  1: { th: "ยังไม่พบ", en: "Not Observed" },
+  2: { th: "ต้องปรับปรุง", en: "Poor" },
+  3: { th: "พอใช้", en: "Fair" },
+  4: { th: "ดี", en: "Good" },
+  5: { th: "ดีมาก", en: "Excellent" },
 };
 
 const MAX_SCORE = 5;
@@ -71,7 +72,7 @@ const formatDate = (d: string, lang: string) => {
 const calcTotal = (sc: Record<string, number>) =>
   RUBRIC_CRITERIA.reduce((sum, c) => sum + (sc[c.key] || 0), 0);
 
-const calcPercentage = (total: number) => Math.round((total / TOTAL_MAX) * 10000) / 100;
+const calcPercentage = (total: number, max = TOTAL_MAX) => max > 0 ? Math.round((total / max) * 10000) / 100 : 0;
 
 const emptyScores = (): Record<string, number> =>
   Object.fromEntries(RUBRIC_CRITERIA.map((c) => [c.key, 0]));
@@ -137,7 +138,7 @@ export default function ObservationSessionPage() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
-  const { data: teachers = [] } = useQuery({
+  const { data: teachers = [], error: teachersError, isLoading: teachersLoading, refetch: retryTeachers } = useQuery({
     queryKey: ["personnel-teachers"],
     queryFn: async () => {
       const { data, error } = await supabase.from("personnel")
@@ -148,7 +149,7 @@ export default function ObservationSessionPage() {
     },
   });
 
-  const { data: sessions = [], isLoading: sessionsLoading } = useQuery({
+  const { data: sessions = [], isLoading: sessionsLoading, error: sessionsError, refetch: retrySessions } = useQuery({
     queryKey: ["observation-sessions"],
     queryFn: async () => {
       const { data, error } = await (supabase.from("observation_sessions" as any) as any)
@@ -158,7 +159,7 @@ export default function ObservationSessionPage() {
     },
   });
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], error: recordsError, isLoading: recordsLoading, refetch: retryRecords } = useQuery({
     queryKey: ["observation-records"],
     queryFn: async () => {
       const { data, error } = await (supabase.from("observation_records" as any) as any)
@@ -179,12 +180,12 @@ export default function ObservationSessionPage() {
       if (error) throw error; return data;
     },
     onSuccess: () => {
-      toast.success(L("���ҧ�ͺ�ѧࡵ��ó������", "Session created successfully", lang));
+      toast.success(L("สร้างรอบสังเกตการณ์แล้ว", "Session created successfully", lang));
       queryClient.invalidateQueries({ queryKey: ["observation-sessions"] });
       resetForm(); setSessionDialogOpen(false);
     },
     onError: (err: unknown) => {
-      toast.error((err instanceof Error ? err.message : String(err)) || L("�Դ��ͼԴ��Ҵ", "An error occurred", lang));
+      toast.error((err instanceof Error ? err.message : String(err)) || L("เกิดข้อผิดพลาด", "An error occurred", lang));
     },
   });
 
@@ -197,15 +198,19 @@ export default function ObservationSessionPage() {
         is_draft: isDraft, submitted_at: new Date().toISOString(),
       }, { onConflict: "session_id" });
       if (error) throw error;
-      if (!isDraft) await supabase.from("observation_sessions" as any).update({ status: "completed" }).eq("id", sessionId);
+      if (!isDraft) {
+        const { error } = await supabase.from("observation_sessions" as any).update({ status: "completed" }).eq("id", sessionId);
+        if (error) throw error;
+      }
     },
     onSuccess: (_, vars) => {
-      toast.success(vars.isDraft ? L("�ѹ�֡��ҧ�����", "Draft saved successfully", lang) : L("�觼Ż����Թ�����", "Score submitted successfully", lang));
-      queryClient.invalidateQueries({ queryKey: ["observation-sessions", "observation-records"] });
+      toast.success(vars.isDraft ? L("บันทึกร่างแล้ว", "Draft saved successfully", lang) : L("บันทึกผลประเมินแล้ว", "Score submitted successfully", lang));
+      queryClient.invalidateQueries({ queryKey: ["observation-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["observation-records"] });
       setScoringSession(null);
     },
     onError: (err: unknown) => {
-      toast.error((err instanceof Error ? err.message : String(err)) || L("�Դ��ͼԴ��Ҵ", "An error occurred", lang));
+      toast.error((err instanceof Error ? err.message : String(err)) || L("เกิดข้อผิดพลาด", "An error occurred", lang));
     },
   });
 
@@ -243,18 +248,18 @@ export default function ObservationSessionPage() {
       `<td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:18px">${record.scores?.[c.key] ?? 0}</td>` +
       `<td style="padding:8px;border:1px solid #ddd">${record.comments?.[c.key] || "-"}</td></tr>`
     ).join("");
-    const tl = L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang);
-    const cl = L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Classroom", lang);
-    const sl = L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang);
-    const dl = L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Date", lang);
-    const ol = L("\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer", lang);
-    const crl = L("\u0E40\u0E01\u0E37\u0E48\u0E2D\u0E21", "Criteria", lang);
-    const scl = L("\u0E04\u0E23\u0E32\u0E22\u0E2A\u0E23\u0E30\u0E1B\u0E31\u0E07", "Score", lang);
-    const cml = L("\u0E04\u0E33\u0E21\u0E01\u0E32\u0E23", "Comment", lang);
-    const ovl = L("\u0E04\u0E33\u0E19\u0E32\u0E22\u0E25\u0E48\u0E32", "Overall Comment", lang);
-    const stl = L("\u0E08\u0E38\u0E14\u0E01\u0E31\u0E1A\u0E07", "Strengths", lang);
-    const sgl = L("\u0E02\u0E49\u0E2D\u0E21\u0E23\u0E30\u0E07\u0E08", "Suggestions", lang);
-    const title = L("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E2A\u0E2D\u0E14", "Teaching Observation Report", lang);
+    const tl = L("ครู", "Teacher", lang);
+    const cl = L("ห้องเรียน", "Classroom", lang);
+    const sl = L("วิชา", "Subject", lang);
+    const dl = L("วันที่", "Date", lang);
+    const ol = L("ผู้สังเกตการณ์", "Observer", lang);
+    const crl = L("เกณฑ์", "Criteria", lang);
+    const scl = L("คะแนน", "Score", lang);
+    const cml = L("ความคิดเห็น", "Comment", lang);
+    const ovl = L("ความคิดเห็นโดยรวม", "Overall Comment", lang);
+    const stl = L("จุดเด่น", "Strengths", lang);
+    const sgl = L("ข้อเสนอแนะ", "Suggestions", lang);
+    const title = L("รายงานการสังเกตการสอน", "Teaching Observation Report", lang);
     win.document.write(
       `<!DOCTYPE html><html><head><title>Observation Report</title>` +
       `<style>body{font-family:sans-serif;padding:30px;color:#333}h1{font-size:20px;margin-bottom:4px}` +
@@ -272,7 +277,7 @@ export default function ObservationSessionPage() {
       `<th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:left">${cml}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>` +
       `<div class="score-box"><div class="score-big">${record.total_score} / ${record.max_score}</div>` +
-      `<div>${record.percentage}%</div></div>` +
+      `<div>${calcPercentage(record.total_score, record.max_score)}%</div></div>` +
       `<div class="section"><h3>${ovl}</h3><p>${record.overall_comment || "-"}</p></div>` +
       `<div class="section"><h3>${stl}</h3><p>${record.strengths || "-"}</p></div>` +
       `<div class="section"><h3>${sgl}</h3><p>${record.suggestions || "-"}</p></div>` +
@@ -281,6 +286,9 @@ export default function ObservationSessionPage() {
     win.document.close();
   };
 
+  const loadError = teachersError || sessionsError || recordsError;
+  if (loadError) return <div role="alert" className="py-8 text-destructive space-y-3"><p>อ่านข้อมูลการสังเกตการสอนไม่สำเร็จ</p><Button variant="outline" onClick={() => { void retryTeachers(); void retrySessions(); void retryRecords(); }}>ลองใหม่</Button></div>;
+  if (teachersLoading || sessionsLoading || recordsLoading) return <p role="status" className="py-8 text-muted-foreground">กำลังโหลดข้อมูลการสังเกตการสอน…</p>;
   const pctColor = percentage >= 80 ? "text-green-600" : percentage >= 60 ? "text-yellow-600" : "text-red-600";
 
   return (
@@ -288,47 +296,47 @@ export default function ObservationSessionPage() {
       <div className="space-y-2">
         <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
           <ClipboardCheck className="h-7 w-7 text-primary" />
-          {L("\u0E01\u0E32\u0E23\u0E08\u0E31\u0E14\u0E40\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23 \u0E41\u0E1A\u0E1A OBEC", "OBEC Teaching Observation Management", lang)}
+          {L("การจัดการสังเกตการสอน สพฐ.", "OBEC Teaching Observation Management", lang)}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {L("\u0E23\u0E30\u0E22\u0E30\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48 5 \u0E02\u0E49\u0E2D\u0E2A\u0E2D\u0E14 \u0E2A\u0E1E\u0E40\u0E01\u0E49 + \u0E40\u0E01\u0E37\u0E48\u0E2D\u0E21\u0E15\u0E48\u0E2D\u0E19", "5-Step Teaching Model Observation + General Criteria", lang)}
+          {L("5-Step Teaching Model Observation + General Criteria", "5-Step Teaching Model Observation + General Criteria", lang)}
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="sessions" className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />{L("\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Sessions", lang)}
+            <Calendar className="h-4 w-4" />{L("รอบสังเกตการณ์", "Sessions", lang)}
           </TabsTrigger>
           <TabsTrigger value="scoring" className="flex items-center gap-1">
-            <Star className="h-4 w-4" />{L("\u0E1B\u0E23\u0E30\u0E21\u0E37\u0E2D\u0E02\u0E48\u0E32\u0E22", "Rubric Scoring", lang)}
+            <Star className="h-4 w-4" />{L("ประเมินตามเกณฑ์", "Rubric Scoring", lang)}
           </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />{L("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "Reports", lang)}
+            <FileText className="h-4 w-4" />{L("รายงาน", "Reports", lang)}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sessions" className="space-y-4 mt-4">
           <div className="flex justify-end">
             <Button onClick={() => setSessionDialogOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />{L("\u0E2A\u0E23\u0E47\u0E2D\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E49\u0E21", "New Session", lang)}
+              <Plus className="h-4 w-4" />{L("สร้างรอบสังเกตการณ์", "New Session", lang)}
             </Button>
           </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                {L("\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", "All Observation Sessions", lang)}
+                {L("รอบสังเกตการณ์ทั้งหมด", "All Observation Sessions", lang)}
               </CardTitle>
               <CardDescription>{L("\u0E21\u0E35 " + sessions.length + " \u0E23\u0E31\u0E22", "Total " + sessions.length + " sessions", lang)}</CardDescription>
             </CardHeader>
             <CardContent>
               {sessionsLoading ? (
-                <p className="text-muted-foreground text-sm py-4 text-center">{L("\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E14\u0E22...", "Loading...", lang)}</p>
+                <p className="text-muted-foreground text-sm py-4 text-center">{L("กำลังโหลด…", "Loading...", lang)}</p>
               ) : sessions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <ClipboardCheck className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>{L("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "No observation sessions yet", lang)}</p>
+                  <p>{L("ยังไม่มีรอบสังเกตการณ์", "No observation sessions yet", lang)}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -336,13 +344,13 @@ export default function ObservationSessionPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>#</TableHead>
-                        <TableHead>{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)}</TableHead>
-                        <TableHead>{L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Classroom", lang)}</TableHead>
-                        <TableHead>{L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang)}</TableHead>
-                        <TableHead>{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48", "Date", lang)}</TableHead>
-                        <TableHead>{L("\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer", lang)}</TableHead>
-                        <TableHead>{L("\u0E2A\u0E31\u0E0D\u0E27", "Status", lang)}</TableHead>
-                        <TableHead className="text-right">{L("\u0E01\u0E32\u0E23\u0E14\u0E33\u0E40\u0E2B\u0E47\u0E19", "Actions", lang)}</TableHead>
+                        <TableHead>{L("ครู", "Teacher", lang)}</TableHead>
+                        <TableHead>{L("ห้องเรียน", "Classroom", lang)}</TableHead>
+                        <TableHead>{L("วิชา", "Subject", lang)}</TableHead>
+                        <TableHead>{L("วันที่", "Date", lang)}</TableHead>
+                        <TableHead>{L("ผู้สังเกตการณ์", "Observer", lang)}</TableHead>
+                        <TableHead>{L("สถานะ", "Status", lang)}</TableHead>
+                        <TableHead className="text-right">{L("จัดการ", "Actions", lang)}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -359,11 +367,11 @@ export default function ObservationSessionPage() {
                             <TableCell className="text-sm">{s.observer_name || "-"}</TableCell>
                             <TableCell><Badge variant={st.variant}>{(st as any)[lang] ?? (st as any)[`label_${lang}`]}</Badge></TableCell>
                             <TableCell className="text-right space-x-1">
-                              <Button variant="ghost" size="sm" onClick={() => { openScoring(s); setActiveTab("scoring"); }} title={L("\u0E1B\u0E23\u0E30\u0E21\u0E37\u0E2D\u0E02\u0E48\u0E32\u0E22", "Score", lang)}>
+                              <Button variant="ghost" size="sm" onClick={() => { openScoring(s); setActiveTab("scoring"); }} title={L("คะแนน", "Score", lang)}>
                                 <Star className="h-4 w-4" />
                               </Button>
                               {hasRecord && (
-                                <Button variant="ghost" size="sm" onClick={() => setDetailSession(s)} title={L("\u0E14\u0E39\u0E27", "View", lang)}>
+                                <Button variant="ghost" size="sm" onClick={() => setDetailSession(s)} title={L("ดูรายละเอียด", "View", lang)}>
                                   <Eye className="h-4 w-4" />
                                 </Button>
                               )}
@@ -384,10 +392,10 @@ export default function ObservationSessionPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Star className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="text-lg font-medium mb-1">{L("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27", "Select an observation session", lang)}</p>
-                <p className="text-sm">{L("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27\u0E43\u0E19\u0E01\u0E32\u0E23\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Choose a session from the Sessions tab to begin scoring", lang)}</p>
+                <p className="text-lg font-medium mb-1">{L("Select an observation session", "Select an observation session", lang)}</p>
+                <p className="text-sm">{L("Choose a session from the Sessions tab to begin scoring", "Choose a session from the Sessions tab to begin scoring", lang)}</p>
                 <Button variant="outline" className="mt-4" onClick={() => setActiveTab("sessions")}>
-                  {L("\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Go to Sessions", lang)}
+                  {L("Go to Sessions", "Go to Sessions", lang)}
                 </Button>
               </CardContent>
             </Card>
@@ -423,7 +431,7 @@ export default function ObservationSessionPage() {
                     {RUBRIC_CRITERIA.filter((c) => c.group === group.key).map((c) => (
                       <div key={c.key} className="space-y-3 pb-4 border-b last:border-b-0 last:pb-0">
                         <ScoreSlider value={scores[c.key] || 0} onChange={(v) => setScores((prev) => ({ ...prev, [c.key]: v }))} label={(c as any)[lang] ?? (c as any)[`label_${lang}`] ?? c.key} />
-                        <Textarea placeholder={L("\u0E04\u0E33\u0E21\u0E01\u0E32\u0E23\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21...", "Additional comments...", lang)} value={scoreComments[c.key] || ""} onChange={(e) => setScoreComments((prev) => ({ ...prev, [c.key]: e.target.value }))} rows={2} className="text-sm" />
+                        <Textarea placeholder={L("Additional comments...", "Additional comments...", lang)} value={scoreComments[c.key] || ""} onChange={(e) => setScoreComments((prev) => ({ ...prev, [c.key]: e.target.value }))} rows={2} className="text-sm" />
                       </div>
                     ))}
                   </CardContent>
@@ -431,52 +439,52 @@ export default function ObservationSessionPage() {
               ))}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{L("\u0E04\u0E33\u0E19\u0E32\u0E22\u0E25\u0E48\u0E32", "Overall Comments", lang)}</CardTitle>
+                  <CardTitle className="text-base">{L("Overall Comments", "Overall Comments", lang)}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{L("\u0E04\u0E33\u0E19\u0E32\u0E22\u0E25\u0E48\u0E32", "Overall Comment", lang)}</Label>
-                    <Textarea placeholder={L("\u0E04\u0E33\u0E19\u0E32\u0E22\u0E25\u0E48\u0E32\u0E40\u0E01\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E48\u0E07\u0E2A\u0E31\u0E0D\u0E27...", "Overall teaching comments...", lang)} value={overallComment} onChange={(e) => setOverallComment(e.target.value)} rows={3} />
+                    <Label>{L("ความคิดเห็นโดยรวม", "Overall Comment", lang)}</Label>
+                    <Textarea placeholder={L("Overall teaching comments...", "Overall teaching comments...", lang)} value={overallComment} onChange={(e) => setOverallComment(e.target.value)} rows={3} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1"><CheckCircle2 className="h-4 w-4 text-green-500" />{L("\u0E08\u0E38\u0E14\u0E01\u0E31\u0E1A\u0E07", "Strengths", lang)}</Label>
-                    <Textarea placeholder={L("\u0E08\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E0D\u0E27...", "Teaching strengths...", lang)} value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={3} />
+                    <Label className="flex items-center gap-1"><CheckCircle2 className="h-4 w-4 text-green-500" />{L("จุดเด่น", "Strengths", lang)}</Label>
+                    <Textarea placeholder={L("Teaching strengths...", "Teaching strengths...", lang)} value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={3} />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-amber-500" />{L("\u0E02\u0E49\u0E2D\u0E21\u0E23\u0E30\u0E07\u0E08", "Suggestions", lang)}</Label>
-                    <Textarea placeholder={L("\u0E2A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1B\u0E25\u0E07\u0E21\u0E32...", "Areas for improvement...", lang)} value={suggestions} onChange={(e) => setSuggestions(e.target.value)} rows={3} />
+                    <Label className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-amber-500" />{L("ข้อเสนอแนะ", "Suggestions", lang)}</Label>
+                    <Textarea placeholder={L("Areas for improvement...", "Areas for improvement...", lang)} value={suggestions} onChange={(e) => setSuggestions(e.target.value)} rows={3} />
                   </div>
                 </CardContent>
               </Card>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setScoringSession(null)}>{L("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E22", "Cancel", lang)}</Button>
-                <Button variant="secondary" onClick={() => submitScoreMutation.mutate({ sessionId: scoringSession.id, isDraft: true })} disabled={submitScoreMutation.isPending}>{L("\u0E1A\u0E31\u0E15\u0E27\u0E23\u0E31\u0E1A\u0E2A\u0E34\u0E49\u0E19", "Save Draft", lang)}</Button>
-                <Button onClick={() => submitScoreMutation.mutate({ sessionId: scoringSession.id, isDraft: false })} disabled={submitScoreMutation.isPending}>{L("\u0E2A\u0E48\u0E07\u0E1C\u0E37\u0E34\u0E2A\u0E23\u0E30\u0E1B\u0E31\u0E07\u0E2A\u0E34\u0E49\u0E19", "Submit Score", lang)}</Button>
+                <Button variant="outline" onClick={() => setScoringSession(null)}>{L("ยกเลิก", "Cancel", lang)}</Button>
+                <Button variant="secondary" onClick={() => submitScoreMutation.mutate({ sessionId: scoringSession.id, isDraft: true })} disabled={submitScoreMutation.isPending}>{L("บันทึกร่าง", "Save Draft", lang)}</Button>
+                <Button onClick={() => submitScoreMutation.mutate({ sessionId: scoringSession.id, isDraft: false })} disabled={submitScoreMutation.isPending}>{L("ส่งผลประเมิน", "Submit Score", lang)}</Button>
               </div>
             </div>
           )}
         </TabsContent>
         <TabsContent value="reports" className="space-y-4 mt-4">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{L("\u0E01\u0E23\u0E32\u0E1B\u0E32\u0E2A\u0E32\u0E23", "Filters", lang)}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />{L("ตัวกรอง", "Filters", lang)}</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)}</Label>
+                  <Label>{L("ครู", "Teacher", lang)}</Label>
                   <Select value={filterTeacher} onValueChange={setFilterTeacher}>
-                    <SelectTrigger><SelectValue placeholder={L("\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", "All", lang)} /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={L("All", "All", lang)} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{L("\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", "All Teachers", lang)}</SelectItem>
+                      <SelectItem value="all">{L("All Teachers", "All Teachers", lang)}</SelectItem>
                       {teachers.map((t) => (<SelectItem key={t.id} value={t.id}>{t.prefix || ""} {t.first_name} {t.last_name}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{L("\u0E08\u0E32\u0E27\u0E17\u0E35\u0E48", "From Date", lang)}</Label>
+                  <Label>{L("From Date", "From Date", lang)}</Label>
                   <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>{L("\u0E16\u0E63\u0E48\u0E17\u0E35\u0E48", "To Date", lang)}</Label>
+                  <Label>{L("To Date", "To Date", lang)}</Label>
                   <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
                 </div>
               </div>
@@ -484,14 +492,14 @@ export default function ObservationSessionPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{L("\u0E1C\u0E37\u0E34\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observation Results", lang)}</CardTitle>
-              <CardDescription>{filteredRecords.length + " " + L("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "records", lang)}</CardDescription>
+              <CardTitle>{L("ผลการสังเกตการสอน", "Observation Results", lang)}</CardTitle>
+              <CardDescription>{filteredRecords.length + " " + L("records", "records", lang)}</CardDescription>
             </CardHeader>
             <CardContent>
               {filteredRecords.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>{L("\u0E44\u0E21\u0E48\u0E1E\u0E22\u0E1C\u0E37\u0E34\u0E2A\u0E23\u0E30\u0E1B\u0E31\u0E07", "No observation records found", lang)}</p>
+                  <p>{L("No observation records found", "No observation records found", lang)}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -499,20 +507,20 @@ export default function ObservationSessionPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>#</TableHead>
-                        <TableHead>{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)}</TableHead>
-                        <TableHead>{L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Class", lang)}</TableHead>
-                        <TableHead>{L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang)}</TableHead>
-                        <TableHead>{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48", "Date", lang)}</TableHead>
-                        <TableHead className="text-center">{L("\u0E04\u0E23\u0E32\u0E22", "Score", lang)}</TableHead>
+                        <TableHead>{L("ครู", "Teacher", lang)}</TableHead>
+                        <TableHead>{L("Class", "Class", lang)}</TableHead>
+                        <TableHead>{L("วิชา", "Subject", lang)}</TableHead>
+                        <TableHead>{L("วันที่", "Date", lang)}</TableHead>
+                        <TableHead className="text-center">{L("คะแนน", "Score", lang)}</TableHead>
                         <TableHead className="text-center">%</TableHead>
-                        <TableHead>{L("\u0E2A\u0E31\u0E0D\u0E27", "Status", lang)}</TableHead>
-                        <TableHead className="text-right">{L("\u0E14\u0E33\u0E40\u0E2B\u0E47\u0E19", "Actions", lang)}</TableHead>
+                        <TableHead>{L("สถานะ", "Status", lang)}</TableHead>
+                        <TableHead className="text-right">{L("จัดการ", "Actions", lang)}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredRecords.map((r, idx) => {
                         const session = sessions.find((s) => s.id === r.session_id);
-                        const sp = calcPercentage(r.total_score);
+                        const sp = calcPercentage(r.total_score, r.max_score);
                         return (
                           <TableRow key={r.id}>
                             <TableCell className="font-mono text-sm">{idx + 1}</TableCell>
@@ -524,14 +532,14 @@ export default function ObservationSessionPage() {
                             <TableCell className="text-center"><Badge variant={sp >= 80 ? "outline" : sp >= 60 ? "secondary" : "destructive"}>{sp}%</Badge></TableCell>
                             <TableCell>
                               {r.is_draft ? (
-                                <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{L("\u0E23\u0E31\u0E1A", "Draft", lang)}</Badge>
+                                <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{L("ร่าง", "Draft", lang)}</Badge>
                               ) : (
-                                <Badge variant="outline"><CheckCircle2 className="h-3 w-3 mr-1" />{L("\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19", "Completed", lang)}</Badge>
+                                <Badge variant="outline"><CheckCircle2 className="h-3 w-3 mr-1" />{L("เสร็จสิ้น", "Completed", lang)}</Badge>
                               )}
                             </TableCell>
                             <TableCell className="text-right space-x-1">
-                              <Button variant="ghost" size="sm" onClick={() => handlePrint(r)} title={L("\u0E1E\u0E34\u0E21\u0E1E\u0E34\u0E19", "Print", lang)}><Printer className="h-4 w-4" /></Button>
-                              {session && <Button variant="ghost" size="sm" onClick={() => setDetailSession(session)} title={L("\u0E14\u0E39\u0E27", "View", lang)}><Eye className="h-4 w-4" /></Button>}
+                              <Button variant="ghost" size="sm" onClick={() => handlePrint(r)} title={L("พิมพ์", "Print", lang)}><Printer className="h-4 w-4" /></Button>
+                              {session && <Button variant="ghost" size="sm" onClick={() => setDetailSession(session)} title={L("ดูรายละเอียด", "View", lang)}><Eye className="h-4 w-4" /></Button>}
                             </TableCell>
                           </TableRow>
                         );
@@ -546,12 +554,12 @@ export default function ObservationSessionPage() {
       </Tabs>
       <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
         <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{L("\u0E2A\u0E23\u0E47\u0E2D\u0E23\u0E31\u0E22\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E49\u0E21", "New Observation Session", lang)}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{L("สร้างรอบสังเกตการณ์ใหม่", "New Observation Session", lang)}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)} *</Label>
+              <Label>{L("ครู", "Teacher", lang)} *</Label>
               <Select value={formTeacherId} onValueChange={setFormTeacherId}>
-                <SelectTrigger><SelectValue placeholder={L("\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E37...", "Select teacher...", lang)} /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={L("Select teacher...", "Select teacher...", lang)} /></SelectTrigger>
                 <SelectContent>
                   {teachers.map((t) => (<SelectItem key={t.id} value={t.id}>{t.prefix || ""} {t.first_name} {t.last_name}</SelectItem>))}
                 </SelectContent>
@@ -559,29 +567,29 @@ export default function ObservationSessionPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Classroom", lang)} *</Label>
+                <Label>{L("ห้องเรียน", "Classroom", lang)} *</Label>
                 <Input value={formClassroom} onChange={(e) => setFormClassroom(e.target.value)} placeholder="1/1" />
               </div>
               <div className="space-y-2">
-                <Label>{L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang)} *</Label>
-                <Input value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder={L("\u0E04\u0E13\u0E34\u0E15\u0E28\u0E34\u0E28\u0E2A\u0E32\u0E23", "Mathematics", lang)} />
+                <Label>{L("วิชา", "Subject", lang)} *</Label>
+                <Input value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder={L("Mathematics", "Mathematics", lang)} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observation Date", lang)} *</Label>
+                <Label>{L("Observation Date", "Observation Date", lang)} *</Label>
                 <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>{L("\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer Name", lang)}</Label>
-                <Input value={formObserver} onChange={(e) => setFormObserver(e.target.value)} placeholder={L("\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer name", lang)} />
+                <Label>{L("Observer Name", "Observer Name", lang)}</Label>
+                <Input value={formObserver} onChange={(e) => setFormObserver(e.target.value)} placeholder={L("Observer name", "Observer name", lang)} />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>{L("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E22", "Cancel", lang)}</Button>
+            <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>{L("ยกเลิก", "Cancel", lang)}</Button>
             <Button onClick={() => createSessionMutation.mutate()} disabled={!formTeacherId || !formClassroom || !formSubject || !formDate || createSessionMutation.isPending}>
-              {createSessionMutation.isPending ? "..." : L("\u0E2A\u0E23\u0E47\u0E2D", "Create", lang)}
+              {createSessionMutation.isPending ? "..." : L("สร้าง", "Create", lang)}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -589,32 +597,32 @@ export default function ObservationSessionPage() {
 
       <Dialog open={!!detailSession} onOpenChange={() => setDetailSession(null)}>
         <DialogContent className="sm:max-w-2xl sm:max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{L("\u0E23\u0E32\u0E22\u0E40\u0E25\u0E37\u0E2D\u0E23\u0E31\u0E48\u0E27\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observation Detail", lang)}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{L("รายละเอียดการสังเกตการสอน", "Observation Detail", lang)}</DialogTitle></DialogHeader>
           {detailSession && (() => {
             const record = records.find((r) => r.session_id === detailSession.id);
             return (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-muted-foreground">{L("\u0E04\u0E23\u0E13\u0E1C\u0E31\u0E14\u0E2A\u0E31\u0E0D\u0E27", "Teacher", lang)}: </span><span className="font-medium">{detailSession.teacher_name || getTeacherName(detailSession.teacher_id)}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E2B\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21", "Classroom", lang)}: </span><span className="font-medium">{detailSession.classroom}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E27\u0E34\u0E2A\u0E32", "Subject", lang)}: </span><span className="font-medium">{detailSession.subject}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E27\u0E31\u0E22\u0E17\u0E35\u0E48", "Date", lang)}: </span><span className="font-medium">{formatDate((detailSession as any).scheduled_date ?? (detailSession as any).observation_date, lang)}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E1C\u0E39\u0E49\u0E2A\u0E31\u0E19\u0E40\u0E01\u0E32\u0E23", "Observer", lang)}: </span><span className="font-medium">{detailSession.observer_name || "-"}</span></div>
-                  <div><span className="text-muted-foreground">{L("\u0E2A\u0E31\u0E0D\u0E27", "Status", lang)}: </span><Badge variant={(STATUS_MAP[detailSession.status] || STATUS_MAP.draft).variant}>{(STATUS_MAP[detailSession.status] as any)[lang] ?? (STATUS_MAP[detailSession.status] as any)[`label_${lang}`] ?? detailSession.status}</Badge></div>
+                  <div><span className="text-muted-foreground">{L("ครู", "Teacher", lang)}: </span><span className="font-medium">{detailSession.teacher_name || getTeacherName(detailSession.teacher_id)}</span></div>
+                  <div><span className="text-muted-foreground">{L("ห้องเรียน", "Classroom", lang)}: </span><span className="font-medium">{detailSession.classroom}</span></div>
+                  <div><span className="text-muted-foreground">{L("วิชา", "Subject", lang)}: </span><span className="font-medium">{detailSession.subject}</span></div>
+                  <div><span className="text-muted-foreground">{L("วันที่", "Date", lang)}: </span><span className="font-medium">{formatDate((detailSession as any).scheduled_date ?? (detailSession as any).observation_date, lang)}</span></div>
+                  <div><span className="text-muted-foreground">{L("ผู้สังเกตการณ์", "Observer", lang)}: </span><span className="font-medium">{detailSession.observer_name || "-"}</span></div>
+                  <div><span className="text-muted-foreground">{L("สถานะ", "Status", lang)}: </span><Badge variant={(STATUS_MAP[detailSession.status] || STATUS_MAP.draft).variant}>{(STATUS_MAP[detailSession.status] as any)[lang] ?? (STATUS_MAP[detailSession.status] as any)[`label_${lang}`] ?? detailSession.status}</Badge></div>
                 </div>
                 {record ? (
                   <>
                     <div className="text-center py-3 rounded-lg bg-muted">
-                      <div className={`text-3xl font-bold ${calcPercentage(record.total_score) >= 80 ? "text-green-600" : calcPercentage(record.total_score) >= 60 ? "text-yellow-600" : "text-red-600"}`}>
+                      <div className={`text-3xl font-bold ${calcPercentage(record.total_score, record.max_score) >= 80 ? "text-green-600" : calcPercentage(record.total_score, record.max_score) >= 60 ? "text-yellow-600" : "text-red-600"}`}>
                         {record.total_score} / {record.max_score}
                       </div>
-                      <div className="text-sm text-muted-foreground">{calcPercentage(record.total_score)}%</div>
+                      <div className="text-sm text-muted-foreground">{calcPercentage(record.total_score, record.max_score)}%</div>
                     </div>
                     <Table>
                       <TableHeader><TableRow>
-                        <TableHead>{L("\u0E40\u0E01\u0E37\u0E48\u0E2D\u0E21", "Criteria", lang)}</TableHead>
-                        <TableHead className="text-center">{L("\u0E04\u0E23\u0E32\u0E22", "Score", lang)}</TableHead>
-                        <TableHead>{L("\u0E04\u0E33\u0E21\u0E01\u0E32\u0E23", "Comment", lang)}</TableHead>
+                        <TableHead>{L("เกณฑ์", "Criteria", lang)}</TableHead>
+                        <TableHead className="text-center">{L("คะแนน", "Score", lang)}</TableHead>
+                        <TableHead>{L("ความคิดเห็น", "Comment", lang)}</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
                         {RUBRIC_CRITERIA.map((c) => (
@@ -626,17 +634,17 @@ export default function ObservationSessionPage() {
                         ))}
                       </TableBody>
                     </Table>
-                    {record.overall_comment && <div className="space-y-1"><Label>{L("\u0E04\u0E33\u0E19\u0E32\u0E22", "Overall", lang)}</Label><p className="text-sm">{record.overall_comment}</p></div>}
-                    {record.strengths && <div className="space-y-1"><Label className="text-green-600">{L("\u0E08\u0E38\u0E14\u0E01\u0E31\u0E1A\u0E07", "Strengths", lang)}</Label><p className="text-sm">{record.strengths}</p></div>}
-                    {record.suggestions && <div className="space-y-1"><Label className="text-amber-600">{L("\u0E02\u0E49\u0E2D\u0E21\u0E23\u0E30\u0E07\u0E08", "Suggestions", lang)}</Label><p className="text-sm">{record.suggestions}</p></div>}
+                    {record.overall_comment && <div className="space-y-1"><Label>{L("Overall", "Overall", lang)}</Label><p className="text-sm">{record.overall_comment}</p></div>}
+                    {record.strengths && <div className="space-y-1"><Label className="text-green-600">{L("จุดเด่น", "Strengths", lang)}</Label><p className="text-sm">{record.strengths}</p></div>}
+                    {record.suggestions && <div className="space-y-1"><Label className="text-amber-600">{L("ข้อเสนอแนะ", "Suggestions", lang)}</Label><p className="text-sm">{record.suggestions}</p></div>}
                     <div className="flex justify-end">
                       <Button variant="outline" size="sm" onClick={() => { handlePrint(record); }}>
-                        <Printer className="h-4 w-4 mr-1" />{L("\u0E1E\u0E34\u0E21\u0E1E\u0E34\u0E19", "Print", lang)}
+                        <Printer className="h-4 w-4 mr-1" />{L("พิมพ์", "Print", lang)}
                       </Button>
                     </div>
                   </>
                 ) : (
-                  <p className="text-center text-muted-foreground py-4">{L("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E37\u0E34\u0E2A\u0E23\u0E30\u0E1B\u0E31\u0E07", "No observation record yet", lang)}</p>
+                  <p className="text-center text-muted-foreground py-4">{L("No observation record yet", "No observation record yet", lang)}</p>
                 )}
               </div>
             );

@@ -10,68 +10,77 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ScanFace, ShieldCheck, CheckCircle2, Clock, AlertTriangle, Sparkles, Lock, Camera,
 } from "lucide-react";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import LivenessFaceRegisterDialog from "@/components/users/LivenessFaceRegisterDialog";
 
 const MyFaceEnrollPage = () => {
   const qc = useQueryClient();
+  const { user, isReady: authReady } = useAuthSession();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
 
   const { data: me, isLoading } = useQuery({
-    queryKey: ["my-student-face-record"],
+    queryKey: ["my-student-face-record", user?.id],
+    enabled: authReady && !!user,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
       const cols =
         "id, student_code, prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)";
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("students")
         .select(cols)
         .eq("auth_user_id", user.id)
         .maybeSingle();
+      if (error) throw error;
       if (data) return data;
       // สำรอง: บัญชียังไม่ผูกโดยตรง — หาจากรหัสนักเรียนในโปรไฟล์
-      const { data: prof } = await supabase
+      const { data: prof, error: profileError } = await supabase
         .from("profiles")
         .select("student_code")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileError) throw profileError;
       const code = prof?.student_code?.trim();
       if (!code) return null;
-      const { data: byCode } = await supabase
+      const { data: byCode, error: codeError } = await supabase
         .from("students")
         .select(cols)
         .eq("student_code", code)
         .maybeSingle();
+      if (codeError) throw codeError;
       return byCode;
     },
   });
 
   const { data: mePersonnel, isLoading: loadingP } = useQuery({
-    queryKey: ["my-personnel-face-record"],
-    enabled: !isLoading && !me,
+    queryKey: ["my-personnel-face-record", user?.id],
+    enabled: authReady && !!user && !isLoading && !me,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const cols = "id, employee_code, prefix, first_name, last_name, avatar_url";
-      const { data } = await (supabase as any)
+      const cols = "id, employee_code, prefix, first_name, last_name";
+      const { data, error } = await (supabase as any)
         .from("personnel")
         .select(cols)
         .eq("user_id", user.id)
         .maybeSingle();
+      if (error) throw error;
       if (data) return data;
-      const { data: prof } = await supabase
+      const { data: prof, error: profileError } = await supabase
         .from("profiles")
         .select("employee_code")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileError) throw profileError;
       const code = prof?.employee_code?.trim();
       if (!code) return null;
-      const { data: byCode } = await (supabase as any)
+      const { data: byCode, error: codeError } = await (supabase as any)
         .from("personnel")
         .select(cols)
         .eq("employee_code", code)
         .maybeSingle();
+      if (codeError) throw codeError;
       return byCode;
     },
   });
@@ -80,10 +89,11 @@ const MyFaceEnrollPage = () => {
     queryKey: ["my-personnel-face-samples", mePersonnel?.id],
     enabled: !!mePersonnel?.id,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("personnel_face_descriptors")
         .select("id, created_at")
-        .eq("personnel_id", mePersonnel!.id);
+        .eq("personnel_id", mePersonnel?.id ?? "");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -92,10 +102,11 @@ const MyFaceEnrollPage = () => {
     queryKey: ["my-face-samples", me?.id],
     enabled: !!me?.id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("student_face_descriptors")
         .select("id, source, quality_score, created_at")
-        .eq("student_id", me!.id);
+        .eq("student_id", me?.id ?? "");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -104,22 +115,24 @@ const MyFaceEnrollPage = () => {
     queryKey: ["my-face-requests", me?.id],
     enabled: !!me?.id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("face_registration_requests")
         .select("id, status, request_type, created_at, review_notes")
-        .eq("student_id", me!.id)
+        .eq("student_id", me?.id ?? "")
         .order("created_at", { ascending: false })
         .limit(5);
+      if (error) throw error;
       return data || [];
     },
   });
 
   // สำรองสุดท้าย: ให้เซิร์ฟเวอร์หาข้อมูลให้ (ข้าม RLS อย่างปลอดภัย) + ผูกบัญชีอัตโนมัติ
-  const { data: serverIdentity } = useQuery({
-    queryKey: ["my-face-identity"],
-    enabled: !isLoading && !loadingP && !me && !mePersonnel,
+  const { data: serverIdentity, isLoading: loadingIdentity } = useQuery({
+    queryKey: ["my-face-identity", user?.id],
+    enabled: authReady && !!user && !isLoading && !loadingP && !me && !mePersonnel,
     queryFn: async () => {
-      const { data } = await (supabase as any).rpc("get_my_face_identity");
+      const { data, error } = await (supabase as any).rpc("get_my_face_identity");
+      if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) return null;
       // ผูกบัญชีให้เรียบร้อย ครั้งหน้าจะหาเจอทันที
@@ -155,7 +168,7 @@ const MyFaceEnrollPage = () => {
     qc.invalidateQueries({ queryKey: ["my-personnel-face-samples"] });
   };
 
-  if (isLoading || loadingP) return <Skeleton className="h-64 w-full rounded-xl" />;
+  if (!authReady || isLoading || loadingP || loadingIdentity) return <Skeleton className="h-64 w-full rounded-xl" />;
 
   if (!person) {
     return (
@@ -171,7 +184,7 @@ const MyFaceEnrollPage = () => {
             variant="outline"
             className="gap-2"
             onClick={async () => {
-              const { data } = await (supabase as any).rpc("link_my_identity");
+              const { data, error } = await (supabase as any).rpc("link_my_identity");
               qc.invalidateQueries();
               if (!data || data === "none") {
                 void swal.warning("ระบบยังหาข้อมูลของบัญชีนี้ไม่พบ กรุณาแจ้งผู้ดูแลระบบให้เชื่อมรหัสนักเรียนกับบัญชีนี้");

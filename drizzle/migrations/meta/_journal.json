@@ -211,6 +211,13 @@
       "when": 1794290714003,
       "tag": "0029_alumni_student_roster_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794379683778,
+      "tag": "0030_restore_audit_modules_and_safe_admin_reads",
+      "breakpoints": true
     }
   ]
 }
