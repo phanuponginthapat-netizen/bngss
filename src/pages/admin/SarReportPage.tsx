@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Printer, Loader2 } from "lucide-react";
 import { useSchoolReport } from "@/hooks/useSchoolReport";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 /**
  * รายงานการประเมินตนเองของสถานศึกษา (SAR) — รวบรวมข้อมูลพื้นฐานจากระบบ
@@ -16,28 +18,32 @@ const GRADE_POINT: Record<string, number> = { "4": 4, "3.5": 3.5, "3": 3, "2.5":
 const esc = (v: unknown) => String(v ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
 
 async function fetchAll<T = any>(table: string, select: string): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await (supabase as any).from(table).select(select).range(from, from + 999);
-    if (error || !data?.length) break;
-    out.push(...data);
-    if (data.length < 1000) break;
-  }
-  return out;
+  return fetchAllRows<T>((from,to)=>(supabase as any).from(table).select(select).order("id").range(from,to));
 }
 
 export default function SarReportPage() {
   const { printReport } = useSchoolReport();
-  const yearCE = new Date().getMonth() < 4 ? new Date().getFullYear() - 1 : new Date().getFullYear();
+  const calendar = useAcademicYear();
+  const yearCE = calendar.currentAcademicYear - BE_OFFSET;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["sar_report", yearCE],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ["sar_report", yearCE, calendar.today],
+    enabled: calendar.isReady,
     queryFn: async () => {
       const [students, scores, screenings, attendance, personnel, consents, roles, plans] = await Promise.all([
         fetchAll("students", "id, gender, status, classrooms!students_classroom_id_fkey(grade_level)"),
         fetchAll("student_scores", "student_code, grade, academic_year"),
         fetchAll("student_screenings", "student_id, category"),
-        fetchAll("attendance", "status, date").then((r: any[]) => r.filter((a) => String(a.date || "").startsWith(String(yearCE)) || String(a.date || "").startsWith(String(yearCE + 1)))),
+        (async () => {
+          const { data: periods, error } = await supabase.from("academic_periods").select("semester").eq("academic_year_be", yearCE + BE_OFFSET);
+          if (error) throw error;
+          if (!periods?.length) throw new Error("ยังไม่มีปฏิทินปีการศึกษาสำหรับรายงาน");
+          return Promise.all(periods.map(async p => {
+            const { data, error } = await supabase.functions.invoke("public-school-attendance", { body: { mode: "term", year: yearCE + BE_OFFSET, semester: p.semester } });
+            if (error || data?.error || !Array.isArray(data?.daily)) throw new Error("อ่านสถิติการมาเรียนไม่สำเร็จ");
+            return data.daily;
+          })).then(rows => rows.flat().filter((r: any) => r.evidence));
+        })(),
         fetchAll("personnel", "id, status"),
         fetchAll("pdpa_consents", "user_id, accepted"),
         fetchAll("user_roles", "user_id, role"),
@@ -65,21 +71,22 @@ export default function SarReportPage() {
         dist[g || "-"] = (dist[g || "-"] || 0) + 1;
         if (g in GRADE_POINT) { pts += GRADE_POINT[g]; n++; if (GRADE_POINT[g] >= 3) good++; }
       }
-      const present = attendance.filter((a: any) => ["present", "late"].includes(a.status)).length;
+      const present = attendance.reduce((n: number, a: any) => n + a.present + a.late, 0);
+      const attendanceBase = attendance.reduce((n: number, a: any) => n + a.total, 0);
       const scr = { normal: 0, risk: 0, problem: 0 } as Record<string, number>;
       for (const s of screenings as any[]) if (s.category in scr) scr[s.category]++;
       return {
         total: active.length,
         byGrade: [...byGrade.entries()].sort(),
-        avgGrade: n ? Math.floor((pts / n) * 100) / 100 : 0,
-        goodPct: n ? (good / n) * 100 : 0,
+        avgGrade: n ? Math.floor((pts / n) * 100) / 100 : null,
+        goodPct: n ? (good / n) * 100 : null,
         dist,
-        attendancePct: attendance.length ? (present / attendance.length) * 100 : 0,
-        attendanceN: attendance.length,
+        attendancePct: attendanceBase ? (present / attendanceBase) * 100 : null,
+        attendanceN: attendanceBase,
         scr,
         pdpa,
-        plans: plans.length,
-        plansApproved: (plans as any[]).filter((p) => /approve|อนุมัติ/i.test(p.status || "")).length,
+        plans: plans.filter((p: any) => [yearCE,yearCE + BE_OFFSET].includes(Number(p.academic_year))).length,
+        plansApproved: (plans as any[]).filter((p) => [yearCE,yearCE + BE_OFFSET].includes(Number(p.academic_year)) && /approve|อนุมัติ/i.test(p.status || "")).length,
         teachers: personnel.filter((p: any) => !p.status || p.status === "active").length,
       };
     },
@@ -88,7 +95,7 @@ export default function SarReportPage() {
   const yearBE = yearCE + BE_OFFSET;
 
   const handlePrint = () => {
-    if (!data) return;
+    if (!data || error || !calendar.isReady || isFetching) return;
     const td = "border:1px solid #333;padding:4px 8px";
     const gradeRows = data.byGrade.map(([g, r]) => `<tr><td style="${td}">${esc(g)}</td><td style="${td};text-align:center">${r.m}</td><td style="${td};text-align:center">${r.f}</td><td style="${td};text-align:center">${r.m + r.f}</td></tr>`).join("");
     const distRows = Object.entries(data.dist).sort().map(([g, c]) => `<tr><td style="${td};text-align:center">${esc(g)}</td><td style="${td};text-align:center">${c}</td></tr>`).join("");
@@ -97,14 +104,14 @@ export default function SarReportPage() {
       <p>จำนวนนักเรียนทั้งหมด ${data.total} คน ครูและบุคลากร ${data.teachers} คน</p>
       <table style="border-collapse:collapse;width:100%"><tr><th style="${td}">ระดับชั้น</th><th style="${td}">ชาย</th><th style="${td}">หญิง</th><th style="${td}">รวม</th></tr>${gradeRows}</table>
       <h3>มาตรฐานที่ 1 คุณภาพของผู้เรียน</h3>
-      <p>ผลการเรียนเฉลี่ย ${data.avgGrade.toFixed(2)} — ร้อยละผู้เรียนได้ระดับ 3 ขึ้นไป ${data.goodPct.toFixed(2)}</p>
+      <p>ผลการเรียนเฉลี่ย ${(data.avgGrade?.toFixed(2) ?? "—")} — ร้อยละผู้เรียนได้ระดับ 3 ขึ้นไป ${(data.goodPct?.toFixed(2) ?? "—")}</p>
       <table style="border-collapse:collapse;width:50%"><tr><th style="${td}">ระดับผลการเรียน</th><th style="${td}">จำนวน (รายวิชา-คน)</th></tr>${distRows}</table>
-      <p>ร้อยละการมาเรียน ${data.attendancePct.toFixed(2)} (จาก ${data.attendanceN} รายการ)</p>
+      <p>ร้อยละการมาเรียน ${(data.attendancePct?.toFixed(2) ?? "—")} (ฐาน ${data.attendanceN} คน-วัน)</p>
       <h3>มาตรฐานที่ 2 กระบวนการบริหารและการจัดการ</h3>
       <p>ระบบดูแลช่วยเหลือนักเรียน: คัดกรองแล้ว ปกติ ${data.scr.normal} / กลุ่มเสี่ยง ${data.scr.risk} / มีปัญหา ${data.scr.problem}</p>
       <h3>มาตรฐานที่ 3 กระบวนการจัดการเรียนการสอนที่เน้นผู้เรียนเป็นสำคัญ</h3>
       <p>แผนการจัดการเรียนรู้ในระบบ ${data.plans} แผน (ผ่านการตรวจ/อนุมัติ ${data.plansApproved} แผน)</p>
-      <p>ผลสัมฤทธิ์: ร้อยละผู้เรียนได้ระดับ 3 ขึ้นไป ${data.goodPct.toFixed(2)} ร้อยละการมาเรียน ${data.attendancePct.toFixed(2)}</p>
+      <p>ผลสัมฤทธิ์: ร้อยละผู้เรียนได้ระดับ 3 ขึ้นไป ${(data.goodPct?.toFixed(2) ?? "—")} ร้อยละการมาเรียน ${(data.attendancePct?.toFixed(2) ?? "—")}</p>
       <p style="min-height:25mm">จุดเด่น / จุดที่ควรพัฒนา: ........................................................................................</p>`;
     printReport(body, { documentTitle: `รายงานการประเมินตนเองของสถานศึกษา (SAR) ปีการศึกษา ${yearBE}` });
   };
@@ -116,17 +123,19 @@ export default function SarReportPage() {
           <h1 className="text-2xl font-bold">รายงานการประเมินตนเอง (SAR)</h1>
           <p className="text-sm text-muted-foreground">ปีการศึกษา {yearBE} — ข้อมูลรวบรวมอัตโนมัติจากระบบ</p>
         </div>
-        <Button onClick={handlePrint} disabled={!data}><Printer className="w-4 h-4 mr-2" />พิมพ์รายงาน SAR</Button>
+        <Button onClick={handlePrint} disabled={!data || !!error || !calendar.isReady || isFetching}><Printer className="w-4 h-4 mr-2" />พิมพ์รายงาน SAR</Button>
       </div>
-      {isLoading || !data ? (
+      {error || calendar.error ? (
+        <div role="alert" className="text-destructive flex items-center gap-3">อ่านรายงาน SAR ไม่สำเร็จ<Button variant="outline" onClick={() => { void refetch(); }}>ลองใหม่</Button></div>
+      ) : isLoading || !calendar.isReady || !data ? (
         <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["นักเรียน", `${data.total} คน`],
-              ["ผลการเรียนเฉลี่ย", data.avgGrade.toFixed(2)],
-              ["ร้อยละการมาเรียน", `${data.attendancePct.toFixed(2)}%`],
+              ["ผลการเรียนเฉลี่ย", (data.avgGrade?.toFixed(2) ?? "—")],
+              ["ร้อยละการมาเรียน", `${(data.attendancePct?.toFixed(2) ?? "—")}%`],
               ["กลุ่มเสี่ยง/มีปัญหา", `${data.scr.risk + data.scr.problem} คน`],
             ].map(([k, v]) => (
               <Card key={k}><CardHeader className="pb-2"><CardDescription>{k}</CardDescription><CardTitle className="text-2xl">{v}</CardTitle></CardHeader></Card>
