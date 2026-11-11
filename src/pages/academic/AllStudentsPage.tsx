@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import { validateAndConfirm, commonRegex } from "@/lib/formValidation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import { filterDmcStudents, loadDmcRows } from "@/lib/dmcRoster";
 
 const studentSchema = z.object({
   first_name: z.string().trim().min(1, "กรุณากรอก").max(80),
@@ -80,38 +81,34 @@ const AllStudentsPage = () => {
   const PAGE_SIZE = 50;
 
   // ครู ผู้บริหาร และผู้ดูแล เห็นนักเรียนทุกคนในทะเบียน DMC
-  const { data: students = [], isLoading, isError, error } = useQuery({
-    queryKey: ["all_students_dmc", page],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const studentsQuery = useQuery({
+    queryKey: ["all_students_dmc"],
+    queryFn: () => loadDmcRows((from, to) => supabase
         .from("students")
         .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
         .order("student_code")
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-      if (error) throw error;
-      return data || [];
-    },
+        .order("id")
+        .range(from, to)),
   });
+  const students = studentsQuery.data ?? [];
 
-  const { data: classrooms = [] } = useQuery({
+  const classroomsQuery = useQuery({
     queryKey: ["classrooms"],
-    queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
-      return data || [];
-    },
+    queryFn: () => loadDmcRows((from, to) => supabase.from("classrooms").select("*")
+      .order("grade_level").order("name").order("id").range(from, to)),
   });
+  const classrooms = classroomsQuery.data ?? [];
+  const isLoading = studentsQuery.isLoading || classroomsQuery.isLoading;
+  const isError = studentsQuery.isError || classroomsQuery.isError;
+  const error = studentsQuery.error ?? classroomsQuery.error;
+  const dataReady = !isLoading && !isError && !!studentsQuery.data && !!classroomsQuery.data;
+  const retry = () => { void studentsQuery.refetch(); void classroomsQuery.refetch(); };
 
-  const filtered = students.filter((s: any) => {
-    const matchSearch =
-      s.student_code?.toLowerCase().includes(search.toLowerCase()) ||
-      s.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-      s.last_name?.toLowerCase().includes(search.toLowerCase()) ||
-      s.national_id?.includes(search);
-    const matchGrade = filterGrade === "all" || s.classrooms?.grade_level === filterGrade;
-    const matchStatus = filterStatus === "all" || s.status === filterStatus;
-    const matchSpecial = !filterSpecial || !!s.is_special_needs;
-    return matchSearch && matchGrade && matchStatus && matchSpecial;
-  });
+  const filtered = filterDmcStudents(students, { search, grade: filterGrade, status: filterStatus, special: filterSpecial });
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageStudents = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  useEffect(() => { setPage(0); }, [search, filterGrade, filterStatus, filterSpecial]);
 
   const totalActive = students.filter((s: any) => s.status === "active").length;
   const isMale = (s: any) => s.gender === "ช" || s.gender === "ชาย" || s.gender === "male" || s.prefix === "ด.ช." || s.prefix === "เด็กชาย" || s.prefix === "นาย";
@@ -124,7 +121,7 @@ const AllStudentsPage = () => {
   }));
 
   const handlePromote = async () => {
-    if (promoteClassroomIds.length === 0) return;
+    if (!dataReady || promoteClassroomIds.length === 0) return;
     setPromoting(true);
     try {
       let totalPromoted = 0;
@@ -261,6 +258,7 @@ const AllStudentsPage = () => {
   };
 
   const handleExportCSV = () => {
+    if (!dataReady) return;
     const headers = ["รหัสนักเรียน", "เลขประจำตัวประชาชน", "คำนำหน้า", "ชื่อ", "นามสกุล", "เพศ", "วันเกิด", "สัญชาติ", "ศาสนา", "ระดับชั้น", "ห้อง", "สถานะ", "ชื่อบิดา", "ชื่อมารดา", "ผู้ปกครอง", "โทรผู้ปกครอง"];
     const rows = filtered.map((s: any) => [
       s.student_code, s.national_id || "", s.prefix || "", s.first_name, s.last_name,
@@ -278,6 +276,7 @@ const AllStudentsPage = () => {
 
   /** ส่งออก Excel เรียงคอลัมน์ตามแบบนำเข้า DMC สพฐ. */
   const handleExportDMC = async () => {
+    if (!dataReady) return;
     const XLSX = await import("xlsx");
     const header = ["เลขประจำตัวประชาชน", "รหัสนักเรียน", "คำนำหน้าชื่อ", "ชื่อ", "นามสกุล", "เพศ", "วันเกิด", "สัญชาติ", "ศาสนา", "ชั้น", "ห้อง", "ชื่อบิดา", "ชื่อมารดา", "ชื่อผู้ปกครอง", "เบอร์โทรผู้ปกครอง", "ที่อยู่"];
     const rows = filtered.map((s: any) => [
@@ -311,23 +310,23 @@ const AllStudentsPage = () => {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
+          <Button variant="outline" size="sm" disabled={!dataReady} onClick={handleExportCSV}>
             <Download className="w-4 h-4 mr-1" /> ส่งออก CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportDMC}>
+          <Button variant="outline" size="sm" disabled={!dataReady} onClick={handleExportDMC}>
             <Download className="w-4 h-4 mr-1" /> ส่งออก DMC (Excel)
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
+          <Button variant="outline" size="sm" disabled={!dataReady} onClick={() => window.print()}>
             <Printer className="w-4 h-4 mr-1" /> พิมพ์
           </Button>
-          <Button size="sm" onClick={() => setPromoteOpen(true)}>
+          <Button size="sm" disabled={!dataReady} onClick={() => setPromoteOpen(true)}>
             <ArrowUpCircle className="w-4 h-4 mr-1" /> เลื่อนชั้นทั้งห้อง
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {dataReady && <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">นักเรียนทั้งหมด</p>
           <p className="text-3xl font-bold text-accent-foreground bg-transparent text-red-600">{totalActive}</p>
@@ -344,10 +343,10 @@ const AllStudentsPage = () => {
           <p className="text-xs text-muted-foreground">ห้องเรียน</p>
           <p className="text-3xl font-bold text-amber-600">{classrooms.length}</p>
         </CardContent></Card>
-      </div>
+      </div>}
 
       {/* Grade Stats */}
-      <Card>
+      {dataReady && <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">จำนวนนักเรียนแยกตามระดับชั้น</CardTitle>
         </CardHeader>
@@ -361,7 +360,7 @@ const AllStudentsPage = () => {
             ))}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
@@ -384,6 +383,7 @@ const AllStudentsPage = () => {
             <SelectItem value="active">กำลังศึกษา</SelectItem>
             <SelectItem value="graduated">จบการศึกษา</SelectItem>
             <SelectItem value="transferred">ย้ายสถานศึกษา</SelectItem>
+            <SelectItem value="inactive">พ้นสภาพนักเรียน</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex items-center gap-2 px-3 py-2 rounded-md border bg-card cursor-pointer text-sm">
@@ -416,13 +416,13 @@ const AllStudentsPage = () => {
               {isLoading ? (
                 <TableRow><TableCell colSpan={20} className="text-center py-8 text-muted-foreground">กำลังโหลด...</TableCell></TableRow>
               ) : isError ? (
-                <TableRow><TableCell colSpan={20} className="text-center py-8 text-destructive">โหลดข้อมูลนักเรียนไม่สำเร็จ: {(error as Error)?.message || "ไม่ทราบสาเหตุ"}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={20} className="text-center py-8 text-destructive">โหลดข้อมูลทะเบียนไม่สำเร็จ: {(error as Error)?.message || "ไม่ทราบสาเหตุ"}<Button variant="outline" size="sm" className="ml-3" onClick={retry}>ลองใหม่</Button></TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={20} className="text-center py-8 text-muted-foreground">ไม่พบข้อมูลนักเรียน</TableCell></TableRow>
               ) : (
-                filtered.map((s: any, i: number) => (
+                pageStudents.map((s: any, i: number) => (
                   <TableRow key={s.id}>
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="text-muted-foreground">{currentPage * PAGE_SIZE + i + 1}</TableCell>
                     {fieldConfig.photo_url && (
                       <TableCell className="w-14">
                         {s.photo_url ? (
@@ -461,7 +461,7 @@ const AllStudentsPage = () => {
                     <TableCell>
                       <Badge variant={s.status === "active" ? "default" : "outline"}
                         className={s.status === "active" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : ""}>
-                        {s.status === "active" ? "กำลังศึกษา" : s.status === "graduated" ? "จบ" : s.status === "transferred" ? "ย้าย" : s.status}
+                        {s.status === "active" ? "กำลังศึกษา" : s.status === "graduated" ? "จบ" : s.status === "transferred" ? "ย้าย" : s.status === "inactive" ? "พ้นสภาพ" : s.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -476,10 +476,10 @@ const AllStudentsPage = () => {
             </TableBody>
             </Table>
             <div className="flex items-center justify-between p-3 border-t">
-              <span className="text-xs text-muted-foreground">หน้า {page + 1} • {filtered.length} คน (50 ต่อหน้า)</span>
+              <span className="text-xs text-muted-foreground">{dataReady ? `หน้า ${currentPage + 1}/${pageCount} • ทั้งหมด ${filtered.length} คน (50 ต่อหน้า)` : "รอข้อมูลครบ"}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>ก่อนหน้า</Button>
-                <Button variant="outline" size="sm" disabled={filtered.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>ถัดไป</Button>
+                <Button variant="outline" size="sm" disabled={!dataReady || currentPage === 0} onClick={() => setPage(currentPage - 1)}>ก่อนหน้า</Button>
+                <Button variant="outline" size="sm" disabled={!dataReady || currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>ถัดไป</Button>
               </div>
             </div>
         </CardContent>
