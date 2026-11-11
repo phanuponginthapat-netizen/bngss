@@ -1,3 +1,7 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { weightedChartAverage } from "@/lib/chartMetrics";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,35 +42,34 @@ function classifyGroup(subjectName: string): SubjectGroup["key"] | null {
 interface GroupRow {
   key: SubjectGroup["key"];
   metric: string;
-  current: number;
-  previous: number;
+  current: number | null;
+  previous: number | null;
   currentCount: number;
   previousCount: number;
 }
 
-const currentAcademicYear = (() => {
-  const d = new Date();
-  // Thai AY: May starts new year
-  return d.getMonth() + 1 >= 5 ? d.getFullYear() : d.getFullYear() - 1;
-})();
+
 
 export default function SchoolRadarWidget() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["school_subject_group_scores", currentAcademicYear],
+  const { currentAcademicYear: yearBE, currentSemester, isReady, error: calendarError } = useAcademicYear();
+  const currentAcademicYear = yearBE - BE_OFFSET;
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["school_subject_group_scores", currentAcademicYear, currentSemester],
+    enabled: isReady,
     queryFn: async (): Promise<GroupRow[]> => {
       const prevYear = currentAcademicYear - 1;
 
-      const [scoresRes, subjectsRes] = await Promise.all([
-        supabase
-          .from("student_scores")
+      const [scores, subjects] = await Promise.all([
+        fetchAllRows((from, to) => supabase.from("student_scores")
           .select("subject_id,total_score,academic_year")
           .in("academic_year", [currentAcademicYear, prevYear])
-          .not("total_score", "is", null),
-        supabase.from("subjects").select("id,name_th"),
+          .eq("semester", currentSemester)
+          .not("total_score", "is", null).order("id").range(from,to)),
+        fetchAllRows((from,to) => supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
       ]);
 
       const subjectMap = new Map<string, SubjectGroup["key"]>();
-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+      subjects.forEach((s) => {
         const g = classifyGroup(s.name_th || "");
         if (g) subjectMap.set(s.id, g);
       });
@@ -75,10 +78,11 @@ export default function SchoolRadarWidget() {
       const acc = new Map<SubjectGroup["key"], { cs: number; cn: number; ps: number; pn: number }>();
       SUBJECT_GROUPS.forEach((g) => acc.set(g.key, { cs: 0, cn: 0, ps: 0, pn: 0 }));
 
-      ((scoresRes.data as any[]) || []).forEach((r) => {
+      scores.forEach((r) => {
         const key = subjectMap.get(r.subject_id);
         if (!key) return;
-        const slot = acc.get(key)!;
+        const slot = acc.get(key);
+        if (!slot) return;
         const v = Number(r.total_score) || 0;
         if (r.academic_year === currentAcademicYear) {
           slot.cs += v;
@@ -90,12 +94,12 @@ export default function SchoolRadarWidget() {
       });
 
       return SUBJECT_GROUPS.map((g) => {
-        const s = acc.get(g.key)!;
+        const s = acc.get(g.key) ?? {cs:0,cn:0,ps:0,pn:0};
         return {
           key: g.key,
           metric: g.name.length > 12 ? g.name.slice(0, 10) + "…" : g.name,
-          current: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : 0,
-          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : 0,
+          current: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : null,
+          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : null,
           currentCount: s.cn,
           previousCount: s.pn,
         };
@@ -104,26 +108,15 @@ export default function SchoolRadarWidget() {
     staleTime: 5 * 60_000,
   });
 
-  const rows = data ?? [];
-  const hasData = rows.some((r) => r.current > 0 || r.previous > 0);
-  const withScores = rows.filter((r) => r.current > 0);
-  const top = withScores.length
-    ? [...withScores].sort((a, b) => b.current - a.current)[0]
-    : null;
-  const low = withScores.length
-    ? [...withScores].sort((a, b) => a.current - b.current)[0]
-    : null;
-
-  const overallCurrent = withScores.length
-    ? Math.round((withScores.reduce((s, r) => s + r.current, 0) / withScores.length) * 10) / 10
-    : 0;
-  const overallPrev = (() => {
-    const prev = rows.filter((r) => r.previous > 0);
-    return prev.length
-      ? Math.round((prev.reduce((s, r) => s + r.previous, 0) / prev.length) * 10) / 10
-      : 0;
-  })();
-  const delta = overallPrev ? Math.round((overallCurrent - overallPrev) * 10) / 10 : 0;
+  const readError = error || calendarError;
+  const rows = readError || !isReady ? [] : data ?? [];
+  const hasData = rows.some(r => r.currentCount > 0 || r.previousCount > 0);
+  const withScores = rows.filter((r): r is typeof r & {current:number} => r.current !== null);
+  const top = [...withScores].sort((a,b)=>b.current-a.current)[0];
+  const low = [...withScores].sort((a,b)=>a.current-b.current)[0];
+  const overallCurrent = weightedChartAverage(rows.map(r=>({value:r.current,count:r.currentCount})));
+  const overallPrev = weightedChartAverage(rows.map(r=>({value:r.previous,count:r.previousCount})));
+  const delta = overallCurrent !== null && overallPrev !== null ? Math.round((overallCurrent-overallPrev)*10)/10 : 0;
 
   return (
     <Card className="glass-card">
@@ -131,7 +124,7 @@ export default function SchoolRadarWidget() {
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" />
-            คะแนนเฉลี่ยตามกลุ่มสาระ
+            คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {currentSemester}
           </CardTitle>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1">
@@ -147,7 +140,7 @@ export default function SchoolRadarWidget() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="h-[260px]">
-          {isLoading ? (
+          {readError ? (<div role="alert" className="text-destructive text-sm">อ่านข้อมูลคะแนนไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>) : isLoading || !isReady ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
               กำลังโหลด...
             </div>
@@ -209,7 +202,7 @@ export default function SchoolRadarWidget() {
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-muted/40 p-2">
                 <div className="text-muted-foreground">เฉลี่ยรวม</div>
-                <div className="text-base font-semibold text-foreground">{overallCurrent}</div>
+                <div className="text-base font-semibold text-foreground">{overallCurrent ?? "—"}</div>
               </div>
               <div className="rounded-lg bg-muted/40 p-2">
                 <div className="text-muted-foreground">เทียบปีก่อน</div>
@@ -269,8 +262,9 @@ export default function SchoolRadarWidget() {
             {/* รายการครบทุกกลุ่ม */}
             <div className="space-y-1 pt-1">
               {rows.map((r) => {
-                const groupInfo = SUBJECT_GROUPS.find((g) => g.key === r.key)!;
-                const diff = r.previous ? Math.round((r.current - r.previous) * 10) / 10 : null;
+                const groupInfo = SUBJECT_GROUPS.find((g) => g.key === r.key);
+                if (!groupInfo) return null;
+                const diff = r.previous !== null && r.current !== null ? Math.round((r.current - r.previous) * 10) / 10 : null;
                 return (
                   <div
                     key={r.key}
@@ -284,7 +278,7 @@ export default function SchoolRadarWidget() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-muted-foreground tabular-nums">
-                        {r.current || "—"}
+                        {r.current ?? "—"}
                       </span>
                       {diff !== null && diff !== 0 && (
                         <span
