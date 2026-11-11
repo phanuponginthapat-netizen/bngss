@@ -3,6 +3,7 @@
 # ใช้ก่อน deploy หรือทุกครั้งที่แก้ไฟล์ใน extension/
 set -e
 cd "$(dirname "$0")/.."
+cp node_modules/sweetalert2/dist/sweetalert2.all.min.js extension/sweetalert2.all.min.js
 
 OUT="public/extension.zip"
 ALIASES=("public/safe-browser-extension.zip" "public/school-safe-browser.zip")

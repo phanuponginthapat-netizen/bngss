@@ -16,6 +16,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 interface Row {
   id: string;
@@ -57,6 +58,7 @@ export default function BrowserLogsPage() {
   const [days, setDays] = useState<string>("7");
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const cms = useCmsValues(["browser_blocklist", "browser_ad_domains", "browser_block_message", "browser_default_homepage"]);
   const [blockList, setBlockList] = useState("");
@@ -68,10 +70,10 @@ export default function BrowserLogsPage() {
   useEffect(() => { setBlockList(cms.browser_blocklist); setAdList(cms.browser_ad_domains); setMsg(cms.browser_block_message); setHome(cms.browser_default_homepage); }, [cms.browser_blocklist, cms.browser_ad_domains, cms.browser_block_message, cms.browser_default_homepage]);
 
   async function loadStudents() {
-    const { data } = await supabase
+    const data = await fetchAllRows((from, to) => supabase
       .from("students")
       .select("auth_user_id, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(id, name)")
-      .not("auth_user_id", "is", null);
+      .not("auth_user_id", "is", null).eq("status", "active").order("id").range(from, to));
     const opts: StudentOpt[] = (data || []).map((s: any) => ({
       auth_user_id: s.auth_user_id,
       name: `${s.prefix ?? ""}${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
@@ -82,20 +84,22 @@ export default function BrowserLogsPage() {
   }
 
   async function load() {
-    setLoading(true);
-    const since = subDays(new Date(), parseInt(days) || 7).toISOString();
-    const { data } = await supabase
+    setLoading(true); setLoadError(false);
+    try {
+    await loadStudents();
+    const since = startOfDay(subDays(new Date(), Math.max(0, (parseInt(days) || 7) - 1))).toISOString();
+    const data = await fetchAllRows((from, to) => supabase
       .from("browser_logs")
       .select("id, user_id, url, domain, action, reason, created_at")
       .gte("created_at", since)
       .order("created_at", { ascending: false })
-      .limit(2000);
+      .order("id").range(from, to));
     const list = (data || []) as any as Row[];
     const ids = Array.from(new Set(list.map((r) => r.user_id)));
     if (ids.length) {
-      const [{ data: profs }, { data: stu }] = await Promise.all([
-        supabase.from("profiles").select("id, first_name, last_name").in("id", ids),
-        supabase.from("students").select("auth_user_id, classroom_id, classrooms!students_classroom_id_fkey(name)").in("auth_user_id", ids),
+      const [profs, stu] = await Promise.all([
+        fetchAllRows((from,to) => supabase.from("profiles").select("id, first_name, last_name").in("id", ids).order("id").range(from,to)),
+        fetchAllRows((from,to) => supabase.from("students").select("auth_user_id, classroom_id, classrooms!students_classroom_id_fkey(name)").in("auth_user_id", ids).order("id").range(from,to)),
       ]);
       const pmap = new Map<string, any>();
       (profs || []).forEach((p: any) => pmap.set(p.id, p));
@@ -109,9 +113,9 @@ export default function BrowserLogsPage() {
       });
     }
     setRows(list);
-    setLoading(false);
+    } catch { setRows([]); setLoadError(true); }
+    finally { setLoading(false); }
   }
-  useEffect(() => { loadStudents(); }, []);
   useEffect(() => { load(); }, [days]);
 
   async function saveSettings() {
@@ -198,6 +202,7 @@ export default function BrowserLogsPage() {
   }, [filtered]);
 
   function exportCsv() {
+    if (loading || loadError) return;
     const header = ["timestamp_iso", "user_id", "user_name", "classroom", "action", "domain", "url", "reason"];
     const esc = (v: any) => {
       const s = v == null ? "" : String(v);
@@ -237,7 +242,7 @@ export default function BrowserLogsPage() {
             <h1 className="text-2xl font-bold flex items-center gap-2"><Globe className="w-6 h-6 text-primary" /> แดชบอร์ดการใช้เบราว์เซอร์ในระบบ</h1>
             <p className="text-sm text-muted-foreground mt-1">ติดตามการเข้าเว็บ, การบล็อก, และหมวดหมู่ที่นักเรียนใช้งานมากที่สุด</p>
           </div>
-          <Button onClick={exportCsv} variant="outline" className="gap-2"><Download className="w-4 h-4" /> ส่งออก CSV</Button>
+          <Button onClick={exportCsv} disabled={loading || loadError} variant="outline" className="gap-2"><Download className="w-4 h-4" /> ส่งออก CSV</Button>
         </div>
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
           <ScrollText className="w-4 h-4 mt-0.5 shrink-0" />
@@ -292,7 +297,9 @@ export default function BrowserLogsPage() {
         </CardContent>
       </Card>
 
+      {loadError && <div className="flex items-center gap-3 text-destructive"><span>อ่านประวัติไม่สำเร็จ</span><Button variant="outline" onClick={load}>ลองใหม่</Button></div>}
       {/* Stats */}
+      {!loading && !loadError && <>
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard icon={<Activity className="w-5 h-5" />} label="การเข้าชมทั้งหมด" value={stats.total.toLocaleString("th-TH")} tone="primary" />
         <StatCard icon={<Ban className="w-5 h-5" />} label="ถูกบล็อก" value={stats.blocked.toLocaleString("th-TH")} tone="destructive" />
@@ -371,6 +378,7 @@ export default function BrowserLogsPage() {
         </Card>
       </div>
 
+      </>}
       {/* Table + Settings */}
       <Tabs defaultValue="logs">
         <TabsList>
