@@ -22,16 +22,14 @@ export async function fetchAllRows<T = any>(
 
   for (let from = 0; from < maxRows; from += pageSize) {
     const { data, error } = await build(from, from + pageSize - 1);
-    if (error) {
-      if (out.length === 0) throw error;
-      break;
-    }
+    if (error) throw error;
+    if (!data) throw new Error("แหล่งข้อมูลไม่ส่งผลลัพธ์กลับมา");
     const rows = (data || []) as T[];
     out.push(...rows);
-    if (rows.length < pageSize) break;
+    if (rows.length < pageSize) return out;
   }
 
-  return out;
+  throw new Error("ข้อมูลเกินขอบเขตการอ่าน ไม่สามารถสรุปยอดที่ไม่ครบได้");
 }
 
 /** นับจำนวนแถวจริงโดยไม่ดึงข้อมูล (ใช้แทนการดึงทั้งตารางมา .length) */
@@ -39,6 +37,7 @@ export async function countRows(
   build: () => PromiseLike<{ count: number | null; error: any }>,
 ): Promise<number> {
   const { count, error } = await build();
-  if (error) return 0;
-  return count || 0;
+  if (error) throw error;
+  if (count === null) throw new Error("แหล่งข้อมูลไม่ส่งจำนวนกลับมา");
+  return count;
 }
