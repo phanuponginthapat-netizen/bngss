@@ -138,13 +138,9 @@
     renderShortcuts(config?.browser_shortcuts);
   };
   try {
-    chrome.storage.local.get(["session", "config"], applyState);
-    chrome.storage.onChanged?.addListener?.((changes, area) => {
-      if (area !== "local") return;
-      if (changes.config || changes.session) {
-        chrome.storage.local.get(["session", "config"], applyState);
-      }
-    });
+    const refreshState = () => chrome.runtime.sendMessage({ type: "GET_STATE" }).then(applyState).catch(() => {});
+    refreshState();
+    setInterval(refreshState, 15000);
   } catch {}
 
   // Live clock

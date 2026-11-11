@@ -16,6 +16,7 @@ async function loadBackend() {
   return { SUPABASE_URL, ANON_KEY };
 }
 const fnUrl = (name) => `${SUPABASE_URL}/functions/v1/${name}`;
+chrome.storage.local.setAccessLevel?.({ accessLevel: "TRUSTED_CONTEXTS" });
 loadBackend();
 
 // ---- App (school system) origin — ปรับตาม deploy ได้ (lovable.app / vercel.app / โดเมนโรงเรียน)
@@ -210,6 +211,8 @@ async function clearSession(reason) {
   } catch {}
   await chrome.storage.local.remove(["session", "agentTabId", "config", "configAt"]);
   await chrome.storage.local.set({ locked: false, lockMsg: "" });
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) if (tab.id) chrome.scripting?.executeScript({ target: { tabId: tab.id }, func: () => document.getElementById("__sb_lock")?.remove() }).catch(() => {});
   _remoteOk = true;
   _lastRemoteCheck = 0;
   if (reason) notify("🔒 ออกจากระบบแล้ว", "กรุณาเข้าสู่ระบบใหม่เพื่อใช้งานอินเทอร์เน็ต");
@@ -342,6 +345,7 @@ function checkTimeRules(host, rules) {
   return null;
 }
 
+const recentLogs = new Map();
 async function logVisit(url, action, reason) {
   const { session } = await chrome.storage.local.get(["session"]);
   if (!session?.access_token) return;
@@ -351,6 +355,10 @@ async function logVisit(url, action, reason) {
     if (!/^https?:$/.test(safeUrl.protocol) || isSchoolUrl(url)) return;
     safeUrl.username = ""; safeUrl.password = ""; safeUrl.hash = "";
     for (const key of [...safeUrl.searchParams.keys()]) if (/token|password|secret|code|key/i.test(key)) safeUrl.searchParams.delete(key);
+    const dedup = `${session.user?.id}:${action}:${safeUrl.href}`;
+    if (Date.now() - (recentLogs.get(dedup) || 0) < 2000) return;
+    recentLogs.set(dedup, Date.now());
+    if (recentLogs.size > 1000) recentLogs.delete(recentLogs.keys().next().value);
     const response = await fetch(fnUrl("ext-log"), {
       method: "POST",
       headers: {

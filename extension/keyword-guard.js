@@ -15,7 +15,7 @@
     if (blocked) return;
     let cfg = {};
     try {
-      const s = await chrome.storage.local.get(["config"]);
+      const s = await chrome.runtime.sendMessage({ type: "GET_STATE" });
       cfg = s.config || {};
     } catch { return; }
 
