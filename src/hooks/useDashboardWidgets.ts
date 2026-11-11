@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 import {
   DASHBOARD_WIDGETS,
   type WidgetColor,
@@ -24,14 +25,16 @@ export function useDashboardWidgets() {
   const { userId } = useUserRole();
   const qc = useQueryClient();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, error, refetch } = useQuery({
     queryKey: ["user_dashboard_widgets", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!userId) return [];
+      const { data, error } = await supabase
         .from("user_dashboard_widgets")
         .select("*")
-        .eq("user_id", userId!);
+        .eq("user_id", userId);
+      if (error) throw error;
       return (data || []) as UserWidgetRow[];
     },
   });
@@ -56,6 +59,7 @@ export function useDashboardWidgets() {
   }).sort((a, b) => a.position - b.position || a._registryIdx - b._registryIdx);
 
   const upsert = useMutation({
+    onError: () => toast.error("บันทึกการจัดวางไม่สำเร็จ กรุณาลองใหม่"),
     mutationFn: async (patch: Partial<UserWidgetRow> & { widget_key: string }) => {
       if (!userId) return;
       const def = DASHBOARD_WIDGETS.find((d) => d.key === patch.widget_key);
@@ -77,6 +81,7 @@ export function useDashboardWidgets() {
   });
 
   const reorder = useMutation({
+    onError: () => toast.error("บันทึกลำดับไม่สำเร็จ กรุณาลองใหม่"),
     mutationFn: async (orderedKeys: string[]) => {
       if (!userId) return;
       const payload = orderedKeys.map((key, idx) => {
@@ -100,12 +105,14 @@ export function useDashboardWidgets() {
   });
 
   const resetAll = useMutation({
+    onError: () => toast.error("คืนการจัดวางไม่สำเร็จ กรุณาลองใหม่"),
     mutationFn: async () => {
       if (!userId) return;
-      await supabase.from("user_dashboard_widgets").delete().eq("user_id", userId);
+      const { error } = await supabase.from("user_dashboard_widgets").delete().eq("user_id", userId);
+      if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user_dashboard_widgets", userId] }),
   });
 
-  return { widgets, isLoading, upsert, resetAll, reorder };
+  return { widgets, isLoading, error, refetch, upsert, resetAll, reorder };
 }

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
-import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
+import { todayBangkok } from "@/lib/dateBE";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadDashboardAttendance, attendanceRate } from "@/lib/dashboardAttendance";
+import { requireSuccessfulReads } from "@/lib/dataReliability";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +35,7 @@ const DirectorDashboard = () => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { userId } = useUserRole();
-  const currentBE = toBE(new Date().getFullYear());
+  const { currentAcademicYear: currentBE, today, isReady: termReady } = useAcademicYear();
   const weather = useWeatherData();
   const L = (th: string, en: string) => (lang === "th" ? th : en);
 
@@ -42,7 +46,7 @@ const DirectorDashboard = () => {
       const { data } = await supabase
         .from("profiles")
         .select("first_name, last_name, nickname")
-        .eq("id", userId!)
+        .eq("id", userId ?? "")
         .maybeSingle();
       return data;
     },
@@ -51,8 +55,9 @@ const DirectorDashboard = () => {
     ? profile.nickname || [profile.first_name, profile.last_name].filter(Boolean).join(" ")
     : "";
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["director_dashboard_stats"],
+  const { data: stats, isLoading, error: statsError, refetch: retryStats } = useQuery({
+    queryKey: ["director_dashboard_stats", userId, today, lang],
+    enabled: Boolean(userId),
     queryFn: async () => {
       const [
         students, personnel, classrooms, attendance,
@@ -62,7 +67,7 @@ const DirectorDashboard = () => {
         supabase.from("students").select("id, gender", { count: "exact" }).eq("status", "active"),
         supabase.from("personnel").select("id, position", { count: "exact" }).eq("status", "active"),
         supabase.from("classrooms").select("id, homeroom_teacher", { count: "exact" }),
-        fetchAllRows((f, t) => supabase.from("attendance").select("status, attendance_date").gte("attendance_date", bkkDateISO(new Date(Date.now() - 30 * 86400000))).order("attendance_date").range(f, t)).then((data) => ({ data })),
+        loadDashboardAttendance(today),
         supabase.from("student_leaves").select("id, status"),
         supabase.from("staff_leaves").select("id, status"),
         supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),
@@ -73,30 +78,13 @@ const DirectorDashboard = () => {
         supabase.from("documents").select("id, status"),
       ]);
 
-      const today = todayBangkok();
-      const todayRows = attendance.data?.filter(a => a.attendance_date === today) || [];
-      const totalAtt = todayRows.length;
-      const present = todayRows.filter(a => a.status === "present").length;
-      const absent = todayRows.filter(a => a.status === "absent").length;
-      const late = todayRows.filter(a => a.status === "late").length;
-      const rate = totalAtt > 0 ? ((present + late) / totalAtt) * 100 : 0; // มาสายนับเป็นมาเรียน
-
-      // 14-day attendance trend (context)
-      const dayMap: Record<string, { p: number; t: number }> = {};
-      attendance.data?.forEach(a => {
-        const k = a.attendance_date;
-        if (!k) return;
-        if (!dayMap[k]) dayMap[k] = { p: 0, t: 0 };
-        dayMap[k].t += 1;
-        if (a.status === "present" || a.status === "late") dayMap[k].p += 1;
-      });
-      const trend = Object.entries(dayMap)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-14)
-        .map(([d, v]) => ({
-          name: new Date(d).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" }),
-          rate: v.t > 0 ? Number(((v.p / v.t) * 100).toFixed(1)) : 0,
-        }));
+      requireSuccessfulReads([students, personnel, classrooms, studentLeaves, staffLeaves, news, events, behavior, paAgreements, evaluations, documents]);
+      const { day, daily, rate } = attendance;
+      const { present, absent, late, leave, unrecorded } = day;
+      const trend = daily.filter(row => row.evidence).slice(-14).map(row => ({
+        name: new Date(`${row.date}T00:00:00+07:00`).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" }),
+        rate: attendanceRate(row),
+      }));
 
       const male = students.data?.filter(s => ["ช", "ชาย", "male"].includes(s.gender || "")).length || 0;
       const female = (students.count || 0) - male;
@@ -110,11 +98,15 @@ const DirectorDashboard = () => {
         personnel: personnel.count || 0,
         classrooms: classrooms.count || 0,
         classroomsWithTeacher: classrooms.data?.filter((c: any) => c.homeroom_teacher).length || 0,
-        attendanceRate: rate.toFixed(1),
+        attendanceRate: rate === null ? null : rate.toFixed(1),
+        attendanceTotal: day.total,
+        attended: present + late,
         attData: [
           { name: L("มาเรียน", "Present"), value: present, fill: "hsl(var(--success))" },
           { name: L("ขาดเรียน", "Absent"), value: absent, fill: "hsl(var(--destructive))" },
           { name: L("มาสาย", "Late"), value: late, fill: "hsl(var(--warning))" },
+          { name: L("ลา / ป่วย", "Leave / sick"), value: leave, fill: "hsl(var(--accent))" },
+          { name: L("ยังไม่มีบันทึก", "Unrecorded"), value: unrecorded, fill: "hsl(var(--muted-foreground))" },
         ].filter(d => d.value > 0),
         trend,
         pendingStudentLeaves: studentLeaves.data?.filter(l => l.status === "pending").length || 0,
@@ -129,11 +121,11 @@ const DirectorDashboard = () => {
         upcomingEvents: events.data || [],
       };
     },
-    refetchInterval: 10 * 60_000,
-    staleTime: 5 * 60_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const getGreeting = () => {
@@ -156,17 +148,19 @@ const DirectorDashboard = () => {
     : 0;
 
   // ── Extra KPIs: avg GPA, budget remaining, at-risk (simplified DigitalTwin) ──
-  const { data: directorExtras, isLoading: extrasLoading } = useQuery({
-    queryKey: ["director_extras"],
+  const { data: directorExtras, isLoading: extrasLoading, error: extrasError, refetch: retryExtras } = useQuery({
+    queryKey: ["director_extras", userId, currentBE],
+    enabled: Boolean(userId) && termReady,
     queryFn: async () => {
       const [scores, budgetTx, remediation, warnings, sdq] = await Promise.all([
-        supabase.from("student_scores").select("grade_point, total_score").not("grade_point", "is", null).limit(500),
-        supabase.from("budget_transactions").select("transaction_type, amount").limit(10000),
+        fetchAllRows((f, t) => supabase.from("student_scores").select("grade_point, total_score").eq("academic_year", currentBE - 543).not("grade_point", "is", null).order("id").range(f, t)).then(data => ({ data })),
+        fetchAllRows((f, t) => supabase.from("budget_transactions").select("transaction_type, amount").order("id").range(f, t)).then(data => ({ data })),
         (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
-        ((supabase as any).from("early_warnings").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
-        (supabase.from("sdq_records").select("id", { count: "exact", head: true }).limit(1) as any).then((r: any) => r).catch(() => ({ count: 0 } as any)),
+        supabase.from("early_warning_alerts").select("id", { count: "exact", head: true }),
+        supabase.from("sdq_records").select("id", { count: "exact", head: true }),
       ]);
-      const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0);
+      requireSuccessfulReads([scores, budgetTx, remediation, warnings, sdq]);
+      const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n >= 0);
       const avgGpa = pts.length ? (pts.reduce((a: number, b: number) => a + b, 0) / pts.length).toFixed(2) : "—";
       const totalIncome = (budgetTx.data || []).filter((t: any) => t.transaction_type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
       const totalExpense = (budgetTx.data || []).filter((t: any) => t.transaction_type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
@@ -174,17 +168,11 @@ const DirectorDashboard = () => {
       const atRisk = (remediation as any)?.count || 0;
       const warningsCount = (warnings as any)?.count || 0;
       const sdqCount = (sdq as any)?.count || 0;
-      // sparkline: gpa trend last 6 months simulated from scores total_score average per month
-      const sparkGpa = pts.length ? pts.slice(0, 7).map((v: number) => ({ v })) : [];
-      const sparkBudget = [
-        { v: totalIncome / 1000 },
-        { v: (totalIncome - totalExpense * 0.3) / 1000 },
-        { v: (totalIncome - totalExpense * 0.6) / 1000 },
-        { v: remaining / 1000 },
-      ];
+      const sparkGpa: { v: number }[] = [];
+      const sparkBudget: { v: number }[] = [];
       return { avgGpa, avgNum: pts.length ? Number(avgGpa) : 0, remaining, atRisk, warningsCount, sdqCount, sparkGpa, sparkBudget, totalIncome, totalExpense };
     },
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
   });
 
   const formatMoneyShort = (n: number) => {
@@ -245,7 +233,7 @@ const DirectorDashboard = () => {
           <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
             <SnapshotStat
               label={L("เข้าเรียนวันนี้", "Attendance today")}
-              value={`${stats?.attendanceRate ?? "0"}%`}
+              value={stats?.attendanceRate == null ? "—" : `${stats.attendanceRate}%`}
             />
             <SnapshotStat
               label={L("ห้องมีครูประจำ", "Homeroom coverage")}
@@ -292,6 +280,8 @@ const DirectorDashboard = () => {
       {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
       <DailyTaskBar />
 
+      {(statsError || extrasError) && <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryExtras(); }}>ลองใหม่</Button></div>}
+      {!statsError && !extrasError && <>
       {/* Strategic KPIs — modern gradient cards with sparkline, stagger 0.1s, skeleton + empty states */}
       {(isLoading || extrasLoading) ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -355,7 +345,8 @@ const DirectorDashboard = () => {
                   <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shrink-0 shadow-sm"><UserCheck className="w-5 h-5 text-primary-foreground" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] text-muted-foreground font-medium truncate">{L("อัตราเข้าเรียนวันนี้", "Attendance today")}</p>
-                    <p className="text-xl font-bold tabular-nums">{stats?.attendanceRate}%</p>
+                    <p className="text-xl font-bold tabular-nums">{stats?.attendanceRate == null ? "—" : `${stats.attendanceRate}%`}</p>
+                    <p className="text-xs text-muted-foreground">{stats?.attended ?? 0}/{stats?.attendanceTotal ?? 0} {L("คน", "students")}</p>
                     <Progress value={parseFloat(stats?.attendanceRate || "0")} className="h-1.5 mt-1" />
                     <p className="text-[10px] text-muted-foreground mt-1 truncate">{stats?.attData?.length ? stats.attData.map((d: any) => `${d.name} ${d.value}`).join(" · ") : L("ยังไม่มีเช็คชื่อ", "No check-in")}</p>
                   </div>
@@ -433,7 +424,7 @@ const DirectorDashboard = () => {
               <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
                 <TrendingUp className="w-3.5 h-3.5 text-primary-foreground" />
               </div>
-              {L("แนวโน้มอัตราเข้าเรียน 14 วัน", "Attendance Rate Trend (14 days)")}
+              {L("แนวโน้มอัตราเข้าเรียนเดือนนี้ (สูงสุด 14 วันที่มีบันทึก)", "Attendance this month (up to 14 recorded days)")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -597,6 +588,7 @@ const DirectorDashboard = () => {
         </div>
       </div>
 
+      </>}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { todayBangkok } from "@/lib/dateBE";
+import { loadDashboardAttendance } from "@/lib/dashboardAttendance";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,37 +77,16 @@ export default function MascotHeroWidget() {
 
   const isStaff = role === "admin" || role === "director" || role === "teacher";
   const { data: stats } = useQuery({
-    queryKey: ["mascot_stats", today, role],
+    queryKey: ["mascot_stats", today, role, userId],
     enabled: isStaff,
     queryFn: async () => {
-      const [students, scannedTodayRows, attendanceToday] = await Promise.all([
-        supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
-        fetchAllRows((f, t) => supabase.from("face_scan_logs").select("student_id, scan_time").eq("scan_date", today).order("student_id").range(f, t)).then((data) => ({ data })),
-        fetchAllRows((f, t) => supabase.from("attendance").select("student_id, status").eq("attendance_date", today).order("student_id").range(f, t)).then((data) => ({ data })),
-      ]);
-      // นักเรียนที่ "มาโรงเรียน" = present หรือ late (จาก attendance) ∪ มีการสแกนหน้า
-      const presentSet = new Set<string>();
-      const statusByStudent = new Map<string, "present" | "late" | "absent">();
-      (attendanceToday.data || []).forEach((a: any) => {
-        if (!a.student_id) return;
-        if (a.status === "present" || a.status === "late" || a.status === "absent") {
-          statusByStudent.set(a.student_id, a.status);
-        }
-        if (a.status === "present" || a.status === "late") presentSet.add(a.student_id);
-      });
-      (scannedTodayRows.data || []).forEach((row: any) => {
-        if (row.student_id) presentSet.add(row.student_id);
-      });
-      return {
-        students: students.count || 0,
-        scannedToday: presentSet.size,
-        attTotal: statusByStudent.size,
-      };
+      const report = await loadDashboardAttendance(today);
+      return { students: report.rosterTotal, scannedToday: report.day.present + report.day.late, attTotal: report.day.total, rate: report.rate };
     },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
 
@@ -140,8 +120,8 @@ export default function MascotHeroWidget() {
     if (stats) {
       const total = stats.students || 0;
       const scanned = stats.scannedToday || 0;
-      const pct = total > 0 ? Math.round((scanned / total) * 100) : 0;
-      msgs.push(`📊 รายงานวันนี้: นักเรียนเข้าโรงเรียน ${scanned}/${total} คน (${pct}%) — ดูรายละเอียดได้ที่เมนู "การมาเรียน" 🏫`);
+      const pct = stats.rate;
+      msgs.push(`📊 รายงานวันนี้: นักเรียนเข้าโรงเรียน ${scanned}/${total} คน (${pct === null ? "ยังไม่มีหลักฐาน" : `${pct}%`}) — ดูรายละเอียดได้ที่เมนู "การมาเรียน" 🏫`);
     }
     if (bubbleExtras?.nextEvent) {
       const d = new Date(bubbleExtras.nextEvent.event_date).toLocaleDateString("th-TH", { day: "numeric", month: "short" });

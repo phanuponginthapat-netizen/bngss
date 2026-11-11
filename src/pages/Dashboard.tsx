@@ -48,6 +48,8 @@ const SocialWallWidget = lazy(() => import("@/components/social/SocialWallWidget
 const MascotHeroWidget = lazy(() => import("@/components/dashboard/widgets/MascotHeroWidget"));
 import SuperAppSearchBar from "@/components/dashboard/SuperAppSearchBar";
 import DailyTaskBar from "@/components/dashboard/DailyTaskBar";
+import { loadDashboardAttendance } from "@/lib/dashboardAttendance";
+import { Button } from "@/components/ui/button";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))",
@@ -58,7 +60,7 @@ const Dashboard = () => {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const { role, userId } = useUserRole();
-  const { currentAcademicYear: currentBE } = useAcademicYear();
+  const { currentAcademicYear: currentBE, today: schoolDate } = useAcademicYear();
   const weather = useWeatherData();
   const { appName } = useSystemSettings();
 
@@ -70,7 +72,7 @@ const Dashboard = () => {
       const { data } = await supabase
         .from("profiles")
         .select("first_name, last_name, nickname")
-        .eq("id", userId!)
+        .eq("id", userId ?? "")
         .maybeSingle();
       return data;
     },
@@ -84,54 +86,30 @@ const Dashboard = () => {
 
   // Global realtime is handled by DashboardLayout's useGlobalRealtime()
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, error: statsError, refetch: retryStats } = useQuery({
     // Role dashboards fetch their own scoped data. Running the full admin
     // aggregation for every user delayed the first render and could leave
     // lower-privilege dashboards appearing empty while denied queries settled.
     enabled: role === "admin",
-    queryKey: ["dashboard_stats_v2"],
+    queryKey: ["dashboard_stats_v3", userId, schoolDate, lang],
     queryFn: async () => {
       // One server-side aggregation instead of ~20 separate reads.
-      const { data: raw, error } = await supabase.rpc("get_admin_dashboard_stats");
+      const [{ data: raw, error }, attendance] = await Promise.all([supabase.rpc("get_admin_dashboard_stats"), loadDashboardAttendance(schoolDate)]);
       if (error) throw error;
       const s = (raw || {}) as Record<string, any>;
       const num = (v: unknown) => Number(v || 0);
-      const rawThreshold = s.late_threshold;
-      const lateThreshold = (typeof rawThreshold === "string" ? rawThreshold : String(rawThreshold ?? "08:00")).replace(/"/g, "") || "08:00";
-
-      const statusByStudent = new Map<string, "present" | "late" | "absent">();
-      (s.today_attendance || []).forEach((a: any) => {
-        if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
-          statusByStudent.set(a.student_id, a.status);
-        }
-      });
-      const firstScan = new Map<string, Date>();
-      (s.today_face_scans || []).forEach((x: any) => {
-        const t = new Date(x.scan_time);
-        const prev = firstScan.get(x.student_id);
-        if (!prev || t < prev) firstScan.set(x.student_id, t);
-      });
-      const fmtHHMM = (d: Date) => new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
-      }).format(d);
-      firstScan.forEach((t, sid) => {
-        if (statusByStudent.has(sid)) return;
-        statusByStudent.set(sid, fmtHHMM(t) > lateThreshold ? "late" : "present");
-      });
-
-      const vals = Array.from(statusByStudent.values());
-      const presentCount = vals.filter(v => v === "present").length;
-      const lateCount = vals.filter(v => v === "late").length;
-      const explicitAbsent = vals.filter(v => v === "absent").length;
-      const activeStudents = num(s.students_total);
-      const absentCount = Math.max(explicitAbsent, activeStudents - presentCount - lateCount);
-      const totalAtt = Math.max(activeStudents, presentCount + lateCount + explicitAbsent);
-      const attendanceRate = totalAtt > 0 ? ((presentCount / totalAtt) * 100) : 0;
+      const { day, rate: attendanceRate } = attendance;
+      const presentCount = day.present;
+      const lateCount = day.late;
+      const absentCount = day.absent;
+      const activeStudents = attendance.rosterTotal;
 
       const attData = [
         { name: lang === "th" ? "มาเรียน" : "Present", value: presentCount, fill: "hsl(var(--success))" },
         { name: lang === "th" ? "ขาดเรียน" : "Absent", value: absentCount, fill: "hsl(var(--destructive))" },
         { name: lang === "th" ? "มาสาย" : "Late", value: lateCount, fill: "hsl(var(--warning))" },
+        { name: lang === "th" ? "ลา / ป่วย" : "Leave / sick", value: day.leave, fill: "hsl(var(--accent))" },
+        { name: lang === "th" ? "ยังไม่มีบันทึก" : "Unrecorded", value: day.unrecorded, fill: "hsl(var(--muted-foreground))" },
       ].filter(d => d.value > 0);
 
       const MONTHS_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
@@ -156,8 +134,9 @@ const Dashboard = () => {
         classrooms: num(s.classrooms_total),
         classroomsWithTeacher: num(s.classrooms_with_teacher),
         subjects: num(s.subjects_total),
-        attendanceRate: attendanceRate.toFixed(1),
-        scannedToday: firstScan.size,
+        attendanceRate: attendanceRate === null ? null : attendanceRate.toFixed(1),
+        scannedToday: presentCount + lateCount,
+        attendanceEvidence: day.evidence,
         attData,
         deptData: (s.dept_data || []) as { name: string; value: number }[],
         gradeData: (s.grade_data || []) as { name: string; value: number }[],
@@ -184,11 +163,11 @@ const Dashboard = () => {
       };
     },
     // realtime invalidate ผ่าน useGlobalRealtime แล้ว — ไม่ต้อง poll ถี่
-    refetchInterval: 10 * 60_000,
-    staleTime: 5 * 60_000,
+    refetchInterval: 60_000,
+    staleTime: 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const formatMoney = (n: number) => {
@@ -211,7 +190,7 @@ const Dashboard = () => {
   const pendingTotal = (stats?.pendingStudentLeaves || 0) + (stats?.pendingStaffLeaves || 0) + (stats?.pendingDamage || 0);
 
   // Hooks ต้องอยู่ก่อน early returns ทั้งหมด (rules-of-hooks)
-  const { widgets, isLoading: widgetsLoading, reorder, upsert } = useDashboardWidgets();
+  const { widgets, isLoading: widgetsLoading, error: widgetsError, refetch: retryWidgets, reorder, upsert } = useDashboardWidgets();
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
@@ -337,7 +316,7 @@ const Dashboard = () => {
       const pct = totalStu > 0 ? Math.round((checkedIn / totalStu) * 1000) / 10 : 0;
       return (
         <KpiCard icon={UserCheck} label={L("เข้าโรงเรียนวันนี้", "Checked-in Today")} value={`${checkedIn}/${totalStu}`}
-          sub={L(`${pct}% · มา ${presentN} · สาย ${lateN} · ขาด ${absentN}`, `${pct}% · On ${presentN} · Late ${lateN} · Abs ${absentN}`)}
+          sub={L(`${stats?.attendanceRate ?? "—"}% · มา ${presentN} · สาย ${lateN} · ขาด ${absentN}`, `${pct}% · On ${presentN} · Late ${lateN} · Abs ${absentN}`)}
           gradient={COLOR_THEMES[color].gradient} onClick={() => navigate("/dashboard/student/face-scan?tab=report")}
           progress={pct} />
       );
@@ -365,17 +344,15 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-[180px]" /> : totalAtt > 0 ? (
-              <div className="flex items-center gap-5">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
                 <PieChart width={120} height={120}>
-                  <Pie data={stats!.attData} cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={3} dataKey="value" strokeWidth={0}>
-                    {stats!.attData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+                  <Pie data={(stats?.attData ?? [])} cx="50%" cy="50%" innerRadius={38} outerRadius={55} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                    {(stats?.attData ?? []).map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
                 </PieChart>
 
-                <div className="flex-1 space-y-2.5">
-                  <AttRow color="hsl(var(--success))" label={L("มาเรียน", "Present")} value={presentN} total={totalAtt} />
-                  <AttRow color="hsl(var(--warning))" label={L("สาย", "Late")} value={lateN} total={totalAtt} />
-                  <AttRow color="hsl(var(--destructive))" label={L("ขาด", "Absent")} value={absentN} total={totalAtt} />
+                <div className="w-full flex-1 space-y-2.5">
+                  {(stats?.attData ?? []).map(row => <AttRow key={row.name} color={row.fill} label={row.name} value={row.value} total={totalAtt} />) }
                 </div>
               </div>
             ) : (
@@ -540,7 +517,7 @@ const Dashboard = () => {
   };
 
   // Legacy shortcut widgets remain stored, but the single task bar owns navigation.
-  const enabledWidgets = widgets.filter(w => w.enabled && !["mini_apps", "departments", "iot_summary", "module_hub"].includes(w.key));
+  const enabledWidgets = widgets.filter(w => w.enabled && widgetRenderers[w.key] && !["mini_apps", "departments", "iot_summary", "module_hub"].includes(w.key));
   // (draggingId/sensors/reorder/upsert ถูก declare ไว้ด้านบนแล้ว)
 
   const handleDragStart = (e: DragStartEvent) => setDraggingId(String(e.active.id));
@@ -563,7 +540,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10 [scrollbar-gutter:stable]">
-      <DailyTaskBar />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground truncate">
 
@@ -572,7 +548,8 @@ const Dashboard = () => {
         <Suspense fallback={null}><WidgetCustomizer /></Suspense>
       </div>
 
-      {widgetsLoading ? (
+      {(statsError || widgetsError) && <div role="alert" className="flex flex-wrap gap-3 items-center text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryWidgets(); }}>ลองใหม่</Button></div>}
+      {!statsError && !widgetsError && ((widgetsLoading || isLoading) ? (
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-5 lg:gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-32 rounded-2xl col-span-2 lg:col-span-2" />
@@ -588,20 +565,20 @@ const Dashboard = () => {
               enabledWidgets.forEach((w) => {
                 const g = w.def.group;
                 if (!byGroup.has(g)) byGroup.set(g, []);
-                byGroup.get(g)!.push(w);
+                byGroup.get(g)?.push(w);
               });
-              // ใช้ flex-wrap + flex-grow ตามขนาด เพื่อให้แต่ละแถวยืดเต็มความกว้างเสมอ ไม่มีช่องว่าง
-              const SIZE_FLEX: Record<string, string> = {
-                sm: "basis-[140px] grow",
-                md: "basis-[260px] grow-[2]",
-                lg: "basis-[380px] grow-[3]",
-                xl: "basis-full grow",
+              const GRID_CLASSES: Record<string, string> = {
+                overview: "grid grid-cols-1 gap-4",
+                kpi: "grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4",
+                chart: "grid grid-cols-1 xl:grid-cols-2 gap-4",
+                info: "grid grid-cols-1 xl:grid-cols-2 gap-4",
+                shortcut: "grid grid-cols-1 gap-4",
               };
               const renderWidget = (w: typeof enabledWidgets[number]) => {
                 const render = widgetRenderers[w.key];
                 if (!render) return null;
                 return (
-                  <SortableWidget key={w.key} id={w.key} className={`${SIZE_FLEX[w.size]} min-w-0 flex`}>
+                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
                     {render(w.color)}
                   </SortableWidget>
                 );
@@ -612,9 +589,9 @@ const Dashboard = () => {
                     const items = byGroup.get(g);
                     if (!items || items.length === 0) return null;
                     return (
-                      <div key={g} className="flex flex-wrap gap-3 sm:gap-5 lg:gap-6 items-stretch">
+                      <React.Fragment key={g}><div className={GRID_CLASSES[g]} data-dashboard-group={g}>
                         {items.map(renderWidget)}
-                      </div>
+                      </div>{g === "overview" && <DailyTaskBar />}</React.Fragment>
                     );
                   })}
                 </div>
@@ -623,7 +600,7 @@ const Dashboard = () => {
           </SortableContext>
           <TrashDropZone visible={!!draggingId} lang={lang} />
         </DndContext>
-      )}
+      ))}
     </div>
 
   );
@@ -738,20 +715,20 @@ const KpiCard = React.forwardRef<HTMLDivElement, KpiCardProps>(
   ({ icon: Icon, label, value, sub, gradient, onClick, progress }, ref) => (
     <Card
       ref={ref}
-      className="relative border-0 bg-card shadow-elevated rounded-[1.75rem] cursor-pointer hover:shadow-card-hover hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] transition-all duration-300 group overflow-hidden ring-1 ring-border/40"
+      className="relative border-0 bg-card shadow-elevated rounded-lg h-full cursor-pointer hover:shadow-card-hover hover:-translate-y-1 active:translate-y-0 active:scale-[0.98] transition-all duration-300 group overflow-hidden ring-1 ring-border/40"
       onClick={onClick}
     >
       <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full ${gradient} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
       <CardContent className="p-4 relative">
         <div className="flex items-start gap-3">
-          <div className={`w-12 h-12 rounded-2xl ${gradient} flex items-center justify-center shrink-0 shadow-lg ring-4 ring-background group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
-            <Icon className="w-6 h-6 text-primary-foreground" />
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg ${gradient} flex items-center justify-center shrink-0 shadow-lg ring-4 ring-background group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
+            <Icon className="w-5 h-5 text-primary-foreground" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] text-muted-foreground font-semibold tracking-wide">{label}</p>
-            <p className="text-2xl font-extrabold text-foreground leading-tight mt-0.5 tabular-nums">{value}</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-foreground leading-tight break-words mt-0.5 tabular-nums">{value}</p>
             {progress !== undefined && <Progress value={progress} className="h-1.5 mt-2 rounded-full" />}
-            {sub && <p className="text-[10px] text-muted-foreground mt-1 truncate">{sub}</p>}
+            {sub && <p className="text-xs text-muted-foreground mt-1 break-words">{sub}</p>}
           </div>
         </div>
       </CardContent>
