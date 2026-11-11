@@ -1,3 +1,4 @@
+import { useQuery as useCalendarQuery } from "@tanstack/react-query";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { percentageChange } from "@/lib/chartMetrics";
 import { useEffect, useMemo, useState } from "react";
@@ -56,6 +57,14 @@ const emptyRange = (): RangeData => ({
 
 export default function GarbageReportsPage() {
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
+  const {data: calendarPeriods = [], isLoading: calendarLoading, error: calendarError} = useCalendarQuery({
+    queryKey: ["academic-periods"],
+    queryFn: async()=> {
+      const {data,error} = await supabase.from("academic_periods").select("academic_year_be,semester,start_date,end_date").order("start_date");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const [mode, setMode] = useState<Mode>("monthly");
   const [year, setYear] = useState<number>(currentAcademicYear);
   const [semester, setSemester] = useState<number>(currentSemester);
@@ -88,19 +97,15 @@ export default function GarbageReportsPage() {
       return { from, to, prevFrom: new Date(ce - 1, 0, 1), prevTo: new Date(ce - 1, 11, 31, 23, 59, 59),
         label: `ปี พ.ศ. ${year}`, prevLabel: `ปี พ.ศ. ${year - 1}` };
     } else {
-      const ce = year - BE_OFFSET;
-      let from: Date, to: Date, prevFrom: Date, prevTo: Date;
-      if (semester === 1) {
-        from = new Date(ce, 4, 1); to = new Date(ce, 9, 31, 23, 59, 59);
-        prevFrom = new Date(ce - 1, 4, 1); prevTo = new Date(ce - 1, 9, 31, 23, 59, 59);
-      } else {
-        from = new Date(ce, 10, 1); to = new Date(ce + 1, 3, 30, 23, 59, 59);
-        prevFrom = new Date(ce - 1, 10, 1); prevTo = new Date(ce, 3, 30, 23, 59, 59);
-      }
-      return { from, to, prevFrom, prevTo,
-        label: `ภาคเรียน ${semester}/${year}`, prevLabel: `ภาคเรียน ${semester}/${year - 1}` };
+      const term = calendarPeriods.find(p=>p.academic_year_be===year && p.semester===semester);
+      const prev = calendarPeriods.find(p=>p.academic_year_be===year-1 && p.semester===semester);
+      const from = new Date(`${term?.start_date || "2000-01-01"}T00:00:00+07:00`);
+      const to = new Date(`${term?.end_date || "2000-01-01"}T23:59:59+07:00`);
+      const prevFrom = new Date(`${prev?.start_date || "2000-01-01"}T00:00:00+07:00`);
+      const prevTo = new Date(`${prev?.end_date || "2000-01-01"}T23:59:59+07:00`);
+      return {from,to,prevFrom,prevTo,label:`ภาคเรียน ${semester}/${year}`,prevLabel:`ภาคเรียน ${semester}/${year-1}`};
     }
-  }, [mode, year, semester]);
+  }, [mode, year, semester, calendarPeriods]);
 
   const [current, setCurrent] = useState<RangeData>(emptyRange());
   const [previous, setPrevious] = useState<RangeData>(emptyRange());
@@ -214,13 +219,14 @@ export default function GarbageReportsPage() {
   const load = async () => {
     setLoading(true); setReadError(null);
     try {
+      if (mode === "term" && (calendarError || ![year,year-1].every(y=>calendarPeriods.some(p=>p.academic_year_be===y && p.semester===semester && p.start_date && p.end_date)))) throw new Error("วันเปิด–ปิดภาคเรียนสำหรับเปรียบเทียบยังไม่ครบ");
       const [cur,prev] = await Promise.all([fetchRange(ranges.from,ranges.to),fetchRange(ranges.prevFrom,ranges.prevTo)]);
       setCurrent(cur); setPrevious(prev);
     } catch(e) { setReadError(e instanceof Error ? e.message : "อ่านรายงานไม่สำเร็จ"); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [ranges.from.getTime(), ranges.to.getTime()]);
+  useEffect(() => { void load(); }, [ranges.from.getTime(), ranges.to.getTime(), mode, year, semester, calendarPeriods, calendarError]);
 
   // Build comparison timeline (zip current+prev)
   const comparisonData = useMemo(() => {

@@ -1,3 +1,4 @@
+import { useQuery as useCalendarQuery } from "@tanstack/react-query";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -87,6 +88,14 @@ const FaceReportTab = () => {
 
   const today = new Date();
   // ค่าเริ่มต้นเป็น "รายวัน" เพื่อให้ครูเห็นข้อมูลของวันนี้ทันที ไม่สับสนกับยอดรวมทั้งเดือน
+  const {data: calendarPeriods = [], isLoading: calendarLoading, error: calendarError} = useCalendarQuery({
+    queryKey: ["academic-periods"],
+    queryFn: async()=> {
+      const {data,error} = await supabase.from("academic_periods").select("academic_year_be,semester,start_date,end_date").order("start_date");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const [period, setPeriod] = useState<Period>("day");
   const [refDate, setRefDate] = useState(bkkDateISO(today));
   const [search, setSearch] = useState("");
@@ -311,7 +320,8 @@ const FaceReportTab = () => {
 
 
 
-  const range = useMemo(() => getRange(period, new Date(refDate)), [period, refDate]);
+  const registeredTerm = calendarPeriods.find(p=>p.start_date && p.end_date && p.start_date <= refDate && p.end_date >= refDate);
+  const range = useMemo(() => period === "term" && registeredTerm ? {start:String(registeredTerm.start_date),end:String(registeredTerm.end_date),label:`ภาคเรียน ${registeredTerm.semester}/${registeredTerm.academic_year_be}`} : getRange(period, new Date(refDate)), [period, refDate, registeredTerm]);
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["face-logs-range", range.start, range.end],
@@ -368,6 +378,7 @@ const FaceReportTab = () => {
   const todayStr = todayBangkok();
   const { data: accurate, isLoading: accurateLoading, error: accurateError, refetch: refetchAccurate } = useQuery({
     queryKey: ["face-report-accurate", range.start, range.end, todayStr],
+    enabled: period !== "term" || (!!registeredTerm && !calendarLoading && !calendarError),
     queryFn: async () => {
       // ดึงข้อมูลแบบแบ่งหน้า — ไม่ให้ถูกตัดที่ 1,000 แถว (ทำให้ยอด "ขาด" เพี้ยน)
       const fetchAll = fetchAllRows;
@@ -1066,6 +1077,7 @@ const FaceReportTab = () => {
     }
   };
 
+  if (period === "term" && (calendarLoading || calendarError || !registeredTerm)) return <div role="status">{calendarLoading ? "กำลังโหลดปฏิทิน" : "ยังไม่มีวันเปิด–ปิดภาคเรียนที่ยืนยัน"}<Button variant="outline" onClick={()=>setPeriod("day")}>รายวัน</Button></div>;
   if (accurateLoading || accurateError) return <div role="status" className="p-6">{accurateError ? "อ่านข้อมูลรายงานสแกนไม่สำเร็จ" : "กำลังโหลดรายงานสแกน"}<Button variant="outline" onClick={()=>void refetchAccurate()}>ลองใหม่</Button></div>;
 
   return (
