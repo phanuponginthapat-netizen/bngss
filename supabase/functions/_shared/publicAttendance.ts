@@ -40,7 +40,11 @@ export function aggregatePublicAttendance(ids: string[], dates: string[], attend
 }
 
 export function aggregatePublicClasses(roster: AttendanceRoster[], dates: string[], attendance: SchoolAttendanceRow[], scans: SchoolScanRow[], today: string, clock: string, threshold: string, end: string): AttendanceClass[] {
-  const names = [...new Set(roster.map(s => s.className))].sort((a,b)=>a.localeCompare(b,"th",{numeric:true}));
+  const levelOrder = (name: string) => {
+    const match = name.match(/^(อ|ป|ม)\.(\d+)/);
+    return match ? ({ อ: 0, ป: 10, ม: 20 }[match[1]] ?? 100) + Number(match[2]) : 100;
+  };
+  const names = [...new Set(roster.map(s => s.className))].sort((a,b)=>levelOrder(a)-levelOrder(b) || a.localeCompare(b,"th",{numeric:true}));
   const classes = names.map(name=>({name, rosterTotal:roster.filter(s=>s.className===name).length, daily:[] as AttendanceCell[]}));
   aggregatePublicAttendance(roster.map(s=>s.id), dates, attendance, scans, today, clock, threshold, end, {roster, classes});
   return classes;
