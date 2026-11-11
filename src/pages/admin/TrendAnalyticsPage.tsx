@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -67,10 +68,16 @@ export default function TrendAnalyticsPage() {
   const { data: allScores = [], isLoading, error: readError, refetch } = useQuery({
     queryKey: ["trend-analytics"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_trend_analytics" as any);
-      if (error) throw error;
-      if (!Array.isArray(data)) throw new Error("ข้อมูลแนวโน้มไม่ครบ");
-      return (data as TrendRow[]).filter(r=> r.academic_year != null && r.avg_score != null && Number.isFinite(Number(r.avg_score)) && r.student_count > 0);
+      const rows = await fetchAllRows((from,to)=>supabase.from("student_scores").select("academic_year,total_score,subjects(name_th)").not("academic_year","is",null).not("semester","is",null).not("total_score","is",null).order("id").range(from,to));
+      const grouped = new Map<string, TrendRow>();
+      rows.forEach(r=> {
+        const subject = (r.subjects as {name_th:string} | null)?.name_th;
+        if (!subject || r.total_score === null || !Number.isFinite(Number(r.total_score))) return;
+        const key = `${r.academic_year}:${subject}`;
+        const slot = grouped.get(key) ?? {academic_year:Number(r.academic_year),subject,avg_score:0,student_count:0};
+        slot.avg_score += Number(r.total_score); slot.student_count += 1; grouped.set(key,slot);
+      });
+      return [...grouped.values()].map(r=>({...r,avg_score:Math.round(r.avg_score/r.student_count*100)/100}));
 
     },
   });

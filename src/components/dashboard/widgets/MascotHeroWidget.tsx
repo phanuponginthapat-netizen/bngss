@@ -1,3 +1,5 @@
+import { weightedChartAverage } from "@/lib/chartMetrics";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { useMemo, useState, useEffect } from "react";
 import { todayBangkok } from "@/lib/dateBE";
 import { loadDashboardAttendance } from "@/lib/dashboardAttendance";
@@ -31,10 +33,7 @@ function classifySubjectGroup(name: string): SubjectGroup["key"] | null {
   return null;
 }
 
-const _currentAY = (() => {
-  const d = new Date();
-  return d.getMonth() + 1 >= 5 ? d.getFullYear() : d.getFullYear() - 1;
-})();
+
 
 type Mood = "happy" | "neutral" | "worried";
 const moodColor: Record<Mood, string> = {
@@ -57,6 +56,8 @@ function AnimatedMascot({ src, alt }: { src: string; alt: string }) {
 }
 
 export default function MascotHeroWidget() {
+  const {currentAcademicYear: yearBE, currentSemester, isReady} = useAcademicYear();
+  const _currentAY = yearBE - BE_OFFSET;
   const { role, userId } = useUserRole();
   const { lang } = useLanguage();
   const weather = useWeatherData();
@@ -180,44 +181,43 @@ export default function MascotHeroWidget() {
 
 
   // Radar
-  const { data: studentRadar } = useQuery({
-    queryKey: ["mascot_student_radar_groups", userId, _currentAY],
-    enabled: !!userId && role === "student",
+  const { data: studentRadar, error: studentRadarError } = useQuery({
+    queryKey: ["mascot_student_radar_groups", userId, _currentAY, currentSemester],
+    enabled: !!userId && role === "student" && isReady,
     queryFn: async () => {
-      const { data: stu } = await supabase.from("students")
+      const { data: stu, error: identityError } = await supabase.from("students")
         .select("student_code").eq("auth_user_id", userId!).maybeSingle();
+      if (identityError) throw identityError;
       if (!stu?.student_code) return [] as any[];
       const prev = _currentAY - 1;
-      const [scoresRes, subjectsRes] = await Promise.all([
-        supabase.from("student_scores")
-          .select("subject_id,total_score,academic_year")
-          .eq("student_code", stu.student_code)
-          .in("academic_year", [_currentAY, prev])
-          .not("total_score", "is", null),
-        supabase.from("subjects").select("id,name_th"),
+      const [scores, subjects] = await Promise.all([
+        fetchAllRows((from,to)=>supabase.from("student_scores").select("subject_id,total_score,academic_year").eq("student_code", stu.student_code).in("academic_year",[_currentAY,prev]).eq("semester",currentSemester).not("total_score","is",null).order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
       ]);
       const subjMap = new Map<string, SubjectGroup["key"]>();
-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+      subjects.forEach((s) => {
         const g = classifySubjectGroup(s.name_th || "");
         if (g) subjMap.set(s.id, g);
       });
       const acc = new Map<SubjectGroup["key"], { cs: number; cn: number; ps: number; pn: number }>();
       SUBJECT_GROUPS.forEach((g) => acc.set(g.key, { cs: 0, cn: 0, ps: 0, pn: 0 }));
-      ((scoresRes.data as any[]) || []).forEach((r) => {
+      scores.forEach((r) => {
         const k = subjMap.get(r.subject_id);
         if (!k) return;
-        const slot = acc.get(k)!;
+        const slot = acc.get(k);
+        if (!slot) return;
         const v = Number(r.total_score) || 0;
         if (r.academic_year === _currentAY) { slot.cs += v; slot.cn += 1; }
         else if (r.academic_year === prev) { slot.ps += v; slot.pn += 1; }
       });
       return SUBJECT_GROUPS.map((g) => {
-        const s = acc.get(g.key)!;
+        const s = acc.get(g.key) ?? {cs:0,cn:0,ps:0,pn:0};
         return {
           axis: g.name.length > 10 ? g.name.slice(0, 9) + "…" : g.name,
           fullName: g.name,
-          value: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : 0,
-          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : 0,
+          value: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : null,
+          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : null,
+          currentCount: s.cn, previousCount: s.pn,
           fullMark: 100,
         };
       });
@@ -225,40 +225,39 @@ export default function MascotHeroWidget() {
     staleTime: 60_000,
   });
 
-  const { data: staffSubjectRadar } = useQuery({
-    queryKey: ["mascot_staff_subject_radar", _currentAY],
-    enabled: !!userId && isStaff,
+  const { data: staffSubjectRadar, error: staffRadarError } = useQuery({
+    queryKey: ["mascot_staff_subject_radar", _currentAY, currentSemester],
+    enabled: !!userId && isStaff && isReady,
     queryFn: async () => {
       const prev = _currentAY - 1;
-      const [scoresRes, subjectsRes] = await Promise.all([
-        supabase.from("student_scores")
-          .select("subject_id,total_score,academic_year")
-          .in("academic_year", [_currentAY, prev])
-          .not("total_score", "is", null),
-        supabase.from("subjects").select("id,name_th"),
+      const [scores, subjects] = await Promise.all([
+        fetchAllRows((from,to)=>supabase.from("student_scores").select("subject_id,total_score,academic_year").in("academic_year",[_currentAY,prev]).eq("semester",currentSemester).not("total_score","is",null).order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
       ]);
       const subjMap = new Map<string, SubjectGroup["key"]>();
-      ((subjectsRes.data as any[]) || []).forEach((s) => {
+      subjects.forEach((s) => {
         const g = classifySubjectGroup(s.name_th || "");
         if (g) subjMap.set(s.id, g);
       });
       const acc = new Map<SubjectGroup["key"], { cs: number; cn: number; ps: number; pn: number }>();
       SUBJECT_GROUPS.forEach((g) => acc.set(g.key, { cs: 0, cn: 0, ps: 0, pn: 0 }));
-      ((scoresRes.data as any[]) || []).forEach((r) => {
+      scores.forEach((r) => {
         const k = subjMap.get(r.subject_id);
         if (!k) return;
-        const slot = acc.get(k)!;
+        const slot = acc.get(k);
+        if (!slot) return;
         const v = Number(r.total_score) || 0;
         if (r.academic_year === _currentAY) { slot.cs += v; slot.cn += 1; }
         else if (r.academic_year === prev) { slot.ps += v; slot.pn += 1; }
       });
       return SUBJECT_GROUPS.map((g) => {
-        const s = acc.get(g.key)!;
+        const s = acc.get(g.key) ?? {cs:0,cn:0,ps:0,pn:0};
         return {
           axis: g.name,
           fullName: g.name,
-          value: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : 0,
-          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : 0,
+          value: s.cn ? Math.round((s.cs / s.cn) * 10) / 10 : null,
+          previous: s.pn ? Math.round((s.ps / s.pn) * 10) / 10 : null,
+          currentCount: s.cn, previousCount: s.pn,
           fullMark: 100,
         };
       });
@@ -267,20 +266,17 @@ export default function MascotHeroWidget() {
   });
 
   const radarData = useMemo(() => {
+    if (studentRadarError || staffRadarError || !isReady) return [];
     if (role === "student" && studentRadar && studentRadar.length > 0) return studentRadar as any[];
     if (isStaff && staffSubjectRadar && staffSubjectRadar.length > 0) return staffSubjectRadar as any[];
     return [];
-  }, [role, isStaff, studentRadar, staffSubjectRadar]);
+  }, [role, isStaff, studentRadar, staffSubjectRadar, studentRadarError, staffRadarError, isReady]);
   const isGroupRadar = radarData.length > 0;
-  const hasPrev = isGroupRadar && radarData.some((d: any) => (d.previous ?? 0) > 0);
-  const overallScore = radarData.length
-    ? Math.round(radarData.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0) / radarData.length)
-    : 0;
-  const overallPrev = hasPrev
-    ? Math.round(radarData.reduce((s: number, d: any) => s + (Number(d.previous) || 0), 0) / radarData.length)
-    : 0;
-  const delta = hasPrev ? overallScore - overallPrev : 0;
-  const sorted = isGroupRadar ? [...radarData].filter((d: any) => d.value > 0).sort((a: any, b: any) => b.value - a.value) : [];
+  const hasPrev = isGroupRadar && radarData.some((d:any)=>d.previousCount > 0);
+  const overallScore = weightedChartAverage(radarData.map(d=>({value:d.value,count:d.currentCount})));
+  const overallPrev = weightedChartAverage(radarData.map(d=>({value:d.previous,count:d.previousCount})));
+  const delta = overallScore !== null && overallPrev !== null ? overallScore-overallPrev : 0;
+  const sorted = isGroupRadar ? [...radarData].filter((d:any)=>d.value !== null).sort((a:any,b:any)=>b.value-a.value) : [];
   const topGroup = sorted[0];
   const lowGroup = sorted[sorted.length - 1];
   const radarTitle = role === "student"
@@ -289,7 +285,7 @@ export default function MascotHeroWidget() {
       ? `คะแนนเฉลี่ยนักเรียนตามกลุ่มสาระ • พ.ศ. ${_currentAY + BE_OFFSET}`
       : "Stat ภาพรวมระบบ";
 
-  const overall: Mood = overallScore >= 80 ? "happy" : overallScore >= 50 ? "neutral" : "worried";
+  const overall: Mood = (overallScore ?? 0) >= 80 ? "happy" : (overallScore ?? 0) >= 50 ? "neutral" : "worried";
   const mascotImg = mascot.happyUrl;
 
   // === ดึงข้อมูลส่วนตัวเพิ่ม: BMI (นักเรียน) + หัวข้อที่เคยถาม AI ===
@@ -301,7 +297,7 @@ export default function MascotHeroWidget() {
       // BMI: นักเรียนเท่านั้น
       let bmi: { value: number; height_cm: number | null; weight_kg: number | null; measured_at: string } | null = null;
       if (role === "student") {
-        const { data: stu } = await supabase.from("students")
+        const { data: stu, error: identityError } = await supabase.from("students")
           .select("id").eq("auth_user_id", userId!).maybeSingle();
         if (stu?.id) {
           const { data: hm } = await supabase.from("health_measurements")
@@ -445,7 +441,7 @@ export default function MascotHeroWidget() {
                       <div className="grid grid-cols-3 gap-2 text-center text-[11px] md:text-xs">
                         <div className="rounded-lg bg-muted/40 p-2">
                           <div className="text-muted-foreground">เฉลี่ยรวม</div>
-                          <div className="text-base font-bold text-foreground">{overallScore}</div>
+                          <div className="text-base font-bold text-foreground">{overallScore ?? "—"}</div>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <div className="text-muted-foreground">เทียบปีก่อน</div>
