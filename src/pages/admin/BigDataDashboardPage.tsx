@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { countRows } from "@/lib/fetchAllRows";
 import { formatDateTimeBE, formatTime24 } from "@/lib/dateBE";
 import {
   ResponsiveContainer,
@@ -96,22 +97,11 @@ function fmtMoney(n: number | null | undefined): string {
   return Number(n).toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-// Safe count helper — returns 0 when table missing or RLS blocks
+// Counts fail closed: missing tables and denied reads are not empty datasets.
 async function safeCount(table: string, opts?: { column?: string }): Promise<number | null> {
-  try {
-    const col = opts?.column ?? "id";
-    const { count, error } = await (supabase as any)
+  return countRows(() => (supabase as any)
       .from(table)
-      .select(col, { count: "exact", head: true });
-    if (error) {
-      // table missing / permission — treat as unavailable
-      if (/does not exist|not found|schema cache|permission/i.test(error.message)) return null;
-      throw error;
-    }
-    return count ?? 0;
-  } catch {
-    return null;
-  }
+      .select(opts?.column ?? "id", { count: "exact", head: true }));
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +152,7 @@ export default function BigDataDashboardPage() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
+    setData(null);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -209,19 +200,17 @@ export default function BigDataDashboardPage() {
       let dimCount: number | null = null;
       let dimMin: string | null = null;
       let dimMax: string | null = null;
-      try {
         dimCount = await safeCount("dim_date", { column: "date" });
         if (dimCount != null && dimCount > 0) {
           const [minRes, maxRes] = await Promise.all([
             (supabase as any).from("dim_date").select("date").order("date", { ascending: true }).limit(1).maybeSingle(),
             (supabase as any).from("dim_date").select("date").order("date", { ascending: false }).limit(1).maybeSingle(),
           ]);
+          if (minRes.error) throw minRes.error;
+          if (maxRes.error) throw maxRes.error;
           dimMin = (minRes.data as any)?.date ?? null;
           dimMax = (maxRes.data as any)?.date ?? null;
         }
-      } catch {
-        // keep null
-      }
 
       const [factAttendance, factGrades, factFinance] = await Promise.all([
         safeCount("fact_attendance"),
@@ -238,6 +227,7 @@ export default function BigDataDashboardPage() {
         factFinance,
       });
     } catch (e: any) {
+      setWh(null);
       setWhError(e?.message ?? String(e));
     } finally {
       setWhLoading(false);
@@ -1005,7 +995,7 @@ export default function BigDataDashboardPage() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        Object.entries(grades!.distribution).map(([g, c]) => (
+                        Object.entries(grades?.distribution ?? {}).map(([g, c]) => (
                           <TableRow key={g}>
                             <TableCell>
                               <Badge variant="outline">{g}</Badge>
