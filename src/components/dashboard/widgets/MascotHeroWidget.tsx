@@ -271,7 +271,7 @@ export default function MascotHeroWidget() {
     if (isStaff && staffSubjectRadar && staffSubjectRadar.length > 0) return staffSubjectRadar as any[];
     return [];
   }, [role, isStaff, studentRadar, staffSubjectRadar, studentRadarError, staffRadarError, isReady]);
-  const isGroupRadar = radarData.length > 0;
+  const isGroupRadar = radarData.some((d:any)=>d.currentCount > 0 || d.previousCount > 0);
   const hasPrev = isGroupRadar && radarData.some((d:any)=>d.previousCount > 0);
   const overallScore = weightedChartAverage(radarData.map(d=>({value:d.value,count:d.currentCount})));
   const overallPrev = weightedChartAverage(radarData.map(d=>({value:d.previous,count:d.previousCount})));

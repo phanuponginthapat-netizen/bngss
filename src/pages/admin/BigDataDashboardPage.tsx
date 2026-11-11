@@ -536,7 +536,7 @@ export default function BigDataDashboardPage() {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full w-full rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">ไม่มีข้อมูล sparkline</div>
+                <div className="h-full w-full rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">ยังไม่มีข้อมูลย้อนหลังสำหรับแสดงแนวโน้ม</div>
               )}
             </div>
             <div className="flex items-center justify-between pt-1">
@@ -769,7 +769,7 @@ export default function BigDataDashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">proxy: face_scan_logs + iot_devices</p>
             <div className="h-[72px] w-full -mx-1">
-              {chartData?.kioskSpark ? (
+              {chartData?.kioskSpark && chartData.kioskSpark.length > 1 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData.kioskSpark}>
                     <Tooltip contentStyle={{ fontSize: 12 }} />

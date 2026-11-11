@@ -123,7 +123,7 @@ export default function GarbageReportsPage() {
     if (days <= 400) {
       const stepIsMonth = mode === "yearly" || mode === "term";
       let cur = new Date(from);
-      while (cur <= to) {
+      while (cur <= to && cur <= new Date()) {
         buckets.set(bucketKey(cur), { pointsIn: 0, pointsOut: 0, deposits: 0, redemptions: 0 });
         cur = stepIsMonth ? new Date(cur.getFullYear(), cur.getMonth() + 1, 1) : addDays(cur, 1);
       }
