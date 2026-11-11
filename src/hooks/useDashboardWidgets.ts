@@ -25,7 +25,7 @@ export function useDashboardWidgets() {
   const { userId } = useUserRole();
   const qc = useQueryClient();
 
-  const { data: rows = [], isLoading, error } = useQuery({
+  const { data: rows = [], isLoading, error, refetch } = useQuery({
     queryKey: ["user_dashboard_widgets", userId],
     enabled: !!userId,
     queryFn: async () => {
@@ -114,5 +114,5 @@ export function useDashboardWidgets() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user_dashboard_widgets", userId] }),
   });
 
-  return { widgets, isLoading, error, upsert, resetAll, reorder };
+  return { widgets, isLoading, error, refetch, upsert, resetAll, reorder };
 }

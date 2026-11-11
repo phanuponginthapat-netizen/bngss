@@ -190,7 +190,7 @@ const Dashboard = () => {
   const pendingTotal = (stats?.pendingStudentLeaves || 0) + (stats?.pendingStaffLeaves || 0) + (stats?.pendingDamage || 0);
 
   // Hooks ต้องอยู่ก่อน early returns ทั้งหมด (rules-of-hooks)
-  const { widgets, isLoading: widgetsLoading, error: widgetsError, reorder, upsert } = useDashboardWidgets();
+  const { widgets, isLoading: widgetsLoading, error: widgetsError, refetch: retryWidgets, reorder, upsert } = useDashboardWidgets();
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
@@ -548,8 +548,8 @@ const Dashboard = () => {
         <Suspense fallback={null}><WidgetCustomizer /></Suspense>
       </div>
 
-      {(statsError || widgetsError) && <div role="alert" className="flex flex-wrap gap-3 items-center text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => retryStats()}>ลองใหม่</Button></div>}
-      {!statsError && !widgetsError && (widgetsLoading ? (
+      {(statsError || widgetsError) && <div role="alert" className="flex flex-wrap gap-3 items-center text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryWidgets(); }}>ลองใหม่</Button></div>}
+      {!statsError && !widgetsError && ((widgetsLoading || isLoading) ? (
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-5 lg:gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-32 rounded-2xl col-span-2 lg:col-span-2" />

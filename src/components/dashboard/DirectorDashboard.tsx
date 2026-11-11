@@ -424,7 +424,7 @@ const DirectorDashboard = () => {
               <div className="w-7 h-7 rounded-lg gradient-success flex items-center justify-center">
                 <TrendingUp className="w-3.5 h-3.5 text-primary-foreground" />
               </div>
-              {L("แนวโน้มอัตราเข้าเรียน 14 วัน", "Attendance Rate Trend (14 days)")}
+              {L("แนวโน้มอัตราเข้าเรียนเดือนนี้ (สูงสุด 14 วันที่มีบันทึก)", "Attendance this month (up to 14 recorded days)")}
             </CardTitle>
           </CardHeader>
           <CardContent>
