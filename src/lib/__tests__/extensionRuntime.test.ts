@@ -54,4 +54,16 @@ describe("extension trust and domain policies", () => {
     expect(vm.runInContext('isStudentSession({role:null})', ctx)).toBe(false);
     expect(vm.runInContext('isStudentSession({role:"student"})', ctx)).toBe(true);
   });
+  it("respects disabled keyword categories and retains custom words", () => {
+    const { ctx } = runtime();
+    expect(vm.runInContext('self.sbBuildKeywordList({browser_keyword_categories:"[]"}).words.length', ctx)).toBe(0);
+    expect(vm.runInContext('self.sbBuildKeywordList({browser_keyword_categories:"[]",browser_keywords:"forbidden"}).words[0].w', ctx)).toBe("forbidden");
+  });
+  it("rejects invalid times and uses Bangkok time for overnight rules", () => {
+    const { ctx } = runtime();
+    expect(vm.runInContext('hhmmToMin("25:00")', ctx)).toBeNull();
+    vm.runInContext('Date = class extends Date { constructor(){super("2026-11-10T17:30:00Z")} };', ctx);
+    expect(vm.runInContext('checkTimeRules("facebook.com", [{domains:["facebook.com"], days:[2], start:"23:00",end:"01:00"}])?.hit', ctx)).toBe("facebook.com");
+    expect(vm.runInContext('checkTimeRules("facebook.com", [{domains:["facebook.com"], days:[3], start:"23:00",end:"01:00"}])', ctx)).toBeNull();
+  });
 });
