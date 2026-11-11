@@ -1,0 +1,1 @@
+- Staff attendance dashboards aggregate one status per active person per workday with explicit clock-in evidence; missing entries remain unrecorded, and percentages use the full roster-day denominator to avoid falsely complete attendance.
