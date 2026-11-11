@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { readMonitorEvent } from "@/lib/monitorSignal";
 
 /**
  * นักเรียนทุกคนที่ login อยู่ subscribe ช่อง broadcast กลาง
@@ -25,11 +26,13 @@ export function useForceLogoutListener(params: {
       config: { broadcast: { self: false } },
     });
 
-    ch.on("broadcast", { event: "force-logout" }, async ({ payload }) => {
+    ch.on("broadcast", { event: "force-logout" }, async ({ payload: raw }) => {
+      const payload = await readMonitorEvent(raw).catch(() => null) as any;
+      if (!payload || payload.type !== "force-logout") return;
       const targetClass = payload?.classroom ?? "*";
       const targetRole = payload?.role ?? "student";
       if (targetRole !== "*" && targetRole !== role) return;
-      if (targetClass !== "*" && classroom && targetClass !== classroom) return;
+      if (targetClass !== "*" && targetClass !== classroom) return;
 
       toast(payload?.reason || "ครูสั่งออกจากระบบ", { duration: 3000 });
       try {
