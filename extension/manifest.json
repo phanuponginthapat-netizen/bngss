@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "โรงเรียนของฉัน — Safe Browser",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "เบราว์เซอร์ปลอดภัยสำหรับนักเรียน เชื่อมกับระบบโรงเรียน บันทึกการใช้งาน กรองโฆษณา/เว็บพนัน/สื่อลามก ด้วยโดเมนและคำต้องห้าม (keyword filter) จัดการ Wi-Fi ในโหมด kiosk และรัน Monitor Agent อัตโนมัติ",
   "permissions": [
     "tabs",
@@ -50,12 +50,14 @@
     {
       "matches": [
         "https://bngss.lovable.app/*",
-        "https://*.lovable.app/*",
+        "https://bngss.online/*",
+        "https://www.bngss.online/*",
+        "https://id-preview--f656e919-7df7-479f-8f52-d6572399e1b5.lovable.app/*",
         "https://bngss.vercel.app/*",
-        "https://*.vercel.app/*",
-        "http://localhost/*"
+        "http://localhost:8080/*"
       ],
       "js": [
+        "trust.js",
         "session-sync.js"
       ],
       "run_at": "document_idle"
@@ -77,10 +79,11 @@
       ],
       "exclude_matches": [
         "https://bngss.lovable.app/*",
-        "https://*.lovable.app/*",
+        "https://bngss.online/*",
+        "https://www.bngss.online/*",
+        "https://id-preview--f656e919-7df7-479f-8f52-d6572399e1b5.lovable.app/*",
         "https://bngss.vercel.app/*",
-        "https://*.vercel.app/*",
-        "http://localhost/*"
+        "http://localhost:8080/*"
       ],
       "js": [
         "toolbar.js"
@@ -96,10 +99,11 @@
       ],
       "exclude_matches": [
         "https://bngss.lovable.app/*",
-        "https://*.lovable.app/*",
+        "https://bngss.online/*",
+        "https://www.bngss.online/*",
+        "https://id-preview--f656e919-7df7-479f-8f52-d6572399e1b5.lovable.app/*",
         "https://bngss.vercel.app/*",
-        "https://*.vercel.app/*",
-        "http://localhost/*"
+        "http://localhost:8080/*"
       ],
       "js": [
         "keywords.js",

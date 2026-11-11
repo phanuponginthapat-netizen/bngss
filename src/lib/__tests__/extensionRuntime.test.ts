@@ -14,7 +14,8 @@ function runtime() {
     alarms: { create: () => {}, onAlarm: event },
     webNavigation: { onBeforeNavigate: event, onCommitted: event, onHistoryStateUpdated: event },
   };
-  const ctx = vm.createContext({ chrome, URL, Date, setTimeout: () => {}, setInterval: () => {}, self: {}, importScripts: () => {}, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });
+  const ctx = vm.createContext({ chrome, URL, Date, Intl, AbortSignal, setTimeout: () => {}, setInterval: () => {}, self: {}, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });
+  ctx.importScripts = (...files: string[]) => files.forEach(f => vm.runInContext(fs.readFileSync(`extension/${f}`, "utf8"), ctx));
   vm.runInContext(fs.readFileSync("extension/background.js", "utf8"), ctx);
   return { ctx, listeners, data };
 }

@@ -66,16 +66,16 @@ describe("Safe Browser installer package", () => {
   });
 
   it("carries the live backend so config loads before any login", () => {
-    const bg = zip.get("background.js")!.toString("utf8");
+    const bg = zip.get("background.js")?.toString("utf8") || "";
     expect(/DEFAULT_SUPABASE_URL = "([^"]+)"/.exec(bg)?.[1]).toBe(CANONICAL_BACKEND.url);
     expect(/DEFAULT_ANON_KEY = "([^"]+)"/.exec(bg)?.[1]).toBe(CANONICAL_BACKEND.anonKey);
   });
 
   it("opens the school system, not the retired deploy host", () => {
-    const bg = zip.get("background.js")!.toString("utf8");
-    expect(/DEFAULT_APP_ORIGIN = "([^"]+)"/.exec(bg)?.[1]).toBe("https://bngss.lovable.app");
-    const blocked = zip.get("blocked.js")!.toString("utf8");
-    expect(blocked).toContain("https://bngss.lovable.app/dashboard/browser");
+    const bg = zip.get("background.js")?.toString("utf8") || "";
+    expect(/DEFAULT_APP_ORIGIN = "([^"]+)"/.exec(bg)?.[1]).toBe("https://bngss.online");
+    const blocked = zip.get("blocked.js")?.toString("utf8") || "";
+    expect(blocked).toContain("https://bngss.online/dashboard/browser");
     expect(blocked).not.toContain("bngss.vercel.app");
   });
 

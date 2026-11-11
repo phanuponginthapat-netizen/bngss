@@ -122,7 +122,7 @@
     const nEl = bar.querySelector(".sb-user-name");
     if (nEl) nEl.textContent = String(name);
     const eEl = bar.querySelector(".sb-user-email");
-    if (eEl && email && email !== name) eEl.textContent = `(${email})`;
+    if (eEl) eEl.textContent = email && email !== name ? `(${email})` : "";
 
     const school = config?.school_name || config?.footer_school_name || "Safe Browser";
     const sEl = bar.querySelector(".sb-school");
@@ -176,5 +176,10 @@
   shiftFixed();
   setTimeout(shiftFixed, 500);
   setTimeout(shiftFixed, 1500);
-  new MutationObserver(() => shiftFixed()).observe(document.body, { childList: true, subtree: true });
+  let shiftPending = false;
+  new MutationObserver(() => {
+    if (shiftPending) return;
+    shiftPending = true;
+    setTimeout(() => { shiftPending = false; shiftFixed(); }, 200);
+  }).observe(document.body, { childList: true, subtree: true });
 })();
