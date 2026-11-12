@@ -177,6 +177,11 @@ async function applyPpFileToSystemInner(
     }
   }
   const resolveSubject = (name: string): string | null => {
+    // Confirmed source-header alias, limited to the exact class/term/year supplied by the school.
+    if (gradeLevel === "ม.2" && semester === 1 && academicYear === 2026 &&
+      norm(name) === norm("เชื้อเพลิงเพื่อการคมนาคมขนส่ง 3")) {
+      return subjectByName.get(norm("ว22203")) ?? null;
+    }
     for (const k of subjectKeys(name)) {
       const id = subjectByName.get(k);
       if (id) return id;
