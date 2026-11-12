@@ -24,6 +24,13 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("blocks a saved PP5 subject belonging to another curriculum term before writing", async () => {
+    source.subjects = [{ id: "health2", code: "พ21102", name_th: "สุขศึกษาและพลศึกษา 2", grade_level: "ม.1", semester: 1 }];
+    await expect(applyPpFileToSystem({ subject_id: "health2", semester: 1, academic_year: 2569, grade_level: "ม.1", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "สุขศึกษาและพลศึกษา 2": { totalScore: 83, grade: "4" } } }],
+    } }, "pp5")).rejects.toThrow("ไม่ตรง");
+    expect(source.writes).toHaveLength(0);
+  });
   it("matches the confirmed ม.2 design 3 header to ว22103 design 2 in semester 1/2569", async () => {
     source.subjects = [{ id: "f476560d-84de-4d80-8a4e-5894beee80fd", code: "ว22103", grade_level: "ม.2", name_th: "การออกแบบและเทคโนโลยี 2", semester: 1 }];
     const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ม.2", parsed_data: {

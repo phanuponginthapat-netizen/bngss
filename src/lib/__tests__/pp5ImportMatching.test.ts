@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { pickBestAssignment } from "@/hooks/useMyTeacherAssignments";
 import { requirePp5ImportTarget } from "../pp5ImportTarget";
 import { matchPpSubject } from "../ppSubjectMatching";
