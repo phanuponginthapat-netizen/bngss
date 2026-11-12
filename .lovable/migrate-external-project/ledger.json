@@ -3,105 +3,105 @@
     "capability": "ทะเบียนนักเรียน/บุคลากร",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "ลงทะเบียนและอนุมัติใบหน้า",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "ประวัติและรายงานรายชั้น/เดือน",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "สื่อภาพ/วิดีโอและพักหน้าจอ",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "partially_verified",
+    "next_action": "Real private image upload/read/delete and simulated idle image/wake verified; real video/device playback remains."
   },
   {
     "capability": "ภาพสด",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "ควบคุมประตูและพลังงาน",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "hardware_verification_pending",
+    "next_action": "Server role checks and expiring queued commands implemented; device execution/receipts require school hardware."
   },
   {
     "capability": "สุขภาพเครื่อง",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "ใบรับรองเวลาเรียน",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "partially_verified",
+    "next_action": "Student scan evidence read through authenticated UI; staff certificate and print-only layout remain."
   },
   {
     "capability": "ผู้มาติดต่อ",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "partial",
+    "next_action": "Manual school visitor log UI implemented; source public QR/visitor-face registration not yet adapted."
   },
   {
     "capability": "แจ้งเตือนและงานตั้งเวลา",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "CMS",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "สำรองและกู้คืน",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "บัญชีและสิทธิ์",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "implemented_verification_pending",
+    "next_action": "Verify with school Windows/Linux device and accounts; source behavior is not claimed identical."
   },
   {
     "capability": "แพ็กเกจ Windows/Linux",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "publication_pending",
+    "next_action": "ZIP1.12.5 packaged; Windows CI publication and actual install remain."
   },
   {
     "capability": "ตรวจเครื่องจริง",
     "source": "connextedscan main 17a99bd",
     "outcome": "reuse school Cloud and existing accounts",
-    "status": "pending",
-    "next_action": "compare and implement or verify"
+    "status": "blocked",
+    "next_action": "Requires school camera, Windows/Linux kiosk, door controller and speakers."
   }
 ]
