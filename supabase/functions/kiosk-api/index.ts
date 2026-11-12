@@ -82,7 +82,8 @@ async function loadSettings(db: ReturnType<typeof admin>) {
     face_scan_mode_cutoff: school.face_scan_mode_cutoff ?? "12:00",
     face_scan_entry_window: school.face_scan_entry_window ?? "",
     face_scan_exit_window: school.face_scan_exit_window ?? "",
-    ...(school.face_liveness_enabled != null ? { require_liveness: school.face_liveness_enabled !== "false" } : {}),
+    require_liveness: v?.require_liveness ?? (school.face_liveness_enabled !== "false"),
+    next_person_delay_seconds: 2,
     late_after: school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
   };
 }
