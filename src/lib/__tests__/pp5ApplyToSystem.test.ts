@@ -24,6 +24,25 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("does not silently match file เชื้อเพลิงเพื่อการคมนาคมขนส่ง 3 to curriculum เชื้อเพลิงเพื่อการคมนาคมขนส่ง 1", async () => {
+    source.subjects = [{ id: "fuel1", code: "ว22203", name_th: "เชื้อเพลิงเพื่อการคมนาคมขนส่ง 1", semester: 1 }];
+    const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "เชื้อเพลิงเพื่อการคมนาคมขนส่ง 3": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual(["เชื้อเพลิงเพื่อการคมนาคมขนส่ง 3"]);
+    expect(source.writes).toHaveLength(0);
+  });
+  it("matches curriculum พลังงานไฟฟ้า 1 to ว23203 in semester 1, not ว23204 semester 2", async () => {
+    source.subjects = [
+      { id: "1836ea4c-4595-4084-8508-1b7597398593", code: "ว23203", name_th: "พลังงานไฟฟ้า 1", semester: 1 },
+      { id: "electric2", code: "ว23204", name_th: "พลังงานไฟฟ้า 2", semester: 2 },
+    ];
+    const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "พลังงานไฟฟ้า 1": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual([]);
+    expect(source.writes[0].rows[0]).toMatchObject({ subject_id: "1836ea4c-4595-4084-8508-1b7597398593", semester: 1, academic_year: 2026, total_score: 79 });
+  });
   it("matches การสร้างการ์ตูนแอนิเมชั่น to the existing แอนิเมชัน subject without crossing semesters", async () => {
     source.subjects = [
       { id: "bfb96c31-0e06-4905-b1b4-1ea4fdc848ce", code: "ว22201", name_th: "การสร้างการ์ตูนแอนิเมชัน", semester: 1 },
