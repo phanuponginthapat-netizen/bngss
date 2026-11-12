@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { clearAdaptiveFlagCache } from "@/lib/faceLearning";
 import { saveErrorMessage, safeNum, safeInt } from "@/lib/saveError";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Win = { start: string; end: string };
 const DEFAULT_ENTRY: Win = { start: "06:00", end: "10:00" };
@@ -25,6 +26,8 @@ function fmtWindow(w: Win): string { return `${w.start.slice(0,5)}-${w.end.slice
 function toMin(s: string) { const [h, m] = s.split(":").map(Number); return (h||0)*60+(m||0); }
 
 const FaceSettingsTab = () => {
+  const queryClient = useQueryClient();
+  const [settingsReady, setSettingsReady] = useState(false);
   const [threshold, setThreshold] = useState("0.5");
   const [cutoffTime, setCutoffTime] = useState("08:00");
   const [modeCutoff, setModeCutoff] = useState("12:00");
@@ -43,19 +46,20 @@ const FaceSettingsTab = () => {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_key, setting_value")
         .in("setting_key", [
-          "face_scan_threshold", "face_scan_cutoff_time", "face_scan_mode_cutoff",
+          "face_scan_threshold", "clock_late_threshold", "face_scan_mode_cutoff",
           "face_scan_entry_window", "face_scan_exit_window",
           "kiosk_idle_timeout_sec", "kiosk_hello_ai_enabled", "kiosk_power_save", "kiosk_wake_word_enabled",
           "face_adaptive_learning",
           "face_liveness_enabled", "face_texture_gate",
         ]);
+      if (error) { toast.error("อ่านค่าตั้งค่าไม่สำเร็จ กรุณาเปิดหน้านี้ใหม่"); return; }
       for (const r of data || []) {
         if (r.setting_key === "face_scan_threshold") setThreshold(r.setting_value || "0.5");
-        if (r.setting_key === "face_scan_cutoff_time") setCutoffTime(r.setting_value || "08:00");
+        if (r.setting_key === "clock_late_threshold") setCutoffTime((r.setting_value || "08:30").slice(0, 5));
         if (r.setting_key === "face_scan_mode_cutoff") setModeCutoff(r.setting_value || "12:00");
         if (r.setting_key === "face_scan_entry_window") {
           const w = parseWindow(r.setting_value);
@@ -73,10 +77,12 @@ const FaceSettingsTab = () => {
         if (r.setting_key === "face_liveness_enabled") setLivenessEnabled(r.setting_value !== "false");
         if (r.setting_key === "face_texture_gate") setTextureGate(r.setting_value !== "false");
       }
+      setSettingsReady(true);
     })();
   }, []);
 
   const save = async () => {
+    if (!settingsReady) return;
     setBusy(true);
     try {
       const t = safeNum(threshold, NaN);
@@ -90,6 +96,7 @@ const FaceSettingsTab = () => {
       }
       const modeCutoffHm = modeCutoff.slice(0, 5);
       const cutoffTimeHm = cutoffTime.slice(0, 5);
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(cutoffTimeHm)) { toast.error("เวลาตัดมาสายไม่ถูกต้อง"); return; }
 
       // ตรวจช่วงเวลา: end > start
       if (entryEnabled && toMin(entryWin.end) <= toMin(entryWin.start)) {
@@ -102,7 +109,7 @@ const FaceSettingsTab = () => {
       const idleSec = Math.max(15, Math.min(600, safeInt(idleTimeout, 60)));
       const { error } = await supabase.from("school_settings").upsert([
         { setting_key: "face_scan_threshold", setting_value: String(t) },
-        { setting_key: "face_scan_cutoff_time", setting_value: cutoffTimeHm },
+        { setting_key: "clock_late_threshold", setting_value: cutoffTimeHm },
         { setting_key: "face_scan_mode_cutoff", setting_value: modeCutoffHm },
         { setting_key: "face_scan_entry_window", setting_value: entryEnabled ? fmtWindow(entryWin) : "" },
         { setting_key: "face_scan_exit_window", setting_value: exitEnabled ? fmtWindow(exitWin) : "" },
@@ -116,6 +123,8 @@ const FaceSettingsTab = () => {
       ], { onConflict: "setting_key" });
       if (error) throw error;
       clearAdaptiveFlagCache();
+      await queryClient.invalidateQueries({ queryKey: ["school_settings_bulk"] });
+      await queryClient.invalidateQueries({ queryKey: ["face-report-accurate"] });
       toast.success("บันทึกแล้ว");
     } catch (e: any) {
       toast.error(saveErrorMessage(e));
@@ -174,7 +183,7 @@ const FaceSettingsTab = () => {
         <div className="space-y-2">
           <Label>เวลาตัด "มาสาย"</Label>
           <Time24Input value={cutoffTime} onChange={(v) => setCutoffTime(v)} withSeconds={false} />
-          <p className="text-xs text-muted-foreground">สแกนหลังเวลานี้ = บันทึกเป็นมาสาย</p>
+          <p className="text-xs text-muted-foreground">เกณฑ์เดียวกับรายงานการมาโรงเรียนและการลงเวลาบุคลากร</p>
         </div>
 
         <div className="space-y-2">
@@ -289,7 +298,7 @@ const FaceSettingsTab = () => {
         </div>
 
 
-        <Button onClick={save} disabled={busy} className="gradient-primary">
+        <Button onClick={save} disabled={busy || !settingsReady} className="gradient-primary">
           <Save className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : "บันทึก"}
         </Button>
       </CardContent>

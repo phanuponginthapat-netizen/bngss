@@ -69,6 +69,7 @@ import door
 import power
 import power_profile
 import qr_reader
+from school_scan_policy import evaluate_school_scan
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
 
@@ -107,7 +108,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.0"
+AGENT_VERSION = "1.12.1"
 
 
 def default_cache_dir() -> str:
@@ -368,6 +369,8 @@ def _post_attendance_bg(payload: dict) -> None:
         try:
             res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
             res.raise_for_status()
+            if res.json().get("result") not in ("ok", "duplicate"):
+                raise RuntimeError("Cloud did not confirm attendance")
             _fails["count"] = 0
             return
         except Exception as exc:  # noqa: BLE001
@@ -384,20 +387,30 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     with lock:
         person = state["students"].get(sid) or {}
     name = person.get("full_name") or "ผู้ใช้งาน"
+    if not person or person.get("is_active") is False:
+        return {"result": "denied", "message": "ไม่พบผู้ใช้งานที่กำลังใช้งานในทะเบียน", "next_delay_seconds": 1}
+    try:
+        rule = evaluate_school_scan(settings, payload.get("direction") or settings.get("device_default_direction"), clock.now_tz(timezone.utc))
+    except ValueError:
+        return {"result": "denied", "message": "ค่าช่วงเวลาสแกนไม่ถูกต้อง กรุณาซิงก์การตั้งค่าใหม่", "next_delay_seconds": 1}
+    if not rule["allowed"]:
+        return {"result": "denied", "message": rule["reason"], "speak": rule["reason"], "next_delay_seconds": 1}
+    payload["direction"] = rule["direction"]
+    duplicate_key = f"{sid}:{rule['direction']}"
     is_staff = person.get("person_type") == "staff"
     cooldown_s = float(settings.get("duplicate_cooldown_minutes") or 0) * 60
     now = time.time()
-    last = _recent_ok.get(sid)
+    last = _recent_ok.get(duplicate_key)
     if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
         return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
                 "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
                 "speak": settings.get("voice_duplicate_text") or "บันทึกไปแล้ว",
                 "next_delay_seconds": 1}
-    _recent_ok[sid] = now
+    _recent_ok[duplicate_key] = now
     threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
     out = payload.get("direction") == "out"
     welcome = settings.get("voice_welcome_text") or "ยินดีต้อนรับ"
-    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name,
+    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name, "direction": rule["direction"],
                        "message": f"{name} บันทึกเวลาออกแล้ว" if out else f"{name} บันทึกเวลาเข้าเรียบร้อย",
                        "speak": f"เดินทางปลอดภัย {name}" if out else f"{welcome} {name}",
                        "next_delay_seconds": delay})
@@ -417,12 +430,15 @@ def outbox_flush() -> None:
         remaining: list[str] = []
         for line in lines:
             try:
-                requests.post(
+                response = requests.post(
                     f"{CLOUD_URL}/kiosk-api/attendance",
                     headers=HEADERS,
                     data=line.encode("utf-8"),
                     timeout=20,
-                ).raise_for_status()
+                )
+                response.raise_for_status()
+                if response.json().get("result") not in ("ok", "duplicate"):
+                    raise RuntimeError("Cloud did not confirm queued attendance")
             except Exception:  # noqa: BLE001
                 remaining.append(line)
         try:
@@ -648,6 +664,8 @@ def sync_once() -> None:
         state["faces"] = faces
         state["students"] = {s["id"]: s for s in data.get("students", [])}
         state["settings"] = data.get("settings") or {}
+        default_direction = (data.get("device") or {}).get("default_direction")
+        state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
         state["last_sync"] = time.time()
         door_cfg = door_config_from_settings(state["settings"])
         rebuild_matrix_locked()

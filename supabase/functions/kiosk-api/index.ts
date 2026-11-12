@@ -5,6 +5,7 @@
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -67,14 +68,21 @@ async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<D
 }
 
 async function loadSettings(db: ReturnType<typeof admin>) {
-  const { data } = await db
+  const { data, error } = await db
     .from("school_settings")
-    .select("setting_value")
-    .eq("setting_key", "kiosk_config")
-    .maybeSingle();
-  let v: any = (data as any)?.setting_value ?? {};
-  if (typeof v === "string") { try { v = JSON.parse(v); } catch { v = {}; } }
-  return { ...DEFAULT_SETTINGS, ...(v && typeof v === "object" ? v : {}) };
+    .select("setting_key, setting_value")
+    .in("setting_key", ["kiosk_config", "face_scan_mode_cutoff", "face_scan_entry_window", "face_scan_exit_window", "face_liveness_enabled", "clock_late_threshold"]);
+  if (error) throw error;
+  const school = Object.fromEntries((data ?? []).map(row => [row.setting_key, row.setting_value]));
+  let v: any = school.kiosk_config ?? {};
+  if (typeof v === "string") v = JSON.parse(v);
+  return { ...DEFAULT_SETTINGS, ...(v && typeof v === "object" ? v : {}),
+    face_scan_mode_cutoff: school.face_scan_mode_cutoff ?? "12:00",
+    face_scan_entry_window: school.face_scan_entry_window ?? "",
+    face_scan_exit_window: school.face_scan_exit_window ?? "",
+    ...(school.face_liveness_enabled != null ? { require_liveness: school.face_liveness_enabled !== "false" } : {}),
+    late_after: school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
+  };
 }
 
 /** เก็บภาพใบหน้าที่สแกนได้ลง storage แล้วคืน signed URL (ล้มเหลว = ไม่มีรูป) */
@@ -255,12 +263,15 @@ Deno.serve(async (req) => {
       const isQr = body?.method === "qr";
       if (!/^[0-9a-f-]{36}$/i.test(personId)) return json({ error: "invalid body" }, 400);
 
-      const direction = (body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction) as "in" | "out";
+      const requested = body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction === "out" ? "out" : device.default_direction === "in" ? "in" : undefined;
+      const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(new Date()), requested);
+      const direction = scanPolicy.direction;
+      if (!scanPolicy.allowed) return json({ result: "denied", message: scanPolicy.reason, speak: scanPolicy.reason, next_delay_seconds: 1 });
       const geometryScore = typeof body?.geometry_score === "number" ? body.geometry_score : null;
       const delay = Number(settings.next_person_delay_seconds) || 5;
 
       const geometryMin = Number(settings.geometry_min_score) || 0;
-      if (geometryScore !== null && geometryMin > 0 && geometryScore < geometryMin) {
+      if (!isQr && geometryScore !== null && geometryMin > 0 && geometryScore < geometryMin) {
         return json({
           result: "denied",
           message: "สัดส่วนใบหน้าไม่ตรงกับข้อมูลที่ลงทะเบียนไว้ กรุณาสแกนอีกครั้ง",
@@ -269,10 +280,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: student } = await db
+      const { data: student, error: studentError } = await db
         .from("students")
         .select("id, student_code, prefix, first_name, last_name, status")
         .eq("id", personId).maybeSingle();
+      if (studentError) throw studentError;
 
       let name = "";
       let isStaff = false;
@@ -282,8 +294,10 @@ Deno.serve(async (req) => {
         }
         name = `${(student as any).prefix ?? ""}${(student as any).first_name ?? ""} ${(student as any).last_name ?? ""}`.trim();
       } else {
-        const { data: staff } = await db
-          .from("personnel").select("id, prefix, first_name, last_name").eq("id", personId).maybeSingle();
+        const { data: staff, error: staffError } = await db
+          .from("personnel").select("id, prefix, first_name, last_name, status").eq("id", personId).maybeSingle();
+        if (staffError) throw staffError;
+        if (staff && staff.status !== "active") return json({ result: "denied", message: "บัญชีนี้ไม่ได้ปฏิบัติงานแล้ว", next_delay_seconds: delay });
         if (!staff) {
           return json({ result: "denied", message: "ไม่พบข้อมูลในระบบ", speak: settings.voice_denied_text, next_delay_seconds: delay });
         }
@@ -295,13 +309,14 @@ Deno.serve(async (req) => {
       const cooldownMin = Number(settings.duplicate_cooldown_minutes) || 0;
       if (!isStaff && cooldownMin > 0) {
         const since = new Date(Date.now() - cooldownMin * 60_000).toISOString();
-        const { data: recent } = await db
+        const { data: recent, error: recentError } = await db
           .from("face_scan_logs")
           .select("id, scan_time")
           .eq("student_id", personId)
           .eq("scan_type", direction === "out" ? "exit" : "entry")
           .gte("scan_time", since)
           .limit(1);
+        if (recentError) throw recentError;
         if ((recent as any[])?.length) {
           return json({
             result: "duplicate",
@@ -318,10 +333,11 @@ Deno.serve(async (req) => {
 
       if (isStaff) {
         // บุคลากรยังไม่มีตารางลงเวลาเฉพาะ — บันทึกเป็นประวัติการผ่านประตูไว้ก่อน
-        await db.from("kiosk_agent_alerts").insert({
+        const { error } = await db.from("kiosk_agent_alerts").insert({
           device_id: device.device_id, device_name: device.name,
           kind: "staff_pass", snapshot_url: snapshotUrl, note: name,
         });
+        if (error) throw error;
       } else {
         const now = new Date();
         const { error } = await db.from("face_scan_logs").insert({

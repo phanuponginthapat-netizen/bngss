@@ -9,9 +9,10 @@ function useAllSchoolSettings() {
   return useQuery({
     queryKey: ["school_settings_bulk"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("school_settings")
         .select("setting_key, setting_value");
+      if (error) throw error;
       const map: Record<string, string> = {};
       (data || []).forEach((s: any) => {
         if (s.setting_value !== null) map[s.setting_key] = s.setting_value;
@@ -20,6 +21,9 @@ function useAllSchoolSettings() {
     },
     staleTime: 30 * 60 * 1000, // 30 minutes
     gcTime: 60 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchInterval: 60_000,
   });
 }
 
@@ -28,8 +32,8 @@ function useAllSchoolSettings() {
  * อ่านจาก bulk cache — ไม่ query ใหม่ทุกครั้ง
  */
 export const useSchoolSetting = (key: string) => {
-  const { data, isLoading } = useAllSchoolSettings();
-  return { value: data?.[key] ?? null, isLoading };
+  const { data, isLoading, error } = useAllSchoolSettings();
+  return { value: data?.[key] ?? null, isLoading, error };
 };
 
 /** Returns true if a feature flag stored as 'true'/'false' is enabled. Default: enabled. */

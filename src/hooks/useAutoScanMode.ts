@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSchoolSetting } from "@/hooks/useSchoolSetting";
+import { evaluateSchoolScan } from "../../supabase/functions/_shared/schoolScanPolicy";
 
 export type ScanMode = "entry" | "exit";
 /**
@@ -52,7 +53,7 @@ function nowBangkokMinutes(): number {
  *   นอกช่วงเวลา → ระบบจะปฏิเสธการสแกน (กันเด็กสแกนตอนพักเที่ยง/กลางคืน)
  */
 export function useAutoScanMode() {
-  const { value: cutoffSetting } = useSchoolSetting("face_scan_mode_cutoff");
+  const { value: cutoffSetting, isLoading, error } = useSchoolSetting("face_scan_mode_cutoff");
   const { value: entryWindowSetting } = useSchoolSetting("face_scan_entry_window");
   const { value: exitWindowSetting } = useSchoolSetting("face_scan_exit_window");
   const cutoff = (cutoffSetting && /^\d{1,2}:\d{2}$/.test(cutoffSetting)) ? cutoffSetting : "12:00";
@@ -93,17 +94,19 @@ export function useAutoScanMode() {
   const exitWindowRef = useRef(exitWindow);
   useEffect(() => { entryWindowRef.current = entryWindow; }, [entryWindow]);
   useEffect(() => { exitWindowRef.current = exitWindow; }, [exitWindow]);
+  const settingsRef = useRef({ cutoffSetting, entryWindowSetting, exitWindowSetting, isLoading, error });
+  settingsRef.current = { cutoffSetting, entryWindowSetting, exitWindowSetting, isLoading, error };
 
   /** เช็คว่าตอนนี้อยู่ในช่วงเวลาที่อนุญาตของโหมดนี้หรือไม่ */
   const checkWindow = (mode: ScanMode): WindowCheck => {
-    const w = mode === "exit" ? exitWindowRef.current : entryWindowRef.current;
-    if (!w) return { allowed: true };
-    const now = nowBangkokMinutes();
-    if (now < w.start || now >= w.end) {
-      const modeLabel = mode === "exit" ? "ออก" : "เข้า";
-      return { allowed: false, reason: `นอกช่วงเวลาสแกน${modeLabel} (${w.label} น.)` };
+    const current = settingsRef.current;
+    if (current.isLoading || current.error) return { allowed: false, reason: "ยังอ่านกฎการสแกนไม่สำเร็จ กรุณาลองใหม่" };
+    try {
+      const result = evaluateSchoolScan({ face_scan_mode_cutoff: current.cutoffSetting ?? "12:00", face_scan_entry_window: current.entryWindowSetting, face_scan_exit_window: current.exitWindowSetting }, nowBangkokMinutes(), mode === "entry" ? "in" : "out");
+      return result.allowed ? { allowed: true } : { allowed: false, reason: result.reason };
+    } catch {
+      return { allowed: false, reason: "ค่าช่วงเวลาสแกนไม่ถูกต้อง กรุณาตรวจการตั้งค่า" };
     }
-    return { allowed: true };
   };
 
   return {
