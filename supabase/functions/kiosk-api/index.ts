@@ -478,10 +478,11 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true }).limit(1);
       if(commandError)throw commandError;
       const cmd = (data as any[])?.[0];
-      if (!cmd) return json({ command: null });
+      const plan = kind === "power" ? facegatePowerPlan(settings, (() => { const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()).split(":"); return Number(t[0]) * 60 + Number(t[1]); })()) : {};
+      if (!cmd) return json({ command: null, ...plan });
       const {error:consumeError}=await db.from("kiosk_commands").update({ consumed_at: new Date().toISOString() }).eq("id", cmd.id);
       if(consumeError)throw consumeError;
-      return json({ command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
+      return json({ ...plan, command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
     }
 
     // ── ภาพสดหน้าตู้ ─────────────────────────────────────────────────────
