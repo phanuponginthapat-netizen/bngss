@@ -72,7 +72,7 @@ KIOSK_HTML = r"""<!doctype html>
 <header class="top">
   <div class="brand"><div class="brandMark" id="logoFallback">✦</div><img id="logo" alt="" style="display:none"/><div><b id="school">FaceGate</b><span id="kioskTitle">ระบบสแกนใบหน้าเข้า-ออกโรงเรียน</span></div></div>
   <div class="today"><span id="todayLabel">วันนี้</span> · นักเรียน <b id="sStudents">0</b> คน · บุคลากร <b id="sStaff">0</b> คน</div>
-  <div class="timebox"><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date"></div></div><button class="adminBtn" onclick="location.href='/admin'">หลังบ้าน (F9)</button></div>
+<div class="timebox"><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date"></div></div><button class="adminBtn" onclick="openAdmin()">หลังบ้าน (F9)</button></div>
 </header>
 <div class="app">
   <div class="stage" id="stage"><video id="cam" autoplay playsinline muted></video><div class="shade"></div><div class="live"><i></i><span id="liveLabel">กล้องสด</span></div><div class="guide"><i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i></div><div class="banner" id="banner">กรุณายืนให้ใบหน้าตรงกับกรอบใบหน้าบนหน้าจอ</div>
@@ -89,6 +89,19 @@ const $ = (id) => document.getElementById(id);
 let display = { mirror: true, rotate: 0, voice_enabled: true, next_delay_seconds: 5 };
 let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
+function openAdmin() {
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.open_admin) {
+    window.pywebview.api.open_admin();
+  } else { location.href = '/admin'; }
+}
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'F9') { event.preventDefault(); openAdmin(); }
+});
+const emptyAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#eef4fa"/><circle cx="40" cy="28" r="14" fill="#123b67"/><path d="M12 78a28 28 0 0 1 56 0" fill="#123b67"/></svg>');
+function applyAvatar(img, primary, fallback) {
+  img.onerror = () => { img.onerror = () => { img.onerror = null; img.src = emptyAvatar; }; img.src = fallback || emptyAvatar; };
+  img.src = primary || fallback || emptyAvatar;
+}
 let busy = false, pausedUntil = 0;
 
 let nativeCam = false;
@@ -124,8 +137,8 @@ function showResult(d, captured) {
   const student = d.student || {};
   const ok = d.result === 'ok';
   $('waiting').style.display = 'none'; $('profile').className = 'profile show';
-  $('profileAvatar').src = d.avatar_url || d.snapshot_url || '';
-  $('profileName').textContent = student.full_name || d.message || 'ไม่พบข้อมูล';
+  applyAvatar($('profileAvatar'), d.avatar_url || student.avatar_url, d.snapshot_url || captured);
+  $('profileName').textContent = student.full_name || d.name || d.message || 'ไม่พบข้อมูล';
   $('profileRole').textContent = student.person_type === 'staff'
     ? ['บุคลากร', student.department, student.position].filter(Boolean).join(' • ')
     : ['นักเรียน', student.class_room ? 'ชั้น ' + student.class_room : ''].filter(Boolean).join(' • ');
@@ -164,6 +177,7 @@ function chime() {
   try {
     const ctx = new AudioContext();
     const osc = ctx.createOscillator(), gain = ctx.createGain();
+    ctx.resume();
     osc.frequency.value = 880; gain.gain.value = 0.12;
     osc.connect(gain).connect(ctx.destination);
     osc.start(); osc.stop(ctx.currentTime + 0.18);
@@ -308,7 +322,7 @@ async function loadBrand() {
     $('kioskTitle').textContent = c.kiosk_title || 'ระบบสแกนใบหน้าเข้า-ออกโรงเรียน';
     let sub = c.kiosk_subtitle || 'กรุณายืนให้ใบหน้าตรงกับกรอบใบหน้าบนหน้าจอ';
     if (sub === 'กรุณามองกล้องในกรอบวงรี' || sub === 'ยืนให้ใบหน้าอยู่ในกรอบทีละคน') sub = 'กรุณายืนให้ใบหน้าตรงกับกรอบใบหน้าบนหน้าจอ';
-    $('subtitle').textContent = c.device_name ? `${c.device_name} • ${sub}` : sub;
+    $('subtitle').textContent = sub;
     const school = c.school_name || c.brand_name || 'โรงเรียนของเรา';
     let welcome = c.kiosk_welcome || 'ยินดีต้อนรับเข้าสู่';
     if (welcome === 'ยินดีต้อนรับกลับโรงเรียน!' || welcome === 'ยินดีต้อนรับกลับโรงเรียน') welcome = 'ยินดีต้อนรับเข้าสู่';
@@ -331,10 +345,14 @@ async function loadRecent() {
       $('news').textContent = (display.news_text + '   •   ').repeat(8);
     } else { $('newsBox').style.display = 'none'; }
     $('list').innerHTML = (display.show_recent ? (data.items || []) : []).map((i) => `
-      <div class="item"><img src="${i.snapshot_url || i.avatar_url || ''}" alt="" />
+      <div class="item"><img alt="" />
         <div><b>${i.name}</b><span>${i.detail || ''} • ${new Date(i.scanned_at).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span></div>
         <div class="tag ${i.direction === 'out' ? 'out' : ''}">${i.direction === 'out' ? 'ออก' : 'เข้า'}</div></div>`).join('')
       || '<div style="color:#94a3b8;font-size:.9rem">ยังไม่มีการสแกนวันนี้</div>';
+    document.querySelectorAll('#list .item img').forEach((img, index) => {
+      const item = (data.items || [])[index];
+      if (item) applyAvatar(img, item.avatar_url, item.snapshot_url);
+    });
   } catch (e) {}
 }
 let serverOffset = 0; // real Thai time minus this PC's clock

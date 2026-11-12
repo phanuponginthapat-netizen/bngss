@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
+import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -141,7 +142,7 @@ Deno.serve(async (req) => {
         logo_url: m.school_logo_512 || m.school_logo || sc.logo_url || "",
         theme_primary: (settings as any).theme_primary || m.theme_primary_color || m.primary_color || m.theme_color || undefined,
         theme_accent: (settings as any).theme_accent || m.theme_accent_color || undefined,
-        device_name: device.name,
+        admin_url: "https://bngss.online/dashboard/admin/kiosk-setup",
         server_time: new Date().toISOString(),
       });
     }
@@ -159,18 +160,35 @@ Deno.serve(async (req) => {
         return json({ students_present: students ?? 0, staff_present: staff ?? 0,
           server_time: new Date().toISOString(), visitor_register_enabled: false });
       }
-      const { data: logs } = await db.from("face_scan_logs")
-        .select("scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name))")
+      const { data: logs, error: logsError } = await db.from("face_scan_logs")
+        .select("student_id, scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
         .eq("scan_date", today).order("scan_time", { ascending: false }).limit(12);
-      const items = ((logs as any[]) ?? []).map((l) => ({
+      if (logsError) throw logsError;
+      const ids = [...new Set((logs ?? []).map((l: any) => l.student_id).filter(Boolean))];
+      const { data: faces, error: faceError } = ids.length
+        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("created_at", { ascending: false })
+        : { data: [], error: null };
+      if (faceError) throw faceError;
+      const avatars = new Map<string, string>();
+      for (const face of faces ?? []) {
+        if (!avatars.has(face.student_id)) {
+          const image = await kioskMediaUrl(db, face.face_image);
+          if (image) avatars.set(face.student_id, image);
+        }
+      }
+      const items = await Promise.all(((logs as any[]) ?? []).map(async (l) => ({
         name: `${l.students?.prefix ?? ""}${l.students?.first_name ?? ""} ${l.students?.last_name ?? ""}`.trim() || "นักเรียน",
         detail: l.students?.classrooms?.name ?? "",
         scanned_at: l.scan_time,
         direction: l.scan_type === "exit" ? "out" : "in",
-        snapshot_url: l.captured_face_url ?? "",
-      }));
+        snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
+        avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
+      })));
       return json({
         display: {
+          voice_enabled: (settings as any).voice_enabled !== false,
+          voice_volume: (settings as any).voice_volume ?? 1,
+          voice_rate: (settings as any).voice_rate ?? 1,
           show_recent: (settings as any).kiosk_show_recent !== false,
           news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
           news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),
@@ -197,15 +215,15 @@ Deno.serve(async (req) => {
 
       const [{ data: students }, { data: personnel }, { data: sFaces }, { data: pFaces }] = await Promise.all([
         db.from("students")
-          .select("id, student_code, prefix, first_name, last_name, status, classrooms!students_classroom_id_fkey(name, grade_level)")
+          .select("id, student_code, prefix, first_name, last_name, status, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)")
           .eq("status", "active").limit(20000),
         db.from("personnel").select("id, employee_code, prefix, first_name, last_name, status").limit(5000),
-        db.from("student_face_descriptors").select("id, student_id, descriptor, metrics, created_at").limit(40000),
+        db.from("student_face_descriptors").select("id, student_id, descriptor, metrics, created_at, face_image").limit(40000),
         db.from("personnel_face_descriptors").select("id, personnel_id, descriptor, metrics, created_at").limit(10000),
       ]);
 
       const people = [
-        ...((students as any[]) ?? []).map((s) => ({
+        ...await Promise.all(((students as any[]) ?? []).map(async (s) => ({
           id: s.id,
           student_code: s.student_code ?? "",
           full_name: `${s.prefix ?? ""}${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
@@ -213,7 +231,8 @@ Deno.serve(async (req) => {
           class_room: s.classrooms?.name || s.classrooms?.grade_level || "-",
           person_type: "student",
           is_active: true,
-        })),
+          avatar_url: await kioskMediaUrl(db, s.photo_url) || await kioskMediaUrl(db, (sFaces ?? []).find((f: any) => f.student_id === s.id && /^data:image\//.test(f.face_image || ""))?.face_image),
+        }))),
         ...((personnel as any[]) ?? []).filter((p) => (p.status ?? "active") === "active").map((p) => ({
           id: p.id,
           student_code: p.employee_code ?? "",
