@@ -2,3 +2,4 @@
 - Teacher attendance digests reuse the LINE summary in the existing scheduled callback; deterministic notification IDs enforce one durable report per teacher and Bangkok day independently of LINE delivery.
 - Recover incomplete LINE Vault placeholders only after caller-scoped authorization; verify stored bytes and conditional row linkage before serving, and report expired source content without fabricating files or restoring Drive mirrors.
 - Device-authorized kiosk reads re-sign stored media paths against the active backend via kioskMedia, preventing retired origins and expired saved snapshot signatures from breaking school scanner images.
+- FaceGate machine commands are accepted only after server role checks, expire before device consumption, and queued status never implies hardware execution; broadcast media stays private and device-scoped.
