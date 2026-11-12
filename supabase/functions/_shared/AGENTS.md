@@ -1,3 +1,4 @@
 - Public attendance class cells partition the same resolved school-wide daily statuses; never resolve missing attendance separately per class, as classes without scans must reconcile with school totals. Return aggregates only, never student identities.
 - Teacher attendance digests reuse the LINE summary in the existing scheduled callback; deterministic notification IDs enforce one durable report per teacher and Bangkok day independently of LINE delivery.
 - Recover incomplete LINE Vault placeholders only after caller-scoped authorization; verify stored bytes and conditional row linkage before serving, and report expired source content without fabricating files or restoring Drive mirrors.
+- Device-authorized kiosk reads re-sign stored media paths against the active backend via kioskMedia, preventing retired origins and expired saved snapshot signatures from breaking school scanner images.
