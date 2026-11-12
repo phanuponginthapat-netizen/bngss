@@ -1,0 +1,2 @@
+ALTER TABLE public.student_scores ALTER COLUMN total_score DROP EXPRESSION IF EXISTS;
+COMMENT ON COLUMN public.student_scores.total_score IS 'Authoritative imported or explicitly supplied total; stored as numeric, not a generated expression. Existing totals preserved.';

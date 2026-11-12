@@ -232,6 +232,13 @@
       "when": 1794466678728,
       "tag": "0032_student_scores_term_unique_key",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794466860430,
+      "tag": "0033_student_scores_authoritative_total",
+      "breakpoints": true
     }
   ]
 }
