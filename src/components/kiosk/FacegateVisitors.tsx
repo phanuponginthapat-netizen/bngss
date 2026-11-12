@@ -1,0 +1,14 @@
+import { useEffect,useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/lib/fetchAllRows';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { UserPlus,LogOut,RefreshCw } from 'lucide-react';
+type Visit={id:string;visitor_name:string;organization:string|null;purpose:string;check_in:string;check_out:string|null};
+export default function FacegateVisitors(){const [rows,setRows]=useState<Visit[]>([]),[name,setName]=useState(''),[purpose,setPurpose]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const load=async()=>{try{setRows(await fetchAllRows<Visit>((a,b)=>supabase.from('visitor_logs').select('id,visitor_name,organization,purpose,check_in,check_out').order('check_in',{ascending:false}).order('id').range(a,b)));setError('');}catch{setError('อ่านผู้มาติดต่อไม่สำเร็จ');}};useEffect(()=>{void load();},[]);
+ const add=async()=>{if(!name.trim()||!purpose.trim()||busy)return;setBusy(true);try{const {data:auth}=await supabase.auth.getUser();const {error}=await supabase.from('visitor_logs').insert({visitor_name:name.trim(),purpose:purpose.trim(),recorded_by:auth.user?.id});if(error)throw error;setName('');setPurpose('');await load();toast.success('บันทึกผู้มาติดต่อแล้ว');}catch{toast.error('บันทึกไม่สำเร็จ');}finally{setBusy(false);}};
+ const exit=async(id:string)=>{const {error}=await supabase.from('visitor_logs').update({check_out:new Date().toISOString()}).eq('id',id).is('check_out',null);if(error)toast.error('บันทึกออกไม่สำเร็จ');else await load();};
+ return <div className="space-y-4"><h2 className="text-lg font-semibold">ผู้มาติดต่อ</h2><div className="flex flex-wrap gap-2"><Input aria-label="ชื่อผู้มาติดต่อ" placeholder="ชื่อผู้มาติดต่อ" className="max-w-xs" value={name} onChange={e=>setName(e.target.value)}/><Input aria-label="เรื่องที่ติดต่อ" placeholder="เรื่องที่ติดต่อ" className="max-w-xs" value={purpose} onChange={e=>setPurpose(e.target.value)}/><Button disabled={busy} onClick={add}><UserPlus className="mr-2 h-4 w-4"/>บันทึกเข้า</Button><Button variant="outline" onClick={load}><RefreshCw className="mr-2 h-4 w-4"/>รีเฟรช</Button></div>{error?<p className="text-destructive">{error}</p>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">ชื่อ</th><th>เรื่อง</th><th>เข้า</th><th>ออก</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-b"><td className="p-2">{r.visitor_name}</td><td>{r.purpose}</td><td className="whitespace-nowrap">{new Date(r.check_in).toLocaleString('th-TH')}</td><td>{r.check_out?new Date(r.check_out).toLocaleString('th-TH'):<Button size="sm" variant="outline" onClick={()=>exit(r.id)}><LogOut className="mr-1 h-4 w-4"/>บันทึกออก</Button>}</td></tr>)}</tbody></table></div>}</div>;
+}

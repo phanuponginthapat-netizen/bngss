@@ -1,3 +1,4 @@
 - Cloud kiosks open protected school administration in the system browser through the native bridge; F9 and the visible control share it so scanning stays mounted and no device key grants admin access.
 - Cloud mode exposes the same local Thai speech endpoint as the kiosk screen expects; registered avatars precede scan snapshots with explicit image fallbacks, avoiding broken pictures and missing voices.
 - Native kiosk scan requests carry the visible guide mapped into upright image coordinates; scan_guide rejects partially outside faces before embedding and normalizes completed queue results to a fixed two-second pause, keeping display and recognition boundaries identical.
+- Cloud idle media is delivered through device-authorized reads with fresh signed URLs; wake removes video playback and unknown attendance remains unknown rather than fabricated absence.

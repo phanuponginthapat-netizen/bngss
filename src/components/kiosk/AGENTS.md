@@ -1,0 +1,2 @@
+- FaceGate media retains private Storage paths and obtains fresh signed URLs for playback; configuration merges a fresh read of kiosk_config and only writes FaceGate fields so Linux installer settings stay intact.
+- Device controls send authenticated, server-role-checked commands with expiration, never report queued commands as executed or use a device key as administrator authorization.

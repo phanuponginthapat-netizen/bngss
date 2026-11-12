@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
+import { facegateSaver } from "../_shared/facegatePolicy.ts";
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -24,7 +25,7 @@ const DEFAULT_SETTINGS = {
   match_threshold: 0.45,
   detector_min_score: 0.5,
   min_face_coverage: 0.0,
-  next_person_delay_seconds: 5,
+  next_person_delay_seconds: 2,
   duplicate_cooldown_minutes: 300,
   require_liveness: true,
   geometry_weight: 0.3,
@@ -81,7 +82,8 @@ async function loadSettings(db: ReturnType<typeof admin>) {
     face_scan_mode_cutoff: school.face_scan_mode_cutoff ?? "12:00",
     face_scan_entry_window: school.face_scan_entry_window ?? "",
     face_scan_exit_window: school.face_scan_exit_window ?? "",
-    ...(school.face_liveness_enabled != null ? { require_liveness: school.face_liveness_enabled !== "false" } : {}),
+    require_liveness: v?.require_liveness ?? (school.face_liveness_enabled !== "false"),
+    next_person_delay_seconds: 2,
     late_after: school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
   };
 }
@@ -142,7 +144,7 @@ Deno.serve(async (req) => {
         logo_url: m.school_logo_512 || m.school_logo || sc.logo_url || "",
         theme_primary: (settings as any).theme_primary || m.theme_primary_color || m.primary_color || m.theme_color || undefined,
         theme_accent: (settings as any).theme_accent || m.theme_accent_color || undefined,
-        admin_url: "https://bngss.online/dashboard/admin/kiosk-setup",
+        admin_url: "https://bngss.online/dashboard/admin/facegate",
         server_time: new Date().toISOString(),
       });
     }
@@ -151,13 +153,17 @@ Deno.serve(async (req) => {
       const today = bkkDate();
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
-        const [{ count: students }, { count: staff }] = await Promise.all([
+        const [studentResult, staffResult, totalStudents, totalStaff] = await Promise.all([
           db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
             .eq("scan_date", today).eq("scan_type", "entry"),
           db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
             .eq("kind", "staff_pass").gte("created_at", startUtc),
+          db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
+          db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
         ]);
-        return json({ students_present: students ?? 0, staff_present: staff ?? 0,
+        for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
+        return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
+          total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:null,absent_staff:null,
           server_time: new Date().toISOString(), visitor_register_enabled: false });
       }
       const { data: logs, error: logsError } = await db.from("face_scan_logs")
@@ -184,11 +190,22 @@ Deno.serve(async (req) => {
         snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
         avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
       })));
+      const media:any[]=[];
+      for(let from=0;;from+=500){
+        const {data,error}=await db.from("facegate_broadcast_media").select("id,title,storage_path,media_type,duration_seconds").eq("is_active",true).order("sort_order").order("id").range(from,from+499);
+        if(error)throw error;
+        media.push(...(data??[])); if((data??[]).length<500)break;
+      }
+      const broadcast_media=await Promise.all(media.map(async item=>{const {data,error}=await db.storage.from("face-photos").createSignedUrl(item.storage_path,3600);if(error)throw error;return {...item,url:data.signedUrl};}));
       return json({
+        broadcast_media,
         display: {
           voice_enabled: (settings as any).voice_enabled !== false,
           voice_volume: (settings as any).voice_volume ?? 1,
           voice_rate: (settings as any).voice_rate ?? 1,
+          mirror: (settings as any).kiosk_mirror !== false,
+          rotate: (settings as any).kiosk_camera_rotate ?? 0,
+          live_view: (settings as any).live_view_enabled !== false,
           show_recent: (settings as any).kiosk_show_recent !== false,
           news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
           news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),
@@ -452,15 +469,18 @@ Deno.serve(async (req) => {
     // ── คำสั่งค้างถึงเครื่อง ─────────────────────────────────────────────
     if (route === "door-command" || route === "power-command") {
       const kind = route === "door-command" ? "door" : "power";
-      const { data } = await db
+      const { data, error:commandError } = await db
         .from("kiosk_commands")
         .select("id, action, payload")
         .eq("device_id", device.device_id).eq("kind", kind)
         .is("consumed_at", null)
+        .gt("expires_at",new Date().toISOString())
         .order("created_at", { ascending: true }).limit(1);
+      if(commandError)throw commandError;
       const cmd = (data as any[])?.[0];
       if (!cmd) return json({ command: null });
-      await db.from("kiosk_commands").update({ consumed_at: new Date().toISOString() }).eq("id", cmd.id);
+      const {error:consumeError}=await db.from("kiosk_commands").update({ consumed_at: new Date().toISOString() }).eq("id", cmd.id);
+      if(consumeError)throw consumeError;
       return json({ command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
     }
 
@@ -468,10 +488,11 @@ Deno.serve(async (req) => {
     if (route === "live") {
       const image = typeof body?.image === "string" ? body.image.slice(0, 900_000) : null;
       if (!image) return json({ ok: false }, 400);
-      await db.from("kiosk_live_frames").upsert(
+      const {error:liveError}=await db.from("kiosk_live_frames").upsert(
         { device_id: device.device_id, image, updated_at: new Date().toISOString() },
         { onConflict: "device_id" },
       );
+      if(liveError)throw liveError;
       return json({ ok: true });
     }
 

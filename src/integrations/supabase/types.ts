@@ -5905,6 +5905,48 @@ export type Database = {
           },
         ]
       }
+      facegate_broadcast_media: {
+        Row: {
+          created_at: string
+          created_by: string
+          duration_seconds: number
+          id: string
+          is_active: boolean
+          media_type: string
+          mime_type: string
+          size_bytes: number
+          sort_order: number
+          storage_path: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          duration_seconds?: number
+          id?: string
+          is_active?: boolean
+          media_type: string
+          mime_type: string
+          size_bytes: number
+          sort_order?: number
+          storage_path: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          duration_seconds?: number
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          mime_type?: string
+          size_bytes?: number
+          sort_order?: number
+          storage_path?: string
+          title?: string
+        }
+        Relationships: []
+      }
       fiscal_years: {
         Row: {
           created_at: string
@@ -8857,6 +8899,42 @@ export type Database = {
           kind?: string
           note?: string | null
           snapshot_url?: string | null
+        }
+        Relationships: []
+      }
+      kiosk_commands: {
+        Row: {
+          action: string
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          device_id: string
+          expires_at: string
+          id: string
+          kind: string
+          payload: Json
+        }
+        Insert: {
+          action: string
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          device_id: string
+          expires_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+        }
+        Update: {
+          action?: string
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          device_id?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
         }
         Relationships: []
       }

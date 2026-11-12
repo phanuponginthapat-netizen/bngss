@@ -109,7 +109,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.3"
+AGENT_VERSION = "1.12.5"
 
 
 def default_cache_dir() -> str:
@@ -1349,7 +1349,7 @@ if not STANDALONE and not SATELLITE:
 
     @app.get("/admin")
     def admin_screen_cloud():
-        return _CRedirect("https://bngss.online/dashboard/admin/kiosk-setup")
+        return _CRedirect("https://bngss.online/dashboard/admin/facegate")
 
     @app.post("/local/kiosk-api/tts")
     async def cloud_voice(request: Request):
@@ -1944,7 +1944,7 @@ if __name__ == "__main__":
             class KioskWindowApi:
                 def open_admin(self):
                     import webbrowser
-                    target = f"http://127.0.0.1:{PORT}/admin" if STANDALONE else "https://bngss.online/dashboard/admin/kiosk-setup"
+                    target = f"http://127.0.0.1:{PORT}/admin" if STANDALONE else "https://bngss.online/dashboard/admin/facegate"
                     webbrowser.open(target)
                     return True
 

@@ -1,0 +1,16 @@
+import {useEffect,useState} from 'react';
+import {supabase} from '@/integrations/supabase/client';
+import {fetchAllRows} from '@/lib/fetchAllRows';
+import {Input} from '@/components/ui/input';
+import {Button} from '@/components/ui/button';
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
+import {Printer,Search} from 'lucide-react';
+import {bkkDateISO} from '@/lib/dateBE';
+type Student={id:string;student_code:string;first_name:string;last_name:string};
+type Scan={id:string;scan_date:string;scan_time:string;scan_type:string};
+export default function FacegateCertificate(){const [people,setPeople]=useState<Student[]>([]),[id,setId]=useState(''),[from,setFrom]=useState(bkkDateISO()),[to,setTo]=useState(bkkDateISO()),[rows,setRows]=useState<Scan[]|null>(null),[error,setError]=useState('');
+ useEffect(()=>{fetchAllRows<Student>((a,b)=>supabase.from('students').select('id,student_code,first_name,last_name').eq('status','active').order('student_code').order('id').range(a,b)).then(setPeople).catch(()=>setError('อ่านทะเบียนไม่สำเร็จ'));},[]);
+ const load=async()=>{setRows(null);setError('');if(!id||from>to){setError('เลือกรายชื่อและช่วงวันที่ให้ถูกต้อง');return;}try{setRows(await fetchAllRows<Scan>((a,b)=>supabase.from('face_scan_logs').select('id,scan_date,scan_time,scan_type').eq('student_id',id).gte('scan_date',from).lte('scan_date',to).order('scan_date').order('id').range(a,b)));}catch{setError('อ่านประวัติไม่สำเร็จ ไม่สามารถออกใบรับรองได้');}};
+ const student=people.find(p=>p.id===id);const days=new Set((rows??[]).filter(r=>r.scan_type==='entry').map(r=>r.scan_date));
+ return <div className="space-y-4"><h2 className="text-lg font-semibold">ใบรับรองหลักฐานมาโรงเรียน</h2><div className="flex flex-wrap gap-2 print:hidden"><Select value={id} onValueChange={v=>{setId(v);setRows(null);}}><SelectTrigger className="max-w-sm"><SelectValue placeholder="เลือกนักเรียน"/></SelectTrigger><SelectContent>{people.map(p=><SelectItem key={p.id} value={p.id}>{p.student_code} {p.first_name} {p.last_name}</SelectItem>)}</SelectContent></Select><Input aria-label="ตั้งแต่วันที่" type="date" className="w-auto" value={from} onChange={e=>{setFrom(e.target.value);setRows(null);}}/><Input aria-label="ถึงวันที่" type="date" className="w-auto" value={to} onChange={e=>{setTo(e.target.value);setRows(null);}}/><Button onClick={load}><Search className="mr-2 h-4 w-4"/>ตรวจหลักฐาน</Button><Button variant="outline" disabled={!rows} onClick={()=>window.print()}><Printer className="mr-2 h-4 w-4"/>พิมพ์</Button></div>{error&&<p className="text-destructive">{error}</p>}{rows&&student&&<section className="space-y-3"><h3 className="font-semibold">{student.first_name} {student.last_name} · {student.student_code}</h3><p>ช่วงวันที่ {from} ถึง {to} มีหลักฐานเข้าโรงเรียน {days.size} วัน</p><table className="w-full text-sm"><thead><tr className="border-b text-left"><th>วันที่</th><th>เวลา</th><th>รายการ</th></tr></thead><tbody>{rows.map(r=><tr key={r.id} className="border-b"><td className="py-2">{r.scan_date}</td><td>{new Date(r.scan_time).toLocaleTimeString('th-TH')}</td><td>{r.scan_type==='entry'?'เข้า':'ออก'}</td></tr>)}</tbody></table></section>}</div>;
+}
