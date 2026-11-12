@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle } from "lucide-react";
 import { AutoImportDialogBase, MetaField } from "./AutoImportDialogBase";
 import { useMyTeacherAssignments } from "@/hooks/useMyTeacherAssignments";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { requirePp6ImportTerm } from "@/lib/pp6ImportTarget";
 
 interface Props { onImportSuccess?: () => void; }
 
@@ -46,8 +46,7 @@ export default function PP6AutoImportDialog({ onImportSuccess }: Props) {
         const chosen = it.meta.classrooms.find((c) => c.id === it.meta.classroomId);
         const gradeLevel = chosen?.gradeLevel || meta.gradeLevel || "ไม่ระบุ";
         const classroomName = chosen?.name || (meta as any).classroomName || meta.gradeLevel || "";
-        const year = meta.academicYear || new Date().getFullYear() + BE_OFFSET;
-        const semester = meta.semester || 1;
+        const { year, semester } = requirePp6ImportTerm(meta);
         return {
           gradeLevel, year, semester,
           dedupWhere: { classroom_name: classroomName },
@@ -104,25 +103,21 @@ export default function PP6AutoImportDialog({ onImportSuccess }: Props) {
             <tr>
               <th className="text-left p-1">รหัส</th>
               <th className="text-left p-1">ชื่อ</th>
-              <th className="text-left p-1">วิชา (ตัวอย่าง)</th>
+              <th className="text-left p-1">วิชา / กิจกรรม</th>
               <th className="text-right p-1">คะแนน</th>
               <th className="text-center p-1">เกรด</th>
             </tr>
           </thead>
           <tbody>
-            {parsed.consolidated.map((c) => {
-              const entries = Object.entries(c.perSubject);
-              const [subjName, v] = (entries[0] || ["-", {}]) as any;
-              return (
-                <tr key={c.studentCode} className="border-t">
+            {parsed.consolidated.flatMap((c) => Object.entries(c.perSubject).map(([subjName, v]) => (
+                <tr key={`${c.studentCode}:${subjName}`} className="border-t">
                   <td className="p-1">{c.studentCode}</td>
-                  <td className="p-1 truncate max-w-[120px]">{c.studentName}</td>
-                  <td className="p-1 truncate max-w-[100px]">{subjName}</td>
+                  <td className="p-1 max-w-[120px] break-words">{c.studentName}</td>
+                  <td className="p-1 max-w-[160px] break-words">{subjName}</td>
                   <td className="p-1 text-right">{v?.totalScore ?? "-"}</td>
                   <td className="p-1 text-center font-medium">{v?.grade ?? "-"}</td>
                 </tr>
-              );
-            })}
+              )))}
           </tbody>
         </table>
       )}
