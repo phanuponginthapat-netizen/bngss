@@ -131,7 +131,7 @@ function applyCameraLook() {
   const cam = $('cam'); if (!cam) return;
   cam.style.width = swap ? '100cqh' : '100%';
   cam.style.height = swap ? '100cqw' : '100%';
-  cam.style.transform = `rotate(${rot}deg)${display.mirror ? ' scaleX(-1)' : ''}`;
+  cam.style.transform = `${display.mirror ? 'scaleX(-1) ' : ''}rotate(${rot}deg)`;
 }
 function showResult(d, captured) {
   const student = d.student || {};
@@ -147,7 +147,7 @@ function showResult(d, captured) {
   $('scanTime').textContent = serverNow().toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
   $('resultBar').className = 'resultBar' + (ok ? '' : ' bad');
   $('resultBar').textContent = ok ? (content.kiosk_success_label || 'บันทึกสำเร็จ') : d.message;
-  setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, Math.min(d.next_delay_seconds || 2, 2.5) * 1000);
+  setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, 2000);
 }
 let audioReady = false, thaiVoice = null, browserVoiceOk = false;
 const clipCache = new Map();
@@ -290,13 +290,30 @@ setInterval(() => {
   previewLoop();
 }, 8000);
 
+function visibleGuide() {
+  const cam = $('cam'), stage = $('stage').getBoundingClientRect();
+  const box = document.querySelector('.guide').getBoundingClientRect();
+  let w = cam.videoWidth || cam.naturalWidth, h = cam.videoHeight || cam.naturalHeight;
+  if (!w || !h || !stage.width || !stage.height) return null;
+  const rot = (((Number(display.rotate) || 0) % 360) + 360) % 360;
+  if (rot === 90 || rot === 270) [w, h] = [h, w];
+  // object-fit:cover crops the upright picture around its centre.
+  const scale = Math.max(stage.width / w, stage.height / h);
+  const drawnW = w * scale, drawnH = h * scale;
+  const left = stage.left + (stage.width - drawnW) / 2;
+  const top = stage.top + (stage.height - drawnH) / 2;
+  return { left: (box.left - left) / drawnW, top: (box.top - top) / drawnH,
+    right: (box.right - left) / drawnW, bottom: (box.bottom - top) / drawnH };
+}
+
 async function tick() {
   if (busy || Date.now() < pausedUntil) return;
   let image = frame(); if (!image) return;
+  const guide = visibleGuide(); if (!guide) return;
   busy = true;
   try {
     const res = await fetch('/scan', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(image === 'native' ? { native: true, rotate: Number(display.rotate) || 0 } : { image }) });
+      body: JSON.stringify(image === 'native' ? { native: true, rotate: Number(display.rotate) || 0, guide } : { image, guide }) });
     const d = await res.json();
     if (image === 'native') image = d.snapshot_b64 || '';
     // Any face at the screen counts as activity, so the stats board steps
@@ -304,9 +321,9 @@ async function tick() {
     if (d.result !== 'no_face') bumpActivity();
     if (d.result === 'ok') {
       say(d.message, 'ok'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); loadRecent(); loadStats();
-      pausedUntil = Date.now() + Math.min(d.next_delay_seconds || 1.5, 1.5) * 1000;  // next student may step up right away
+      pausedUntil = Date.now() + 2000;
     } else if (d.result === 'duplicate' || d.result === 'denied') {
-      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); pausedUntil = Date.now() + 1200;
+      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); pausedUntil = Date.now() + 2000;
     } else if (d.message && d.result !== 'no_face') { say(d.message); }
     else { say($('subtitle').textContent); }
   } catch (e) {}

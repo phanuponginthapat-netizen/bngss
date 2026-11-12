@@ -70,6 +70,7 @@ import power
 import power_profile
 import qr_reader
 from school_scan_policy import evaluate_school_scan
+from scan_guide import face_inside, completed_result, NEXT_PERSON_SECONDS
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
 
@@ -108,7 +109,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.2"
+AGENT_VERSION = "1.12.3"
 
 
 def default_cache_dir() -> str:
@@ -1493,13 +1494,13 @@ async def scan(request: Request):
             ok_jpg, buf = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
             image = base64.b64encode(buf).decode() if ok_jpg else ""
             push_live_frame(image)
-            result = await run_in_threadpool(run_scan, image)
+            result = await run_in_threadpool(run_scan, image, None, False, payload.get("guide"))
             remember_scan(result)
             if result.get("result") in ("ok", "duplicate", "denied"):
                 result["snapshot_b64"] = image
             return result
         push_live_frame(image)
-        result = run_scan(image)
+        result = run_scan(image, guide=payload.get("guide"))
         remember_scan(result)
         return result
     # เส้นทางเข้ากันได้กับรุ่นเดิม: รับ JPEG ดิบ คืนใบหน้าพร้อม embedding
@@ -1576,7 +1577,11 @@ def scan_card_qr(arr: np.ndarray, direction: str | None, dry_run: bool, delay: i
     return submit_attendance_fast(payload, settings, delay)
 
 
-def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
+def run_scan(image: str, direction: str | None = None, dry_run: bool = False, guide=None):
+    return completed_result(_run_scan(image, direction, dry_run, guide))
+
+
+def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, guide=None):
     with lock:
         state["last_activity"] = time.time()
 
@@ -1594,7 +1599,7 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
         settings = dict(state["settings"])
 
     threshold = float(settings.get("match_threshold") or 0.45)
-    delay = int(settings.get("next_person_delay_seconds") or 2)
+    delay = NEXT_PERSON_SECONDS
     det_min = float(settings.get("detector_min_score") or 0.5)
     min_coverage = float(settings.get("min_face_coverage") or 0.0)
 
@@ -1631,18 +1636,11 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False):
             "message": "กรุณาเข้าใกล้กล้องอีกนิด",
         }
 
-    # Anyone walking past behind the person being scanned is simply ignored:
-    # only faces sitting inside the on-screen oval guide are considered.
-    cx, cy = frame_w / 2.0, frame_h / 2.0
-    rx, ry = frame_w * GUIDE_RX, frame_h * GUIDE_RY
-
-    def inside_guide(i: int) -> bool:
-        fx = (float(dets[i, 0]) + float(dets[i, 2])) / 2.0
-        fy = (float(dets[i, 1]) + float(dets[i, 3])) / 2.0
-        return ((fx - cx) / rx) ** 2 + ((fy - cy) / ry) ** 2 <= 1.0
-
-    present = [i for i in big if inside_guide(i)]
+    # The whole detected face must fit the visible rectangle, not just its centre.
+    # Filter before embedding so outside faces are never recognised or recorded.
+    present = [i for i in big if face_inside(dets[i, :4], frame_w, frame_h, guide)]
     if not present:
+        _motion["visual"] = None
         return {
             "result": "no_face",
             "message": "กรุณาจัดใบหน้าให้อยู่ในกรอบ",
