@@ -26,6 +26,7 @@ import { saveErrorMessage } from "@/lib/saveError";
 import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
 import { academicReadState } from "@/lib/academicReadState";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadFullClassrooms } from "@/lib/classroomQueries";
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -52,9 +53,7 @@ const ScoreOverviewTab = () => {
 
   const { data: allClassroomsRaw = [], ...classroomsRead } = useQuery({
     queryKey: ["classrooms", "pp6_full", userId],
-    queryFn: async () => {
-      return fetchAllRows((from, to) => supabase.from("classrooms").select("*").order("grade_level").order("name").order("id").range(from, to));
-    },
+    queryFn: loadFullClassrooms,
   });
 
   // Restrict to classrooms the current teacher has assignments in (admins/directors see all)

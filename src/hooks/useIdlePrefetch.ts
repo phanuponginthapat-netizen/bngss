@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { loadFullClassrooms } from "@/lib/classroomQueries";
 
 type IdleHandle = number;
 
@@ -49,14 +50,7 @@ export function useIdlePrefetch() {
       if (isStaff) {
         void qc.prefetchQuery({
           queryKey: ["classrooms"],
-          queryFn: async () => {
-            const { data, error } = await supabase
-              .from("classrooms")
-              .select("id, name, grade_level, homeroom_teacher")
-              .order("grade_level");
-            if (error) throw error;
-            return data || [];
-          },
+          queryFn: loadFullClassrooms,
           staleTime: 10 * 60_000,
         });
 
