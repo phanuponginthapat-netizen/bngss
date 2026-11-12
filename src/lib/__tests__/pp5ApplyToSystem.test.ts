@@ -24,6 +24,14 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("stores each activity's ผ/มผ without a numeric score or grade point", async () => {
+    source.subjects = ["ชุมนุม", "ลูกเสือ", "แนะแนว"].map(name => ({ id: name, name_th: name, semester: 1 }));
+    await applyPpFileToSystem({ semester: 1, academic_year: 2569, parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { ชุมนุม: { grade: "มผ" }, ลูกเสือ: { grade: "ผ" }, แนะแนว: { grade: "ผ" } } }],
+    } }, "pp6");
+    expect(source.writes[0].rows.map((r: any) => [r.subject_id, r.grade, r.total_score, r.grade_point]))
+      .toEqual([["ชุมนุม", "มผ", null, null], ["ลูกเสือ", "ผ", null, null], ["แนะแนว", "ผ", null, null]]);
+  });
   it("distributes AI curriculum scores to the existing ว21201 subject in the correct semester", async () => {
     source.subjects = [
       { id: "083503be-f231-48bd-88c3-d03475d516cb", code: "ว21201", name_th: "ปัญญาประดิษฐ์", semester: 1 },
