@@ -15,6 +15,11 @@ describe("Vault authenticated files", () => {
     vi.mocked(fetch).mockResolvedValue(new Response("no_file", { status: 404 }));
     await expect(getVaultFileUrl("missing")).rejects.toThrow("ไม่พบไฟล์ต้นฉบับ");
   });
+  it("rejects expired LINE originals without caching a fake file", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("source_expired", { status: 410 }));
+    await expect(getVaultFileUrl("expired-line")).rejects.toThrow("กรุณาส่งไฟล์เข้ากลุ่ม LINE อีกครั้ง");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
   it("does not reuse files across accounts and revokes the previous blob", async () => {
     await getVaultFileUrl("same-file");
     auth.getSession.mockResolvedValue({ data: { session: { access_token: "user-b" } }, error: null });

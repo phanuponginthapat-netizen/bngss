@@ -9,6 +9,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { downloadFile } from "../_shared/googleDrive.ts";
+import { getSecret } from "../_shared/getSecret.ts";
+import { recoverLineVaultFile } from "../_shared/lineVaultRecovery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,18 +40,32 @@ Deno.serve(async (req) => {
     // Enforce RLS by reading via the user's client
     const { data: item, error } = await userClient
       .from("line_vault_items")
-      .select("id, storage_path, drive_file_id, original_filename, mime_type, kind")
+      .select("id, storage_path, drive_file_id, original_filename, mime_type, kind, source, line_message_id, line_group_id, created_at, title")
       .eq("id", itemId)
       .maybeSingle();
     if (error) throw error;
     if (!item) return new Response("forbidden", { status: 403, headers: corsHeaders });
 
+    const admin = createClient(SUPABASE_URL, SERVICE);
+    if (!item.storage_path && !item.drive_file_id && item.source === "line" && item.kind !== "note") {
+      const recovered = await recoverLineVaultFile(admin, item, async (messageId) => {
+        const token = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim() || await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
+        if (!token) throw new Error("LINE Vault recovery is not configured");
+        const response = await fetch(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, {
+          headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(25000),
+        });
+        if (response.status === 404 || response.status === 410) return null;
+        if (!response.ok) throw new Error(`LINE recovery unavailable [${response.status}]`);
+        return { data: new Uint8Array(await response.arrayBuffer()), mime: response.headers.get("content-type") || "application/octet-stream" };
+      });
+      if (!recovered) return new Response("source_expired", { status: 410, headers: corsHeaders });
+      Object.assign(item, recovered);
+    }
+
     const filename = item.original_filename || `${item.id}.bin`;
     const disposition = url.searchParams.get("download")
       ? `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
       : `inline; filename*=UTF-8''${encodeURIComponent(filename)}`;
-
-    const admin = createClient(SUPABASE_URL, SERVICE);
 
     // ---- Google Drive fallback for legacy Drive-only rows ----
     if (item.drive_file_id) {
