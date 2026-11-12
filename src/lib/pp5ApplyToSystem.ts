@@ -251,8 +251,7 @@ async function applyPpFileToSystemInner(
       if (hasTotal && (midS ?? 0) + (finS ?? 0) > total + 0.001) { midS = null; finS = null; }
       scoreRows.push({
         student_code: code,
-        student_id: sid,
-        student_name: c.studentName || null,
+        student_name: c.studentName || code,
         subject_id: sIdForRow,
         total_score: hasTotal ? Math.round(total * 100) / 100 : null,
         // คะแนนระหว่างเรียน / ปลายภาค (จากแผ่นสรุปตัดสินผลการเรียน)
@@ -369,31 +368,17 @@ export type Pp5ApplyResult = PpApplyResult;
 
 /**
  * บันทึกผลการเรียนแยกตามภาคเรียน/ปี (ปี ค.ศ.)
- * ถ้าฐานข้อมูลยังไม่ได้อัปเดตให้แยกเทอม → ใช้แบบเดิม แต่ไม่ยอมเขียนทับผลของเทอมอื่น
+ * ใช้เฉพาะคีย์ครบปี/เทอม — ห้ามย้อนกลับไปเขียนด้วยคีย์ที่รวมหลายเทอม
  */
 export async function upsertStudentScoresForTerm(rows: any[], semester: number, academicYear: number) {
   if (rows.length === 0) return null;
-  const withTerm = rows.map((r) => ({ ...r, semester, academic_year: academicYear }));
-  let { error } = await supabase
+  const year = academicYear > 2400 ? academicYear - 543 : academicYear;
+  if (![1, 2, 3].includes(semester) || !Number.isInteger(year) || year < 1990 || year > 2150) {
+    return new Error("ต้องระบุภาคเรียนและปีการศึกษาให้ถูกต้องก่อนบันทึกผลการเรียน");
+  }
+  const withTerm = rows.map((r) => ({ ...r, semester, academic_year: year }));
+  const { error } = await supabase
     .from("student_scores")
     .upsert(withTerm, { onConflict: "student_code,subject_id,semester,academic_year" });
-  if (error && /no unique|ON CONFLICT|42P10/i.test(`${error.code} ${error.message}`)) {
-    const subjectIds = [...new Set(withTerm.map((r) => r.subject_id))];
-    const { data: prev } = await supabase
-      .from("student_scores")
-      .select("student_code, semester, academic_year")
-      .in("subject_id", subjectIds)
-      .in("student_code", withTerm.map((r) => r.student_code));
-    const norm = (y: any) => (Number(y) > 2400 ? Number(y) - 543 : Number(y));
-    const clash = (prev || []).find((p: any) =>
-      p.semester != null && p.academic_year != null &&
-      (Number(p.semester) !== semester || norm(p.academic_year) !== academicYear));
-    if (clash) {
-      return new Error(
-        `วิชานี้มีผลการเรียนของภาคเรียน ${(clash as any).semester}/${norm((clash as any).academic_year) + 543} อยู่แล้ว — ` +
-        "ต้องให้ผู้ดูแลอัปเดตฐานข้อมูลให้แยกคะแนนตามภาคเรียนก่อน จึงจะบันทึกได้โดยไม่ทับข้อมูลเดิม");
-    }
-    ({ error } = await supabase.from("student_scores").upsert(withTerm, { onConflict: "student_code,subject_id" }));
-  }
   return error ? new Error(error.message) : null;
 }
