@@ -1,7 +1,7 @@
 - Apply subjectTermPolicy to ปพ.6 report and import catalogs for all known curriculum codes; term corrections filter historical duplicate rows without deleting scores or assignment references, and primary science titles retain legacy file aliases.
 - Subject matching normalizes แอนิเมชั่น/แอนิเมชัน spelling but remains scoped to the file grade and semester; missing curriculum subjects require confirmation, never cross-term matching.
 - Explicit numeric subject suffixes must match exactly except school-confirmed code aliases scoped to grade, term and year; only unnumbered names use unique numbered fallback, preventing scores assigned to conflicting courses.
-- ปพ.6 import targets require explicit file year and semester; never infer defaults, preventing misfiled historical results.
+- ปพ.5/ปพ.6 import targets require explicit file year and semester; PP5 assignment matching uses ppSubjectMatching and validates assignment term through pp5ImportTarget, preventing misfiled historical results and grade-only guesses.
 - Recover legacy ปพ.6 individual activity outcomes from the source workbook, never combined results; keeps ผ/มผ faithful without replacing academic totals.
 - Statistical consumers use complete deterministic paged reads that reject every source failure and exhausted cap; chartMetrics preserves measured zero, unknown values, record-weighted means and undefined zero-baseline changes, preventing partial or invented chart success.
 - Monitor broadcasts carry only short-lived Cloud receipts; resolve identity and payload server-side before commands or screen sharing, so public channel participants cannot impersonate a teacher.
