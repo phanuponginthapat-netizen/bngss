@@ -9,6 +9,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { parsePP5Workbook } from "./pp5AutoParser";
+import { subjectBelongsToTerm } from "./subjectTermPolicy";
 
 export interface PpApplyResult {
   applied: number;          // rows written to student_column_scores
@@ -169,7 +170,7 @@ async function applyPpFileToSystemInner(
     // วิชาภาคเรียนเดียวกันมาทีหลัง → ชนะเมื่อชื่อซ้ำกันข้ามภาค
     // ใช้เฉพาะวิชาของภาคเรียนนี้ (หรือวิชาที่ไม่ระบุภาค เช่น รายปี) — ไม่ข้ามไปจับวิชาเทอมอื่น
     const ordered = [...(subs || [])]
-      .filter((s: any) => s.semester == null || Number(s.semester) === semester)
+      .filter((s: any) => subjectBelongsToTerm(s, semester, academicYear))
       .sort((a: any, b: any) => Number(Number(a.semester) === semester) - Number(Number(b.semester) === semester));
     for (const s of ordered) {
       if ((s as any).name_th) subjectByName.set(norm((s as any).name_th), (s as any).id);
