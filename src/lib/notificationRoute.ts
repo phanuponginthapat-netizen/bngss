@@ -31,6 +31,8 @@ export function routeForNotification(
   const id = n.reference_id;
   const withHighlight = (path: string) => (id ? `${path}${path.includes("?") ? "&" : "?"}highlight=${id}` : path);
   switch (t) {
+    case "attendance_digest":
+      return isStudentSide ? "/dashboard/student/attendance" : "/dashboard/student/face-scan";
     case "staff_leave":
     case "staff_leaves":
     case "staff_leave_approved":

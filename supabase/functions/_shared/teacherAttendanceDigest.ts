@@ -29,7 +29,7 @@ export async function deliverTeacherDigest(sb: any, date: string, summary: strin
   let pushAccepted = false;
   if (newlySaved.length) {
     const response = await sendPush({ user_ids: newlySaved, title: `📊 สรุปการมาโรงเรียน ${date}`, body: summary,
-      type: "attendance_digest", channels: ["push"], url: "/dashboard/scan-report", dedup_key: `teacher-attendance:${date}` });
+      type: "attendance_digest", channels: ["push"], url: "/dashboard/student/face-scan", dedup_key: `teacher-attendance:${date}` });
     pushAccepted = response?.ok === true;
   }
   return { recipients: users.size, saved, already_sent: alreadySent, push_accepted: pushAccepted };
