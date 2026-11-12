@@ -86,7 +86,13 @@ export function pickBestAssignment(
   assignments: MyTeacherAssignment[],
   meta: { subjectName?: string; subjectCode?: string; gradeLevel?: string; semester?: number; academicYear?: number; classroomName?: string }
 ): MyTeacherAssignment | undefined {
-  const matches = assignments.filter(a => scoreAssignmentMatch(a, meta) > 0);
+  if (!meta.academicYear || !meta.semester) return undefined;
+  const year = meta.academicYear > 2400 ? meta.academicYear - 543 : meta.academicYear;
+  const scoped = assignments.filter(a => a.academicYear === year && a.semester === meta.semester);
+  const subjectId = matchPpSubject(scoped.map(a => ({ id: a.subject_id, code: a.subjectCode, name_th: a.subjectName, grade_level: a.gradeLevel, semester: a.subjectSemester })), meta.subjectName ?? "", {
+    gradeLevel: meta.gradeLevel, semester: meta.semester, academicYear: year,
+  }, meta.subjectCode);
+  const matches = scoped.filter(a => a.subject_id === subjectId);
   const rooms = meta.classroomName ? matches.filter(a => a.classroomName.replace(/\s/g, "") === meta.classroomName?.replace(/\s/g, "")) : matches;
   return rooms.length === 1 ? rooms[0] : undefined;
 }

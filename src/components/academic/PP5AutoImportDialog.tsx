@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { AutoImportDialogBase, MetaField } from "./AutoImportDialogBase";
 import { useMyTeacherAssignments, pickBestAssignment, type MyTeacherAssignment } from "@/hooks/useMyTeacherAssignments";
 import { requirePp5ImportTarget } from "@/lib/pp5ImportTarget";
+import { subjectBelongsToTerm } from "@/lib/subjectTermPolicy";
 
 interface Props { onImportSuccess?: () => void; }
 
@@ -56,7 +57,8 @@ export default function PP5AutoImportDialog({ onImportSuccess }: Props) {
         if (!it.parsed) return null;
         const meta = { ...it.parsed.meta, academicYear: it.yearOverride ?? it.parsed.meta.academicYear, semester: it.semesterOverride ?? it.parsed.meta.semester };
         const year = Number(meta.academicYear) > 2400 ? Number(meta.academicYear) - 543 : Number(meta.academicYear);
-        const list = it.meta.assignments.filter(a => a.gradeLevel === meta.gradeLevel && a.academicYear === year && a.semester === meta.semester);
+        const list = it.meta.assignments.filter(a => a.gradeLevel === meta.gradeLevel && a.academicYear === year && a.semester === meta.semester &&
+          subjectBelongsToTerm({ code: a.subjectCode, grade_level: a.gradeLevel, semester: a.subjectSemester }, Number(meta.semester), year));
         return (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

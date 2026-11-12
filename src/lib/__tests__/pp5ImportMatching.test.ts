@@ -19,3 +19,4 @@ it("PP5 blocks a manually selected wrong-term assignment", () => expect(() => re
 it("PP5 blocks curriculum subjects from the other term", () => expect(() => requirePp5ImportTarget(meta, { ...a, subjectCode: "พ22102" })).toThrow());
 it("PP5 accepts the explicit file year and term", () => expect(requirePp5ImportTarget(meta, a)).toEqual({ gradeLevel: "ม.2", year: 2569, semester: 1 }));
 it("PP5 rejects multiple numbered candidates for an unnumbered name", () => expect(matchPpSubject([1,2].map(n => ({ id: String(n), name_th: `ภาษาไทย ${n}`, grade_level: "ม.2", semester: 1 })), "ภาษาไทย", { gradeLevel: "ม.2", semester: 1, academicYear: 2026 })).toBeNull());
+it("PP5 does not pick the first of different numbered assignment subjects", () => expect(pickBestAssignment([1,2].map(n => ({ ...a, id: `a${n}`, subject_id: `s${n}`, subjectCode: undefined, subjectName: `ภาษาไทย ${n}` })), { ...meta, subjectName: "ภาษาไทย" })).toBeUndefined());
