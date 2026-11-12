@@ -24,6 +24,14 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("preserves primary science imports after the curriculum title correction", async () => {
+    source.subjects = [{ id: "primary-science", code: "ว14101", grade_level: "ป.4", name_th: "วิทยาศาสตร์และเทคโนโลยี 4", semester: 1 }];
+    const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ป.4", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "วิทยาศาสตร์ 4": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual([]);
+    expect(source.writes[0].rows[0]).toMatchObject({ subject_id: "primary-science", total_score: 79 });
+  });
   it("matches the confirmed เชื้อเพลิงฯ 3 file alias to ว22203 only for ม.2 semester 1/2569", async () => {
     source.subjects = [{ id: "fuel1", code: "ว22203", name_th: "เชื้อเพลิงเพื่อการคมนาคมขนส่ง 1", semester: 1 }];
     const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ม.2", parsed_data: {

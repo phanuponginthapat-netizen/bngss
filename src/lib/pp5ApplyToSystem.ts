@@ -175,6 +175,10 @@ async function applyPpFileToSystemInner(
     for (const s of ordered) {
       if ((s as any).name_th) subjectByName.set(norm((s as any).name_th), (s as any).id);
       if ((s as any).code) subjectByName.set(norm((s as any).code), (s as any).id);
+      // Legacy primary files use the shorter science title for the same curriculum code.
+      if (/^ป\.[1-6]$/.test(String(s.grade_level)) && /^ว1[1-6]101$/.test(String(s.code))) {
+        subjectByName.set(norm(`วิทยาศาสตร์ ${String(s.grade_level).slice(2)}`), s.id);
+      }
     }
   }
   const resolveSubject = (name: string): string | null => {
