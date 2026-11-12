@@ -8880,6 +8880,7 @@ export type Database = {
           id: string
           kind: string
           note: string | null
+          person_id: string | null
           snapshot_url: string | null
         }
         Insert: {
@@ -8889,6 +8890,7 @@ export type Database = {
           id?: string
           kind?: string
           note?: string | null
+          person_id?: string | null
           snapshot_url?: string | null
         }
         Update: {
@@ -8898,6 +8900,7 @@ export type Database = {
           id?: string
           kind?: string
           note?: string | null
+          person_id?: string | null
           snapshot_url?: string | null
         }
         Relationships: []

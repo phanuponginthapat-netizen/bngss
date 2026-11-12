@@ -1,0 +1,2 @@
+ALTER TABLE public.kiosk_agent_alerts ADD COLUMN IF NOT EXISTS person_id uuid;
+CREATE INDEX IF NOT EXISTS kiosk_agent_alerts_person_idx ON public.kiosk_agent_alerts (person_id, created_at) WHERE kind = 'staff_pass';
