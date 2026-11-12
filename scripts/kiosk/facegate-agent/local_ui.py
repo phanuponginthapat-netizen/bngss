@@ -131,7 +131,7 @@ function applyCameraLook() {
   const cam = $('cam'); if (!cam) return;
   cam.style.width = swap ? '100cqh' : '100%';
   cam.style.height = swap ? '100cqw' : '100%';
-  cam.style.transform = `rotate(${rot}deg)${display.mirror ? ' scaleX(-1)' : ''}`;
+  cam.style.transform = `${display.mirror ? 'scaleX(-1) ' : ''}rotate(${rot}deg)`;
 }
 function showResult(d, captured) {
   const student = d.student || {};

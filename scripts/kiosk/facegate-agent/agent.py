@@ -1640,6 +1640,7 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
     # Filter before embedding so outside faces are never recognised or recorded.
     present = [i for i in big if face_inside(dets[i, :4], frame_w, frame_h, guide)]
     if not present:
+        _motion["visual"] = None
         return {
             "result": "no_face",
             "message": "กรุณาจัดใบหน้าให้อยู่ในกรอบ",
