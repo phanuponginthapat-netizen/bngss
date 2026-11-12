@@ -1,4 +1,5 @@
 import { swal } from "@/lib/swal";
+import { Link } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -305,6 +306,7 @@ export default function KioskSetupPage() {
   return (
     <div className="container mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <div className="space-y-1">
+        <Button asChild variant="outline"><Link to="/dashboard/admin/facegate"><Monitor className="mr-2 h-4 w-4" />หลังบ้าน FaceGate Windows / Linux</Link></Button>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Monitor className="h-6 w-6 text-primary" />
           ตั้งค่าตู้ Kiosk (MX Linux)

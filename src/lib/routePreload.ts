@@ -60,6 +60,7 @@ const loaders: Record<string, () => Promise<unknown>> = {
   "/dashboard/admin/id-card/bulk-print": () => import("@/pages/admin/PrintCenterPage"),
   "/dashboard/admin/kiosk-health": () => import("@/pages/admin/KioskDoorHealthPage"),
   "/dashboard/admin/kiosk-setup": () => import("@/pages/admin/KioskSetupPage"),
+  "/dashboard/admin/facegate": () => import("@/pages/admin/FacegateAdminPage"),
   "/dashboard/admin/line-settings": () => import("@/pages/admin/LineSettingsPage"),
   "/dashboard/admin/monitor": () => import("@/pages/admin/ClassroomMonitorPage"),
   "/dashboard/admin/news": () => import("@/pages/admin/NewsPage"),

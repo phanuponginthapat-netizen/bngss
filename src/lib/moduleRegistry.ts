@@ -127,7 +127,7 @@ export const MODULES: ModuleDef[] = [
   { key: "backup_external", label: "สำรองข้อมูลภายนอก", labelEn: "External Backup", desc: "Backup ไป Google Drive/S3", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-external"] },
   { key: "backup_center", label: "Backup & Migration Center", labelEn: "Backup & Migration", desc: "สำรอง/กู้คืน/ย้ายระบบทั้งหมด — 1 คลิก", group: "integrations", urlPrefixes: ["/dashboard/admin/backup-center"] },
 
-  { key: "kiosk", label: "ตู้ Kiosk / Smart Gate", labelEn: "Kiosk", desc: "ติดตั้งและสถานะตู้สแกนหน้าประตู", group: "integrations", urlPrefixes: ["/dashboard/admin/kiosk-setup", "/dashboard/admin/kiosk-health", "/dashboard/admin/smart-gate"] },
+  { key: "kiosk", label: "ตู้ Kiosk / Smart Gate", labelEn: "Kiosk", desc: "ติดตั้งและสถานะตู้สแกนหน้าประตู", group: "integrations", urlPrefixes: ["/dashboard/admin/facegate", "/dashboard/admin/kiosk-setup", "/dashboard/admin/kiosk-health", "/dashboard/admin/smart-gate"] },
   { key: "safe_browser", label: "Safe Browser & เฝ้าจอ", labelEn: "Safe Browser", desc: "เบราว์เซอร์ปลอดภัย นโยบาย และเฝ้าดูหน้าจอ", group: "integrations", urlPrefixes: ["/dashboard/browser", "/dashboard/admin/browser-shortcuts", "/dashboard/admin/browser-policy", "/dashboard/admin/monitor", "/dashboard/monitor"] },
   { key: "google_drive", label: "Google Drive / Office", labelEn: "Drive & Office", desc: "Drive ส่วนตัวและชุดเอกสาร Office", group: "integrations", urlPrefixes: ["/dashboard/my-drive", "/dashboard/office"] },
   { key: "line_vault", label: "LINE Vault", labelEn: "LINE Vault", desc: "คลังไฟล์จาก LINE OA", group: "integrations", urlPrefixes: ["/dashboard/line-vault"] },

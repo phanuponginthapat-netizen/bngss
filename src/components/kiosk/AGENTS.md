@@ -1,0 +1,1 @@
+- Native FaceGate configuration edits only its allowlisted fields in the shared kiosk_config, merging a fresh server read so Linux installation settings are preserved; the dedicated administration page reuses school face enrollment and reports instead of creating a second roster.

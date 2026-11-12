@@ -1,0 +1,1 @@
+- FaceGate Windows/Linux administration uses its own protected page and menu, while kiosk-setup remains installation-oriented; reuse existing school records and permission-enforced controls rather than a local standalone admin database.
