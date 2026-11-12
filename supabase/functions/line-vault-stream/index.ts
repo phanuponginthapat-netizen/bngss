@@ -110,6 +110,9 @@ Deno.serve(async (req) => {
 
   } catch (e: any) {
     console.error("[line-vault-stream]", e);
+    if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+      return new Response("line_source_timeout", { status: 504, headers: corsHeaders });
+    }
     return new Response(e?.message || "internal error", { status: 500, headers: corsHeaders });
   }
 });

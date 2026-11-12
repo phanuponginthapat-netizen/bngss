@@ -45,6 +45,7 @@ export async function getVaultFileUrl(itemId: string): Promise<string> {
     });
     if (!response.ok) {
       if (response.status === 410) throw new Error("รายการนี้บันทึกไฟล์จาก LINE ไม่สำเร็จ และต้นฉบับใน LINE ไม่พร้อมให้ดึงแล้ว กรุณาส่งไฟล์เข้ากลุ่ม LINE อีกครั้งหรืออัปโหลดไฟล์ต้นฉบับ");
+      if (response.status === 504) throw new Error("LINE ยังไม่ตอบกลับ จึงยังดึงไฟล์ต้นฉบับไม่ได้ กรุณาลองใหม่ หรือส่งไฟล์เข้ากลุ่ม LINE อีกครั้ง");
       if (response.status === 404) throw new Error("ไม่พบไฟล์ต้นฉบับ รายการยังอยู่ แต่ต้องตรวจไฟล์ใน Drive หรือพื้นที่เก็บไฟล์");
       if (response.status === 401 || response.status === 403) throw new Error("ไม่มีสิทธิ์เปิดไฟล์นี้ หรือการเข้าสู่ระบบหมดอายุ");
       throw new Error("เปิดไฟล์ไม่สำเร็จ กรุณาลองใหม่หรือตรวจการเชื่อมต่อ Drive");
