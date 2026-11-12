@@ -1,0 +1,107 @@
+[
+  {
+    "capability": "ทะเบียนนักเรียน/บุคลากร",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ลงทะเบียนและอนุมัติใบหน้า",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ประวัติและรายงานรายชั้น/เดือน",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "สื่อภาพ/วิดีโอและพักหน้าจอ",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ภาพสด",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ควบคุมประตูและพลังงาน",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "สุขภาพเครื่อง",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ใบรับรองเวลาเรียน",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ผู้มาติดต่อ",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "แจ้งเตือนและงานตั้งเวลา",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "CMS",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "สำรองและกู้คืน",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "บัญชีและสิทธิ์",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "แพ็กเกจ Windows/Linux",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  },
+  {
+    "capability": "ตรวจเครื่องจริง",
+    "source": "connextedscan main 17a99bd",
+    "outcome": "reuse school Cloud and existing accounts",
+    "status": "pending",
+    "next_action": "compare and implement or verify"
+  }
+]
