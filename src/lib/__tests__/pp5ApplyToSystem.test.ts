@@ -8,10 +8,10 @@ vi.mock("@/integrations/supabase/client", () => ({
       select: () => query, in: () => query, eq: () => query,
       then: (resolve: any) => resolve({ data: table === "students"
         ? [{ id: "student-uuid", student_code: "2845" }]
-        : table === "subjects" ? source.subjects : [], error: null }),
+        : table === "subjects" ? source.subjects : table === "subject_score_columns" ? [{ id: "column", column_name: "รวม (นำเข้าจากไฟล์ ปพ.5)" }] : [], error: null }),
       upsert: async (rows: any[], options: any) => {
         source.writes.push({ table, rows, options });
-        if (rows.some(row => "student_id" in row)) return { error: { code: "PGRST204", message: "Could not find the 'student_id' column of 'student_scores' in the schema cache" } };
+        if (table === "student_scores" && rows.some(row => "student_id" in row)) return { error: { code: "PGRST204", message: "Could not find the 'student_id' column of 'student_scores' in the schema cache" } };
         for (const row of rows) source.records.set(`${row.student_code}:${row.subject_id}:${row.semester}:${row.academic_year}`, row);
         return { error: null };
       },
