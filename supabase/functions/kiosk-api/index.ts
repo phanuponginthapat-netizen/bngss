@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
-import { facegateSaver } from "../_shared/facegatePolicy.ts";
+import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -371,7 +371,7 @@ Deno.serve(async (req) => {
         // บุคลากรยังไม่มีตารางลงเวลาเฉพาะ — บันทึกเป็นประวัติการผ่านประตูไว้ก่อน
         const { error } = await db.from("kiosk_agent_alerts").insert({
           device_id: device.device_id, device_name: device.name,
-          kind: "staff_pass", snapshot_url: snapshotUrl, note: name,
+          kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId,
         });
         if (error) throw error;
       } else {
@@ -478,10 +478,11 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true }).limit(1);
       if(commandError)throw commandError;
       const cmd = (data as any[])?.[0];
-      if (!cmd) return json({ command: null });
+      const plan = kind === "power" ? facegatePowerPlan(settings, (() => { const t = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()).split(":"); return Number(t[0]) * 60 + Number(t[1]); })()) : {};
+      if (!cmd) return json({ command: null, ...plan });
       const {error:consumeError}=await db.from("kiosk_commands").update({ consumed_at: new Date().toISOString() }).eq("id", cmd.id);
       if(consumeError)throw consumeError;
-      return json({ command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
+      return json({ ...plan, command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
     }
 
     // ── ภาพสดหน้าตู้ ─────────────────────────────────────────────────────
