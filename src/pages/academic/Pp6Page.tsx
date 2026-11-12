@@ -23,6 +23,10 @@ import ReportCardPage from "./ReportCardPage";
 import { swal } from "@/lib/swal";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
+import { academicReadState } from "@/lib/academicReadState";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadFullClassrooms } from "@/lib/classroomQueries";
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -36,39 +40,41 @@ const toBE = (y: number) => y > 2400 ? y : y + BE_OFFSET;
 // ── Score Overview Tab ──
 const ScoreOverviewTab = () => {
   const { userId, isAdmin, isDirector } = useUserRole();
+  const qc = useQueryClient();
   const currentYear = new Date().getFullYear();
   const [academicYear, setAcademicYear] = useState(String(currentYear));
   const [gradeLevel, setGradeLevel] = useState("");
   const [classroomId, setClassroomId] = useState("");
-  const { currentSemester: _curSem } = useAcademicYear();
+  const { currentSemester: _curSem, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
   const [semester, setSemester] = useState(String(_curSem || 1));
   const _semSynced = useRef(false);
-  useEffect(() => { if (!_semSynced.current && _curSem) { _semSynced.current = true; setSemester(String(_curSem)); } }, [_curSem]);
+  useEffect(() => { if (!_semSynced.current && !calendarLoading && !calendarError) { _semSynced.current = true; setSemester(String(_curSem)); setAcademicYear(String(currentAcademicYear - BE_OFFSET)); } }, [_curSem, currentAcademicYear, calendarLoading, calendarError]);
   const schoolInfo = useSchoolInfo();
 
-  const { data: allClassroomsRaw = [] } = useQuery({
-    queryKey: ["classrooms"],
-    queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name");
-      return data || [];
-    },
+  const { data: allClassroomsRaw = [], ...classroomsRead } = useQuery({
+    queryKey: ["classrooms", "pp6_full", userId],
+    queryFn: loadFullClassrooms,
   });
 
   // Restrict to classrooms the current teacher has assignments in (admins/directors see all)
-  const { data: myPersonnel } = useQuery({
+  const { data: myPersonnel, ...personnelRead } = useQuery({
     queryKey: ["pp6_personnel", userId],
     enabled: !!userId && !isAdmin && !isDirector,
     queryFn: async () => {
-      const { data } = await supabase.from("personnel").select("id").eq("user_id", userId!).maybeSingle();
+      if (!userId) return null;
+      const { data, error } = await supabase.from("personnel").select("id").eq("user_id", userId).maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
 
-  const { data: myAssignments = [] } = useQuery({
+  const { data: myAssignments = [], ...assignmentsRead } = useQuery({
     queryKey: ["pp6_assignments", myPersonnel?.id],
     enabled: !!myPersonnel?.id,
     queryFn: async () => {
-      const { data } = await supabase.from("teacher_assignments").select("classroom_id").eq("personnel_id", myPersonnel!.id);
+      if (!myPersonnel?.id) return [];
+      const { data, error } = await supabase.from("teacher_assignments").select("classroom_id").eq("personnel_id", myPersonnel.id);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -78,19 +84,17 @@ const ScoreOverviewTab = () => {
     ? allClassroomsRaw
     : allClassroomsRaw.filter((c: any) => allowedClassroomIds.has(c.id));
 
-  const _currentCEYear = new Date().getFullYear();
   const availableYears = [...new Set(allClassrooms.map((c: any) => c.academic_year))]
-    .filter((y: any) => typeof y === "number" && y >= _currentCEYear - 3 && y <= _currentCEYear)
+    .filter((y: any) => typeof y === "number" && Number.isFinite(y))
     .sort((a: number, b: number) => b - a);
   const yearClassrooms = allClassrooms.filter((c: any) => String(c.academic_year) === academicYear);
   const classrooms = gradeLevel ? yearClassrooms.filter((c: any) => c.grade_level === gradeLevel) : [];
 
-  const { data: classStudents = [] } = useQuery({
+  const { data: classStudents = [], ...studentsRead } = useQuery({
     queryKey: ["pp6_students", classroomId],
     queryFn: async () => {
       if (!classroomId) return [];
-      const { data } = await supabase.from("students").select("id, student_code, prefix, first_name, last_name").eq("classroom_id", classroomId).eq("status", "active").order("student_code");
-      return data || [];
+      return fetchAllRows((from, to) => supabase.from("students").select("id, student_code, prefix, first_name, last_name").eq("classroom_id", classroomId).eq("status", "active").order("student_code").order("id").range(from, to));
     },
     enabled: !!classroomId,
   });
@@ -98,32 +102,36 @@ const ScoreOverviewTab = () => {
   const selectedClassroom = classrooms.find((c: any) => c.id === classroomId);
 
   // Get subjects for this grade level
-  const { data: subjects = [] } = useQuery({
+  const { data: subjects = [], ...subjectsRead } = useQuery({
     queryKey: ["pp6_subjects", selectedClassroom?.grade_level, semester],
     queryFn: async () => {
       if (!selectedClassroom) return [];
-      const { data } = await supabase.from("subjects").select("*")
+      const { data, error } = await supabase.from("subjects").select("*")
         .eq("grade_level", selectedClassroom.grade_level)
         .eq("semester", parseInt(semester))
         .order("code");
+      if (error) throw error;
       return data || [];
     },
     enabled: !!selectedClassroom,
   });
 
   // Get scores for all students in this class
-  const { data: allScores = [] } = useQuery({
-    queryKey: ["pp6_all_scores", classroomId, semester],
+  const { data: allScores = [], ...scoresRead } = useQuery({
+    queryKey: ["pp6_all_scores", classroomId, academicYear, semester, subjects.map(s => s.id), classStudents.map(s => s.student_code)],
     queryFn: async () => {
-      if (!classroomId || subjects.length === 0) return [];
+      if (!classroomId || subjects.length === 0 || classStudents.length === 0) return [];
       const subjectIds = subjects.map((s: any) => s.id);
-      const { data } = await supabase.from("student_scores").select("*")
-        .in("subject_id", subjectIds)
-        .eq("semester", parseInt(semester));
-      return data || [];
+      return fetchAllRows((from, to) => supabase.from("student_scores").select("*")
+        .in("subject_id", subjectIds).in("student_code", classStudents.map(s => s.student_code))
+        .eq("academic_year", Number(academicYear)).eq("semester", parseInt(semester))
+        .order("id").range(from, to));
     },
     enabled: !!classroomId && subjects.length > 0,
   });
+
+  const selectorState = academicReadState([classroomsRead, personnelRead, assignmentsRead], calendarLoading, calendarError);
+  const readState = academicReadState([classroomsRead, personnelRead, assignmentsRead, studentsRead, subjectsRead, scoresRead], calendarLoading, calendarError);
 
   const mergedData = classStudents.map((s: any) => {
     const studentScores = allScores.filter((sc: any) => sc.student_code === s.student_code);
@@ -155,7 +163,7 @@ const ScoreOverviewTab = () => {
   });
 
   const handlePrint = async () => {
-    if (!selectedClassroom) return;
+    if (!selectedClassroom || !readState.ready) return;
 
     // Try admin-defined template first
     const { printByCode } = await import("@/lib/printTemplate");
@@ -298,6 +306,7 @@ const ScoreOverviewTab = () => {
 
   return (
     <div className="space-y-4">
+      <AcademicReadNotice error={readState.error} loading={readState.loading} onRetry={() => { void qc.refetchQueries({ type: "active" }); }} />
       <div className="flex gap-2 flex-wrap items-end">
         <Select value={academicYear} onValueChange={(v) => { setAcademicYear(v); setGradeLevel(""); setClassroomId(""); }}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="ปีการศึกษา" /></SelectTrigger>
@@ -313,9 +322,9 @@ const ScoreOverviewTab = () => {
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="เลือกระดับชั้น" /></SelectTrigger>
           <SelectContent>{GRADE_LEVELS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
         </Select>
-        <Select value={classroomId} onValueChange={setClassroomId} disabled={!gradeLevel}>
+        <Select value={classroomId} onValueChange={setClassroomId} disabled={!gradeLevel || !selectorState.ready}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder={gradeLevel ? "เลือกห้องเรียน" : "เลือกระดับชั้นก่อน"} /></SelectTrigger>
-          <SelectContent>{classrooms.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.grade_level} - {c.name}</SelectItem>)}</SelectContent>
+          <SelectContent>{classrooms.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.grade_level} - {c.name}</SelectItem>)}{classrooms.length === 0 && <SelectItem value="__no_rooms" disabled>ไม่มีห้องเรียนที่เข้าถึงได้ในปีและระดับชั้นนี้</SelectItem>}</SelectContent>
         </Select>
         <Select value={semester} onValueChange={setSemester}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
@@ -324,20 +333,20 @@ const ScoreOverviewTab = () => {
             <SelectItem value="2">ภาคเรียนที่ 2</SelectItem>
           </SelectContent>
         </Select>
-        {classroomId && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
-        {classroomId && selectedClassroom && <Button variant="outline" onClick={async () => {
+        {classroomId && readState.ready && <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-2" />พิมพ์</Button>}
+        {classroomId && selectedClassroom && readState.ready && <Button variant="outline" onClick={async () => {
           try {
             const { printClassBooklet } = await import("@/lib/ppBooklet");
             await printClassBooklet("pp6", classroomId, { semester: parseInt(semester), academicYearBE: String(toBE((selectedClassroom as any).academic_year)) });
           } catch (e: any) { toast.error(e?.message || "พิมพ์เล่มไม่สำเร็จ"); }
         }}><Printer className="w-4 h-4 mr-2" />พิมพ์รวมเล่ม ปพ.6</Button>}
-        {classroomId && <Button variant="outline" onClick={async () => {
+        {classroomId && readState.ready && <Button variant="outline" onClick={async () => {
           try {
             const { printClassBooklet } = await import("@/lib/ppBooklet");
             await printClassBooklet("pp1", classroomId);
           } catch (e: any) { toast.error(e?.message || "พิมพ์เล่มไม่สำเร็จ"); }
         }}><Printer className="w-4 h-4 mr-2" />พิมพ์รวมเล่ม ปพ.1</Button>}
-        {classroomId && <Button variant="outline" onClick={() => {
+        {classroomId && readState.ready && <Button variant="outline" onClick={() => {
           if (!selectedClassroom) return;
           const rows = mergedData.map((s: any) => {
             const gpaNum = parseFloat(s.gpa) || 0;
@@ -345,7 +354,7 @@ const ScoreOverviewTab = () => {
           });
           printPor5(rows, { schoolName: schoolInfo.school_name || "โรงเรียน", term: semester, year: String(toBE((selectedClassroom as any).academic_year)), subjectCode: "ปพ.6", subjectName: `${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}` });
         }}><Printer className="w-4 h-4 mr-2" />พิมพ์ SchoolMIS</Button>}
-        {classroomId && <Button variant="outline" onClick={() => {
+        {classroomId && readState.ready && <Button variant="outline" onClick={() => {
           if (!selectedClassroom) return;
           const rows = mergedData.map((s: any) => {
             const gpaNum = parseFloat(s.gpa) || 0;
@@ -354,7 +363,7 @@ const ScoreOverviewTab = () => {
           exportSchoolMisExcel(rows, `SchoolMIS_PP6_${(selectedClassroom as any).grade_level}-${(selectedClassroom as any).name}_${semester}.xlsx`);
           toast.success("ส่งออก SchoolMIS แล้ว");
         }}><Download className="w-4 h-4 mr-2" />Export SchoolMIS</Button>}
-        {classroomId && selectedClassroom && (
+        {classroomId && selectedClassroom && readState.ready && (
           <Button variant="outline" onClick={async () => {
             const { printByCode } = await import("@/lib/printTemplate");
             await printByCode("pp6_cover", {
@@ -367,7 +376,7 @@ const ScoreOverviewTab = () => {
         )}
       </div>
 
-      {classroomId && selectedClassroom && (
+      {classroomId && selectedClassroom && readState.ready && (
         <Card className="border shadow-sm">
           <CardContent className="p-8">
             <div className="text-center border-b border-b-foreground/20 pb-4 mb-4">

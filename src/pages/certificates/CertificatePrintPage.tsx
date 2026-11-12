@@ -47,7 +47,7 @@ export default function CertificatePrintPage() {
     queryFn: async () => (await db.from("activities").select("id,title,category,start_at").order("start_at", { ascending: false }).limit(200)).data || [],
   });
   const { data: classrooms = [] } = useQuery({
-    queryKey: ["classrooms"],
+    queryKey: ["certificate_classroom_options"],
     queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("name")).data || [],
   });
   const { data: school } = useQuery({
