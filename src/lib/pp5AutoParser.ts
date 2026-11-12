@@ -628,7 +628,38 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
   const primary = parsePrimaryAnnual(wb);
   const consolidated = primary ?? consolidate(sheets, meta);
   if (!primary) applyDecisionSummary(wb, consolidated, meta);
+  applyIndividualActivities(wb, consolidated);
   return { meta, sheets, consolidated };
+}
+
+/** Read each named activity from the source, never infer individual results from a combined outcome. */
+function applyIndividualActivities(wb: XLSX.WorkBook, consolidated: PP5ParsedWorkbook["consolidated"]) {
+  for (const name of wb.SheetNames) {
+    if (!/ข้อมูลกิจกรรม/.test(name)) continue;
+    const grid = sheetToGrid(wb.Sheets[name]);
+    const header = findHeaderRow(grid);
+    if (!header) continue;
+    const columns: Array<{ col: number; name: string }> = [];
+    for (let r = header.rowIdx; r <= header.rowIdx + 1; r++) {
+      (grid[r] || []).forEach((value, col) => {
+        const text = nz(value).replace(/\s+/g, "");
+        const activity = /^แนะแนว$/.test(text) ? "แนะแนว"
+          : /^ลูกเสือ(?:[-–]?เนตรนารี)?$/.test(text) ? "ลูกเสือ"
+          : /^ชุมนุม$/.test(text) ? "ชุมนุม" : null;
+        if (activity && !columns.some(c => c.col === col)) columns.push({ col, name: activity });
+      });
+    }
+    for (let r = header.rowIdx + 1; r < grid.length; r++) {
+      const code = nz(grid[r]?.[header.codeCol]).replace(/\.0$/, "");
+      const student = consolidated.find(c => c.studentCode === code);
+      if (!student) continue;
+      for (const column of columns) {
+        const grade = normalizePassFail(grid[r]?.[column.col]);
+        if (!grade) continue;
+        student.perSubject[column.name] = { grade, gradeFromFile: true };
+      }
+    }
+  }
 }
 
 

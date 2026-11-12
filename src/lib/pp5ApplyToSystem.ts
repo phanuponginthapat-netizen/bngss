@@ -8,6 +8,7 @@
 // Students are matched by student_code (scoped to the file's classroom when known).
 
 import { supabase } from "@/integrations/supabase/client";
+import { parsePP5Workbook } from "./pp5AutoParser";
 
 export interface PpApplyResult {
   applied: number;          // rows written to student_column_scores
@@ -100,6 +101,23 @@ async function applyPpFileToSystemInner(
   const consolidated: Array<{ studentCode: string; studentName?: string; perSubject: Record<string, any> }> =
     parsed.consolidated || [];
   if (consolidated.length === 0) throw new Error("ไม่พบข้อมูลนักเรียนในไฟล์");
+
+  // Older imports kept only the combined activity outcome. Recover named outcomes
+  // from the original workbook without reparsing or replacing academic totals.
+  if (kind === "pp6" && fileRow?.file_path && consolidated.some(c =>
+    Object.values(c.perSubject).some((v: any) => v?.activityResult) &&
+    ["ชุมนุม", "ลูกเสือ", "แนะแนว"].some(name => !c.perSubject[name]?.grade))) {
+    const { data: source, error: sourceError } = await supabase.storage.from("pp6-files").download(fileRow.file_path);
+    if (sourceError || !source) throw new Error(`อ่านผลกิจกรรมจากไฟล์ต้นฉบับไม่สำเร็จ: ${sourceError?.message || "ไม่พบไฟล์"}`);
+    const recovered = await parsePP5Workbook(await source.arrayBuffer());
+    for (const student of consolidated) {
+      const original = recovered.consolidated.find(c => c.studentCode === student.studentCode);
+      for (const name of ["ชุมนุม", "ลูกเสือ", "แนะแนว"]) {
+        const outcome = original?.perSubject[name];
+        if (outcome?.grade) student.perSubject[name] = outcome;
+      }
+    }
+  }
 
   const classroomId: string | null = parsed.classroom_id || fileRow?.classroom_id || null;
   const subjectId: string | null = parsed.subject_id || fileRow?.subject_id || null;
@@ -237,7 +255,7 @@ async function applyPpFileToSystemInner(
     for (const [subjName, v] of entries) {
       const sIdForRow = kind === "pp5" ? subjectId : resolveSubject(subjName);
       if (!sIdForRow) { unmatchedSubjects.add(subjName); continue; }
-      const total = typeof v?.totalScore === "number" ? v.totalScore : Number(v?.totalScore);
+      const total = v?.totalScore == null || v.totalScore === "" ? NaN : Number(v.totalScore);
       const hasTotal = Number.isFinite(total);
       let grade = toGrade(v?.grade, hasTotal ? total : null);
       // ระเบียบ สพฐ.: เวลาเรียนไม่ถึง 80% → "มส" (ไม่มีสิทธิ์สอบ) ไม่คิดเกรดจากคะแนน

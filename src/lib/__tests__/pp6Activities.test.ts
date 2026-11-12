@@ -1,3 +1,4 @@
+// @vitest-environment node
 import * as XLSX from "xlsx";
 import { describe, expect, it } from "vitest";
 import { parsePP5Workbook } from "../pp5AutoParser";
