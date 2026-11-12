@@ -1,1 +1,2 @@
 - Public attendance class cells partition the same resolved school-wide daily statuses; never resolve missing attendance separately per class, as classes without scans must reconcile with school totals. Return aggregates only, never student identities.
+- Teacher attendance digests reuse the LINE summary in the existing scheduled callback; deterministic notification IDs enforce one durable report per teacher and Bangkok day independently of LINE delivery.
