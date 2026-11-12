@@ -24,6 +24,29 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("matches the confirmed ม.2 design 3 header to ว22103 design 2 in semester 1/2569", async () => {
+    source.subjects = [{ id: "f476560d-84de-4d80-8a4e-5894beee80fd", code: "ว22103", grade_level: "ม.2", name_th: "การออกแบบและเทคโนโลยี 2", semester: 1 }];
+    const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ม.2", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "การออกแบบและเทคโนโลยี 3": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual([]);
+    expect(source.writes[0].rows[0]).toMatchObject({ subject_id: "f476560d-84de-4d80-8a4e-5894beee80fd", total_score: 79, grade: "3.5", semester: 1, academic_year: 2026 });
+  });
+  it.each([["ม.2", 1, 2570], ["ม.2", 2, 2569], ["ม.1", 1, 2569]])("does not apply the design alias to %s semester %s year %s", async (grade, semester, year) => {
+    source.subjects = [{ id: "design2", code: "ว22103", grade_level: grade, name_th: "การออกแบบและเทคโนโลยี 2", semester }];
+    const result = await applyPpFileToSystem({ semester, academic_year: year, grade_level: grade, parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "การออกแบบและเทคโนโลยี 3": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual(["การออกแบบและเทคโนโลยี 3"]);
+    expect(source.writes).toHaveLength(0);
+  });
+  it("keeps ม.3 design 3 matched to ว23103", async () => {
+    source.subjects = [{ id: "design3", code: "ว23103", grade_level: "ม.3", name_th: "การออกแบบและเทคโนโลยี 3", semester: 1 }];
+    await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ม.3", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "การออกแบบและเทคโนโลยี 3": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(source.writes[0].rows[0].subject_id).toBe("design3");
+  });
   it("preserves primary science imports after the curriculum title correction", async () => {
     source.subjects = [{ id: "primary-science", code: "ว14101", grade_level: "ป.4", name_th: "วิทยาศาสตร์และเทคโนโลยี 4", semester: 1 }];
     const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ป.4", parsed_data: {
