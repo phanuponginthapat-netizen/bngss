@@ -6,6 +6,8 @@ import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { markMissingAsAbsent, readDigestRows, resolveDigestStatuses } from "../_shared/attendanceDigest.ts";
+import { deliverTeacherDigest, teacherDigestDue } from "../_shared/teacherAttendanceDigest.ts";
+import { fanout } from "../_shared/fanout.ts";
 
 const cors = corsHeadersWithCronAndMethods;
 
@@ -133,17 +135,19 @@ serve(async (req) => {
     const skipSchedule = Boolean(body?.force);
     const allowDuplicate = Boolean(body?.allow_duplicate);
     const dryRun = body?.dry_run === true;
-    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule || dryRun);
+    const appOnly = body?.app_only === true;
+    const manualRun = Boolean(forceGroupId || customImageUrl || customSummary || skipSchedule || dryRun || appOnly);
 
     const sb = makeAdmin();
     const today = bkkDate(0);
     const settings = await getSettings(sb);
+    let lineEligible = true;
+    const appEligible = appOnly || (!manualRun && teacherDigestDue(bkkNow().minutes));
 
     // ⏰ ตารางเวลา/วันที่ผู้ดูแลตั้งเอง — ใช้เฉพาะรอบอัตโนมัติ (cron ทุก 15 นาที)
     if (!manualRun) {
       if (settings.line_digest_enabled === "false") {
-        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "disabled" }),
-          { headers: { ...cors, "Content-Type": "application/json" } });
+        lineEligible = false;
       }
       const [hh, mm] = (settings.line_digest_time || "10:00").split(":").map((n) => parseInt(n, 10));
       const target = (isNaN(hh) ? 10 : hh) * 60 + (isNaN(mm) ? 0 : mm);
@@ -151,14 +155,14 @@ serve(async (req) => {
         .split(",").map((d) => parseInt(d.trim(), 10)).filter((d) => !isNaN(d));
       const { minutes, dow } = bkkNow();
       if (days.length > 0 && !days.includes(dow)) {
-        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "day_not_selected", dow }),
-          { headers: { ...cors, "Content-Type": "application/json" } });
+        lineEligible = false;
       }
       if (minutes < target || minutes >= target + 20) {
-        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "outside_window", minutes, target }),
-          { headers: { ...cors, "Content-Type": "application/json" } });
+        lineEligible = false;
       }
     }
+    if (!manualRun && !lineEligible && !appEligible) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "outside_window" }),
+      { headers: { ...cors, "Content-Type": "application/json" } });
 
     let chartUrl = customImageUrl || "";
     let summary = customSummary || "";
@@ -268,17 +272,18 @@ serve(async (req) => {
         if (settings.line_digest_include_calendar !== "false") {
           try {
             const in7 = bkkDate(7);
-            const { data: ev } = await sb.from("academic_events")
+            const { data: ev, error: eventError } = await sb.from("academic_events")
               .select("title, event_date, location")
               .gte("event_date", today).lte("event_date", in7)
               .order("event_date").limit(6);
+            if (eventError) throw eventError;
             if ((ev as any[])?.length) {
               s += `\n\n📅 กิจกรรม 7 วันข้างหน้า`;
               for (const e of ev as any[]) {
                 s += `\n  • ${shortThDate(e.event_date)} ${e.title}${e.location ? ` @ ${e.location}` : ""}`;
               }
             }
-          } catch (e) { console.error("calendar section failed", e); }
+          } catch (e) { throw e; }
         }
 
         // LINE text limit is 5000 chars
@@ -294,10 +299,12 @@ serve(async (req) => {
         .select("id").eq("event_type", "holiday").lte("event_date", today)
         .or(`end_date.gte.${today},and(end_date.is.null,event_date.eq.${today})`).limit(1);
       if (holidayError) throw holidayError;
-      if (holidays?.length) return new Response(JSON.stringify({ ok: true, skipped: true, reason: "calendar_holiday", date: today }),
-        { headers: { ...cors, "Content-Type": "application/json" } });
+      if (holidays?.length) lineEligible = false;
     }
     if (dryRun) return new Response(JSON.stringify({ ok: true, dry_run: true, date: today, totals, summary }),
+      { headers: { ...cors, "Content-Type": "application/json" } });
+    const app = appEligible ? await deliverTeacherDigest(sb, today, summary, payload => fanout(payload)) : null;
+    if (appOnly || !lineEligible) return new Response(JSON.stringify({ ok: true, date: today, app, line_skipped: true, totals }),
       { headers: { ...cors, "Content-Type": "application/json" } });
 
     const token = await getVaultToken(sb);
@@ -355,7 +362,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: results.every((r) => r.ok !== false), date: today, count: results.length, sent: results.filter((r) => r.ok).length, already_sent: alreadySent, totals, results }), {
+    return new Response(JSON.stringify({ ok: results.every((r) => r.ok !== false), date: today, app, count: results.length, sent: results.filter((r) => r.ok).length, already_sent: alreadySent, totals, results }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
