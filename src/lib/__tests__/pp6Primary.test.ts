@@ -6,7 +6,10 @@ describe("ปพ.6 ประถม — ไฟล์จริง ป.2", () => {
     const r = await parsePP5Workbook(new Uint8Array(readFileSync(__dirname + "/fixtures/pp6-sample.xlsx")) as any);
     expect(r.consolidated.length).toBe(14);
     const s: any = r.consolidated.find((c) => c.studentCode === "2721")!.perSubject;
-    expect(Object.keys(s).length).toBe(11);
+    expect(Object.keys(s).length).toBe(14); // 11 academic subjects + 3 source activity outcomes
+    expect(s["แนะแนว"].grade).toBe("ผ");
+    expect(s["ลูกเสือ"].grade).toBe("ผ");
+    expect(s["ชุมนุม"].grade).toBe("ผ");
     expect(s["ภาษาไทย"].grade).toBe("2");
     expect(s["วิทยาศาสตร์และเทคโนโลยี"].totalScore).toBe(67.5);
     expect(s["การงานอาชีพ"].grade).toBe("4");
