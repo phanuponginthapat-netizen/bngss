@@ -24,6 +24,17 @@ import { applyPpFileToSystem, upsertStudentScoresForTerm } from "../pp5ApplyToSy
 beforeEach(() => { source.writes = []; source.records.clear(); source.subjects = [{ id: "science", code: "ว", name_th: "วิทยาศาสตร์", semester: 2 }]; });
 
 describe("term-scoped ปพ. score distribution", () => {
+  it("matches การสร้างการ์ตูนแอนิเมชั่น to the existing แอนิเมชัน subject without crossing semesters", async () => {
+    source.subjects = [
+      { id: "bfb96c31-0e06-4905-b1b4-1ea4fdc848ce", code: "ว22201", name_th: "การสร้างการ์ตูนแอนิเมชัน", semester: 1 },
+      { id: "9aadba2f-26b9-4f6e-90a4-4a82897a0143", code: "ว22201", name_th: "การสร้างการ์ตูนแอนิเมชัน", semester: 2 },
+    ];
+    const result = await applyPpFileToSystem({ semester: 1, academic_year: 2569, grade_level: "ม.2", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "การสร้างการ์ตูนแอนิเมชั่น": { totalScore: 79, grade: "3.5" } } }],
+    } }, "pp6");
+    expect(result.unmatchedSubjects).toEqual([]);
+    expect(source.writes[0].rows[0]).toMatchObject({ subject_id: "bfb96c31-0e06-4905-b1b4-1ea4fdc848ce", total_score: 79, semester: 1, academic_year: 2026 });
+  });
   it("stores each activity's ผ/มผ without a numeric score or grade point", async () => {
     source.subjects = ["ชุมนุม", "ลูกเสือ", "แนะแนว"].map(name => ({ id: name, name_th: name, semester: 1 }));
     await applyPpFileToSystem({ semester: 1, academic_year: 2569, parsed_data: {

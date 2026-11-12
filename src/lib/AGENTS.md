@@ -1,3 +1,4 @@
+- Subject matching normalizes แอนิเมชั่น/แอนิเมชัน spelling but remains scoped to the file grade and semester; missing curriculum subjects require confirmation, never cross-term matching.
 - ปพ.6 import targets require explicit file year and semester; never infer defaults, preventing misfiled historical results.
 - Recover legacy ปพ.6 individual activity outcomes from the source workbook, never combined results; keeps ผ/มผ faithful without replacing academic totals.
 - Statistical consumers use complete deterministic paged reads that reject every source failure and exhausted cap; chartMetrics preserves measured zero, unknown values, record-weighted means and undefined zero-baseline changes, preventing partial or invented chart success.

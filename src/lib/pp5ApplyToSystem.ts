@@ -56,6 +56,7 @@ const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
 const norm = (s: any) => String(s ?? "")
   .replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)))
   .toLowerCase()
+  .replace(/แอนิเมชั่น/g, "แอนิเมชัน")
   .replace(/\((พื้นฐาน|เพิ่มเติม|พ|ม)\)/g, "")
   .replace(/^(รายวิชา|วิชา)/, "")
   .replace(/[\s.\-_/:,]+/g, "")
@@ -163,7 +164,8 @@ async function applyPpFileToSystemInner(
   if (kind === "pp6") {
     let subjQuery = supabase.from("subjects").select("id, code, name_th, grade_level, semester");
     if (gradeLevel) subjQuery = subjQuery.eq("grade_level", gradeLevel);
-    const { data: subs } = await subjQuery;
+    const { data: subs, error: subjectError } = await subjQuery;
+    if (subjectError) throw new Error(`อ่านรายการวิชาไม่สำเร็จ: ${subjectError.message}`);
     // วิชาภาคเรียนเดียวกันมาทีหลัง → ชนะเมื่อชื่อซ้ำกันข้ามภาค
     // ใช้เฉพาะวิชาของภาคเรียนนี้ (หรือวิชาที่ไม่ระบุภาค เช่น รายปี) — ไม่ข้ามไปจับวิชาเทอมอื่น
     const ordered = [...(subs || [])]
