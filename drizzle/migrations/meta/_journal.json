@@ -225,6 +225,13 @@
       "when": 1794382469657,
       "tag": "0031_authorize_monitor_events",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794466678728,
+      "tag": "0032_student_scores_term_unique_key",
+      "breakpoints": true
     }
   ]
 }

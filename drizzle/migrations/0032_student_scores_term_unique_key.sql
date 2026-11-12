@@ -1,0 +1,2 @@
+ALTER TABLE public.student_scores DROP CONSTRAINT IF EXISTS student_scores_student_code_subject_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS student_scores_student_term_key ON public.student_scores (student_code, subject_id, semester, academic_year);
