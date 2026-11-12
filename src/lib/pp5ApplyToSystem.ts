@@ -182,6 +182,8 @@ async function applyPpFileToSystemInner(
       if (id) return id;
     }
     // ชื่อวิชาในไฟล์สั้นกว่าในระบบ เช่น "ภาษาไทย" ↔ "ภาษาไทย 2" — รับเมื่อพบตรงตัวเดียวเท่านั้น
+    // ถ้าไฟล์ระบุเลขท้ายแล้ว ห้ามตัดทิ้งเพื่อจับคนละรายวิชา เช่น เชื้อเพลิงฯ 3 → 1
+    if (/[๐-๙0-9]\s*$/.test(name)) return null;
     const key = norm(String(name).replace(/[๐-๙0-9\s]+$/, ""));
     if (key.length >= 3) {
       const hits = new Set<string>();
