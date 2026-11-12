@@ -391,8 +391,8 @@ async function loadStats() {
     } else {
       vBox.style.display = 'none';
     }
-    $('studentTotal').textContent = s.total_students || 0; $('studentPresent').textContent = s.students_present || 0; $('studentAbsent').textContent = s.absent_students || 0;
-    $('staffTotal').textContent = s.total_staff || 0; $('staffPresent').textContent = s.staff_present || 0; $('staffAbsent').textContent = s.absent_staff || 0;
+    $('studentTotal').textContent = s.total_students ?? '—'; $('studentPresent').textContent = s.students_present ?? '—'; $('studentAbsent').textContent = s.absent_students ?? '—';
+    $('staffTotal').textContent = s.total_staff ?? '—'; $('staffPresent').textContent = s.staff_present ?? '—'; $('staffAbsent').textContent = s.absent_staff ?? '—';
     $('saverSchool').textContent = s.school_name || 'โรงเรียนของเรา'; $('saverDate').textContent = serverNow().toLocaleDateString('th-TH-u-ca-buddhist-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     checkinOnly = !!s.checkin_only;
     idleMinutes = Number(s.idle_stats_minutes || 0);
@@ -412,17 +412,25 @@ function applySaver() {
   const idle = idleMinutes > 0 && Date.now() - lastActivity > idleMinutes * 60000;
   const show = statsMode && (windowsClosed || idle);
   $('saver').className = 'saver' + (show ? ' show' : '');
-  if (show) showBroadcast(); else if (broadcastTimer) { clearTimeout(broadcastTimer); broadcastTimer = null; }
+  if (show) showBroadcast(); else {
+    if (broadcastTimer) clearTimeout(broadcastTimer);
+    broadcastTimer = null;
+    const video = $('saverMedia').querySelector('video');
+    if (video) { video.onended = null; video.pause(); video.remove(); }
+  }
 }
 function showBroadcast() {
-  const box = $('saverMedia'); if (!box || !broadcastMedia.length || broadcastTimer) return;
+  const box = $('saverMedia'); if (!box || !broadcastMedia.length || broadcastTimer || box.querySelector('video') || !$('saver').classList.contains('show')) return;
   const item = broadcastMedia[broadcastIndex % broadcastMedia.length];
-  if (item.media_type === 'video') { const single = broadcastMedia.length <= 1; box.innerHTML = `<video src="${item.url}" autoplay muted playsinline ${single ? 'loop' : ''}></video>`; if (!single) box.querySelector('video').onended=nextBroadcast; }
-  else { box.innerHTML = `<img src="${item.url}" alt=""/>`; broadcastTimer=setTimeout(nextBroadcast, Math.max(3,item.duration_seconds||10)*1000); }
+  box.replaceChildren();
+  if (item.media_type === 'video') {
+    const video = document.createElement('video'); video.src=item.url; video.autoplay=true; video.muted=true; video.playsInline=true; video.loop=broadcastMedia.length<=1;
+    if(!video.loop) video.onended=nextBroadcast; video.onerror=()=>{broadcastTimer=setTimeout(nextBroadcast,3000);}; box.append(video);
+  } else { const img=document.createElement('img');img.src=item.url;img.alt=item.title||'';box.append(img); broadcastTimer=setTimeout(nextBroadcast, Math.max(3,item.duration_seconds||10)*1000); }
 }
-function nextBroadcast(){ if(broadcastTimer) clearTimeout(broadcastTimer); broadcastTimer=null; broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
+function nextBroadcast(){ if(broadcastTimer) clearTimeout(broadcastTimer); broadcastTimer=null; $('saverMedia').replaceChildren(); broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
 
-function wake() { lastActivity = Date.now(); $('saver').className = 'saver'; }
+function wake() { bumpActivity(); }
 window.addEventListener('pointerdown', bumpActivity);
 window.addEventListener('keydown', bumpActivity);
 function clock() {

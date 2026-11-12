@@ -146,6 +146,7 @@ const ApiKeysHubPage = lazy(() => import("./pages/admin/ApiKeysHubPage"));
 const AiAnalyticsPage = lazy(() => import("./pages/admin/AiAnalyticsPage"));
 const SystemUpdatePage = lazy(() => import("./pages/admin/SystemUpdatePage"));
 const KioskSetupPage = lazy(() => import("./pages/admin/KioskSetupPage"));
+const FacegateAdminPage = lazy(() => import("./pages/admin/FacegateAdminPage"));
 const KioskDoorHealthPage = lazy(() => import("./pages/admin/KioskDoorHealthPage"));
 const SmartGateReportPage = lazy(() => import("./pages/admin/SmartGateReportPage"));
 const SetupWizardPage = lazy(() => import("./pages/SetupWizardPage"));
@@ -512,6 +513,7 @@ const App = () => {
                 <Route path="admin/secrets" element={<ProtectedRoute allowedRoles={["admin", "director"]}><Navigate to="/dashboard/admin/api-keys?tab=secrets" replace /></ProtectedRoute>} />
                 <Route path="admin/ai-analytics" element={<ProtectedRoute allowedRoles={["admin", "director"]}><AiAnalyticsPage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-setup" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskSetupPage /></ProtectedRoute>} />
+                <Route path="admin/facegate" element={<ProtectedRoute allowedRoles={["admin", "director"]}><FacegateAdminPage /></ProtectedRoute>} />
                 <Route path="admin/ar" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><ARManagerPage /></ProtectedRoute>} />
                 <Route path="admin/kiosk-health" element={<ProtectedRoute allowedRoles={["admin", "director"]}><KioskDoorHealthPage /></ProtectedRoute>} />
                 <Route path="admin/smart-gate" element={<ProtectedRoute allowedRoles={["admin", "director"]}><SmartGateReportPage /></ProtectedRoute>} />
