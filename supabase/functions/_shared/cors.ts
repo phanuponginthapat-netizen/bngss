@@ -8,6 +8,10 @@ const ALLOWED_ORIGINS = [
   "https://bngss.online",
   "http://localhost:8080",
   "http://localhost:3000",
+  // Native app (Capacitor Android/iOS) web origins
+  "https://localhost",
+  "http://localhost",
+  "capacitor://localhost",
 ];
 
 function resolveOrigin(reqOrigin: string | null): string {
