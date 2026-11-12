@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.ci-storage]
 verify_jwt = false
+
+[functions.visitor-checkin]
+verify_jwt = false

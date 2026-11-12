@@ -65,6 +65,7 @@ const LiffGradesPage = lazy(() => import("./pages/liff/LiffGradesPage"));
 const LiffAttendancePage = lazy(() => import("./pages/liff/LiffAttendancePage"));
 const LiffHomePage = lazy(() => import("./pages/liff/LiffHomePage"));
 const InstallPage = lazy(() => import("./pages/InstallPage"));
+const VisitorCheckinPage = lazy(() => import("./pages/VisitorCheckinPage"));
 const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 const ParentAppPage = lazy(() => import("./pages/ParentAppPage"));
 
@@ -393,6 +394,7 @@ const App = () => {
               <Route path="/liff/grades" element={<LiffGradesPage />} />
               <Route path="/liff/attendance" element={<LiffAttendancePage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/visit" element={<VisitorCheckinPage />} />
               <Route path="/help" element={<HelpCenterPage />} />
               <Route path="/help-ai" element={<Navigate to="/help" replace />} />
               <Route path="/parent-app" element={<ParentAppPage />} />
