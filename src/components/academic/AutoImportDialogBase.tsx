@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, CheckCircle2, X, Sparkles, Loader2, AlertTriangle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -240,14 +239,14 @@ export function AutoImportDialogBase<T>({
       <DialogTrigger asChild>
         <Button className="gap-2"><Sparkles className="w-4 h-4" />{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="w-[96vw] max-w-[96vw] xl:max-w-[1280px] h-[92vh] max-h-[92vh] flex flex-col overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="left-[2vw] top-[4dvh] w-[96vw] max-w-[96vw] xl:max-w-[1280px] h-[92dvh] max-h-[92dvh] sm:h-[92dvh] sm:max-h-[92dvh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0 pr-6">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />{dialogTitle}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col flex-1 min-h-0 space-y-3">
+        <div role="region" aria-label="รายละเอียดไฟล์นำเข้า" tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-3">
           <div
             className="border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/40 cursor-pointer"
             onClick={() => inputRef.current?.click()}
@@ -262,7 +261,7 @@ export function AutoImportDialogBase<T>({
           </div>
 
           {items.length > 0 && (
-            <ScrollArea className="flex-1 min-h-0 pr-3">
+            <div>
               <div className="space-y-2">
                 {items.map((it) => {
                   const k = keyOf(it.file);
@@ -404,11 +403,11 @@ export function AutoImportDialogBase<T>({
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>ปิด</Button>
           <Button onClick={importAll} disabled={busy || !items.some((it) => it.status === "ready")}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
