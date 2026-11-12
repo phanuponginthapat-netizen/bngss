@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { matchPpSubject } from "@/lib/ppSubjectMatching";
 
 export interface MyTeacherAssignment {
   id: string;
@@ -9,6 +10,9 @@ export interface MyTeacherAssignment {
   subjectCode?: string;
   gradeLevel: string;
   classroomName: string;
+  semester?: number;
+  academicYear?: number;
+  subjectSemester?: number | null;
 }
 
 /**
@@ -26,19 +30,21 @@ export function useMyTeacherAssignments() {
 
       // ต้องมี personnel record ถึงจะมี "วิชาที่ได้รับมอบหมาย"
       // admin/director ที่ไม่มี personnel = ไม่มีวิชาสอนของตัวเอง
-      const { data: p } = await supabase
+      const { data: p, error: personnelError } = await supabase
         .from("personnel")
         .select("id")
         .eq("user_id", uid)
         .maybeSingle();
+      if (personnelError) throw personnelError;
       const personnelId = p?.id || null;
       if (!personnelId) return [];
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("teacher_assignments")
-        .select("id, subject_id, classroom_id, subjects(name_th, code), classrooms(name, grade_level)")
+        .select("id, subject_id, classroom_id, semester, academic_year, subjects(name_th, code, semester), classrooms(name, grade_level)")
         .eq("personnel_id", personnelId)
         .order("created_at", { ascending: false });
+      if (error) throw error;
 
 
       return (data || [])
@@ -51,6 +57,9 @@ export function useMyTeacherAssignments() {
           subjectCode: r.subjects.code || undefined,
           gradeLevel: r.classrooms.grade_level,
           classroomName: r.classrooms.name,
+          semester: r.semester,
+          academicYear: r.academic_year > 2400 ? r.academic_year - 543 : r.academic_year,
+          subjectSemester: r.subjects.semester,
         }));
     },
   });
@@ -62,40 +71,28 @@ export function useMyTeacherAssignments() {
  */
 export function scoreAssignmentMatch(
   a: MyTeacherAssignment,
-  meta: { subjectName?: string; subjectCode?: string; gradeLevel?: string }
+  meta: { subjectName?: string; subjectCode?: string; gradeLevel?: string; semester?: number; academicYear?: number }
 ): number {
-  let score = 0;
-  const norm = (s?: string) => (s || "").toLowerCase().replace(/\s+/g, "");
-  const subj = norm(meta.subjectName);
-  const code = norm(meta.subjectCode);
-  const grade = norm(meta.gradeLevel);
-  const aSubj = norm(a.subjectName);
-  const aCode = norm(a.subjectCode);
-  const aGrade = norm(a.gradeLevel);
-  const aRoom = norm(a.classroomName);
-
-  if (code && aCode && code === aCode) score += 10;
-  if (subj && aSubj) {
-    if (subj === aSubj) score += 8;
-    else if (aSubj.includes(subj) || subj.includes(aSubj)) score += 5;
-  }
-  if (grade && (aGrade === grade || aRoom.startsWith(grade))) score += 3;
-  return score;
+  if (!meta.academicYear || !meta.semester) return 0;
+  const year = meta.academicYear > 2400 ? meta.academicYear - 543 : meta.academicYear;
+  if (a.academicYear !== year || a.semester !== meta.semester) return 0;
+  return matchPpSubject([{ id: a.subject_id, code: a.subjectCode, name_th: a.subjectName, grade_level: a.gradeLevel, semester: a.subjectSemester }], meta.subjectName ?? "", {
+    gradeLevel: meta.gradeLevel, semester: meta.semester, academicYear: year,
+  }, meta.subjectCode) ? 10 : 0;
 }
 
 /** Pick best matching assignment for a parsed file's meta. */
 export function pickBestAssignment(
   assignments: MyTeacherAssignment[],
-  meta: { subjectName?: string; subjectCode?: string; gradeLevel?: string }
+  meta: { subjectName?: string; subjectCode?: string; gradeLevel?: string; semester?: number; academicYear?: number; classroomName?: string }
 ): MyTeacherAssignment | undefined {
-  let best: MyTeacherAssignment | undefined;
-  let bestScore = 0;
-  for (const a of assignments) {
-    const s = scoreAssignmentMatch(a, meta);
-    if (s > bestScore) {
-      best = a;
-      bestScore = s;
-    }
-  }
-  return bestScore > 0 ? best : undefined;
+  if (!meta.academicYear || !meta.semester) return undefined;
+  const year = meta.academicYear > 2400 ? meta.academicYear - 543 : meta.academicYear;
+  const scoped = assignments.filter(a => a.academicYear === year && a.semester === meta.semester);
+  const subjectId = matchPpSubject(scoped.map(a => ({ id: a.subject_id, code: a.subjectCode, name_th: a.subjectName, grade_level: a.gradeLevel, semester: a.subjectSemester })), meta.subjectName ?? "", {
+    gradeLevel: meta.gradeLevel, semester: meta.semester, academicYear: year,
+  }, meta.subjectCode);
+  const matches = scoped.filter(a => a.subject_id === subjectId);
+  const rooms = meta.classroomName ? matches.filter(a => a.classroomName.replace(/\s/g, "") === meta.classroomName?.replace(/\s/g, "")) : matches;
+  return rooms.length === 1 ? rooms[0] : undefined;
 }

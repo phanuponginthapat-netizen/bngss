@@ -3,7 +3,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle } from "lucide-react";
 import { AutoImportDialogBase, MetaField } from "./AutoImportDialogBase";
 import { useMyTeacherAssignments, pickBestAssignment, type MyTeacherAssignment } from "@/hooks/useMyTeacherAssignments";
-import { BE_OFFSET } from "@/lib/dateBE";
+import { requirePp5ImportTarget } from "@/lib/pp5ImportTarget";
+import { subjectBelongsToTerm } from "@/lib/subjectTermPolicy";
 
 interface Props { onImportSuccess?: () => void; }
 
@@ -31,13 +32,15 @@ export default function PP5AutoImportDialog({ onImportSuccess }: Props) {
         return { assignments, assignmentId: best?.id, autoMatched: !!best };
       }}
       resolveTarget={(it) => {
-        const meta = it.parsed!.meta;
+        if (!it.parsed) return { error: "ยังไม่ได้อ่านไฟล์" };
+        const meta = { ...it.parsed.meta, academicYear: it.yearOverride ?? it.parsed.meta.academicYear, semester: it.semesterOverride ?? it.parsed.meta.semester };
         const chosen = it.meta.assignments.find((a) => a.id === it.meta.assignmentId);
-        const gradeLevel = chosen?.gradeLevel || meta.gradeLevel || "ไม่ระบุ";
+        let target;
+        try { target = requirePp5ImportTarget(meta, chosen); }
+        catch (e) { return { error: e instanceof Error ? e.message : "ข้อมูลวิชาไม่ถูกต้อง" }; }
+        const { gradeLevel, year, semester } = target;
         const subjectName = chosen?.subjectName || meta.subjectName || it.file.name.replace(/\.[^.]+$/, "");
         const subjectCode = chosen?.subjectCode || meta.subjectCode || null;
-        const year = meta.academicYear || new Date().getFullYear() + BE_OFFSET;
-        const semester = meta.semester || 1;
         return {
           gradeLevel, year, semester,
           dedupWhere: { subject_name: subjectName },
@@ -51,16 +54,20 @@ export default function PP5AutoImportDialog({ onImportSuccess }: Props) {
         };
       }}
       renderMeta={(it, update) => {
-        const list = it.meta.assignments;
+        if (!it.parsed) return null;
+        const meta = { ...it.parsed.meta, academicYear: it.yearOverride ?? it.parsed.meta.academicYear, semester: it.semesterOverride ?? it.parsed.meta.semester };
+        const year = Number(meta.academicYear) > 2400 ? Number(meta.academicYear) - 543 : Number(meta.academicYear);
+        const list = it.meta.assignments.filter(a => a.gradeLevel === meta.gradeLevel && a.academicYear === year && a.semester === meta.semester &&
+          subjectBelongsToTerm({ code: a.subjectCode, grade_level: a.gradeLevel, semester: a.subjectSemester }, Number(meta.semester), year));
         return (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <MetaField label="โรงเรียน" value={it.parsed!.meta.schoolName} />
-              <MetaField label="ระดับชั้น" value={it.parsed!.meta.gradeLevel} />
-              <MetaField label="ภาคเรียน" value={it.parsed!.meta.semester ? String(it.parsed!.meta.semester) : undefined} />
-              <MetaField label="ปีการศึกษา" value={it.parsed!.meta.academicYear ? String(it.parsed!.meta.academicYear) : undefined} />
-              <MetaField label="วิชา (ในไฟล์)" value={it.parsed!.meta.subjectName} />
-              <MetaField label="ครูผู้สอน" value={it.parsed!.meta.teacherName} />
+              <MetaField label="โรงเรียน" value={meta.schoolName} />
+              <MetaField label="ระดับชั้น" value={meta.gradeLevel} />
+              <MetaField label="ภาคเรียน" value={meta.semester ? String(meta.semester) : undefined} />
+              <MetaField label="ปีการศึกษา" value={meta.academicYear ? String(meta.academicYear) : undefined} />
+              <MetaField label="วิชา (ในไฟล์)" value={meta.subjectName} />
+              <MetaField label="ครูผู้สอน" value={meta.teacherName} />
             </div>
             {list.length > 0 ? (
               <div className="rounded-md border bg-muted/40 p-2 space-y-1">
@@ -88,7 +95,7 @@ export default function PP5AutoImportDialog({ onImportSuccess }: Props) {
                 </Select>
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground italic">* ยังไม่มีการมอบหมายวิชาให้ครูผู้ใช้งาน — ระบบจะใช้ข้อมูลจากไฟล์แทน</p>
+              <p className="text-[11px] text-destructive">ไม่พบวิชาที่ได้รับมอบหมายตรงกับชั้น ปี และภาคเรียนของไฟล์</p>
             )}
           </>
         );

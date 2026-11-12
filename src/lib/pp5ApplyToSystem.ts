@@ -136,6 +136,18 @@ async function applyPpFileToSystemInner(
   if (kind === "pp5" && !subjectId) {
     throw new Error("ไม่พบรหัสวิชา (subject_id) ในไฟล์ — โปรดจับคู่วิชาตอนอัปโหลดใหม่");
   }
+  if (kind === "pp5" && subjectId) {
+    const { data: subjects, error } = await supabase.from("subjects")
+      .select("id, code, grade_level, semester, academic_year").eq("id", subjectId);
+    if (error) throw new Error(`อ่านรายการวิชาไม่สำเร็จ: ${error.message}`);
+    const selected = subjects?.find(s => s.id === subjectId);
+    const subjectYear = Number(selected?.academic_year);
+    if (!selected || !gradeLevel || selected.grade_level !== gradeLevel ||
+      (subjectYear > 2400 ? subjectYear - 543 : subjectYear) !== academicYear ||
+      !subjectBelongsToTerm(selected, semester, academicYear)) {
+      throw new Error("วิชาในไฟล์ ปพ.5 ไม่ตรงชั้น ปีการศึกษา หรือภาคเรียน — กรุณาเลือกวิชาให้ถูกต้องก่อนบันทึก");
+    }
+  }
 
   // ── 1. Resolve student_code → student.id ────────────────────────────────
   const codes = consolidated.map((c) => String(c.studentCode).trim()).filter(Boolean);

@@ -1,0 +1,22 @@
+// @vitest-environment node
+import { expect, it, vi } from "vitest";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+import { pickBestAssignment } from "@/hooks/useMyTeacherAssignments";
+import { requirePp5ImportTarget } from "../pp5ImportTarget";
+import { matchPpSubject } from "../ppSubjectMatching";
+const a = { id: "assignment", subject_id: "design2", classroom_id: "room", subjectName: "การออกแบบและเทคโนโลยี 2", subjectCode: "ว22103", gradeLevel: "ม.2", classroomName: "ม.2", semester: 1, academicYear: 2026, subjectSemester: 1 };
+const meta = { subjectName: "การออกแบบและเทคโนโลยี 3", gradeLevel: "ม.2", semester: 1, academicYear: 2569 };
+it("PP5 matches the confirmed design alias to ว22103", () => expect(pickBestAssignment([a], meta)?.subject_id).toBe("design2"));
+it("PP5 matches the confirmed fuel alias to ว22203", () => expect(pickBestAssignment([{ ...a, subject_id: "fuel1", subjectCode: "ว22203", subjectName: "เชื้อเพลิงเพื่อการคมนาคมขนส่ง 1" }], { ...meta, subjectName: "เชื้อเพลิงเพื่อการคมนาคมขนส่ง 3" })?.subject_id).toBe("fuel1"));
+it("PP5 normalizes animation spelling", () => expect(pickBestAssignment([{ ...a, subject_id: "animation", subjectCode: "ว22201", subjectName: "การสร้างการ์ตูนแอนิเมชัน" }], { ...meta, subjectName: "การสร้างการ์ตูนแอนิเมชั่น" })?.subject_id).toBe("animation"));
+it("PP5 does not match a different subject solely by grade", () => expect(pickBestAssignment([a], { ...meta, subjectName: "คณิตศาสตร์ 3" })).toBeUndefined());
+it("PP5 does not choose an assignment from another year", () => expect(pickBestAssignment([{ ...a, academicYear: 2025 }], meta)).toBeUndefined());
+it("PP5 does not choose an assignment from another semester", () => expect(pickBestAssignment([{ ...a, semester: 2 }], meta)).toBeUndefined());
+it("PP5 does not choose one of two ambiguous rooms", () => expect(pickBestAssignment([a, { ...a, id: "other", classroomName: "ม.2/2" }], meta)).toBeUndefined());
+it("PP5 blocks a missing semester", () => expect(() => requirePp5ImportTarget({ ...meta, semester: undefined }, a)).toThrow());
+it("PP5 blocks a missing year", () => expect(() => requirePp5ImportTarget({ ...meta, academicYear: undefined }, a)).toThrow());
+it("PP5 blocks a manually selected wrong-term assignment", () => expect(() => requirePp5ImportTarget(meta, { ...a, semester: 2 })).toThrow());
+it("PP5 blocks curriculum subjects from the other term", () => expect(() => requirePp5ImportTarget(meta, { ...a, subjectCode: "พ22102" })).toThrow());
+it("PP5 accepts the explicit file year and term", () => expect(requirePp5ImportTarget(meta, a)).toEqual({ gradeLevel: "ม.2", year: 2569, semester: 1 }));
+it("PP5 rejects multiple numbered candidates for an unnumbered name", () => expect(matchPpSubject([1,2].map(n => ({ id: String(n), name_th: `ภาษาไทย ${n}`, grade_level: "ม.2", semester: 1 })), "ภาษาไทย", { gradeLevel: "ม.2", semester: 1, academicYear: 2026 })).toBeNull());
+it("PP5 does not pick the first of different numbered assignment subjects", () => expect(pickBestAssignment([1,2].map(n => ({ ...a, id: `a${n}`, subject_id: `s${n}`, subjectCode: undefined, subjectName: `ภาษาไทย ${n}` })), { ...meta, subjectName: "ภาษาไทย" })).toBeUndefined());

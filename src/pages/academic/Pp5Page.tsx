@@ -30,6 +30,8 @@ import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS
 import { BE_OFFSET } from "@/lib/dateBE";
 import { applyPp5FileToSystem, upsertStudentScoresForTerm } from "@/lib/pp5ApplyToSystem";
 import { saveErrorMessage, safeNum } from "@/lib/saveError";
+import { subjectBelongsToTerm } from "@/lib/subjectTermPolicy";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 const OBEC_PRESETS: Record<string, { title: string; description?: string }[]> = {
   competency: KEY_COMPETENCIES.map(c => ({ title: `${c.no}. ${c.name}`, description: "สมรรถนะสำคัญ สพฐ." })),
@@ -1046,6 +1048,10 @@ const ScoreViewTab = () => {
   const [classroomId, setClassroomId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [semester, setSemester] = useState("1");
+  const { currentAcademicYear, isReady: termReady } = useAcademicYear();
+  const [yearOverride, setYearOverride] = useState<number>();
+  const yearBE = yearOverride ?? currentAcademicYear;
+  const scoreYear = yearBE > 2400 ? yearBE - BE_OFFSET : yearBE;
   const schoolInfo = useSchoolInfo();
 
   const { data: allClassrooms = [] } = useQuery({ queryKey: ["classrooms"], queryFn: async () => { const { data } = await supabase.from("classrooms").select("*").order("grade_level").order("name"); return data || []; } });
@@ -1082,7 +1088,8 @@ const ScoreViewTab = () => {
   const subjects = restrictByAssignment ? allSubjects.filter((s: any) => allowedSubjectIds.has(s.id)) : allSubjects;
 
   const filteredClassrooms = gradeLevel ? classrooms.filter((c: any) => c.grade_level === gradeLevel) : [];
-  const filteredSubjects = gradeLevel ? subjects.filter((s: any) => s.grade_level === gradeLevel) : [];
+  const filteredSubjects = gradeLevel ? subjects.filter((s: any) => s.grade_level === gradeLevel &&
+    (Number(s.academic_year) > 2400 ? Number(s.academic_year) - BE_OFFSET : Number(s.academic_year)) === scoreYear && subjectBelongsToTerm(s, Number(semester), scoreYear)) : [];
 
   const { data: classStudents = [] } = useQuery({
     queryKey: ["pp5_students", classroomId],
@@ -1095,15 +1102,13 @@ const ScoreViewTab = () => {
   });
 
   const { data: scores = [] } = useQuery({
-    queryKey: ["pp5_scores", subjectId, semester],
+    queryKey: ["pp5_scores", subjectId, semester, scoreYear],
     queryFn: async () => {
       if (!subjectId) return [];
-      let q = supabase.from("student_scores").select("*").eq("subject_id", subjectId);
-      if (semester) q = q.eq("semester", parseInt(semester));
-      const { data } = await q.order("student_name");
-      return data || [];
+      return fetchAllRows((from, to) => supabase.from("student_scores").select("*").eq("subject_id", subjectId)
+        .eq("semester", Number(semester)).eq("academic_year", scoreYear).order("student_name").order("id").range(from, to));
     },
-    enabled: !!subjectId,
+    enabled: !!subjectId && termReady,
   });
 
   const mergedData = classStudents.map((s: any) => {
@@ -1118,7 +1123,7 @@ const ScoreViewTab = () => {
   });
 
   const displayData = classroomId ? mergedData : scores;
-  const selectedSubject = subjects.find((s: any) => s.id === subjectId);
+  const selectedSubject = filteredSubjects.find((s: any) => s.id === subjectId);
   const selectedClassroom = classrooms.find((c: any) => c.id === classroomId);
   const classLabel = selectedClassroom ? `${(selectedClassroom as any).grade_level || ""} - ${(selectedClassroom as any).name || ""}`.trim().replace(/^-\s*/, "") || (selectedClassroom as any).name || "" : "";
 
@@ -1158,7 +1163,7 @@ const ScoreViewTab = () => {
     const canFitSummaryOnLastPage = lastPageRows <= 26;
 
     const totalPages = canFitSummaryOnLastPage ? pages.length : pages.length + 1;
-    const beYear = selectedSubject.academic_year ? selectedSubject.academic_year + BE_OFFSET : new Date().getFullYear() + BE_OFFSET;
+    const beYear = yearBE;
     const classLabel = selectedClassroom ? `${selectedClassroom.name}` : "";
 
     const headerHtml = (pageNum: number) => `
@@ -1256,6 +1261,8 @@ const ScoreViewTab = () => {
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap items-end">
+        <Input aria-label="ปีการศึกษา ปพ.5" type="number" className="w-[130px]" value={yearBE} disabled={!termReady}
+          onChange={e => { const year = Number(e.target.value); if (Number.isInteger(year) && year > 0) { setYearOverride(year); setSubjectId(""); } }} />
         <Select value={gradeLevel} onValueChange={(v) => { setGradeLevel(v); setClassroomId(""); setSubjectId(""); }}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="ระดับชั้น" /></SelectTrigger>
           <SelectContent>
@@ -1270,7 +1277,7 @@ const ScoreViewTab = () => {
           <SelectTrigger className="w-[300px]"><SelectValue placeholder={gradeLevel ? "เลือกรายวิชา" : "เลือกระดับชั้นก่อน"} /></SelectTrigger>
           <SelectContent>{filteredSubjects.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.code} - {s.name_th}</SelectItem>)}</SelectContent>
         </Select>
-        <Select value={semester} onValueChange={setSemester}>
+        <Select value={semester} onValueChange={v => { setSemester(v); setSubjectId(""); }}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="1">ภาคเรียนที่ 1</SelectItem>
@@ -1290,7 +1297,7 @@ const ScoreViewTab = () => {
             studentCode: r.student_code,
             studentName: r.student_name,
             fullScore: 100,
-            score: r.total || 0,
+            score: r.total_score ?? 0,
             classroom: r.classroom || classLabel,
           }));
           const { school_name } = schoolInfo as any;
@@ -1308,7 +1315,7 @@ const ScoreViewTab = () => {
             studentCode: r.student_code,
             studentName: r.student_name,
             fullScore: 100,
-            score: r.total || 0,
+            score: r.total_score ?? 0,
             classroom: r.classroom || classLabel,
           }));
           exportSchoolMisExcel(rows, `SchoolMIS_${(selectedSubject as any).code || "PP5"}_${classLabel}.xlsx`);
