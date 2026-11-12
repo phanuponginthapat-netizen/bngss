@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ const FaceScanPage = () => {
         </div>
       </div>
 
+      {canManage && <Button asChild variant="outline"><Link to="/dashboard/admin/facegate"><Monitor className="mr-2 h-4 w-4" />จัดการ FaceGate Windows / Linux</Link></Button>}
       <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <div className="w-full overflow-x-auto">
           <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-8" : "sm:grid-cols-5"} sm:max-w-5xl gap-1`}>

@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         logo_url: m.school_logo_512 || m.school_logo || sc.logo_url || "",
         theme_primary: (settings as any).theme_primary || m.theme_primary_color || m.primary_color || m.theme_color || undefined,
         theme_accent: (settings as any).theme_accent || m.theme_accent_color || undefined,
-        admin_url: "https://bngss.online/dashboard/admin/kiosk-setup",
+        admin_url: "https://bngss.online/dashboard/admin/facegate",
         server_time: new Date().toISOString(),
       });
     }
@@ -189,6 +189,9 @@ Deno.serve(async (req) => {
           voice_enabled: (settings as any).voice_enabled !== false,
           voice_volume: (settings as any).voice_volume ?? 1,
           voice_rate: (settings as any).voice_rate ?? 1,
+          mirror: (settings as any).kiosk_mirror !== false,
+          rotate: (settings as any).kiosk_camera_rotate ?? 0,
+          live_view: (settings as any).live_view_enabled !== false,
           show_recent: (settings as any).kiosk_show_recent !== false,
           news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
           news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),

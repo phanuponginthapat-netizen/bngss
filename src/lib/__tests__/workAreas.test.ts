@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildWorkAreas, visibleWorkAreas, dailyNavigationItems, findWorkArea, areaUrl } from "../navigation/workAreas";
 
 describe("department navigation", () => {
+  it("limits native FaceGate administration to administrators and directors and its module switch", () => {
+    const urls = (role: "admin" | "director" | "teacher" | "student", disabled = false) => visibleWorkAreas(buildWorkAreas(), role, key => !disabled || key !== "kiosk").flatMap(a => a.groups.flatMap(g => g.items.map(i => i.url)));
+    expect(urls("admin")).toContain("/dashboard/admin/facegate");
+    expect(urls("director")).toContain("/dashboard/admin/facegate");
+    expect(urls("teacher")).not.toContain("/dashboard/admin/facegate");
+    expect(urls("student")).not.toContain("/dashboard/admin/facegate");
+    expect(urls("admin", true)).not.toContain("/dashboard/admin/facegate");
+  });
   it("makes daily work reports staff-only and respects its switch", () => {
     const urls = (role: "teacher" | "admin" | "director" | "student" | "parent" | "alumni", disabled = false) => dailyNavigationItems(visibleWorkAreas(buildWorkAreas(), role, key => !disabled || key !== "daily_work_log")).map(i => i.url);
     for (const role of ["teacher", "admin", "director"] as const) expect(urls(role)).toContain("/dashboard/hr/daily-work-log");

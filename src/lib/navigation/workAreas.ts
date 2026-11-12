@@ -93,8 +93,9 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       label: L("เครื่องนักเรียนและการเฝ้าดู", "Kiosk & Monitor"),
       icon: MonitorPlay,
 
-      roles: ["admin"],
+      roles: ["admin", "director"],
       items: [
+        { title: L("จัดการ FaceGate", "FaceGate Administration"), url: "/dashboard/admin/facegate", icon: ScanFace, roles: ["admin", "director"], desc: L("เครื่องสแกน Windows/Linux ใบหน้าและค่าของโปรแกรม", "Windows/Linux scanners, enrollment and native settings") },
         { title: L("ติดตั้งเครื่อง Kiosk", "Kiosk Setup"), url: "/dashboard/admin/kiosk-setup", icon: SettingsIcon, roles: ["admin"], desc: L("ติดตั้งเครื่องนักเรียนโหมด Kiosk + Safe Browser", "Kiosk installer & Safe Browser") },
         { title: L("สถานะตู้ Kiosk หน้าประตู", "Door Kiosk Health"), url: "/dashboard/admin/kiosk-health", icon: DoorOpen, roles: ["admin"], desc: L("เช็ค online/offline และความปกติของตู้สแกนหน้าประตู", "Door kiosk online/offline & health") },
         { title: L("รายงาน Smart Gate", "Smart Gate Report"), url: "/dashboard/admin/smart-gate", icon: DoorOpen, roles: ["admin"], desc: L("ไข้สูง วัตถุต้องสงสัย และอุณหภูมิจากจุดคัดกรอง", "Fever, weapon & temperature screening") },
