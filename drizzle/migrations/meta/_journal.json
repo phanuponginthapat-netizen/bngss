@@ -239,6 +239,13 @@
       "when": 1794466860430,
       "tag": "0033_student_scores_authoritative_total",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794474094511,
+      "tag": "0034_facegate_media_and_commands",
+      "breakpoints": true
     }
   ]
 }
