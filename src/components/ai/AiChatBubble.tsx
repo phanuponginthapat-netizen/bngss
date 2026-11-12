@@ -1,6 +1,7 @@
 import { SchoolToolDialog } from "./SchoolToolDialog";
 import { AiFileAttachment } from "./AiFileAttachment";
 import { readAiAttachment, type AiAttachment } from "@/lib/aiAttachments";
+import { readIappAttachment } from "@/lib/iappOcr";
 import ReactMarkdown from "react-markdown";
 import { streamSchoolTool, schoolToolLabels, type SchoolTool } from "@/lib/schoolTools";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -124,9 +125,12 @@ export default function AiChatBubble() {
   const [pendingImage, setPendingImage] = useState<string | null>(null); // data URL
   const [pendingFile, setPendingFile] = useState<AiAttachment | null>(null);
   const [readingFile, setReadingFile] = useState(false);
-  const pickDocument = async (file: File) => {
+  const pickDocument = async (file: File, ocr = false) => {
     setReadingFile(true);
-    try { setPendingFile(await readAiAttachment(file)); setPendingImage(null); }
+    try {
+      if (ocr && !await swal.confirm({ title: "อ่านเอกสารด้วย iApp?", text: "ไฟล์นี้จะส่งไป iApp เพื่ออ่านข้อความและตาราง คิดค่าอ่าน 0.15 IC ต่อหน้าจากบัญชี iApp แยกจาก Lovable (ไม่เกิน 50 หน้า หรือ 7.50 IC) กรุณาไม่ส่งข้อมูลส่วนตัวที่ไม่จำเป็น ผล OCR อาจคลาดเคลื่อนและต้องตรวจสอบก่อนใช้", confirmText: "ยืนยันส่งและอ่าน", cancelText: "ไม่ส่ง" })) return;
+      setPendingFile(await (ocr ? readIappAttachment(file) : readAiAttachment(file))); setPendingImage(null);
+    }
     catch (error) { swal.error(error instanceof Error ? error.message : "อ่านไฟล์ไม่สำเร็จ"); }
     finally { setReadingFile(false); }
   };

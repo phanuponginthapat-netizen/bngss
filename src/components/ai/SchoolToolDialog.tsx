@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2, Send } from "lucide-react";
 import { schoolToolLabels, type SchoolTool } from "@/lib/schoolTools";
-export function SchoolToolDialog({ tool, draft, busy, attachment, reading, onPick, onRemove, onClose, onGenerate }: { tool: SchoolTool | null; draft: string; busy: boolean; attachment: AiAttachment | null; reading: boolean; onPick: (file: File) => void; onRemove: () => void; onClose: () => void; onGenerate: (topic: string, grade: string, count: number) => void }) {
+export function SchoolToolDialog({ tool, draft, busy, attachment, reading, onPick, onRemove, onClose, onGenerate }: { tool: SchoolTool | null; draft: string; busy: boolean; attachment: AiAttachment | null; reading: boolean; onPick: (file: File, ocr?: boolean) => void; onRemove: () => void; onClose: () => void; onGenerate: (topic: string, grade: string, count: number) => void }) {
   const [topic, setTopic] = useState(""); const [grade, setGrade] = useState(""); const [count, setCount] = useState(5);
   useEffect(() => { if (tool) setTopic(draft); }, [tool, draft]);
   return <Dialog open={Boolean(tool)} onOpenChange={open => { if (!open && !busy) onClose(); }}>
