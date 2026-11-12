@@ -635,7 +635,7 @@ export async function parsePP5Workbook(file: File | ArrayBuffer): Promise<PP5Par
 /** Read each named activity from the source, never infer individual results from a combined outcome. */
 function applyIndividualActivities(wb: XLSX.WorkBook, consolidated: PP5ParsedWorkbook["consolidated"]) {
   for (const name of wb.SheetNames) {
-    if (!/ข้อมูลกิจกรรม/.test(name)) continue;
+    if (!/^(กิจกรรมพัฒนาผู้เรียน|ข้อมูลกิจกรรม)$/.test(name.trim())) continue;
     const grid = sheetToGrid(wb.Sheets[name]);
     const header = findHeaderRow(grid);
     if (!header) continue;
