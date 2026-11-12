@@ -25,11 +25,19 @@ beforeEach(() => { source.writes = []; source.records.clear(); source.subjects =
 
 describe("term-scoped ปพ. score distribution", () => {
   it("blocks a saved PP5 subject belonging to another curriculum term before writing", async () => {
-    source.subjects = [{ id: "health2", code: "พ21102", name_th: "สุขศึกษาและพลศึกษา 2", grade_level: "ม.1", semester: 1 }];
+    source.subjects = [{ id: "health2", code: "พ21102", name_th: "สุขศึกษาและพลศึกษา 2", grade_level: "ม.1", semester: 1, academic_year: 2026 }];
     await expect(applyPpFileToSystem({ subject_id: "health2", semester: 1, academic_year: 2569, grade_level: "ม.1", parsed_data: {
       consolidated: [{ studentCode: "2845", perSubject: { "สุขศึกษาและพลศึกษา 2": { totalScore: 83, grade: "4" } } }],
     } }, "pp5")).rejects.toThrow("ไม่ตรง");
     expect(source.writes).toHaveLength(0);
+  });
+  it("PP5 keeps imported total 83 and grade 4 in year 2026 semester 1", async () => {
+    source.subjects = [{ id: "health1", code: "พ21101", grade_level: "ม.1", semester: 1, academic_year: 2026 }];
+    const result = await applyPpFileToSystem({ subject_id: "health1", semester: 1, academic_year: 2569, grade_level: "ม.1", parsed_data: {
+      consolidated: [{ studentCode: "2845", perSubject: { "สุขศึกษาและพลศึกษา 1": { totalScore: 83, grade: "4" } } }],
+    } }, "pp5");
+    expect(result.distributed).toBe(1);
+    expect(source.writes.find(w => w.table === "student_scores").rows[0]).toMatchObject({ student_code: "2845", subject_id: "health1", total_score: 83, grade: "4", semester: 1, academic_year: 2026 });
   });
   it("matches the confirmed ม.2 design 3 header to ว22103 design 2 in semester 1/2569", async () => {
     source.subjects = [{ id: "f476560d-84de-4d80-8a4e-5894beee80fd", code: "ว22103", grade_level: "ม.2", name_th: "การออกแบบและเทคโนโลยี 2", semester: 1 }];
