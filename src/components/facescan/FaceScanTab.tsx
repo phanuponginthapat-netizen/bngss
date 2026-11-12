@@ -25,6 +25,7 @@ import { learnFromScan } from "@/lib/faceLearning";
 import { verifyScanTexture } from "@/lib/faceTexture";
 import { newLivenessTrack, recordLivenessSample, makeLivenessSample, type LivenessTrack } from "@/lib/faceLiveness";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 interface RecentScan {
   studentId: string;
@@ -240,12 +241,13 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   useEffect(() => {
     (async () => {
       const today = todayBangkok();
-      const { data } = await supabase
+      const data = await fetchAllRows((from, to) => supabase
         .from("face_scan_logs")
         .select("student_id, scan_time, scan_type, confidence, captured_face_url, entry_method, students!inner(student_code, classroom_id, prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
         .eq("scan_date", today)
         .order("scan_time", { ascending: false })
-        .limit(80);
+        .order("id")
+        .range(from, to), { pageSize: 500 });
       let rows = (data || []) as any[];
       if (isFiltered && homeroomClassroomIds) {
         const allowed = new Set(homeroomClassroomIds);
@@ -277,7 +279,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         };
       }));
       setRecent(history);
-    })();
+    })().catch(() => toast.error("อ่านยอดสแกนวันนี้ไม่สำเร็จ กรุณาเปิดหน้านี้ใหม่"));
   }, [isFiltered, homeroomClassroomIds]);
 
   // Load model — โหมด QR ไม่ต้องโหลดโมเดลใบหน้า (~28MB) → เปิดกล้องเร็ว + ประหยัดแบต

@@ -124,7 +124,7 @@ const FaceSettingsTab = () => {
       if (error) throw error;
       clearAdaptiveFlagCache();
       await queryClient.invalidateQueries({ queryKey: ["school_settings_bulk"] });
-      await queryClient.invalidateQueries({ queryKey: ["face-accurate-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["face-report-accurate"] });
       toast.success("บันทึกแล้ว");
     } catch (e: any) {
       toast.error(saveErrorMessage(e));
@@ -298,7 +298,7 @@ const FaceSettingsTab = () => {
         </div>
 
 
-        <Button onClick={save} disabled={busy} className="gradient-primary">
+        <Button onClick={save} disabled={busy || !settingsReady} className="gradient-primary">
           <Save className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : "บันทึก"}
         </Button>
       </CardContent>
