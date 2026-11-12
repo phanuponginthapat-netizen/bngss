@@ -108,7 +108,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.1"
+AGENT_VERSION = "1.12.2"
 
 
 def default_cache_dir() -> str:
@@ -410,7 +410,7 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
     out = payload.get("direction") == "out"
     welcome = settings.get("voice_welcome_text") or "ยินดีต้อนรับ"
-    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name, "direction": rule["direction"],
+    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name, "student": person, "avatar_url": person.get("avatar_url"), "direction": rule["direction"],
                        "message": f"{name} บันทึกเวลาออกแล้ว" if out else f"{name} บันทึกเวลาเข้าเรียบร้อย",
                        "speak": f"เดินทางปลอดภัย {name}" if out else f"{welcome} {name}",
                        "next_delay_seconds": delay})
@@ -1346,6 +1346,25 @@ if not STANDALONE and not SATELLITE:
     def kiosk_screen_cloud():
         return _CHTML(local_ui.KIOSK_HTML)
 
+    @app.get("/admin")
+    def admin_screen_cloud():
+        return _CRedirect("https://bngss.online/dashboard/admin/kiosk-setup")
+
+    @app.post("/local/kiosk-api/tts")
+    async def cloud_voice(request: Request):
+        from fastapi.responses import Response
+        from starlette.concurrency import run_in_threadpool
+        import local_voice
+        body = await request.json()
+        text = str(body.get("text") or "").strip()[:300]
+        if not text:
+            return Response(status_code=400)
+        clip = await run_in_threadpool(local_voice.synthesize, text)
+        if not clip:
+            return Response(status_code=503)
+        audio, mime = clip
+        return Response(content=audio, media_type=mime)
+
     @app.get("/")
     def home_screen_cloud():
         return _CRedirect("/kiosk")
@@ -1924,9 +1943,16 @@ if __name__ == "__main__":
                         break
                 except Exception:  # noqa: BLE001
                     time.sleep(0.5)
+            class KioskWindowApi:
+                def open_admin(self):
+                    import webbrowser
+                    target = f"http://127.0.0.1:{PORT}/admin" if STANDALONE else "https://bngss.online/dashboard/admin/kiosk-setup"
+                    webbrowser.open(target)
+                    return True
+
             webview.create_window(
                 "BNG FaceGate", f"http://127.0.0.1:{PORT}/kiosk",
-                fullscreen=True, frameless=True, background_color="#000000",
+                fullscreen=True, frameless=True, background_color="#000000", js_api=KioskWindowApi(),
             )
             webview.start(private_mode=False, storage_path=os.path.join(CACHE_DIR, "window"))
             os._exit(0)  # window closed → stop the program
