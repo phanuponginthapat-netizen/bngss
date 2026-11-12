@@ -27,6 +27,7 @@ import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
 import { academicReadState } from "@/lib/academicReadState";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { loadFullClassrooms } from "@/lib/classroomQueries";
+import { subjectBelongsToTerm } from "@/lib/subjectTermPolicy";
 
 const GRADE_LEVELS = [
   "อ.1", "อ.2", "อ.3",
@@ -103,7 +104,7 @@ const ScoreOverviewTab = () => {
 
   // Get subjects for this grade level
   const { data: subjects = [], ...subjectsRead } = useQuery({
-    queryKey: ["pp6_subjects", selectedClassroom?.grade_level, semester],
+    queryKey: ["pp6_subjects", selectedClassroom?.grade_level, semester, academicYear],
     queryFn: async () => {
       if (!selectedClassroom) return [];
       const { data, error } = await supabase.from("subjects").select("*")
@@ -111,7 +112,7 @@ const ScoreOverviewTab = () => {
         .eq("semester", parseInt(semester))
         .order("code");
       if (error) throw error;
-      return data || [];
+      return (data || []).filter(subject => subjectBelongsToTerm(subject, Number(semester), Number(academicYear)));
     },
     enabled: !!selectedClassroom,
   });

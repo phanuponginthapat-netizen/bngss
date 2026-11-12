@@ -1,3 +1,4 @@
+- Apply subjectTermPolicy to ปพ.6 report and import catalogs; curriculum term corrections filter historical duplicate rows without deleting scores or assignment references.
 - Subject matching normalizes แอนิเมชั่น/แอนิเมชัน spelling but remains scoped to the file grade and semester; missing curriculum subjects require confirmation, never cross-term matching.
 - Explicit numeric subject suffixes must match exactly except school-confirmed code aliases scoped to grade, term and year; only unnumbered names use unique numbered fallback, preventing scores assigned to conflicting courses.
 - ปพ.6 import targets require explicit file year and semester; never infer defaults, preventing misfiled historical results.
