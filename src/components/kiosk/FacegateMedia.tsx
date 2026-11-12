@@ -31,7 +31,7 @@ export default function FacegateMedia() {
       toast.success("เพิ่มสื่อแล้ว"); await load();
     } catch { toast.error("เพิ่มสื่อไม่สำเร็จ"); } finally { setBusy(false); }
   };
-  const change = async (id:string,patch:Record<string,unknown>) => { const {error}=await supabase.from("facegate_broadcast_media").update(patch).eq("id",id); if(error) toast.error("บันทึกไม่สำเร็จ"); else await load(); };
+  const change = async (id:string,patch:Partial<Pick<Media,'is_active'|'duration_seconds'|'sort_order'>>) => { const {error}=await supabase.from("facegate_broadcast_media").update(patch).eq("id",id); if(error) toast.error("บันทึกไม่สำเร็จ"); else await load(); };
   const remove = async (item:Media) => {
     if(!(await swal.confirm({title:`ลบสื่อ ${item.title}?`}))) return;
     const {error}=await supabase.from("facegate_broadcast_media").delete().eq("id",item.id); if(error) return toast.error("ลบรายการไม่สำเร็จ");
