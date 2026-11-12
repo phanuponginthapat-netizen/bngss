@@ -1,0 +1,1 @@
+- Dedicated FaceGate administration reuses school enrollment, approval, and attendance reports; keep the school's single Cloud roster and authentication instead of importing standalone source identities.
