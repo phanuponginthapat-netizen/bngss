@@ -161,16 +161,28 @@ Deno.serve(async (req) => {
           server_time: new Date().toISOString(), visitor_register_enabled: false });
       }
       const { data: logs, error: logsError } = await db.from("face_scan_logs")
-        .select("scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
+        .select("student_id, scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
         .eq("scan_date", today).order("scan_time", { ascending: false }).limit(12);
       if (logsError) throw logsError;
+      const ids = [...new Set((logs ?? []).map((l: any) => l.student_id).filter(Boolean))];
+      const { data: faces, error: faceError } = ids.length
+        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("created_at", { ascending: false })
+        : { data: [], error: null };
+      if (faceError) throw faceError;
+      const avatars = new Map<string, string>();
+      for (const face of faces ?? []) {
+        if (!avatars.has(face.student_id)) {
+          const image = await kioskMediaUrl(db, face.face_image);
+          if (image) avatars.set(face.student_id, image);
+        }
+      }
       const items = await Promise.all(((logs as any[]) ?? []).map(async (l) => ({
         name: `${l.students?.prefix ?? ""}${l.students?.first_name ?? ""} ${l.students?.last_name ?? ""}`.trim() || "นักเรียน",
         detail: l.students?.classrooms?.name ?? "",
         scanned_at: l.scan_time,
         direction: l.scan_type === "exit" ? "out" : "in",
         snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
-        avatar_url: await kioskMediaUrl(db, l.students?.photo_url),
+        avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
       })));
       return json({
         display: {
@@ -206,7 +218,7 @@ Deno.serve(async (req) => {
           .select("id, student_code, prefix, first_name, last_name, status, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)")
           .eq("status", "active").limit(20000),
         db.from("personnel").select("id, employee_code, prefix, first_name, last_name, status").limit(5000),
-        db.from("student_face_descriptors").select("id, student_id, descriptor, metrics, created_at").limit(40000),
+        db.from("student_face_descriptors").select("id, student_id, descriptor, metrics, created_at, face_image").limit(40000),
         db.from("personnel_face_descriptors").select("id, personnel_id, descriptor, metrics, created_at").limit(10000),
       ]);
 
@@ -219,7 +231,7 @@ Deno.serve(async (req) => {
           class_room: s.classrooms?.name || s.classrooms?.grade_level || "-",
           person_type: "student",
           is_active: true,
-          avatar_url: await kioskMediaUrl(db, s.photo_url),
+          avatar_url: await kioskMediaUrl(db, s.photo_url) || await kioskMediaUrl(db, (sFaces ?? []).find((f: any) => f.student_id === s.id && /^data:image\//.test(f.face_image || ""))?.face_image),
         }))),
         ...((personnel as any[]) ?? []).filter((p) => (p.status ?? "active") === "active").map((p) => ({
           id: p.id,

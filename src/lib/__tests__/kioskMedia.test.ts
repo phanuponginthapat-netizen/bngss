@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { kioskMediaUrl } from "../../../supabase/functions/_shared/kioskMedia";
 describe("Kiosk media on the active backend", () => {
+  it("uses a registered image as fallback but rejects non-image data", async () => {
+    expect(await kioskMediaUrl({}, "data:image/jpeg;base64,/9j/AA==")).toBe("data:image/jpeg;base64,/9j/AA==");
+    expect(await kioskMediaUrl({}, "data:text/html;base64,AAAA")).toBeNull();
+  });
   it("re-signs an old backend profile path instead of using its retired URL", async () => {
     const sign = vi.fn().mockResolvedValue({ data: { signedUrl: "https://active.example/avatar" }, error: null });
     const from = vi.fn(() => ({ createSignedUrl: sign }));
