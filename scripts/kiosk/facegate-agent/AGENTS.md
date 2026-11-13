@@ -7,3 +7,4 @@
 - Scan speech finishes before the next voice starts, suppresses the same identity for ten seconds independently of the two-second scan pause, and includes the registered name for success, duplicates and visitors to avoid overlapping or truncated names.
 
 - Scrolling news occupies its own flex row outside the camera stage so scan instructions never share its overlay area in either orientation.
+- The screensaver grade-level attendance report reuses the homepage's shared public aggregation server-side (kiosk-api today-stats classes); offline mode groups by local class_room via saver_stats.py, and days without evidence stay unrecorded rather than fabricated absence.
