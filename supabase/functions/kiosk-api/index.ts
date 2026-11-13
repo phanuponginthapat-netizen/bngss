@@ -11,6 +11,8 @@ import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
 import {activeVisitorFace,validFaceEmbedding} from '../_shared/facegateVisitor.ts';
 import { fanout } from '../_shared/fanout.ts';
 import { claimKioskNotification, releaseKioskNotification } from '../_shared/kioskNotificationCooldown.ts';
+import { readDigestRows } from '../_shared/attendanceDigest.ts';
+import { aggregatePublicClasses, type SchoolAttendanceRow, type SchoolScanRow } from '../_shared/publicAttendance.ts';
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -85,7 +87,7 @@ async function loadSettings(db: ReturnType<typeof admin>) {
   const { data, error } = await db
     .from("school_settings")
     .select("setting_key, setting_value")
-    .in("setting_key", ["kiosk_config", "face_scan_mode_cutoff", "face_scan_entry_window", "face_scan_exit_window", "face_liveness_enabled", "clock_late_threshold"]);
+    .in("setting_key", ["kiosk_config", "face_scan_mode_cutoff", "face_scan_entry_window", "face_scan_exit_window", "face_liveness_enabled", "clock_late_threshold", "clock_in_end"]);
   if (error) throw error;
   const school = Object.fromEntries((data ?? []).map(row => [row.setting_key, row.setting_value]));
   let v: any = school.kiosk_config ?? {};
@@ -97,6 +99,7 @@ async function loadSettings(db: ReturnType<typeof admin>) {
     require_liveness: v?.require_liveness ?? (school.face_liveness_enabled !== "false"),
     next_person_delay_seconds: 2,
     late_after: school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
+    clock_in_end: school.clock_in_end ?? school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
   };
 }
 
