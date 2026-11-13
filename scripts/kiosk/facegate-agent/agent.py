@@ -934,10 +934,11 @@ def enforce_power_plan(data):
         idle_minutes = float(data.get("screen_idle_minutes") or 0)
         idle = idle_minutes > 0 and (time.time() - last_activity) > idle_minutes * 60
         should_be_off = bool(data.get("screen_off_window")) or idle
-        currently_off = bool(power.status().get("screen_off"))
+        status = power.status()
+        currently_off = bool(status.get("screen_off"))
         if should_be_off and not currently_off:
-            power.screen_off()
-        elif not should_be_off and currently_off:
+            power.screen_off(manual=False)
+        elif not should_be_off and currently_off and not status.get("manual_screen_off"):
             power.screen_on()
 
         if data.get("power_off_due") and not power.pending() and daily_shutdown.reserve(clock.now_tz(timezone(timedelta(hours=7))), settings):

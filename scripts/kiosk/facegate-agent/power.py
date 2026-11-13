@@ -62,7 +62,7 @@ def _remember(action: str, ok: bool) -> bool:
     return ok
 
 
-def screen_off() -> bool:
+def screen_off(manual: bool = True) -> bool:
     """Show the FaceGate idle screen (media + attendance) instead of the OS.
 
     Turning the monitor off through Windows on tablets with Modern Standby
@@ -72,6 +72,7 @@ def screen_off() -> bool:
     """
     with _lock:
         _state["screen_off"] = True
+        _state["manual"] = bool(manual)
     return _remember("screen_off", True)
 
 
@@ -79,6 +80,7 @@ def screen_on() -> bool:
     """Leave the FaceGate idle screen and return to scanning."""
     with _lock:
         _state["screen_off"] = False
+        _state["manual"] = False
     if IS_WINDOWS:
         try:  # wake the display if Windows dimmed it on its own
             import ctypes
@@ -209,6 +211,7 @@ def status() -> dict:
     with _lock:
         return {
             "screen_off": bool(_state.get("screen_off")),
+            "manual_screen_off": bool(_state.get("manual")),
             "last_action": _state.get("last_action"),
             "last_action_at": _state.get("last_action_at"),
             "last_error": _state.get("last_error"),

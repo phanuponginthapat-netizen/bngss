@@ -529,7 +529,7 @@ function showBroadcast() {
 }
 function nextBroadcast(){ stopBroadcast(); $('saverMedia').replaceChildren(); broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
 
-function wake() { bumpActivity(); }
+function wake() { if(remoteSaver){remoteSaver=false;fetch('/power/command',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({command:'screen_on'})}).catch(()=>{});} bumpActivity(); }
 window.addEventListener('pointerdown', bumpActivity);
 window.addEventListener('keydown', bumpActivity);
 function clock() {
