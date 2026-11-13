@@ -10,6 +10,7 @@ import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
 import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
 import {activeVisitorFace,validFaceEmbedding} from '../_shared/facegateVisitor.ts';
 import { fanout } from '../_shared/fanout.ts';
+import { claimKioskNotification, releaseKioskNotification } from '../_shared/kioskNotificationCooldown.ts';
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -478,8 +479,13 @@ Deno.serve(async (req) => {
         note: typeof body?.message === "string" ? body.message.slice(0, 300) : typeof body?.note==='string'?body.note.slice(0,300):null,
       }).select('id').single();
       if(alertError)throw alertError;
-      const response=await fanout({roles:['admin','director'],title:escalated?'FaceGate: พบการสแกนไม่ทราบชื่อซ้ำ':'FaceGate: ไม่พบใบหน้าในทะเบียน',body:`เครื่อง ${device.name} กรุณาตรวจสอบบุคคลหน้าประตู`,type:'facegate_alert',severity:escalated?'critical':'warning',reference_id:alert.id,reference_type:'kiosk_agent_alerts',url:'/dashboard/admin/facegate?tab=alerts',channels:['in_app','push','line'],dedup_key:`facegate:${alert.id}`},db);
-      return json({ ok: true, escalated, notification_sent:response?.ok===true });
+      const claim = await claimKioskNotification(db, device.device_id, 'unknown_face');
+      if (!claim) return json({ ok: true, escalated, notification_sent: false, notification_suppressed: true });
+      const response=await fanout({roles:['admin','director'],title:escalated?'FaceGate: พบการสแกนไม่ทราบชื่อซ้ำ':'FaceGate: ไม่พบใบหน้าในทะเบียน',body:`เครื่อง ${device.name} กรุณาตรวจสอบบุคคลหน้าประตู`,type:'facegate_alert',severity:escalated?'critical':'warning',reference_id:alert.id,reference_type:'kiosk_agent_alerts',url:'/dashboard/admin/facegate?tab=alerts',channels:['in_app','push','line'],dedup_key:claim.key},db);
+      const delivery = response?.ok ? await response.json().catch(() => null) : null;
+      const sent = delivery?.ok === true && (Number(delivery.in_app) > 0 || Number(delivery.push) > 0 || delivery.line_deferred === true || delivery.gchat_deferred === true);
+      if (!sent) await releaseKioskNotification(db, claim);
+      return json({ ok: true, escalated, notification_sent: sent });
     }
 
     // ── ผู้มาติดต่อ ──────────────────────────────────────────────────────

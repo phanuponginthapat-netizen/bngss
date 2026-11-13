@@ -274,6 +274,13 @@
       "when": 1794539134402,
       "tag": "0038_store_facegate_scan_media_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794544284888,
+      "tag": "0039_kiosk_notification_cooldown",
+      "breakpoints": true
     }
   ]
 }
