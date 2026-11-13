@@ -51,7 +51,7 @@ KIOSK_HTML = r"""<!doctype html>
   .saverRow span{text-align:right;font-variant-numeric:tabular-nums}.saverRow span:first-child{text-align:left;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .saverRowHead{background:transparent;opacity:.65;font-size:.8rem;padding:2px 16px}
   @media(max-width:850px){.today{display:none}.top{padding:10px 14px}.app{grid-template-columns:1fr;height:calc(100vh - 82px);overflow:auto}.stage{min-height:55vh}.side{min-height:45vh}.brand span{display:none}}
-  .saverMedia{position:relative;min-height:0}.saverMedia video{position:static;translate:none}.soundEnable{position:absolute;z-index:1;bottom:24px;left:50%;transform:translateX(-50%);max-width:90%;padding:14px 20px;border:0;border-radius:8px;background:var(--primary);color:var(--surface,#fff);font:inherit;cursor:pointer}
+  .saverMedia{position:relative;min-height:0}.saverMedia video{position:static;translate:none}
   @media(orientation:portrait){
     .top{height:122px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 14px;padding:12px 20px}
     .brand{grid-column:1;grid-row:1}.brand span{display:block}.timebox{grid-column:2;grid-row:1}.clock{font-size:1.5rem}
@@ -509,22 +509,14 @@ function showBroadcast() {
   const item = broadcastMedia[broadcastIndex % broadcastMedia.length];
   box.replaceChildren();
   if (item.media_type === 'video') {
-    const video = document.createElement('video'); video.src=item.url; video.autoplay=true; video.muted=false; video.volume=1; video.playsInline=true; video.loop=false;
+    const video = document.createElement('video'); video.src=item.url; video.autoplay=true; video.muted=true; video.volume=1; video.playsInline=true; video.loop=false;
     video.onended=nextBroadcast;
     video.onerror=()=>broadcastWait(3000);
     video.onwaiting=()=>broadcastWait(15000);
     video.onplaying=()=>{if(broadcastTimer)clearTimeout(broadcastTimer);broadcastTimer=null;};
     box.append(video); broadcastWait(15000);
     const play = video.play();
-    if(play) play.catch(error=>{
-      if(!box.contains(video) || !$('saver').classList.contains('show')) return;
-      if(error.name !== 'NotAllowedError') { broadcastWait(3000); return; }
-      if(broadcastTimer)clearTimeout(broadcastTimer);broadcastTimer=null;
-      const button=document.createElement('button');button.className='soundEnable';button.textContent='🔊 เปิดเสียงและเล่นวิดีโอ';
-      button.onpointerdown=event=>event.stopPropagation();
-      button.onkeydown=event=>event.stopPropagation();
-      button.onclick=event=>{event.stopPropagation();video.play().then(()=>button.remove()).catch(()=>{button.textContent='🔊 ลองเปิดเสียงอีกครั้ง';});};box.append(button);
-    });
+    if(play) play.catch(()=>{ if(box.contains(video)) broadcastWait(3000); });
   } else { const img=document.createElement('img');img.src=item.url;img.alt=item.title||'';img.onerror=()=>broadcastWait(3000);box.append(img); broadcastWait(Math.max(3,item.duration_seconds||10)*1000); }
 }
 function nextBroadcast(){ stopBroadcast(); $('saverMedia').replaceChildren(); broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
