@@ -11,6 +11,8 @@ import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
 import {activeVisitorFace,validFaceEmbedding} from '../_shared/facegateVisitor.ts';
 import { fanout } from '../_shared/fanout.ts';
 import { claimKioskNotification, releaseKioskNotification } from '../_shared/kioskNotificationCooldown.ts';
+import { readDigestRows } from '../_shared/attendanceDigest.ts';
+import { aggregatePublicClasses, type SchoolAttendanceRow, type SchoolScanRow } from '../_shared/publicAttendance.ts';
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -85,7 +87,7 @@ async function loadSettings(db: ReturnType<typeof admin>) {
   const { data, error } = await db
     .from("school_settings")
     .select("setting_key, setting_value")
-    .in("setting_key", ["kiosk_config", "face_scan_mode_cutoff", "face_scan_entry_window", "face_scan_exit_window", "face_liveness_enabled", "clock_late_threshold"]);
+    .in("setting_key", ["kiosk_config", "face_scan_mode_cutoff", "face_scan_entry_window", "face_scan_exit_window", "face_liveness_enabled", "clock_late_threshold", "clock_in_end"]);
   if (error) throw error;
   const school = Object.fromEntries((data ?? []).map(row => [row.setting_key, row.setting_value]));
   let v: any = school.kiosk_config ?? {};
@@ -97,6 +99,7 @@ async function loadSettings(db: ReturnType<typeof admin>) {
     require_liveness: v?.require_liveness ?? (school.face_liveness_enabled !== "false"),
     next_person_delay_seconds: 2,
     late_after: school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
+    clock_in_end: school.clock_in_end ?? school.clock_late_threshold ?? DEFAULT_SETTINGS.late_after,
   };
 }
 
@@ -165,17 +168,31 @@ Deno.serve(async (req) => {
       const today = bkkDate();
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
-        const [studentResult, staffResult, totalStudents, totalStaff] = await Promise.all([
+        const clock = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
+        const [studentResult, staffResult, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
           db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
             .eq("scan_date", today).eq("scan_type", "entry"),
           db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
             .eq("kind", "staff_pass").gte("created_at", startUtc),
           db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
           db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
+          // สถิติรายชั้นใช้การรวมแบบเดียวกับหน้าแรกโรงเรียนเป๊ะ ๆ
+          readDigestRows<{ id: string; classrooms: { grade_level: string | null; name: string | null; reference_grade_level: string | null } | null }>((a, b) => db.from("students").select("id,classrooms!students_classroom_id_fkey(grade_level,name,reference_grade_level)").eq("status", "active").order("id").range(a, b)),
+          readDigestRows<SchoolAttendanceRow>((a, b) => db.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).eq("attendance_date", today).order("id").range(a, b)),
+          readDigestRows<SchoolScanRow>((a, b) => db.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).eq("scan_date", today).order("id").range(a, b)),
         ]);
         for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
+        const roster = rosterRows.map(s => ({ id: s.id, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
+        const grouped = aggregatePublicClasses(roster, [today], attendanceRows, scanRows, today, clock, settings.late_after, (settings as any).clock_in_end || settings.late_after);
+        const classes = grouped.map(c => {
+          const d = c.daily[0];
+          return { name: c.name, total: c.rosterTotal, present: d?.present ?? 0, late: d?.late ?? 0,
+            leave: d?.leave ?? 0, absent: d?.absent ?? 0, unrecorded: d?.unrecorded ?? 0, evidence: d?.evidence ?? false };
+        });
+        const absentStudents = classes.some(c => c.evidence) ? classes.reduce((sum, c) => sum + c.absent, 0) : null;
         return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
-          total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:null,absent_staff:null,
+          total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:absentStudents,absent_staff:null,
+          classes,
           server_time: new Date().toISOString(), visitor_register_enabled: (settings as any).visitor_register_enabled===true,
           visitor_url:'https://bngss.online/visit' });
       }

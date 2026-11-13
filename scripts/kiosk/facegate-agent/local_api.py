@@ -19,6 +19,7 @@ import datetime as dt
 import io
 import json
 import os
+import re
 import secrets
 import shutil
 import time
@@ -34,6 +35,7 @@ from starlette.concurrency import run_in_threadpool
 import localdb as db
 import local_rules as rules
 import local_voice
+from saver_stats import group_classes_by_room
 
 
 router = APIRouter()
@@ -664,15 +666,16 @@ def today_stats() -> dict:
         else:
             left.add(sid)
 
-    late = 0
-    for stamp in first_in.values():
+    late_ids: set[str] = set()
+    for sid, stamp in first_in.items():
         try:
             hour = int(stamp[11:13]) + 7
             minute = int(stamp[14:16])
             if (hour % 24) * 60 + minute > late_limit:
-                late += 1
+                late_ids.add(sid)
         except Exception:  # noqa: BLE001
             pass
+    late = len(late_ids)
 
     minutes = rules.bangkok_minutes()
     is_workday = rules.is_work_day(settings, rules.bangkok_weekday())
@@ -713,6 +716,7 @@ def today_stats() -> dict:
         "absent_staff": max(total_staff - staff_present, 0) if is_workday else 0,
         "visitors_present": visitors_present,
         "visitor_register_enabled": bool(settings.get("visitor_register_enabled")),
+        "classes": group_classes_by_room(people, first_in, late_ids, is_workday),
         "late": late,
         "on_time": len(first_in) - late,
         "absent": max(len(people) - len(first_in), 0) if is_workday else 0,
