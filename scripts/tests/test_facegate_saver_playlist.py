@@ -37,8 +37,8 @@ class PlaylistTest(unittest.TestCase):
         self.browser.close()
         self.pw.stop()
 
-    def test_video_has_sound(self):
-        self.assertEqual(self.page.locator('video').evaluate('(v)=>[v.muted,v.volume]'), [False, 1])
+    def test_video_plays_without_sound(self):
+        self.assertEqual(self.page.locator('video').evaluate('(v)=>[v.muted,v.volume]'), [True, 1])
 
     def test_order_loops_after_complete_video_and_timed_image(self):
         self.page.evaluate("document.querySelector('video').dispatchEvent(new Event('ended'))")
@@ -64,16 +64,15 @@ class PlaylistTest(unittest.TestCase):
         self.assertEqual(self.page.evaluate('oldVideo.dataset.paused'), 'yes')
         self.assertEqual(self.page.locator('img').count(), 1)
 
-    def test_sound_permission_retry_does_not_wake(self):
+    def test_blocked_play_never_asks_for_sound(self):
         self.page.evaluate("""() => {
           stopBroadcast(); document.getElementById('saverMedia').replaceChildren();
           HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('blocked','NotAllowedError'));
           showBroadcast();
         }""")
-        self.page.get_by_role('button', name='🔊 เปิดเสียงและเล่นวิดีโอ').wait_for()
-        self.page.evaluate("HTMLMediaElement.prototype.play = () => Promise.resolve()")
-        self.page.get_by_role('button').click()
+        self.page.wait_for_timeout(400)
         self.assertEqual(self.page.get_by_role('button').count(), 0)
+        self.assertEqual(self.page.evaluate('broadcastTimer === null'), False)
         self.assertTrue(self.page.locator('#saver').evaluate("e=>e.classList.contains('show')"))
 
 
