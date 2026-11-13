@@ -45,13 +45,26 @@ KIOSK_HTML = r"""<!doctype html>
   .welcome { display:flex;align-items:center;gap:12px;font-family:Outfit,"Noto Sans Thai",sans-serif;font-size:1.55rem;font-weight:800; }.welcome i{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#e8f0f8;color:var(--primary);font-style:normal}.profile{display:none;flex:1;min-height:0;flex-direction:column;align-items:center;padding-top:20px}.profile.show{display:flex;animation:rise .35s ease-out}.profile .avatar{width:136px;height:136px;border:7px solid #fff;box-shadow:0 0 0 4px #dce8f5,0 18px 35px rgba(18,59,103,.2);border-radius:50%;object-fit:cover;background:#e8eef5}.profile h2{font-family:Outfit,"Noto Sans Thai",sans-serif;text-align:center;font-size:1.65rem;margin:18px 0 4px}.profile .role{color:var(--primary);font-weight:700}.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:20px}.fact{padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}.fact small{display:block;color:#64748b;font-weight:700}.fact b{display:block;margin-top:4px;font-size:1.1rem}.resultTime{width:100%;display:flex;justify-content:space-between;margin-top:auto;padding:14px;border-radius:12px;background:#eef4fa}.resultBar{width:100%;padding:16px;margin-top:12px;border-radius:14px;text-align:center;background:var(--success);color:#fff;font-size:1.15rem;font-weight:800}.resultBar.bad{background:var(--danger)}
   .waiting { flex:1;min-height:0;display:flex;flex-direction:column;margin-top:20px; }.ready{padding:18px;border-radius:16px;background:var(--primary);color:#fff}.ready h2{font-family:Outfit,"Noto Sans Thai",sans-serif;margin:4px 0;font-size:clamp(.8rem,1.7vw,1.3rem);white-space:nowrap}.ready p{margin:0;opacity:.8;font-size:.84rem}.waitingContent{display:flex;flex:1;min-height:0;flex-direction:column;margin-top:14px;gap:14px}.recentPanel{display:flex;flex:1;min-height:0;flex-direction:column}.listTitle{display:flex;justify-content:space-between;margin:0 0 10px;font-weight:800}.list { min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px; }.item{display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:12px;padding:8px}.item img{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#e6edf5}.item div{min-width:0;flex:1}.item b,.item span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.item span{font-size:.72rem;color:#64748b}.tag{font-size:.7rem;font-weight:800;color:var(--primary)}
   .news{position:static;height:40px;flex-shrink:0;overflow:hidden;white-space:nowrap;border-radius:10px;padding:8px;background:var(--primary);color:#fff;font-weight:700}.news div{display:inline-block;animation:run 30s linear infinite}@keyframes run{to{transform:translateX(-50%)}}@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes pulse{50%{opacity:.35}}
-  .saver{position:fixed;inset:0;z-index:60;display:none;color:#fff;background:#111c2c}.saver.show{display:grid;grid-template-columns:1.35fr 1fr}.saverMedia{min-height:38vh;overflow:hidden;background:#000;display:grid;place-items:center}.saverMedia img,.saverMedia video{width:100%;height:100%;object-fit:contain}.saverPanel{display:flex;flex-direction:column;justify-content:center;gap:22px;padding:38px;min-height:0;overflow-y:auto}.saverGroup{border-top:1px solid rgba(255,255,255,.15);padding-top:18px}.saverHead{display:flex;align-items:end;justify-content:space-between}.saverGroup .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.saverGroup .grid div{background:rgba(255,255,255,.09);border-radius:9px;padding:16px}.saverGroup .grid b{display:block;font-size:3rem;color:#70dda7}
-  .saverClasses{border-top:1px solid rgba(255,255,255,.15);padding-top:14px;display:flex;flex-direction:column;gap:7px}
-  .saverRow{display:grid;grid-template-columns:1.7fr repeat(5,1fr);gap:8px;align-items:center;background:rgba(255,255,255,.08);border-radius:9px;padding:11px 16px;font-size:1.05rem}
-  .saverRow span{text-align:right;font-variant-numeric:tabular-nums}.saverRow span:first-child{text-align:left;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .saverRowHead{background:transparent;opacity:.65;font-size:.8rem;padding:2px 16px}
+  :root{--saver-bg:210 30% 96%;--saver-surface:0 0% 100%;--saver-muted:214 16% 44%;--saver-line:212 25% 87%;--saver-good:153 64% 30%;--saver-good-soft:151 46% 94%;--saver-bad:352 66% 43%;--saver-bad-soft:352 70% 96%;--saver-media:216 28% 10%}
+  .saver{position:fixed;inset:0;z-index:60;display:none;color:var(--ink);background:hsl(var(--saver-bg));letter-spacing:0}
+  .saver.show{display:grid;grid-template-columns:minmax(0,38%) minmax(0,62%)}
+  .saver.show.noMedia{grid-template-columns:minmax(0,1fr)}.saver.noMedia .saverMedia{display:none}
+  .saverMedia{position:relative;min-width:0;min-height:0;overflow:hidden;background:hsl(var(--saver-media));display:grid;place-items:center}
+  .saverMedia img,.saverMedia video{width:100%;height:100%;object-fit:contain}.saverMedia video{position:static;translate:none}
+  .saverPanel{display:flex;flex-direction:column;gap:18px;padding:24px;min-width:0;min-height:0;overflow-y:auto;border-top:6px solid var(--primary)}
+  .saverBrand{display:flex;align-items:center;gap:14px;flex-shrink:0}.saverBrand img{width:56px;height:56px;object-fit:contain;flex-shrink:0}.saverBrand div{min-width:0}
+  .saverPanel h1{font-size:1.5rem;line-height:1.45;margin:2px 0 4px;overflow-wrap:anywhere;font-weight:800}.saverEyebrow{font-size:.8rem;color:var(--primary);font-weight:800}.saverDate{font-size:.85rem;color:hsl(var(--saver-muted));line-height:1.6}
+  .saverClasses{display:flex;flex:1;min-height:0;flex-direction:column;gap:6px}.saverTableTitle{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:8px;font-size:1.05rem}
+  .saverTableTitle span{font-size:.78rem;color:hsl(var(--saver-muted))}.saverRows{min-height:0;flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+  .saverRow{display:grid;grid-template-columns:minmax(100px,1.65fr) repeat(4,minmax(36px,.65fr)) minmax(66px,1fr) minmax(64px,1fr);gap:6px;align-items:center;background:hsl(var(--saver-surface));border:1px solid hsl(var(--saver-line));border-radius:8px;padding:12px;font-size:1rem;line-height:1.5;flex-shrink:0;min-width:0}
+  .saverRow[hidden]{display:none}.saverRow span{text-align:center;min-width:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.saverRow span:first-child{text-align:left;font-weight:800;white-space:normal}.saverRow span:nth-child(2),.saverRow span:last-child{color:hsl(var(--saver-good));font-weight:800}.saverRow span:nth-child(5){color:hsl(var(--saver-bad))}.saverRow span:last-child{background:hsl(var(--saver-good-soft));border-radius:6px;padding:4px 0}.saverRow small{display:none}
+  .saverRowHead{background:transparent;border:0;color:hsl(var(--saver-muted));font-size:.76rem;padding:0 12px 4px}.saverRowHead span:last-child{background:transparent;padding:0}.saverRowHead span{font-weight:600!important;color:inherit!important}
+  .saverFooter{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid hsl(var(--saver-line));padding-top:12px;flex-shrink:0;font-size:.8rem;color:hsl(var(--saver-muted))}.saverReady{display:flex;align-items:center;gap:7px}.saverReady i{width:7px;height:7px;border-radius:50%;background:hsl(var(--saver-good))}.saverPages{font-variant-numeric:tabular-nums;color:var(--primary);font-weight:700}
+  .saverGroup{padding:16px 0;border-top:1px solid hsl(var(--saver-line))}.saverHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.saverHead>span{font-size:.85rem;color:hsl(var(--saver-muted))}.saverGroup .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.saverGroup .grid div{background:hsl(var(--saver-good-soft));border-radius:8px;padding:16px}.saverGroup .grid div:last-child{background:hsl(var(--saver-bad-soft))}.saverGroup .grid b{display:block;font-size:2.5rem;color:hsl(var(--saver-good))}.saverGroup .grid div:last-child b{color:hsl(var(--saver-bad))}
+  @media(orientation:portrait){.saver.show{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,30%) minmax(0,70%)}.saver.show.noMedia{grid-template-rows:minmax(0,1fr)}}
+  @media(max-width:599px){.saverPanel{padding:16px;gap:12px}.saverPanel h1{font-size:1.15rem}.saverBrand img{width:42px;height:42px}.saverDate{font-size:.75rem}.saverRowHead{display:none}.saverRow{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 4px;padding:10px;font-size:.85rem}.saverRow span:first-child{grid-column:1/-1}.saverRow small{display:block;font-size:.6rem;color:hsl(var(--saver-muted));font-weight:500;line-height:1.6}.saverRow span:last-child{padding:0}.saverTableTitle{font-size:.95rem}.saverFooter{font-size:.7rem}}
+  @media(orientation:landscape) and (max-height:650px){.saverPanel{padding:14px;gap:10px}.saverPanel h1{font-size:1.15rem}.saverBrand img{width:42px;height:42px}.saverRow{padding-block:7px}.saverFooter{padding-top:8px}}
   @media(max-width:850px){.today{display:none}.top{padding:10px 14px}.app{grid-template-columns:1fr;height:calc(100vh - 82px);overflow:auto}.stage{min-height:55vh}.side{min-height:45vh}.brand span{display:none}}
-  .saverMedia{position:relative;min-height:0}.saverMedia video{position:static;translate:none}
   @media(orientation:portrait){
     .top{height:122px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 14px;padding:12px 20px}
     .brand{grid-column:1;grid-row:1}.brand span{display:block}.timebox{grid-column:2;grid-row:1}.clock{font-size:1.5rem}
@@ -63,12 +76,11 @@ KIOSK_HTML = r"""<!doctype html>
     .profile.show{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto auto;column-gap:22px;padding-top:16px;align-items:center;align-content:start}
     .profile .avatar{grid-column:1;grid-row:1/4;justify-self:center;width:112px;height:112px}.profile h2{grid-column:1;grid-row:4;margin:10px 0 4px;align-self:start}.profile .role{grid-column:1;grid-row:5;align-self:start;text-align:center}
     .facts{grid-column:2;grid-row:1;margin-top:0}.resultTime{grid-column:2;grid-row:2;margin-top:10px}.resultBar{grid-column:2;grid-row:3;margin-top:10px;align-self:start}
-    .saver.show{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}.saverPanel{padding:24px;min-height:0;overflow-y:auto}.saverGroup .grid{grid-template-columns:1fr 1fr}
   }
   @media(orientation:portrait) and (max-height:950px){.app{grid-template-rows:minmax(0,51%) minmax(0,49%)}.side{padding-block:14px}.visitorBox img{width:96px;height:96px}}
   @media(orientation:portrait) and (max-width:599px){
     .top{height:136px;padding:8px 12px;gap:6px}.brand{grid-column:1/-1}.brand b{white-space:normal;font-size:1rem}.brand span{display:none}.brandMark,.brand img{width:36px;height:36px}.timebox{grid-column:1/-1;grid-row:2;justify-content:space-between;text-align:left}.clock{font-size:1.25rem}.date{font-size:.65rem}.adminBtn{padding:8px 10px}.today{grid-row:3;font-size:.75rem;padding:4px}.today b{font-size:.9rem}
-    .app{height:calc(100dvh - 136px)}.side{padding:12px}.welcome{font-size:1rem}.welcome i{width:32px;height:32px;flex-shrink:0}.profile.show{column-gap:12px}.profile .avatar{width:80px;height:80px}.profile h2{font-size:1.1rem}.fact{padding:8px}.fact b{font-size:.9rem}.resultTime{flex-wrap:wrap;padding:8px;gap:4px;font-size:.8rem}.resultBar{padding:10px;font-size:1rem}.saverPanel{padding:14px;gap:12px}.saverPanel h1{font-size:1.3rem}.saverGroup{padding-top:10px}.saverGroup .grid div{padding:10px}.saverGroup .grid b{font-size:2rem}
+    .app{height:calc(100dvh - 136px)}.side{padding:12px}.welcome{font-size:1rem}.welcome i{width:32px;height:32px;flex-shrink:0}.profile.show{column-gap:12px}.profile .avatar{width:80px;height:80px}.profile h2{font-size:1.1rem}.fact{padding:8px}.fact b{font-size:.9rem}.resultTime{flex-wrap:wrap;padding:8px;gap:4px;font-size:.8rem}.resultBar{padding:10px;font-size:1rem}
   }
   @media(prefers-reduced-motion:reduce){*:not(.news):not(.news *){animation-duration:.001ms!important;transition-duration:.001ms!important}}
 .visitorBox{margin-bottom:12px;padding:12px;border-radius:16px;border:2px solid rgba(37,99,235,.35);background:#fff;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
@@ -94,7 +106,7 @@ body{display:flex;flex-direction:column}.top{flex-shrink:0}.app{flex:1;min-heigh
 </div>
 <div id="powerWarning" role="alert" style="display:none;position:fixed;inset:0;z-index:100;background:var(--ink);color:var(--surface);align-items:center;justify-content:center;flex-direction:column;gap:20px"><h2 id="powerCountdown"></h2><button class="adminBtn" onclick="cancelPower()">ยกเลิกปิดเครื่อง</button></div>
 <div class="news" id="newsBox" style="display:none"><div id="news"></div></div>
-<div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"><div style="font-size:2.5rem;font-weight:800" id="saverTitle">สถิติวันนี้</div></div><div class="saverPanel"><div><small style="opacity:.65">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool" style="margin:5px 0">โรงเรียนของเรา</h1><span id="saverDate" style="opacity:.65"></span></div><div class="saverClasses" id="saverClasses" style="display:none"></div><div class="saverGroup" id="studentGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">0</b></div><div>ขาด<b id="studentAbsent">0</b></div></div></div><div class="saverGroup" id="staffGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">0</b></div><div>ขาด<b id="staffAbsent">0</b></div></div></div><div style="opacity:.65">กล้องพร้อมสแกนตลอดเวลา</div></div></div>
+<div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"></div><section class="saverPanel"><header class="saverBrand"><img id="saverLogo" alt="" style="display:none"/><div><small class="saverEyebrow">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool">โรงเรียนของเรา</h1><div id="saverDate" class="saverDate"></div></div></header><div class="saverClasses" id="saverClasses" style="display:none"></div><div class="saverGroup" id="studentGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">—</b></div><div>ขาด<b id="studentAbsent">—</b></div></div></div><div class="saverGroup" id="staffGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">—</b></div><div>ขาด<b id="staffAbsent">—</b></div></div></div><footer class="saverFooter"><span class="saverReady"><i></i>กล้องพร้อมสแกนตลอดเวลา</span><span id="saverPages" class="saverPages"></span></footer></section></div>
 <script>
 const $ = (id) => document.getElementById(id);
 let lastVoiceTest = 0;
@@ -392,7 +404,7 @@ async function loadBrand() {
     $('liveLabel').textContent = c.kiosk_live_label || 'กล้องสด';
     $('todayLabel').textContent = c.kiosk_today_label === 'เข้าเรียนวันนี้' ? 'วันนี้' : (c.kiosk_today_label || 'วันนี้');
     $('classLabel').textContent = c.kiosk_class_label || 'ชั้นเรียน'; $('idLabel').textContent = c.kiosk_id_label || 'รหัส'; $('timeLabel').textContent = c.kiosk_time_label || 'เวลาเข้า-ออก';
-    if ($('saverTitle')) $('saverTitle').textContent = (c.school_name || '') + ' — สถิติวันนี้';
+    if (c.logo_url) { $('saverLogo').src = c.logo_url; $('saverLogo').style.display = ''; $('saverLogo').onerror = () => { $('saverLogo').style.display = 'none'; }; }
     if (c.logo_url) { $('logo').src = c.logo_url; $('logo').style.display = 'block'; $('logoFallback').style.display = 'none'; }
   } catch (e) {}
 }
@@ -446,11 +458,14 @@ async function loadStats() {
       $('studentGroup').style.display = 'none'; $('staffGroup').style.display = 'none';
       classBox.style.display = 'flex';
       const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-      classBox.innerHTML = '<div class="saverRow saverRowHead"><span>ระดับชั้น</span><span>มา</span><span>สาย</span><span>ลา</span><span>ขาด</span><span>ร้อยละ</span></div>' + classes.map((c) => {
+      const labels = ['ระดับชั้น', 'มา', 'สาย', 'ลา', 'ขาด', 'ยังไม่บันทึก', 'ร้อยละ'];
+      classBox.innerHTML = '<div class="saverTableTitle"><b>การมาโรงเรียนรายระดับชั้น</b><span>มา รวมผู้มาสาย · หน่วย: คน</span></div><div class="saverRow saverRowHead">' + labels.map(label => '<span>' + label + '</span>').join('') + '</div><div class="saverRows" id="saverRows">' + classes.map((c) => {
         const came = (Number(c.present) || 0) + (Number(c.late) || 0);
-        const pct = c.evidence && Number(c.total) > 0 ? ((came / Number(c.total)) * 100).toFixed(1) : '—';
-        return '<div class="saverRow"><span>' + esc(c.name) + '</span><span>' + came + '</span><span>' + (Number(c.late) || 0) + '</span><span>' + (Number(c.leave) || 0) + '</span><span>' + (Number(c.absent) || 0) + '</span><span>' + pct + '</span></div>';
-      }).join('');
+        const pct = c.evidence && Number(c.total) > 0 ? ((came / Number(c.total)) * 100).toFixed(1) + '%' : '—';
+        const values = [c.name, came, Number(c.late) || 0, Number(c.leave) || 0, Number(c.absent) || 0, c.unrecorded ?? '—', pct];
+        return '<div class="saverRow">' + values.map((value, i) => '<span>' + (i ? '<small>' + labels[i] + '</small>' : '') + esc(value) + '</span>').join('') + '</div>';
+      }).join('') + '</div>';
+      requestAnimationFrame(layoutSaverPages);
     } else {
       classBox.style.display = 'none'; classBox.innerHTML = '';
       $('studentGroup').style.display = ''; $('staffGroup').style.display = '';
@@ -467,6 +482,26 @@ async function loadStats() {
     if (v && v.paused) { try { await v.play(); } catch (e) {} }
   } catch (e) {}
 }
+// Paginate by measured row heights; every grade remains visible without scrolling.
+let saverPage = 0, saverPageCount = 1;
+function layoutSaverPages() {
+  const box = $('saverRows');
+  if (!box || !$('saver').classList.contains('show')) { $('saverPages').textContent = ''; return; }
+  const rows = Array.from(box.children);
+  rows.forEach(row => { row.hidden = false; });
+  const available = box.clientHeight;
+  let used = 0, page = 0;
+  rows.forEach(row => {
+    const height = row.getBoundingClientRect().height;
+    if (used && used + 6 + height > available) { page++; used = 0; }
+    row.dataset.page = String(page); used += height + (used ? 6 : 0);
+  });
+  saverPageCount = page + 1; saverPage %= saverPageCount;
+  rows.forEach(row => { row.hidden = Number(row.dataset.page) !== saverPage; });
+  $('saverPages').textContent = saverPageCount > 1 ? 'หน้า ' + (saverPage + 1) + ' / ' + saverPageCount : '';
+}
+new ResizeObserver(() => requestAnimationFrame(layoutSaverPages)).observe(document.querySelector('.saverPanel'));
+setInterval(() => { if ($('saver').classList.contains('show')) { saverPage = (saverPage + 1) % saverPageCount; layoutSaverPages(); } }, 8000);
 let remoteSaver = false;
 let statsMode = true, windowsClosed = false, checkinOnly = false, idleMinutes = 0;
 let lastActivity = Date.now();
@@ -474,7 +509,8 @@ function bumpActivity() { lastActivity = Date.now(); applySaver(); }
 function applySaver() {
   const idle = idleMinutes > 0 && Date.now() - lastActivity > idleMinutes * 60000;
   const show = remoteSaver || (statsMode && (windowsClosed || idle));
-  $('saver').className = 'saver' + (show ? ' show' : '');
+  $('saver').className = 'saver' + (show ? ' show' : '') + (broadcastMedia.length ? '' : ' noMedia');
+  if (show) requestAnimationFrame(layoutSaverPages);
   if (show) showBroadcast(); else {
     stopBroadcast();
     $('saverMedia').replaceChildren();
@@ -492,6 +528,8 @@ function stopBroadcast() {
 function updateBroadcast(items) {
   const old = broadcastMedia[broadcastIndex % Math.max(1, broadcastMedia.length)];
   broadcastMedia = items.filter(item => item.url && item.is_active !== false);
+  $('saver').classList.toggle('noMedia', !broadcastMedia.length);
+  requestAnimationFrame(layoutSaverPages);
   const index = old ? broadcastMedia.findIndex(item => item.id === old.id) : -1;
   broadcastIndex = index >= 0 ? index : 0;
   // Refresh signed URLs without interrupting the current clip on each poll.
