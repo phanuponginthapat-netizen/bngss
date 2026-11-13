@@ -267,6 +267,13 @@
       "when": 1794533688818,
       "tag": "0037_facegate_voice_commands",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794539134402,
+      "tag": "0038_store_facegate_scan_media_paths",
+      "breakpoints": true
     }
   ]
 }

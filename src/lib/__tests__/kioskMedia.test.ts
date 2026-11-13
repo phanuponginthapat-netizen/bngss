@@ -21,4 +21,9 @@ describe("Kiosk media on the active backend", () => {
     const db = { storage: { from: () => ({ createSignedUrl: async () => ({ error: new Error("missing") }) }) } };
     expect(await kioskMediaUrl(db, "https://old.example/storage/v1/object/public/profile-images/missing.jpg")).toBeNull();
   });
+  it("signs a stored private path against the default bucket", async () => {
+    const sign = vi.fn().mockResolvedValue({ data: { signedUrl: "fresh" }, error: null });
+    expect(await kioskMediaUrl({ storage: { from: () => ({ createSignedUrl: sign }) } }, "scans/2026-11-13/unknown-7.jpg")).toBe("fresh");
+    expect(sign).toHaveBeenCalledWith("scans/2026-11-13/unknown-7.jpg", 3600);
+  });
 });
