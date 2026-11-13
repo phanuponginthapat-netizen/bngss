@@ -38,7 +38,10 @@ export default function VisitorPhotoCapture({ photo, onPhoto }: { photo: string;
         const v = video.current;
         if (!v?.videoWidth) { await new Promise(r => setTimeout(r, 250)); continue; }
         setMessage(steps[samples.length]);
-        const face = await api.detectFaceWithLandmarks(v);
+        const faces = await api.getAllDescriptors(v, undefined, { singleFace: false });
+        if (faces.length !== 1) { stable = 0; setMessage('ให้มีผู้มาติดต่อเพียงคนเดียวในภาพ'); await new Promise(r => setTimeout(r, 300)); continue; }
+        const detected = faces[0];
+        const face = detected.descriptor ? { descriptor: detected.descriptor, yaw: api.estimateYaw(detected.landmarks), ear: api.averageEAR(detected.landmarks) } : null;
         if (run !== generation.current) return;
         if (!face?.descriptor) { stable = 0; setMessage('ไม่พบใบหน้าชัดเจน กรุณามองกล้อง'); await new Promise(r => setTimeout(r, 300)); continue; }
         const index = samples.length;
