@@ -799,6 +799,16 @@ a[href*="lovable.dev"][href*="utm"] {
 .pr-safe { padding-right: var(--safe-right); }
 .min-h-screen-safe { min-height: calc(100vh - var(--safe-top) - var(--safe-bottom)); }
 
+@media (max-width: 767px) {
+  .mobile-app-header { background: hsl(var(--card)); box-shadow: none; backdrop-filter: none; }
+  .mobile-header-actions { border: 0; background: transparent; padding: 0; gap: 0; }
+  .mobile-header-actions > button,
+  .mobile-header-actions > div > button { width: 44px; height: 44px; flex-shrink: 0; }
+  .mobile-app-content { padding-left: max(var(--safe-left), 12px); padding-right: max(var(--safe-right), 12px); }
+  .mobile-app-shell h1, .mobile-app-shell h2, .mobile-app-shell h3 { letter-spacing: 0; }
+  .mobile-app-nav { box-shadow: 0 -2px 12px hsl(var(--foreground) / 0.04); }
+}
+
 /* Always: kill iOS tap highlight, prevent double-tap zoom on buttons */
 html, body {
   -webkit-tap-highlight-color: transparent;

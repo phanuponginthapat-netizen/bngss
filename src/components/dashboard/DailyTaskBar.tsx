@@ -38,9 +38,9 @@ export default function DailyTaskBar() {
         </CollapsibleTrigger>
       </Collapsible>
     </div>
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-      {items.map(item => <Button key={item.url} asChild variant="outline" className="h-auto min-h-14 justify-start gap-2 whitespace-normal px-3 py-3 text-left text-xs">
-        <Link to={item.url}><item.icon className="h-4 w-4 shrink-0 text-primary" /><span>{item.title}</span></Link>
+    <div className="grid grid-cols-3 gap-2 xl:grid-cols-6">
+      {items.map(item => <Button key={item.url} asChild variant="outline" className="h-auto min-h-24 flex-col justify-start gap-2 whitespace-normal rounded-md px-2 py-3 text-center text-xs sm:min-h-14 sm:flex-row sm:items-center sm:justify-start sm:px-3 sm:text-left">
+        <Link to={item.url}><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 sm:h-6 sm:w-6"><item.icon className="h-5 w-5 text-primary sm:h-4 sm:w-4" /></span><span className="min-w-0 break-words leading-5">{item.title}</span></Link>
       </Button>)}
     </div>
     <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
