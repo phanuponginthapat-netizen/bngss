@@ -439,6 +439,22 @@ async function loadStats() {
     }
     $('studentTotal').textContent = s.total_students ?? '—'; $('studentPresent').textContent = s.students_present ?? '—'; $('studentAbsent').textContent = s.absent_students ?? '—';
     $('staffTotal').textContent = s.total_staff ?? '—'; $('staffPresent').textContent = s.staff_present ?? '—'; $('staffAbsent').textContent = s.absent_staff ?? '—';
+    // รายงานการมาโรงเรียนตามระดับชั้น — ชุดเดียวกับหน้าแรกโรงเรียน
+    const classes = Array.isArray(s.classes) ? s.classes : [];
+    const classBox = $('saverClasses');
+    if (classes.length) {
+      $('studentGroup').style.display = 'none'; $('staffGroup').style.display = 'none';
+      classBox.style.display = 'flex';
+      const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      classBox.innerHTML = '<div class="saverRow saverRowHead"><span>ระดับชั้น</span><span>มา</span><span>สาย</span><span>ลา</span><span>ขาด</span><span>ร้อยละ</span></div>' + classes.map((c) => {
+        const came = (Number(c.present) || 0) + (Number(c.late) || 0);
+        const pct = c.evidence && Number(c.total) > 0 ? ((came / Number(c.total)) * 100).toFixed(1) : '—';
+        return '<div class="saverRow"><span>' + esc(c.name) + '</span><span>' + came + '</span><span>' + (Number(c.late) || 0) + '</span><span>' + (Number(c.leave) || 0) + '</span><span>' + (Number(c.absent) || 0) + '</span><span>' + pct + '</span></div>';
+      }).join('');
+    } else {
+      classBox.style.display = 'none'; classBox.innerHTML = '';
+      $('studentGroup').style.display = ''; $('staffGroup').style.display = '';
+    }
     $('saverSchool').textContent = s.school_name || 'โรงเรียนของเรา'; $('saverDate').textContent = serverNow().toLocaleDateString('th-TH-u-ca-buddhist-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     checkinOnly = !!s.checkin_only;
     idleMinutes = Number(s.idle_stats_minutes || 0);
