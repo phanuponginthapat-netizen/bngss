@@ -402,7 +402,7 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
         threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
         return {**(extra or {}), 'result': 'ok', 'student_id': sid, 'name': name, 'student': person,
                 'avatar_url': person.get('avatar_url'), 'message': f'ผู้มาติดต่อ {name} กรุณาแจ้งเจ้าหน้าที่',
-                'speak': 'บันทึกผู้มาติดต่อแล้ว', 'next_delay_seconds': 2}
+                'speak': f'บันทึกผู้มาติดต่อแล้ว {name}', 'next_delay_seconds': 2}
     try:
         rule = evaluate_school_scan(settings, payload.get("direction") or settings.get("device_default_direction"), clock.now_tz(timezone.utc))
     except ValueError:
@@ -418,7 +418,7 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
         return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
                 "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
-                "speak": settings.get("voice_duplicate_text") or "บันทึกไปแล้ว",
+                "speak": f'{settings.get("voice_duplicate_text") or "บันทึกไปแล้ว"} {name}',
                 "next_delay_seconds": 1}
     _recent_ok[duplicate_key] = now
     threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
