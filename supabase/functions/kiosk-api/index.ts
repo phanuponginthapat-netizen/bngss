@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
         allRows(db,'personnel','id,employee_code,prefix,first_name,last_name,status'),
         allRows(db,'student_face_descriptors','id,student_id,descriptor,metrics,created_at,face_image'),
         allRows(db,'personnel_face_descriptors','id,personnel_id,descriptor,metrics,created_at,face_image'),
-        allRows(db,'visitor_logs','id,visitor_name,check_in,check_out,face_consent,face_approved_at,face_embedding,face_geometry,photo_url'),
+        allRows(db,'visitor_logs','id,visitor_name,check_in,check_out,face_consent,face_approved_at,face_embedding,face_geometry,photo_url,face_samples'),
       ]);
       const students=studentRows.filter(s=>s.status==='active');
       const visitors=(settings as any).visitor_register_enabled===true?visitorRows.filter(v=>activeVisitorFace(v,bkkDate())):[];
@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
       const rows = [
         ...((sFaces as any[]) ?? []).map((f) => ({ id: f.id, owner: f.student_id, ...f })),
         ...((pFaces as any[]) ?? []).map((f) => ({ id: f.id, owner: f.personnel_id, ...f })),
-        ...visitors.filter(v=>validFaceEmbedding(v.face_embedding)).map(v=>({id:v.id,owner:v.id,descriptor:v.face_embedding,metrics:{geometry:v.face_geometry},created_at:v.face_approved_at})),
+        ...visitors.flatMap(v=>Array.isArray(v.face_samples)?v.face_samples.filter((sample:any)=>validFaceEmbedding(sample.descriptor)).map((sample:any,i:number)=>({id:`${v.id}:${i}`,owner:v.id,descriptor:sample.descriptor,metrics:{geometry:null},created_at:v.face_approved_at})) : validFaceEmbedding(v.face_embedding)?[{id:v.id,owner:v.id,descriptor:v.face_embedding,metrics:{geometry:v.face_geometry},created_at:v.face_approved_at}]:[]),
       ].filter((f) => people.some(p=>p.id===f.owner)&&validFaceEmbedding(f.descriptor));
 
       const version = (f: any) => String(f.created_at ?? "");

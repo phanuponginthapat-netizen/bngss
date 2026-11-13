@@ -408,7 +408,7 @@ export default function KioskTabletPage() {
       </div>
 
       {display.news_enabled && display.news_text && (
-        <div className="fixed inset-x-5 bottom-2 z-10 overflow-hidden whitespace-nowrap rounded-xl bg-primary p-2 font-bold text-primary-foreground">
+        <div className="relative shrink-0 overflow-hidden whitespace-nowrap bg-primary p-2 font-bold text-primary-foreground">
           <div className="inline-block animate-[marquee_30s_linear_infinite]">{`${display.news_text}   •   `.repeat(8)}</div>
         </div>
       )}

@@ -2,3 +2,4 @@
 - FaceGate event lists resolve each scan photo separately and show a placeholder when one is unreadable, so a missing photo never hides the whole list; scan writers store the private path, never an expiring signed link.
 - Device controls send authenticated, server-role-checked commands with expiration, never report queued commands as executed or use a device key as administrator authorization.
 - Visitor face recognition requires explicit consent plus server-issued automatic registration approval and only current-day open visits; public and admin registration share camera capture and the visitor-checkin write boundary so approval cannot diverge; FaceGate evidence and QR print in isolated documents without dashboard controls.
+- Visitor enrollment uses camera-only motion challenges and multi-angle samples; PostgreSQL serializes duplicate comparisons across existing school and visitor faces, and browser-reported motion is not certified anti-spoof proof.

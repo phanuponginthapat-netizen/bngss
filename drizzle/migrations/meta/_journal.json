@@ -281,6 +281,13 @@
       "when": 1794544284888,
       "tag": "0039_kiosk_notification_cooldown",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794547078888,
+      "tag": "0040_visitor_live_samples",
+      "breakpoints": true
     }
   ]
 }
