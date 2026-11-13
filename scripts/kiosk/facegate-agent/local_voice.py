@@ -29,6 +29,8 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import threading
+import time
 
 import localdb as db
 
@@ -37,6 +39,8 @@ CLOUD_TTS_URL = os.environ.get(
     "FACEGATE_TTS_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1/tts-th"
 )
 MIME = {".mp3": "audio/mpeg", ".wav": "audio/wav"}
+_fetch_lock = threading.Lock()
+_last_fetch = 0.0
 
 
 def _key(text: str) -> str:
@@ -67,6 +71,12 @@ def _store(text: str, data: bytes, ext: str) -> None:
 def _fetch_cloud(text: str, timeout: int = 20) -> bytes | None:
     """Natural Thai voice from the FaceGate service (internet needed once)."""
     try:
+        global _last_fetch
+        with _fetch_lock:
+            wait = 2.1 - (time.monotonic() - _last_fetch)
+            if wait > 0:
+                time.sleep(wait)
+            _last_fetch = time.monotonic()
         request = urllib.request.Request(
             CLOUD_TTS_URL,
             data=json.dumps({"text": text[:300]}).encode("utf-8"),
