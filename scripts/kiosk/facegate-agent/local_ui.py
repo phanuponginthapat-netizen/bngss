@@ -51,7 +51,7 @@ KIOSK_HTML = r"""<!doctype html>
   .saverRow span{text-align:right;font-variant-numeric:tabular-nums}.saverRow span:first-child{text-align:left;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .saverRowHead{background:transparent;opacity:.65;font-size:.8rem;padding:2px 16px}
   @media(max-width:850px){.today{display:none}.top{padding:10px 14px}.app{grid-template-columns:1fr;height:calc(100vh - 82px);overflow:auto}.stage{min-height:55vh}.side{min-height:45vh}.brand span{display:none}}
-  .saverMedia{position:relative;min-height:0}.saverMedia video{position:static;translate:none}
+  .saverMedia{position:relative;min-height:0}.saverMedia video{position:static;translate:none}.soundEnable{position:absolute;z-index:1;bottom:24px;left:50%;transform:translateX(-50%);max-width:90%;padding:14px 20px;border:0;border-radius:8px;background:var(--primary);color:var(--surface,#fff);font:inherit;cursor:pointer}
   @media(orientation:portrait){
     .top{height:122px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 14px;padding:12px 20px}
     .brand{grid-column:1;grid-row:1}.brand span{display:block}.timebox{grid-column:2;grid-row:1}.clock{font-size:1.5rem}
