@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import {supabase} from '@/integrations/supabase/client';
 import {Button} from '@/components/ui/button';
 import {RefreshCw} from 'lucide-react';
-import {resolveStorageUrl} from '@/lib/storageUrl';
+import {resolveKioskMediaUrl} from '@/lib/kioskMediaUrl';
 type Alert={id:string;device_name:string|null;kind:string;note:string|null;created_at:string;snapshot_url:string|null};
 export default function FacegateAlerts(){
  const [rows,setRows]=useState<Alert[]>([]),[error,setError]=useState('');
