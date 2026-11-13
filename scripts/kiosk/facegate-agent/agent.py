@@ -68,6 +68,8 @@ import clock
 import door
 import power
 import power_profile
+from voice_prepare import VoicePreparation
+voice_preparation = VoicePreparation()
 import qr_reader
 from school_scan_policy import evaluate_school_scan
 from scan_guide import face_inside, completed_result, NEXT_PERSON_SECONDS
@@ -109,7 +111,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.5"
+AGENT_VERSION = "1.12.6"
 
 
 def default_cache_dir() -> str:
@@ -390,6 +392,11 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     name = person.get("full_name") or "ผู้ใช้งาน"
     if not person or person.get("is_active") is False:
         return {"result": "denied", "message": "ไม่พบผู้ใช้งานที่กำลังใช้งานในทะเบียน", "next_delay_seconds": 1}
+    if person.get('person_type') == 'visitor':
+        threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
+        return {**(extra or {}), 'result': 'ok', 'student_id': sid, 'name': name, 'student': person,
+                'avatar_url': person.get('avatar_url'), 'message': f'ผู้มาติดต่อ {name} กรุณาแจ้งเจ้าหน้าที่',
+                'speak': 'บันทึกผู้มาติดต่อแล้ว', 'next_delay_seconds': 2}
     try:
         rule = evaluate_school_scan(settings, payload.get("direction") or settings.get("device_default_direction"), clock.now_tz(timezone.utc))
     except ValueError:
@@ -623,6 +630,7 @@ def device_health() -> dict:
         notes.append("กล้องไม่ตอบสนอง")
     if info.get("door_ok") is False:
         notes.append("ไม่พบ micro:bit ประตู")
+    info["voice_progress"] = voice_preparation.status()
     info["health_note"] = " • ".join(notes)
     return info
 
@@ -697,8 +705,16 @@ def process_pending(pending: list[dict]) -> None:
         try:
             img_bytes = cached_image(item["id"])
             if img_bytes is None:
-                img_bytes = requests.get(item["url"], timeout=30).content
+                if str(item['url']).startswith('data:image/'):
+                    img_bytes = base64.b64decode(str(item['url']).split(',', 1)[1], validate=True)
+                else:
+                    response = requests.get(item['url'], timeout=30)
+                    response.raise_for_status()
+                    img_bytes = response.content
                 cache_image(item["id"], img_bytes)
+            if str(item['url']).startswith('data:image/'):
+                img_bytes = base64.b64decode(str(item['url']).split(',', 1)[1], validate=True)
+                cache_image(item['id'], img_bytes)
             arr = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
             face = embed_image(arr) if arr is not None else None
             if face is None:
@@ -715,12 +731,16 @@ def process_pending(pending: list[dict]) -> None:
         except Exception as exc:  # noqa: BLE001
             results.append({"face_id": item["id"], "error": str(exc)[:200]})
 
-    requests.post(
+    response = requests.post(
         f"{CLOUD_URL}/kiosk-api/embeddings",
         headers=HEADERS,
         json={"results": results},
         timeout=60,
     )
+
+    response.raise_for_status()
+    if response.json().get('saved', 0) != sum(1 for item in results if item.get('embedding')):
+        raise RuntimeError('Cloud did not confirm all prepared faces')
 
     # Make the new faces usable straight away instead of waiting for the next
     # sync round trip: a visitor who just registered can scan immediately.
@@ -805,10 +825,21 @@ def log_visitor(snapshot: str | None, direction: str | None) -> dict | None:
             timeout=15,
         )
         data = res.json()
-        return data if data.get("result") == "visitor" else None
+        res.raise_for_status()
+        return data if data.get("visitor") else None
     except Exception as exc:  # noqa: BLE001
         print(f"[agent] visitor log failed: {exc}")
         return None
+
+
+def report_command(data: dict, ok: bool, scheduled: bool = False) -> None:
+    command_id = data.get('command_id')
+    if not command_id:
+        return
+    response = requests.post(f'{CLOUD_URL}/kiosk-api/command-result', headers=HEADERS,
+        json={'id': command_id, 'status': 'scheduled' if ok and scheduled else 'completed' if ok else 'failed',
+              'detail': str(power.status().get('last_error') or '') if not ok else ''}, timeout=10)
+    response.raise_for_status()
 
 
 def command_once() -> None:
@@ -836,6 +867,8 @@ def command_once() -> None:
         state["free_open"] = False
         door.deny()
         print("[agent] remote lock")
+    if command:
+        report_command(data, bool(door.status().get("connected")))
 
 
 def power_once() -> None:
@@ -856,14 +889,28 @@ def power_once() -> None:
     if command == "wake":
         # Any online FaceGate machine on the same LAN can wake a sleeping kiosk.
         print("[power] remote command: wake")
-        power.wake_lan(
+        ok = power.wake_lan(
             str(data.get("wake_mac") or ""),
             str(data.get("wake_broadcast") or "255.255.255.255"),
             int(data.get("wake_port") or 9),
         )
+        report_command(data, ok)
+    elif command == 'prepare_voice':
+        import local_voice
+        with lock:
+            people, settings = list(state['students'].values()), dict(state['settings'])
+        ok = voice_preparation.start(people, settings, local_voice.synthesize)
+        report_command(data, ok, scheduled=True)
+    elif command == 'test_voice':
+        import local_voice
+        clip = local_voice.synthesize('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ')
+        if clip:
+            state['voice_test_at'] = time.time()
+        report_command(data, bool(clip))
     elif command:
         print(f"[power] remote command: {command}")
-        power.apply(str(command), 60)
+        ok = power.apply(str(command), 60)
+        report_command(data, ok, scheduled=command in ('shutdown', 'sleep'))
 
     if data.get("power_saving_enabled"):
         idle_minutes = float(data.get("screen_idle_minutes") or 0)
@@ -914,6 +961,8 @@ def power_command(req: PowerRequest):
     if req.command in ("screen_on", "cancel"):
         with lock:
             state["last_activity"] = time.time()
+    if req.command not in ("screen_on", "cancel"):
+        return {"ok": False, "error": "use authenticated school administration"}
     ok = power.apply(req.command, int(req.seconds or 60))
     return {"ok": ok, **power.status()}
 
@@ -1408,11 +1457,22 @@ if not STANDALONE and not SATELLITE:
 
     @app.get("/local/kiosk-api/recent")
     def cloud_recent():
-        return _cloud_get("recent", _local_recent)
+        result = dict(_cloud_get("recent", _local_recent))
+        result["voice_test_at"] = state.get("voice_test_at")
+        return result
 
     @app.get("/local/kiosk-api/today-stats")
     def cloud_today_stats():
         return _cloud_get("today-stats", _local_stats)
+
+    @app.get('/local/api/public/visit/qr.svg')
+    def cloud_visit_qr():
+        import qrcode
+        import qrcode.image.svg
+        from fastapi.responses import Response
+        output = io.BytesIO()
+        qrcode.make('https://bngss.online/visit', image_factory=qrcode.image.svg.SvgPathImage).save(output)
+        return Response(content=output.getvalue(), media_type='image/svg+xml')
 
     @app.post("/local/kiosk-api/live")
     async def cloud_live(request: Request):

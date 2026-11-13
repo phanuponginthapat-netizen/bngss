@@ -86,6 +86,7 @@ KIOSK_HTML = r"""<!doctype html>
 <div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"><div style="font-size:2.5rem;font-weight:800" id="saverTitle">สถิติวันนี้</div></div><div class="saverPanel"><div><small style="opacity:.65">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool" style="margin:5px 0">โรงเรียนของเรา</h1><span id="saverDate" style="opacity:.65"></span></div><div class="saverGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">0</b></div><div>ขาด<b id="studentAbsent">0</b></div></div></div><div class="saverGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">0</b></div><div>ขาด<b id="staffAbsent">0</b></div></div></div><div style="opacity:.65">กล้องพร้อมสแกนตลอดเวลา</div></div></div>
 <script>
 const $ = (id) => document.getElementById(id);
+let lastVoiceTest = 0;
 let display = { mirror: true, rotate: 0, voice_enabled: true, next_delay_seconds: 5 };
 let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
@@ -198,7 +199,7 @@ async function speakOnDevice(text) {
       clipCache.set(text, url);
     }
     const audio = new Audio(url);
-    audio.volume = Math.min(Math.max(Number(display.voice_volume || 1), 0), 1);
+    audio.volume = Math.min(Math.max(Number(display.voice_volume ?? 1), 0), 1);
     audio.playbackRate = Math.min(Math.max(Number(display.voice_rate || 1), 0.5), 2);
     await audio.play();
     return true;
@@ -211,7 +212,7 @@ async function speak(text) {
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'th-TH'; u.voice = thaiVoice;
-      u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume || 1);
+      u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume ?? 1);
       speechSynthesis.cancel(); speechSynthesis.speak(u);
       return;
     } catch (e) {}
@@ -354,6 +355,7 @@ async function loadBrand() {
 async function loadRecent() {
   try {
     const data = await (await fetch('/local/kiosk-api/recent')).json();
+    if(data.voice_test_at && data.voice_test_at > lastVoiceTest){lastVoiceTest=data.voice_test_at; speak('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ');}
     display = data.display || display;
     broadcastMedia = data.broadcast_media || [];
     applyCameraLook();
@@ -383,7 +385,7 @@ async function loadStats() {
     // Visitor QR code: only shown while the admin keeps the mode open.
     const vBox = $('visitorBox');
     if (s.visitor_register_enabled) {
-      const url = location.origin + '/visit';
+      const url = s.visitor_url || (location.origin + '/visit');
       $('visitorQr').src = '/local/api/public/visit/qr.svg';
       $('visitorUrl').textContent = url;
       $('visitorCount').textContent = s.visitors_present || 0;
