@@ -1,12 +1,7 @@
-name: Auto Deploy (DB → Functions → Web)
+name: Auto Deploy Web
 
-# ทุก push ขึ้น main จะรันอัตโนมัติตามลำดับ:
-#   1) push migrations ขึ้น Supabase ของโรงเรียน
-#   2) deploy edge functions
-#   3) build + deploy เว็บขึ้น Vercel
-# ต้องมี GitHub Secrets: SUPABASE_ACCESS_TOKEN, VERCEL_TOKEN
-# (ไม่บังคับ) SUPABASE_PROJECT_REF ถ้าต้องการ override backend
-
+# Backend deployment is managed by Lovable Cloud, not GitHub CLI jobs.
+# GitHub continues to build and deploy the web through the existing Vercel job.
 on:
   push:
     branches: [main]
@@ -51,21 +46,8 @@ jobs:
           echo "functions=$(has '^supabase/(functions/|config\.toml)')"              >> "$GITHUB_OUTPUT"
           echo "web=$(has '^(src/|public/|index\.html|package(-lock)?\.json|vite\.config\.ts|vercel\.json|tailwind\.config\.ts)')" >> "$GITHUB_OUTPUT"
 
-  database:
-    needs: changes
-    if: needs.changes.outputs.db == 'true'
-    uses: ./.github/workflows/supabase-db-push.yml
-    secrets: inherit
-
-  functions:
-    needs: [changes, database]
-    # รันแม้ database ถูกข้าม แต่ไม่รันถ้า database ล้มเหลว
-    if: always() && needs.changes.outputs.functions == 'true' && needs.database.result != 'failure'
-    uses: ./.github/workflows/deploy-edge-functions.yml
-    secrets: inherit
-
   web:
-    needs: [changes, database, functions]
-    if: always() && needs.changes.outputs.web == 'true' && needs.database.result != 'failure' && needs.functions.result != 'failure'
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     uses: ./.github/workflows/deploy-vercel.yml
     secrets: inherit
