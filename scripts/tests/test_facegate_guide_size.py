@@ -83,15 +83,24 @@ class GuideIsBigEnough(unittest.TestCase):
             guide["bottom"] - guide["top"], 0.60,
             f"displayed frame only covers {guide['bottom'] - guide['top']:.2f} "
             "of the picture height")
+        self._stays_inside_the_stage(guide)
 
     def test_portrait_guide_covers_most_of_the_picture_height(self):
         vh_share, width_share = guide_rule(r"\.stage\{min-height:0\}\.guide\{")
         guide = displayed_guide(**self.PORTRAIT, vh_share=vh_share,
                                 width_share=width_share)
         self.assertGreaterEqual(
-            guide["bottom"] - guide["top"], 0.75,
+            guide["bottom"] - guide["top"], 0.72,
             f"portrait frame only covers {guide['bottom'] - guide['top']:.2f} "
             "of the picture height")
+        self._stays_inside_the_stage(guide)
+
+    def _stays_inside_the_stage(self, guide):
+        """A frame clipped by the stage edge cannot be aimed at by a person."""
+        self.assertGreaterEqual(guide["top"], 0.0,
+                                f"frame is cut off at the top: {guide}")
+        self.assertLessEqual(guide["bottom"], 1.0,
+                             f"frame is cut off at the bottom: {guide}")
 
 
 if __name__ == "__main__":

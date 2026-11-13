@@ -52,7 +52,7 @@ KIOSK_HTML = r"""<!doctype html>
     .brand{grid-column:1;grid-row:1}.brand span{display:block}.timebox{grid-column:2;grid-row:1}.clock{font-size:1.5rem}
     .today{display:block;grid-column:1/-1;grid-row:2;text-align:center;padding:7px 14px;min-width:0;overflow:hidden;text-overflow:ellipsis}
     .app{height:calc(100vh - 122px);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(22rem,54%) minmax(0,46%);overflow:hidden}
-    .stage{min-height:0}.guide{width:min(46vh,66%)}
+    .stage{min-height:0}.guide{width:min(38vh,66%)}
     .side{min-height:0;border-left:0;border-top:1px solid #dce8f5;padding:18px 22px}
     .waiting{margin-top:14px}.waitingContent{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}.waitingContent:has(.visitorBox[style*="display: flex"]){grid-template-columns:repeat(2,minmax(0,1fr))}.visitorBox{margin:0;min-width:0;min-height:0;justify-content:center;overflow:hidden}.visitorBox img{width:118px;height:118px}.recentPanel{min-width:0}
     .profile.show{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:22px;padding-top:8px;align-items:center}
