@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,15 +25,16 @@ const DEPARTMENTS: { value: SchoolDepartment; label: string }[] = [
 
 const DEPT_ROLES: DeptRole[] = ["member", "head", "deputy_head", "section_head"];
 
-/**
- * Profile card for teachers/directors to self-declare their departments and
- * subject groups, including leadership level (head/deputy/section head).
- */
+/** Department writes retain the database's admin/director-only authorization. */
 export default function MyMembershipsCard() {
   const { session } = useAuthSession();
+  const { hasAdminPower, hasDirectorPower, readOnly, loading: roleLoading } = useUserRole();
+  const canManageDepartments = !roleLoading && !readOnly && (hasAdminPower || hasDirectorPower);
   const uid = session?.user?.id;
   const qc = useQueryClient();
 
+  const [newDept, setNewDept] = useState<SchoolDepartment | "">("");
+  const [newDeptRole, setNewDeptRole] = useState<DeptRole>("member");
   const [newGroup, setNewGroup] = useState<string>("");
   const [newGroupRole, setNewGroupRole] = useState<DeptRole>("member");
 
@@ -40,10 +42,12 @@ export default function MyMembershipsCard() {
     queryKey: ["profile-my-depts", uid],
     enabled: !!uid,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!uid) throw new Error("กรุณาเข้าสู่ระบบ");
+      const { data, error } = await supabase
         .from("user_departments")
         .select("id, department, dept_role, is_head")
-        .eq("user_id", uid!);
+        .eq("user_id", uid);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -52,12 +56,47 @@ export default function MyMembershipsCard() {
     queryKey: ["profile-my-groups", uid],
     enabled: !!uid,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!uid) throw new Error("กรุณาเข้าสู่ระบบ");
+      const { data, error } = await supabase
         .from("user_subject_groups")
         .select("id, subject_group, group_role")
-        .eq("user_id", uid!);
+        .eq("user_id", uid);
+      if (error) throw error;
       return data || [];
     },
+  });
+
+  const departmentMutation = useMutation({
+    mutationFn: async (action: { kind: "add" } | { kind: "update"; id: string; role: DeptRole } | { kind: "remove"; id: string }) => {
+      if (!uid || !canManageDepartments) throw new Error("เฉพาะผู้ดูแลระบบหรือผู้อำนวยการเท่านั้น");
+      if (depts.isError || depts.isPending) throw new Error("กรุณาโหลดฝ่ายงานให้สำเร็จก่อน");
+      if (action.kind === "add") {
+        if (!newDept) throw new Error("เลือกฝ่ายงานก่อน");
+        const { data, error } = await supabase.from("user_departments")
+          .insert({ user_id: uid, department: newDept, dept_role: newDeptRole })
+          .select("id").single();
+        if (error) throw error;
+        if (!data) throw new Error("บันทึกฝ่ายงานไม่สำเร็จ");
+      } else {
+        const query = action.kind === "update"
+          ? supabase.from("user_departments").update({ dept_role: action.role })
+          : supabase.from("user_departments").delete();
+        const { data, error } = await query.eq("id", action.id).eq("user_id", uid).select("id").single();
+        if (error) throw error;
+        if (!data) throw new Error("ไม่พบฝ่ายงานที่ต้องการแก้ไข");
+      }
+    },
+    onSuccess: async () => {
+      setNewDept("");
+      setNewDeptRole("member");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["profile-my-depts", uid] }),
+        qc.invalidateQueries({ queryKey: ["my-departments", uid] }),
+        qc.invalidateQueries({ queryKey: ["user_departments"] }),
+      ]);
+      showSuccess("บันทึกฝ่ายงานสำเร็จ");
+    },
+    onError: (e: Error) => showError(e.message || "บันทึกฝ่ายงานไม่สำเร็จ"),
   });
 
   const addGroup = useMutation({
@@ -109,6 +148,8 @@ export default function MyMembershipsCard() {
   });
 
   const usedGroups = new Set((groups.data || []).map((g: any) => g.subject_group));
+  const usedDepts = new Set((depts.data || []).map(d => d.department));
+  const deptBusy = departmentMutation.isPending || depts.isPending || depts.isError;
 
   return (
     <Card className="border-0 shadow-md">
@@ -121,29 +162,53 @@ export default function MyMembershipsCard() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Departments (read-only — assigned by admin/director) */}
+        {/* Departments */}
         <section className="space-y-3">
           <h4 className="font-semibold text-sm flex items-center gap-2">
             <Building2 className="w-4 h-4 text-primary" /> ฝ่ายงาน
           </h4>
+          {depts.isError && <div role="alert" className="space-y-2 text-sm text-destructive">
+            <p>โหลดฝ่ายงานไม่สำเร็จ</p>
+            <Button variant="outline" size="sm" onClick={() => depts.refetch()}>ลองใหม่</Button>
+          </div>}
+          {depts.isPending && <p className="text-xs text-muted-foreground">กำลังโหลดฝ่ายงาน...</p>}
           <div className="space-y-2">
             {(depts.data || []).map((d: any) => (
               <div key={d.id} className="flex flex-wrap items-center gap-2 p-2 rounded-lg border bg-muted/20">
                 <Badge variant="secondary" className="font-medium">
                   {DEPARTMENTS.find(x => x.value === d.department)?.label || d.department}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                {canManageDepartments ? <>
+                  <Select value={d.dept_role} disabled={deptBusy} onValueChange={(role: DeptRole) => departmentMutation.mutate({ kind: "update", id: d.id, role })}>
+                    <SelectTrigger aria-label={`ตำแหน่งใน${DEPARTMENTS.find(x => x.value === d.department)?.label || d.department}`} className="h-8 w-full sm:w-[160px] text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{DEPT_ROLES.map(r => <SelectItem key={r} value={r}>{DEPT_ROLE_LABEL_TH[r]}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Button size="icon" variant="ghost" aria-label={`ลบ${DEPARTMENTS.find(x => x.value === d.department)?.label || d.department}`} disabled={deptBusy} className="ml-auto text-destructive" onClick={async () => {
+                    if (await confirmAction("ลบฝ่ายงานนี้?")) departmentMutation.mutate({ kind: "remove", id: d.id });
+                  }}><Trash2 className="w-4 h-4" /></Button>
+                </> : <span className="text-xs text-muted-foreground">
                   {DEPT_ROLE_LABEL_TH[d.dept_role as DeptRole] || d.dept_role}
-                </span>
+                </span>}
               </div>
             ))}
-            {(depts.data || []).length === 0 && (
+            {depts.isSuccess && (depts.data || []).length === 0 && (
               <p className="text-xs text-muted-foreground italic">ยังไม่ได้เพิ่มฝ่าย</p>
             )}
           </div>
-          <p className="text-xs text-muted-foreground pt-2 border-t">
+          {canManageDepartments && <div className="flex flex-wrap gap-2 pt-2 border-t">
+            <Select value={newDept} onValueChange={(v: SchoolDepartment) => setNewDept(v)} disabled={deptBusy}>
+              <SelectTrigger aria-label="ฝ่ายงานที่จะเพิ่ม" className="w-full sm:w-[240px] h-9"><SelectValue placeholder="เลือกฝ่ายงานที่จะเพิ่ม" /></SelectTrigger>
+              <SelectContent>{DEPARTMENTS.filter(d => !usedDepts.has(d.value)).map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={newDeptRole} onValueChange={(v: DeptRole) => setNewDeptRole(v)} disabled={deptBusy}>
+              <SelectTrigger aria-label="ตำแหน่งฝ่ายงานใหม่" className="w-full sm:w-[160px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>{DEPT_ROLES.map(r => <SelectItem key={r} value={r}>{DEPT_ROLE_LABEL_TH[r]}</SelectItem>)}</SelectContent>
+            </Select>
+            <Button size="sm" onClick={() => departmentMutation.mutate({ kind: "add" })} disabled={!newDept || deptBusy}><Plus className="w-4 h-4 mr-1" />เพิ่มฝ่ายงาน</Button>
+          </div>}
+          {!canManageDepartments && !roleLoading && <p className="text-xs text-muted-foreground pt-2 border-t">
             การกำหนดฝ่ายงานและตำแหน่ง (หัวหน้า/รอง/หัวหน้าหมวด) ทำได้โดยผู้ดูแลระบบหรือผู้อำนวยการเท่านั้น
-          </p>
+          </p>}
         </section>
 
 
