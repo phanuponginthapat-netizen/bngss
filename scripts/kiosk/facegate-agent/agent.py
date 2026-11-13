@@ -17,7 +17,7 @@ import base64
 import hashlib
 import io
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import os
 import platform
@@ -393,7 +393,7 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     if not person or person.get("is_active") is False:
         return {"result": "denied", "message": "ไม่พบผู้ใช้งานที่กำลังใช้งานในทะเบียน", "next_delay_seconds": 1}
     if person.get('person_type') == 'visitor':
-        today = clock.now_tz(timezone(__import__('datetime').timedelta(hours=7))).date().isoformat()
+        today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
         if person.get('valid_until') != today:
             return {'result':'denied','message':'ทะเบียนผู้มาติดต่อหมดอายุ','next_delay_seconds':2}
         threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
@@ -674,7 +674,7 @@ def sync_once() -> None:
         for face_id in removed:
             faces.pop(face_id, None)
         state["faces"] = faces
-        state["students"] = {s["id"]: {**s, "valid_until": datetime.now(timezone.utc).astimezone(timezone(__import__("datetime").timedelta(hours=7))).date().isoformat() if s.get("person_type")=="visitor" else None} for s in data.get("students", [])}
+        state["students"] = {s["id"]: {**s, "valid_until": datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).date().isoformat() if s.get("person_type")=="visitor" else None} for s in data.get("students", [])}
         state["settings"] = data.get("settings") or {}
         default_direction = (data.get("device") or {}).get("default_direction")
         state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
