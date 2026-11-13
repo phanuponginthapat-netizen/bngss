@@ -59,14 +59,14 @@ const DEFAULT_SETTINGS = {
   door_deny_alarm: true,
 };
 
-type Device = { id: string; device_id: string; name: string; default_direction: string };
+type Device = { id: string; device_id: string; name: string; default_direction: string; meta: Record<string,unknown> };
 
 async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<Device | null> {
   const key = req.headers.get("x-device-key")?.trim();
   if (!key) return null;
   const { data } = await db
     .from("kiosk_devices")
-    .select("id, device_id, name, default_direction, is_active")
+    .select("id, device_id, name, default_direction, is_active, meta")
     .eq("device_key", key)
     .maybeSingle();
   if (!data || (data as any).is_active === false) return null;
@@ -75,6 +75,7 @@ async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<D
     device_id: (data as any).device_id,
     name: (data as any).name || (data as any).device_id,
     default_direction: (data as any).default_direction || "in",
+    meta: data.meta && typeof data.meta==='object'?data.meta:{},
   };
 }
 
