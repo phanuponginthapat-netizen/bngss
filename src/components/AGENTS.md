@@ -1,1 +1,2 @@
 - FaceGate notification photos resolve the exact referenced alert under the current user's session and sign its stored media path at read time; unavailable evidence never hides the notification or substitutes another person's image.
+- Mobile dashboard navigation opens the same role-filtered sidebar from the bottom menu and keeps daily shortcuts only in DailyTaskBar; CMS branding and shared settings remain authoritative across web and APK.

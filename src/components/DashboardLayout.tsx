@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LogOut, User, Settings, Shield, Inbox, PanelLeft } from "lucide-react";
+import { LogOut, User, Settings, Shield, Inbox, PanelLeft, MoreVertical, GraduationCap } from "lucide-react";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -77,6 +77,7 @@ function AvatarSidebarToggle({ avatarUrl, fullName, userEmail }: { avatarUrl: st
 const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [location.pathname]);
   const { t, lang } = useLanguage();
   const { isReady, session } = useAuthSession();
   const [userEmail, setUserEmail] = useState("");
@@ -250,11 +251,11 @@ const DashboardLayout = () => {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen min-h-[100svh] w-full bg-background">
+      <div className="mobile-app-shell flex min-h-screen min-h-[100svh] w-full bg-background">
         <main className="flex-1 flex flex-col min-w-0">
 
           <header
-            className="sticky top-0 z-40 flex items-center gap-2 sm:gap-3 border-b border-border/40 bg-card/80 backdrop-blur-xl px-2 sm:px-6 shrink-0 shadow-[0_1px_20px_-8px_hsl(var(--primary)/0.15)]"
+            className="mobile-app-header sticky top-0 z-40 flex items-center gap-2 sm:gap-3 border-b border-border/40 bg-card/80 backdrop-blur-xl px-2 sm:px-6 shrink-0 shadow-[0_1px_20px_-8px_hsl(var(--primary)/0.15)]"
             style={{
               paddingTop: "env(safe-area-inset-top)",
               paddingLeft: "max(env(safe-area-inset-left), 0.5rem)",
@@ -268,13 +269,13 @@ const DashboardLayout = () => {
             {location.pathname !== "/dashboard" && (
               <BackButton />
             )}
-            <Link to="/dashboard" className="md:hidden flex items-center gap-2 font-semibold truncate">
+            <Link to="/dashboard" className="md:hidden flex min-w-0 flex-1 items-center gap-2 font-semibold" aria-label={appName}>
               {schoolLogo ? (
-                <img src={schoolLogo} alt="logo" className="w-7 h-7 rounded-lg object-contain" />
+                <img src={schoolLogo} alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" />
               ) : (
-                <span className="w-7 h-7 rounded-lg gradient-primary" aria-hidden />
+                <GraduationCap className="h-7 w-7 shrink-0 text-primary" aria-hidden />
               )}
-              <span className="text-sm truncate max-w-[140px]">{appName}</span>
+              <span className="truncate text-sm">{appName}</span>
             </Link>
 
             {/* Desktop brand lockup — CMS logo + school name */}
@@ -328,21 +329,31 @@ const DashboardLayout = () => {
 
 
 
-            <div className="flex-1" />
-            <div className="flex items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
+            <div className="hidden flex-1 md:block" />
+            <div className="mobile-header-actions flex shrink-0 items-center gap-1 rounded-full bg-muted/40 border border-border/50 px-1 py-1 backdrop-blur-sm">
+              <div className="hidden items-center gap-1 md:flex">
               <HeaderClock />
               <span className="w-px h-6 bg-border/60 mx-1 hidden md:block" />
               <OfflineIndicator />
               <PWAInstallButton />
               <LanguageToggle />
               <DarkModeToggle />
+              </div>
               <NotificationDropdown />
 
               <AvatarSidebarToggle avatarUrl={avatarUrl} fullName={fullName} userEmail={userEmail} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="md:hidden" aria-label={lang === "th" ? "ตัวเลือกแอป" : "App options"}><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>{lang === "th" ? "ตัวเลือกแอป" : "App options"}</DropdownMenuLabel>
+                  <div className="flex items-center justify-around border-y py-2"><LanguageToggle /><DarkModeToggle /><OfflineIndicator /></div>
+                  <DropdownMenuItem onSelect={() => navigate("/dashboard/settings/notifications")}><Settings className="mr-2 h-4 w-4" />{lang === "th" ? "ตั้งค่าการแจ้งเตือน" : "Notification settings"}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
           <div
-            className="flex-1 min-w-0 overflow-x-hidden p-3 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+6rem)] md:pb-6"
+            className="mobile-app-content flex-1 min-w-0 overflow-x-hidden p-3 sm:p-6 pb-[calc(env(safe-area-inset-bottom)+7rem)] md:pb-6"
             style={{ scrollPaddingBottom: "calc(env(safe-area-inset-bottom) + 6rem)" }}
           >
 
