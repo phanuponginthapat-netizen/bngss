@@ -68,9 +68,6 @@ verify_jwt = false
 [functions.bigdata-warehouse-cron]
 verify_jwt = false
 
-[functions.health-cron]
-verify_jwt = false
-
 [functions.drive-archive]
 verify_jwt = false
 
