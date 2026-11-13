@@ -1,0 +1,1 @@
+- GitHub backend workflow entrypoints must remain non-mutating Cloud handoffs, and web CI must not depend on external database/function deployments; retired project targets and migration-history repair can otherwise block releases or alter the wrong backend.
