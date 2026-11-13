@@ -28,6 +28,7 @@ export function kioskMediaParts(raw: unknown, defaultBucket = "face-photos"): { 
     return match[1] && path ? { bucket: match[1], path } : null;
   }
   if (/^https?:\/\//i.test(value)) return null;
+  if (/^(data:|blob:)/i.test(value)) return null;
   const path = decodeURIComponent(value).replace(/^\/+/, "");
   return path ? { bucket: defaultBucket, path } : null;
 }

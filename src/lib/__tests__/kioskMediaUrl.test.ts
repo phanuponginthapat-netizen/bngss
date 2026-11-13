@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { createSignedUrl, fromBucket } = vi.hoisted(() => ({
   createSignedUrl: vi.fn(),
@@ -13,6 +13,8 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { kioskMediaParts, resolveKioskMediaUrl } from "../kioskMediaUrl";
 
 describe("FaceGate scan photos on the active backend", () => {
+  beforeEach(() => { createSignedUrl.mockReset(); fromBucket.mockReset(); });
+
   it("reads a stored private path as face-photos object", () => {
     expect(kioskMediaParts("scans/2026-11-13/unknown-1.jpg")).toEqual({ bucket: "face-photos", path: "scans/2026-11-13/unknown-1.jpg" });
   });
