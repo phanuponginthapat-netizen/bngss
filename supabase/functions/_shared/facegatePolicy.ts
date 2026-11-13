@@ -1,7 +1,10 @@
 export const FACEGATE_PAUSE_SECONDS = 2;
 export function validFacegateCommand(kind: unknown, action: unknown) {
   return kind === "door" ? ["open", "free", "lock"].includes(String(action))
-    : kind === "power" && ["screen_on", "screen_off", "sleep", "shutdown", "cancel"].includes(String(action));
+    : kind === "power" && ["screen_on", "screen_off", "sleep", "shutdown", "cancel", "wake", "prepare_voice", "test_voice"].includes(String(action));
+}
+export function validWakePayload(value: unknown): value is {wake_mac:string} {
+  return !!value && typeof value === 'object' && 'wake_mac' in value && /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(String(value.wake_mac));
 }
 export function facegateSaver(settings: Record<string, unknown>) {
   const minutes = Number(settings.idle_stats_minutes ?? 0);
