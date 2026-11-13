@@ -16332,6 +16332,7 @@ export type Database = {
           face_embedding: Json | null
           face_error: string | null
           face_geometry: Json | null
+          face_samples: Json | null
           id: string
           id_card_last4: string | null
           notes: string | null
@@ -16357,6 +16358,7 @@ export type Database = {
           face_embedding?: Json | null
           face_error?: string | null
           face_geometry?: Json | null
+          face_samples?: Json | null
           id?: string
           id_card_last4?: string | null
           notes?: string | null
@@ -16382,6 +16384,7 @@ export type Database = {
           face_embedding?: Json | null
           face_error?: string | null
           face_geometry?: Json | null
+          face_samples?: Json | null
           id?: string
           id_card_last4?: string | null
           notes?: string | null
