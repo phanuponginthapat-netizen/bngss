@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "./useUserRole";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { showLiveNotification } from "@/lib/liveNotification";
+import { notificationEventTag } from "@/lib/notificationIdentity";
 import { clearCurrentPeriodCache } from "@/lib/ppImportChecks";
 
 
@@ -198,7 +199,7 @@ export function useGlobalRealtime() {
               route: o.route,
               urgent: o.urgent,
               icon: o.icon,
-              tag: `${table}-${row.id ?? ""}`,
+              tag: notificationEventTag(table, row),
               onNavigate: (r) => navigate(r),
             });
 

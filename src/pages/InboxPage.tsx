@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 import { toast } from "sonner";
 import { routeForNotification } from "@/lib/notificationRoute";
+import { uniqueInboxNotifications } from "@/lib/notificationIdentity";
 
 const EFormInboxPage = lazy(() => import("./EFormInboxPage"));
 const DocumentInboxPage = lazy(() => import("./DocumentInboxPage"));
@@ -111,7 +112,7 @@ export default function InboxPage() {
   }, [userId, qc]);
 
   const items: UnifiedItem[] = useMemo(() => {
-    const a: UnifiedItem[] = (inboxRows as any[]).map(r => ({
+    const a: UnifiedItem[] = uniqueInboxNotifications(inboxRows as any[]).map(r => ({
       id: r.id, source: "inbox",
       title: r.title, message: r.message,
       item_type: r.item_type || "notification",

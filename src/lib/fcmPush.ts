@@ -104,7 +104,7 @@ export async function initFcmPush(): Promise<void> {
         body: n.body || "",
         route,
         urgent: data.urgent === true || data.urgent === "true",
-        tag: `fcm-${n.id || title}`,
+        tag: typeof data.tag === "string" ? data.tag : `fcm-${n.id || title}`,
       });
     });
 

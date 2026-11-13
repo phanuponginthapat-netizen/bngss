@@ -8,3 +8,4 @@
 - Explicit document OCR sends consented files through the authenticated iApp edge function only; preserve HTML tables as untrusted AI input and reject incomplete pages without changing school records or logging raw documents, to protect source integrity and private credentials.
 - Shared classroom caches use loadFullClassrooms; partial selector projections use distinct keys so prefetching cannot erase academic years or teacher links.
 - FaceGate print documents clone only selected evidence or QR into an isolated iframe and await image/font readiness; dashboard navigation never enters printed certificates.
+- Notification inbox mirrors and push deliveries share the original notification ID; collapse exact mirrors only, keeping distinct events and original history intact.
