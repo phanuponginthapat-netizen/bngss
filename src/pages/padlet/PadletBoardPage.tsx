@@ -21,6 +21,7 @@ import { shortenUrl } from "@/lib/shortlink";
 import { saveErrorMessage } from "@/lib/saveError";
 import { validSocialLink } from "@/lib/socialMedia";
 import { swal } from "@/lib/swal";
+import PadletImage from "./PadletImage";
 
 const BG_MAP: Record<string, string> = {
   paper: "bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.08)_1px,transparent_0)] [background-size:16px_16px] bg-amber-50",
@@ -86,6 +87,7 @@ export default function PadletBoardPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [mediaPending, setMediaPending] = useState(false);
   const [coverSigned, setCoverSigned] = useState<string>("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -112,7 +114,6 @@ export default function PadletBoardPage() {
   }, [recVideo]);
 
   const openEdit = () => {
-    if (loadError) return <div role="alert" className="text-center py-20 text-destructive">{loadError}<Button variant="outline" onClick={() => window.location.reload()} className="ml-2">ลองใหม่</Button></div>;
   if (!board) return;
     setEditTitle(board.title || "");
     setEditDesc(board.description || "");
@@ -211,11 +212,20 @@ export default function PadletBoardPage() {
       (n.attachments || []).forEach((a: Attachment) => paths.push(a.path));
     });
     const unique = Array.from(new Set(paths));
-    if (unique.length) {
-      const { data: signed } = await supabase.storage.from("padlet").createSignedUrls(unique, 3600);
+    setMediaPending(true);
+    try {
       const map: Record<string, string> = {};
-      (signed || []).forEach((s: any, i: number) => { if (s.signedUrl) map[unique[i]] = s.signedUrl; });
+      if (unique.length) {
+        const { data: signed, error: signingError } = await supabase.storage.from("padlet").createSignedUrls(unique, 3600);
+        if (signingError) toast.error("อ่านไฟล์แนบไม่สำเร็จ กรุณาลองใหม่");
+        (signed || []).forEach(s => { if (s.path && s.signedUrl && !s.error) map[s.path] = s.signedUrl; });
+      }
       setSignedUrls(map);
+    } catch {
+      setSignedUrls({});
+      toast.error("อ่านไฟล์แนบไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setMediaPending(false);
     }
   };
 
@@ -227,7 +237,8 @@ export default function PadletBoardPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "padlet_notes", filter: `board_id=eq.${id}` }, loadNotes)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "padlet_boards", filter: `id=eq.${id}` }, loadBoard)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const refresh = window.setInterval(loadNotes, 50 * 60 * 1000);
+    return () => { window.clearInterval(refresh); supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -403,6 +414,7 @@ export default function PadletBoardPage() {
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  if (loadError) return <div role="alert" className="text-center py-20 text-destructive">{loadError}<Button variant="outline" onClick={() => window.location.reload()} className="ml-2">ลองใหม่</Button></div>;
   if (!board) return <div className="text-center py-20 text-muted-foreground">ไม่พบกระดาน</div>;
 
   const bgClass = BG_MAP[board.background] || BG_MAP.paper;
@@ -502,14 +514,10 @@ export default function PadletBoardPage() {
 
                   {/* Images */}
                   {atts.filter(a => isImage(a.type)).map(a => (
-                    <a key={a.path} href={signedUrls[a.path] || "#"} target="_blank" rel="noreferrer">
-                      <img src={signedUrls[a.path]} alt={a.name} className="w-full rounded mb-2 border border-black/10" loading="lazy" />
-                    </a>
+                    <PadletImage key={a.path} src={signedUrls[a.path]} name={a.name} pending={mediaPending} retry={loadNotes} />
                   ))}
-                  {n.image_url && signedUrls[n.image_url] && (
-                    <a href={signedUrls[n.image_url]} target="_blank" rel="noreferrer">
-                      <img src={signedUrls[n.image_url]} alt="" className="w-full rounded mb-2 border border-black/10" loading="lazy" />
-                    </a>
+                  {n.image_url && (
+                    <PadletImage src={signedUrls[n.image_url]} name="รูปแนบ" pending={mediaPending} retry={loadNotes} />
                   )}
 
                   {/* Videos (cover frame via preload=metadata) */}
