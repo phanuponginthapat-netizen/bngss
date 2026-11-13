@@ -13,7 +13,7 @@ KIOSK_HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FaceGate — ตู้สแกนใบหน้า</title>
 <style>
-  :root { --primary:#123b67; --accent:#2f76b7; --ink:#17263a; --success:#15965f; --danger:#dc3545; --soft:#eef4fa; }
+  :root { --primary:#123b67; --accent:#2f76b7; --ink:#17263a; --success:#15965f; --danger:#dc3545; --soft:#eef4fa; --surface:#fff; }
   * { box-sizing:border-box; }
   html, body { height:100%; }
   body { margin:0; overflow:hidden; color:var(--ink); font-family:"Figtree","Noto Sans Thai","Segoe UI",system-ui,sans-serif; background:#f8fafc; }
@@ -82,10 +82,12 @@ KIOSK_HTML = r"""<!doctype html>
     <div class="waiting" id="waiting"><div class="ready"><small>FACEGATE READY</small><h2 id="subtitle">กรุณายืนให้ใบหน้าตรงกับกรอบใบหน้าบนหน้าจอ</h2><p id="readyDetail">ระบบพร้อมสำหรับการสแกน</p></div><div class="waitingContent"><div class="visitorBox" id="visitorBox" style="display:none"><b>ผู้มาเยือน / บุคลากรภายนอก</b><small>สแกน QR code นี้เพื่อลงทะเบียนเข้าโรงเรียน</small><img id="visitorQr" alt="QR code ลงทะเบียนผู้มาเยือน"/><small id="visitorUrl"></small><small>วันนี้เข้าแล้ว <b id="visitorCount">0</b> คน</small></div><div class="recentPanel"><div class="listTitle"><span>สแกนเข้าล่าสุด</span><small>วันนี้</small></div><div class="list" id="list"></div></div></div></div>
   </aside>
 </div>
+<div id="powerWarning" role="alert" style="display:none;position:fixed;inset:0;z-index:100;background:var(--ink);color:var(--surface);align-items:center;justify-content:center;flex-direction:column;gap:20px"><h2 id="powerCountdown"></h2><button class="adminBtn" onclick="cancelPower()">ยกเลิกปิดเครื่อง</button></div>
 <div class="news" id="newsBox" style="display:none"><div id="news"></div></div>
 <div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"><div style="font-size:2.5rem;font-weight:800" id="saverTitle">สถิติวันนี้</div></div><div class="saverPanel"><div><small style="opacity:.65">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool" style="margin:5px 0">โรงเรียนของเรา</h1><span id="saverDate" style="opacity:.65"></span></div><div class="saverGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">0</b></div><div>ขาด<b id="studentAbsent">0</b></div></div></div><div class="saverGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">0</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">0</b></div><div>ขาด<b id="staffAbsent">0</b></div></div></div><div style="opacity:.65">กล้องพร้อมสแกนตลอดเวลา</div></div></div>
 <script>
 const $ = (id) => document.getElementById(id);
+let lastVoiceTest = 0;
 let display = { mirror: true, rotate: 0, voice_enabled: true, next_delay_seconds: 5 };
 let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
@@ -198,7 +200,7 @@ async function speakOnDevice(text) {
       clipCache.set(text, url);
     }
     const audio = new Audio(url);
-    audio.volume = Math.min(Math.max(Number(display.voice_volume || 1), 0), 1);
+    audio.volume = Math.min(Math.max(Number(display.voice_volume ?? 1), 0), 1);
     audio.playbackRate = Math.min(Math.max(Number(display.voice_rate || 1), 0.5), 2);
     await audio.play();
     return true;
@@ -211,7 +213,7 @@ async function speak(text) {
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'th-TH'; u.voice = thaiVoice;
-      u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume || 1);
+      u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume ?? 1);
       speechSynthesis.cancel(); speechSynthesis.speak(u);
       return;
     } catch (e) {}
@@ -354,6 +356,7 @@ async function loadBrand() {
 async function loadRecent() {
   try {
     const data = await (await fetch('/local/kiosk-api/recent')).json();
+    if(data.voice_test_at && data.voice_test_at > lastVoiceTest){lastVoiceTest=data.voice_test_at; speak('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ');}
     display = data.display || display;
     broadcastMedia = data.broadcast_media || [];
     applyCameraLook();
@@ -383,7 +386,7 @@ async function loadStats() {
     // Visitor QR code: only shown while the admin keeps the mode open.
     const vBox = $('visitorBox');
     if (s.visitor_register_enabled) {
-      const url = location.origin + '/visit';
+      const url = s.visitor_url || (location.origin + '/visit');
       $('visitorQr').src = '/local/api/public/visit/qr.svg';
       $('visitorUrl').textContent = url;
       $('visitorCount').textContent = s.visitors_present || 0;
@@ -438,6 +441,9 @@ function clock() {
   $('clock').textContent = now.toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn', { hour: '2-digit', minute: '2-digit', second:'2-digit', hour12:false });
   $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
+async function cancelPower(){await fetch('/power/command',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({command:'cancel'})});await loadPower();}
+async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}
+setInterval(loadPower,1000);
 loadBrand(); startCamera(); loadRecent(); loadStats(); clock();
 setInterval(tick, 300); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);
 setInterval(applySaver, 5000);

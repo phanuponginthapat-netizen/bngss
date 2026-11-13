@@ -18,7 +18,7 @@ CLOUD_URL="${FACEGATE_CLOUD_URL:-__CLOUD_URL__}"
 DEVICE_KEY="${FACEGATE_DEVICE_KEY:-__DEVICE_KEY__}"
 ROOT="${FACEGATE_HOME:-$HOME/.facegate}"
 # FACEGATE_NATIVE=1 → ใช้กล้องโดยตรง (V4L2) + หน้าต่างโปรแกรมของตัวเอง ไม่ผ่านเบราว์เซอร์
-NATIVE="${FACEGATE_NATIVE:-0}"
+NATIVE="${FACEGATE_NATIVE:-1}"
 
 if [ "$DEVICE_KEY" = "__DEVICE_KEY__" ] || [ -z "$DEVICE_KEY" ] || [ "$DEVICE_KEY" = "รหัสเครื่อง" ]; then
   if [ -t 0 ]; then
@@ -49,7 +49,7 @@ if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
 install_system_deps() {
   if command -v apt-get >/dev/null 2>&1; then
     $SUDO apt-get update -y
-    $SUDO apt-get install -y python3 python3-venv python3-pip libgl1 libglib2.0-0 v4l-utils curl
+    $SUDO apt-get install -y python3 python3-venv python3-pip libgl1 libglib2.0-0 v4l-utils curl espeak-ng
   elif command -v dnf >/dev/null 2>&1; then
     $SUDO dnf install -y python3 python3-pip mesa-libGL glib2 curl
   elif command -v pacman >/dev/null 2>&1; then
@@ -66,7 +66,7 @@ if [ -z "$PY" ]; then
 else
   echo "[1/5] พบ Python แล้ว ($PY)"
   if command -v apt-get >/dev/null 2>&1; then
-    $SUDO apt-get install -y python3-venv libgl1 libglib2.0-0 >/dev/null 2>&1 || true
+    $SUDO apt-get install -y python3-venv libgl1 libglib2.0-0 espeak-ng >/dev/null 2>&1 || true
   fi
 fi
 
@@ -120,12 +120,13 @@ fi
 VPY="$ROOT/.venv/bin/python"
 "$VPY" -m pip install --upgrade pip --quiet
 "$VPY" -m pip install -r "$ROOT/requirements.txt"
-if [ "$NATIVE" = "1" ]; then "$VPY" -m pip install --quiet "pywebview>=5,<6" || true; fi
+if [ "$NATIVE" = "1" ]; then "$VPY" -m pip install --quiet "pywebview>=5,<6"; fi
 
 cat > "$ROOT/config.env" <<EOF
 FACEGATE_CLOUD_URL=$CLOUD_URL
 FACEGATE_DEVICE_KEY=$DEVICE_KEY
 EOF
+chmod 600 "$ROOT/config.env"
 if [ "$NATIVE" = "1" ]; then
   cat >> "$ROOT/config.env" <<EOF
 FACEGATE_NATIVE_CAMERA=1

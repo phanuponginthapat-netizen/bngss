@@ -32,7 +32,7 @@ jobs:
 
       - name: Package FaceGate agent
         env:
-          FACEGATE_SITE_URL: https://bngss.lovable.app
+          FACEGATE_SITE_URL: https://bngss.online
           FACEGATE_BUILD_DIR: /tmp/facegate-build
         run: bash scripts/kiosk/package-facegate.sh
 
@@ -148,7 +148,7 @@ jobs:
             --add-data "models;models" \
             --hidden-import local_api --hidden-import local_ui --hidden-import local_admin_ui \
             --hidden-import local_voice --hidden-import localdb --hidden-import local_rules \
-            --hidden-import power_profile \
+            --hidden-import power_profile --hidden-import cloud_config --hidden-import power_schedule --hidden-import voice_prepare --hidden-import qrcode.image.svg \
             --hidden-import qr_reader \
             --collect-submodules uvicorn --collect-data onnxruntime --collect-all webview --hidden-import clr
           test -f ../../../dist-facegate/FaceGate/FaceGate.exe
@@ -164,7 +164,7 @@ jobs:
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" "/DSiteUrl=https://bngss.lovable.app" scripts\kiosk\facegate-agent\windows\FaceGate.iss
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" "/DSiteUrl=https://bngss.online" scripts\kiosk\facegate-agent\windows\FaceGate.iss
           if (-not (Test-Path dist-facegate\FaceGateSetup.exe)) { throw "FaceGateSetup.exe not built" }
 
       - uses: actions/upload-artifact@v4

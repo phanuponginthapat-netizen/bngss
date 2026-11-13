@@ -8,14 +8,24 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
 import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
+import {activeVisitorFace,validFaceEmbedding} from '../_shared/facegateVisitor.ts';
+import { fanout } from '../_shared/fanout.ts';
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-const admin = () =>
-  createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const admin = () => {
+  const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if(!url||!key)throw new Error('configuration unavailable');
+  return createClient(url,key);
+};
+async function allRows(db: any, table: string, columns: string) {
+  const rows:any[]=[];
+  for(let from=0;from<100000;from+=500){const {data,error}=await db.from(table).select(columns).order('id').range(from,from+499);if(error)throw error;if(!data)throw new Error('source unavailable');rows.push(...data);if(data.length<500)return rows;}
+  throw new Error('source exceeds safe limit');
+}
 
 const bkkDate = (d = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(d);
@@ -50,14 +60,14 @@ const DEFAULT_SETTINGS = {
   door_deny_alarm: true,
 };
 
-type Device = { id: string; device_id: string; name: string; default_direction: string };
+type Device = { id: string; device_id: string; name: string; default_direction: string; meta: Record<string,unknown> };
 
 async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<Device | null> {
   const key = req.headers.get("x-device-key")?.trim();
   if (!key) return null;
   const { data } = await db
     .from("kiosk_devices")
-    .select("id, device_id, name, default_direction, is_active")
+    .select("id, device_id, name, default_direction, is_active, meta")
     .eq("device_key", key)
     .maybeSingle();
   if (!data || (data as any).is_active === false) return null;
@@ -66,6 +76,7 @@ async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<D
     device_id: (data as any).device_id,
     name: (data as any).name || (data as any).device_id,
     default_direction: (data as any).default_direction || "in",
+    meta: data.meta && typeof data.meta==='object'?data.meta:{},
   };
 }
 
@@ -164,7 +175,8 @@ Deno.serve(async (req) => {
         for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
         return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
           total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:null,absent_staff:null,
-          server_time: new Date().toISOString(), visitor_register_enabled: false });
+          server_time: new Date().toISOString(), visitor_register_enabled: (settings as any).visitor_register_enabled===true,
+          visitor_url:'https://bngss.online/visit' });
       }
       const { data: logs, error: logsError } = await db.from("face_scan_logs")
         .select("student_id, scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
@@ -219,7 +231,7 @@ Deno.serve(async (req) => {
       const known: Record<string, string> = (body?.known && typeof body.known === "object") ? body.known : {};
       const incremental = Object.keys(known).length > 0;
 
-      await db.from("kiosk_devices").update({
+      const {error:heartbeatError}=await db.from("kiosk_devices").update({
         last_seen_at: new Date().toISOString(),
         status: "online",
         ...(typeof body?.agent_version === "string" ? { agent_version: body.agent_version.slice(0, 40) } : {}),
@@ -228,16 +240,19 @@ Deno.serve(async (req) => {
         ...(typeof body?.camera_ok === "boolean" ? { camera_ok: body.camera_ok } : {}),
         ...(typeof body?.door_ok === "boolean" ? { door_ok: body.door_ok } : {}),
         ...(typeof body?.health_note === "string" ? { health_note: body.health_note.slice(0, 300) } : {}),
+        ...(body?.voice_progress&&typeof body.voice_progress==='object'?{meta:{...(device.meta??{}),voice_progress:body.voice_progress}}:{}),
       }).eq("id", device.id);
+      if(heartbeatError)throw heartbeatError;
 
-      const [{ data: students }, { data: personnel }, { data: sFaces }, { data: pFaces }] = await Promise.all([
-        db.from("students")
-          .select("id, student_code, prefix, first_name, last_name, status, photo_url, classrooms!students_classroom_id_fkey(name, grade_level)")
-          .eq("status", "active").limit(20000),
-        db.from("personnel").select("id, employee_code, prefix, first_name, last_name, status").limit(5000),
-        db.from("student_face_descriptors").select("id, student_id, descriptor, metrics, created_at, face_image").limit(40000),
-        db.from("personnel_face_descriptors").select("id, personnel_id, descriptor, metrics, created_at").limit(10000),
+      const [studentRows, personnel, sFaces, pFaces, visitorRows] = await Promise.all([
+        allRows(db,'students','id,student_code,prefix,first_name,last_name,status,photo_url,classrooms!students_classroom_id_fkey(name,grade_level)'),
+        allRows(db,'personnel','id,employee_code,prefix,first_name,last_name,status'),
+        allRows(db,'student_face_descriptors','id,student_id,descriptor,metrics,created_at,face_image'),
+        allRows(db,'personnel_face_descriptors','id,personnel_id,descriptor,metrics,created_at,face_image'),
+        allRows(db,'visitor_logs','id,visitor_name,check_in,check_out,face_consent,face_approved_at,face_embedding,face_geometry,photo_url'),
       ]);
+      const students=studentRows.filter(s=>s.status==='active');
+      const visitors=(settings as any).visitor_register_enabled===true?visitorRows.filter(v=>activeVisitorFace(v,bkkDate())):[];
 
       const people = [
         ...await Promise.all(((students as any[]) ?? []).map(async (s) => ({
@@ -259,12 +274,14 @@ Deno.serve(async (req) => {
           person_type: "staff",
           is_active: true,
         })),
+        ...visitors.map(v=>({id:v.id,student_code:'',full_name:v.visitor_name,person_type:'visitor',is_active:true,class_room:'ผู้มาติดต่อ',avatar_url:v.photo_url})),
       ];
 
       const rows = [
         ...((sFaces as any[]) ?? []).map((f) => ({ id: f.id, owner: f.student_id, ...f })),
         ...((pFaces as any[]) ?? []).map((f) => ({ id: f.id, owner: f.personnel_id, ...f })),
-      ].filter((f) => Array.isArray(f.descriptor) && f.descriptor.length >= 64);
+        ...visitors.filter(v=>validFaceEmbedding(v.face_embedding)).map(v=>({id:v.id,owner:v.id,descriptor:v.face_embedding,metrics:{geometry:v.face_geometry},created_at:v.face_approved_at})),
+      ].filter((f) => people.some(p=>p.id===f.owner)&&validFaceEmbedding(f.descriptor));
 
       const version = (f: any) => String(f.created_at ?? "");
       const embeddings = rows
@@ -287,7 +304,7 @@ Deno.serve(async (req) => {
         removed,
         incremental,
         total_embeddings: rows.length,
-        pending: [],
+        pending: visitors.filter(v=>!validFaceEmbedding(v.face_embedding)&&v.photo_url).map(v=>({id:v.id,student_id:v.id,url:v.photo_url})),
         server_time: new Date().toISOString(),
       });
     }
@@ -298,6 +315,13 @@ Deno.serve(async (req) => {
       const confidence = Number(body?.confidence ?? 0);
       const isQr = body?.method === "qr";
       if (!/^[0-9a-f-]{36}$/i.test(personId)) return json({ error: "invalid body" }, 400);
+      const {data:visitor,error:visitorError}=await db.from('visitor_logs').select('id,visitor_name,check_in,check_out,face_consent,face_approved_at').eq('id',personId).maybeSingle();
+      if(visitorError)throw visitorError;
+      if(visitor){
+        if((settings as any).visitor_register_enabled!==true||!activeVisitorFace(visitor,bkkDate()))return json({result:'denied',message:'ทะเบียนผู้มาติดต่อหมดอายุ'},403);
+        if(body.direction==='out'){const {error}=await db.from('visitor_logs').update({check_out:new Date().toISOString()}).eq('id',personId).is('check_out',null);if(error)throw error;}
+        return json({result:'ok',visitor:true,name:visitor.visitor_name,speak:'บันทึกผู้มาติดต่อแล้ว',next_delay_seconds:2});
+      }
 
       const requested = body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction === "out" ? "out" : device.default_direction === "in" ? "in" : undefined;
       const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(new Date()), requested);
@@ -416,12 +440,19 @@ Deno.serve(async (req) => {
 
     // ── ส่งค่าใบหน้าที่คำนวณในเครื่องกลับมาเก็บ ───────────────────────────
     if (route === "embeddings") {
-      const items = Array.isArray(body?.items) ? body.items : [];
+      const items = Array.isArray(body?.results) ? body.results : Array.isArray(body?.items) ? body.items : [];
       let saved = 0;
       for (const it of items) {
-        const id = String(it?.id ?? "");
+        const id = String(it?.face_id ?? it?.id ?? "");
         const emb = it?.embedding;
-        if (!/^[0-9a-f-]{36}$/i.test(id) || !Array.isArray(emb) || emb.length < 64) continue;
+        if (!/^[0-9a-f-]{36}$/i.test(id))continue;
+        const {data:visitor,error:visitorError}=await db.from('visitor_logs').select('id,check_in,check_out,face_consent,face_approved_at').eq('id',id).maybeSingle();
+        if(visitorError)throw visitorError;
+        if(visitor&&activeVisitorFace(visitor,bkkDate())){
+          const patch=it.error?{face_error:String(it.error).slice(0,200)}:validFaceEmbedding(emb)?{face_embedding:emb,face_geometry:it.geometry??null,face_error:null}:null;
+          if(!patch)continue;const {error}=await db.from('visitor_logs').update(patch).eq('id',id);if(error)throw error;saved++;continue;
+        }
+        if(!validFaceEmbedding(emb))continue;
         const patch: any = { descriptor: emb, model_version: "w600k_mbf" };
         if (it?.geometry && typeof it.geometry === "object") patch.metrics = { geometry: it.geometry };
         const { error } = await db.from("student_face_descriptors").update(patch).eq("id", id);
@@ -433,40 +464,43 @@ Deno.serve(async (req) => {
     // ── คนแปลกหน้า ───────────────────────────────────────────────────────
     if (route === "alert") {
       const snapshotUrl = await storeSnapshot(db, typeof body?.snapshot === "string" ? body.snapshot : null, "unknown");
-      const { count } = await db
+      const { count,error:countError } = await db
         .from("kiosk_agent_alerts")
         .select("id", { count: "exact", head: true })
         .eq("device_id", device.device_id)
         .eq("kind", "unknown_face")
         .gte("created_at", new Date(Date.now() - 10 * 60_000).toISOString());
-      await db.from("kiosk_agent_alerts").insert({
+      if(countError)throw countError;
+      const escalated=(count??0)>=3||Number(body.attempts)>=5;
+      const {data:alert,error:alertError}=await db.from("kiosk_agent_alerts").insert({
         device_id: device.device_id, device_name: device.name,
         kind: "unknown_face", snapshot_url: snapshotUrl,
-        note: typeof body?.note === "string" ? body.note.slice(0, 300) : null,
-      });
-      return json({ ok: true, escalated: (count ?? 0) >= 3 });
+        note: typeof body?.message === "string" ? body.message.slice(0, 300) : typeof body?.note==='string'?body.note.slice(0,300):null,
+      }).select('id').single();
+      if(alertError)throw alertError;
+      const response=await fanout({roles:['admin','director'],title:escalated?'FaceGate: พบการสแกนไม่ทราบชื่อซ้ำ':'FaceGate: ไม่พบใบหน้าในทะเบียน',body:`เครื่อง ${device.name} กรุณาตรวจสอบบุคคลหน้าประตู`,type:'facegate_alert',severity:escalated?'critical':'warning',reference_id:alert.id,reference_type:'kiosk_agent_alerts',url:'/dashboard/admin/facegate?tab=alerts',channels:['in_app','push','line'],dedup_key:`facegate:${alert.id}`},db);
+      return json({ ok: true, escalated, notification_sent:response?.ok===true });
     }
 
     // ── ผู้มาติดต่อ ──────────────────────────────────────────────────────
     if (route === "visitor") {
       const snapshotUrl = await storeSnapshot(db, typeof body?.snapshot === "string" ? body.snapshot : null, "visitor");
-      await db.from("kiosk_visitors").insert({
-        device_id: device.device_id, device_name: device.name,
-        full_name: typeof body?.full_name === "string" ? body.full_name.slice(0, 120) : null,
-        phone: typeof body?.phone === "string" ? body.phone.slice(0, 32) : null,
-        purpose: typeof body?.purpose === "string" ? body.purpose.slice(0, 300) : null,
-        direction: body?.direction === "out" ? "out" : "in",
-        snapshot_url: snapshotUrl,
-      });
+      const {error}=await db.from('kiosk_agent_alerts').insert({device_id:device.device_id,device_name:device.name,kind:'visitor_unregistered',snapshot_url:snapshotUrl,note:'ผู้มาติดต่อยังไม่ได้ลงทะเบียน กรุณาแจ้งเจ้าหน้าที่'});
+      if(error)throw error;
       return json({
         result: "ok", visitor: true,
         message: "บันทึกผู้มาติดต่อแล้ว กรุณาติดต่อเจ้าหน้าที่",
         speak: "บันทึกผู้มาติดต่อแล้ว",
-        next_delay_seconds: Number(settings.next_person_delay_seconds) || 5,
+        next_delay_seconds: 2,
       });
     }
 
     // ── คำสั่งค้างถึงเครื่อง ─────────────────────────────────────────────
+    if(route==='command-result'){
+      if(typeof body.id!=='string'||!/^[0-9a-f-]{36}$/i.test(body.id)||!['completed','failed','scheduled'].includes(body.status))return json({error:'invalid result'},400);
+      const {data,error}=await db.from('kiosk_commands').update({completed_at:new Date().toISOString(),result_status:body.status,result_detail:String(body.detail??'').slice(0,300)}).eq('id',body.id).eq('device_id',device.device_id).not('consumed_at','is',null).select('id');
+      if(error)throw error;if(!data?.length)return json({error:'command unavailable'},404);return json({ok:true});
+    }
     if (route === "door-command" || route === "power-command") {
       const kind = route === "door-command" ? "door" : "power";
       const { data, error:commandError } = await db
@@ -482,7 +516,7 @@ Deno.serve(async (req) => {
       if (!cmd) return json({ command: null, ...plan });
       const {error:consumeError}=await db.from("kiosk_commands").update({ consumed_at: new Date().toISOString() }).eq("id", cmd.id);
       if(consumeError)throw consumeError;
-      return json({ ...plan, command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
+      return json({ ...plan, command_id:cmd.id, command: cmd.action, action: cmd.action, ...(cmd.payload ?? {}) });
     }
 
     // ── ภาพสดหน้าตู้ ─────────────────────────────────────────────────────

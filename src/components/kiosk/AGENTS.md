@@ -1,2 +1,3 @@
 - FaceGate media retains private Storage paths and obtains fresh signed URLs for playback; configuration merges a fresh read of kiosk_config and only writes FaceGate fields so Linux installer settings stay intact.
 - Device controls send authenticated, server-role-checked commands with expiration, never report queued commands as executed or use a device key as administrator authorization.
+- Visitor face recognition requires consent plus administrator approval and only current-day open visits; FaceGate evidence and QR print in isolated documents without dashboard controls.

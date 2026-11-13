@@ -8908,6 +8908,7 @@ export type Database = {
       kiosk_commands: {
         Row: {
           action: string
+          completed_at: string | null
           consumed_at: string | null
           created_at: string
           created_by: string | null
@@ -8916,9 +8917,12 @@ export type Database = {
           id: string
           kind: string
           payload: Json
+          result_detail: string | null
+          result_status: string | null
         }
         Insert: {
           action: string
+          completed_at?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -8927,9 +8931,12 @@ export type Database = {
           id?: string
           kind: string
           payload?: Json
+          result_detail?: string | null
+          result_status?: string | null
         }
         Update: {
           action?: string
+          completed_at?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -8938,6 +8945,8 @@ export type Database = {
           id?: string
           kind?: string
           payload?: Json
+          result_detail?: string | null
+          result_status?: string | null
         }
         Relationships: []
       }
@@ -16299,6 +16308,12 @@ export type Database = {
           contact_person_name: string | null
           contact_personnel_id: string | null
           created_at: string
+          face_approved_at: string | null
+          face_approved_by: string | null
+          face_consent: boolean
+          face_embedding: Json | null
+          face_error: string | null
+          face_geometry: Json | null
           id: string
           id_card_last4: string | null
           notes: string | null
@@ -16318,6 +16333,12 @@ export type Database = {
           contact_person_name?: string | null
           contact_personnel_id?: string | null
           created_at?: string
+          face_approved_at?: string | null
+          face_approved_by?: string | null
+          face_consent?: boolean
+          face_embedding?: Json | null
+          face_error?: string | null
+          face_geometry?: Json | null
           id?: string
           id_card_last4?: string | null
           notes?: string | null
@@ -16337,6 +16358,12 @@ export type Database = {
           contact_person_name?: string | null
           contact_personnel_id?: string | null
           created_at?: string
+          face_approved_at?: string | null
+          face_approved_by?: string | null
+          face_consent?: boolean
+          face_embedding?: Json | null
+          face_error?: string | null
+          face_geometry?: Json | null
           id?: string
           id_card_last4?: string | null
           notes?: string | null

@@ -29,6 +29,8 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import threading
+import time
 
 import localdb as db
 
@@ -37,6 +39,8 @@ CLOUD_TTS_URL = os.environ.get(
     "FACEGATE_TTS_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1/tts-th"
 )
 MIME = {".mp3": "audio/mpeg", ".wav": "audio/wav"}
+_fetch_lock = threading.Lock()
+_last_fetch = 0.0
 
 
 def _key(text: str) -> str:
@@ -67,12 +71,21 @@ def _store(text: str, data: bytes, ext: str) -> None:
 def _fetch_cloud(text: str, timeout: int = 20) -> bytes | None:
     """Natural Thai voice from the FaceGate service (internet needed once)."""
     try:
+        global _last_fetch
+        with _fetch_lock:
+            wait = 2.1 - (time.monotonic() - _last_fetch)
+            if wait > 0:
+                time.sleep(wait)
+            _last_fetch = time.monotonic()
         request = urllib.request.Request(
             CLOUD_TTS_URL,
             data=json.dumps({"text": text[:300]}).encode("utf-8"),
             headers={"Content-Type": "application/json", "User-Agent": "FaceGate"},
         )
         with urllib.request.urlopen(request, timeout=timeout) as response:
+            mime = response.headers.get('X-Audio-Content-Type') or response.headers.get('Content-Type') or ''
+            if 'audio' not in mime and 'mpeg' not in mime:
+                return None
             data = response.read()
         return data if data and len(data) > 1024 else None
     except Exception:
@@ -291,7 +304,8 @@ def synthesize(text: str) -> tuple[bytes, str] | None:
         _store(text, data, ".mp3")
         return data, "audio/mpeg"
 
-    tmp = os.path.join(tempfile.gettempdir(), f"fg-voice-{os.getpid()}.wav")
+    handle, tmp = tempfile.mkstemp(prefix='fg-voice-', suffix='.wav')
+    os.close(handle)
     if _synth_winrt(text, tmp) or _synth_sapi(text, tmp) or _synth_espeak(text, tmp):
         with open(tmp, "rb") as fh:
             wav = fh.read()
@@ -301,6 +315,10 @@ def synthesize(text: str) -> tuple[bytes, str] | None:
         except OSError:
             pass
         return wav, "audio/wav"
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
     return None
 
 

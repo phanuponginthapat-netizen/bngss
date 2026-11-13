@@ -34,13 +34,18 @@ _NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
 
 def _run(cmd: list[str]) -> bool:
     try:
-        subprocess.run(
+        done = subprocess.run(
             cmd,
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=_NO_WINDOW,
+            timeout=15,
         )
+        if done.returncode != 0:
+            with _lock:
+                _state['last_error'] = f'{cmd[0]} exited {done.returncode}'
+            return False
         return True
     except Exception as exc:  # noqa: BLE001
         with _lock:
@@ -75,7 +80,8 @@ def screen_off() -> bool:
         if not ok:
             ok = _run(["vbetool", "dpms", "off"])
     with _lock:
-        _state["screen_off"] = True
+        if ok:
+            _state["screen_off"] = True
     return _remember("screen_off", ok)
 
 
@@ -97,7 +103,8 @@ def screen_on() -> bool:
     else:
         ok = _run(["xset", "dpms", "force", "on"])
     with _lock:
-        _state["screen_off"] = False
+        if ok:
+            _state["screen_off"] = False
     return _remember("screen_on", ok)
 
 
