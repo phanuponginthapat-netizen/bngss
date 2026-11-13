@@ -1,0 +1,4 @@
+ALTER TABLE public.visitor_logs ADD COLUMN face_consent boolean NOT NULL DEFAULT false, ADD COLUMN face_approved_at timestamptz, ADD COLUMN face_approved_by uuid, ADD COLUMN face_embedding jsonb, ADD COLUMN face_geometry jsonb, ADD COLUMN face_error text;
+ALTER TABLE public.kiosk_commands ADD COLUMN completed_at timestamptz, ADD COLUMN result_status text, ADD COLUMN result_detail text;
+CREATE INDEX facegate_active_visitors ON public.visitor_logs(check_in) WHERE check_out IS NULL AND face_approved_at IS NOT NULL;
+COMMENT ON COLUMN public.visitor_logs.face_embedding IS 'Temporary visitor face recognition: consent and admin approval required; active current-day visits only.';

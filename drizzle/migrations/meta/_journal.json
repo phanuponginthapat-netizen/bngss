@@ -253,6 +253,13 @@
       "when": 1794488912039,
       "tag": "0035_facegate_staff_pass_person",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794533610917,
+      "tag": "0036_facegate_visitor_faces_command_results",
+      "breakpoints": true
     }
   ]
 }
