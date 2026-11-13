@@ -22,6 +22,7 @@ import { formatDistanceToNow } from "date-fns";
 import { th, enUS } from "date-fns/locale";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { setAppBadge, setTitleBadge } from "@/lib/liveNotification";
+import FacegateNotificationPhoto from "@/components/FacegateNotificationPhoto";
 
 
 
@@ -128,7 +129,11 @@ const NotificationDropdown = () => {
       source: "inbox", id: i.id, title: i.title,
       message: i.message, type: i.item_type || "notification",
       is_read: !!i.is_read, created_at: i.created_at,
-      priority: i.priority, raw: i,
+      priority: i.priority, raw: {
+        ...((notifications as any[]).find(n => n.id === i.notification_id) || {}),
+        ...i,
+        reference_id: i.reference_id || (notifications as any[]).find(n => n.id === i.notification_id)?.reference_id,
+      },
     }));
     const a: UnifiedItem[] = (notifications as any[])
       .filter((n: any) => !inboxNotifIds.has(n.id))
@@ -297,6 +302,7 @@ const NotificationDropdown = () => {
                         {n.message && (
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</p>
                         )}
+                        {open && <FacegateNotificationPhoto reference={n.raw} userId={userId} lang={lang} />}
                         <p className="text-[10px] text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(n.created_at), {
                             addSuffix: true,
@@ -367,6 +373,7 @@ const NotificationDropdown = () => {
               {detail.message}
             </div>
           )}
+          {detail && <FacegateNotificationPhoto reference={detail.raw} userId={userId} lang={lang} />}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="ghost" onClick={() => setDetail(null)}>
               {lang === "th" ? "ปิด" : "Close"}
