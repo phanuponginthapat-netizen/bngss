@@ -392,7 +392,7 @@ async function loadBrand() {
     $('liveLabel').textContent = c.kiosk_live_label || 'กล้องสด';
     $('todayLabel').textContent = c.kiosk_today_label === 'เข้าเรียนวันนี้' ? 'วันนี้' : (c.kiosk_today_label || 'วันนี้');
     $('classLabel').textContent = c.kiosk_class_label || 'ชั้นเรียน'; $('idLabel').textContent = c.kiosk_id_label || 'รหัส'; $('timeLabel').textContent = c.kiosk_time_label || 'เวลาเข้า-ออก';
-    $('saverTitle').textContent = (c.school_name || '') + ' — สถิติวันนี้';
+    if ($('saverTitle')) $('saverTitle').textContent = (c.school_name || '') + ' — สถิติวันนี้';
     if (c.logo_url) { $('logo').src = c.logo_url; $('logo').style.display = 'block'; $('logoFallback').style.display = 'none'; }
   } catch (e) {}
 }
@@ -401,7 +401,7 @@ async function loadRecent() {
     const data = await (await fetch('/local/kiosk-api/recent')).json();
     if(data.voice_test_at && data.voice_test_at > lastVoiceTest){lastVoiceTest=data.voice_test_at; speak('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ');}
     display = data.display || display;
-    broadcastMedia = data.broadcast_media || [];
+    updateBroadcast(data.broadcast_media || []);
     applyCameraLook();
     if (display.news_enabled && display.news_text) {
       $('newsBox').style.display = 'block';
@@ -475,22 +475,58 @@ function applySaver() {
   const show = statsMode && (windowsClosed || idle);
   $('saver').className = 'saver' + (show ? ' show' : '');
   if (show) showBroadcast(); else {
-    if (broadcastTimer) clearTimeout(broadcastTimer);
-    broadcastTimer = null;
-    const video = $('saverMedia').querySelector('video');
-    if (video) { video.onended = null; video.pause(); video.remove(); }
+    stopBroadcast();
+    $('saverMedia').replaceChildren();
   }
+}
+function stopBroadcast() {
+  if (broadcastTimer) clearTimeout(broadcastTimer);
+  broadcastTimer = null;
+  const video = $('saverMedia').querySelector('video');
+  if (video) {
+    video.onended = video.onerror = video.onwaiting = video.onplaying = null;
+    video.pause(); video.removeAttribute('src'); video.load();
+  }
+}
+function updateBroadcast(items) {
+  const old = broadcastMedia[broadcastIndex % Math.max(1, broadcastMedia.length)];
+  broadcastMedia = items.filter(item => item.url && item.is_active !== false);
+  const index = old ? broadcastMedia.findIndex(item => item.id === old.id) : -1;
+  broadcastIndex = index >= 0 ? index : 0;
+  // Refresh signed URLs without interrupting the current clip on each poll.
+  if (old && index < 0 || !broadcastMedia.length) {
+    stopBroadcast(); $('saverMedia').replaceChildren();
+  }
+  showBroadcast();
+}
+function broadcastWait(ms) {
+  if (broadcastTimer) clearTimeout(broadcastTimer);
+  broadcastTimer = setTimeout(nextBroadcast, ms);
 }
 function showBroadcast() {
   const box = $('saverMedia'); if (!box || !broadcastMedia.length || broadcastTimer || box.querySelector('video') || !$('saver').classList.contains('show')) return;
   const item = broadcastMedia[broadcastIndex % broadcastMedia.length];
   box.replaceChildren();
   if (item.media_type === 'video') {
-    const video = document.createElement('video'); video.src=item.url; video.autoplay=true; video.muted=true; video.playsInline=true; video.loop=broadcastMedia.length<=1;
-    if(!video.loop) video.onended=nextBroadcast; video.onerror=()=>{broadcastTimer=setTimeout(nextBroadcast,3000);}; box.append(video);
-  } else { const img=document.createElement('img');img.src=item.url;img.alt=item.title||'';box.append(img); broadcastTimer=setTimeout(nextBroadcast, Math.max(3,item.duration_seconds||10)*1000); }
+    const video = document.createElement('video'); video.src=item.url; video.autoplay=true; video.muted=false; video.volume=1; video.playsInline=true; video.loop=false;
+    video.onended=nextBroadcast;
+    video.onerror=()=>broadcastWait(3000);
+    video.onwaiting=()=>broadcastWait(15000);
+    video.onplaying=()=>{if(broadcastTimer)clearTimeout(broadcastTimer);broadcastTimer=null;};
+    box.append(video); broadcastWait(15000);
+    const play = video.play();
+    if(play) play.catch(error=>{
+      if(!box.contains(video) || !$('saver').classList.contains('show')) return;
+      if(error.name !== 'NotAllowedError') { broadcastWait(3000); return; }
+      if(broadcastTimer)clearTimeout(broadcastTimer);broadcastTimer=null;
+      const button=document.createElement('button');button.className='soundEnable';button.textContent='🔊 เปิดเสียงและเล่นวิดีโอ';
+      button.onpointerdown=event=>event.stopPropagation();
+      button.onkeydown=event=>event.stopPropagation();
+      button.onclick=event=>{event.stopPropagation();video.play().then(()=>button.remove()).catch(()=>{button.textContent='🔊 ลองเปิดเสียงอีกครั้ง';});};box.append(button);
+    });
+  } else { const img=document.createElement('img');img.src=item.url;img.alt=item.title||'';img.onerror=()=>broadcastWait(3000);box.append(img); broadcastWait(Math.max(3,item.duration_seconds||10)*1000); }
 }
-function nextBroadcast(){ if(broadcastTimer) clearTimeout(broadcastTimer); broadcastTimer=null; $('saverMedia').replaceChildren(); broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
+function nextBroadcast(){ stopBroadcast(); $('saverMedia').replaceChildren(); broadcastIndex=(broadcastIndex+1)%Math.max(1,broadcastMedia.length); showBroadcast(); }
 
 function wake() { bumpActivity(); }
 window.addEventListener('pointerdown', bumpActivity);
