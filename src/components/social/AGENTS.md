@@ -1,0 +1,1 @@
+- SocialWallWidget presents CMS channels one at a time in a vertical viewer; unsupported Facebook profile embeds keep an explicit original-link fallback and never fabricate posts or interactions.
