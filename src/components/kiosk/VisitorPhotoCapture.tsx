@@ -21,6 +21,7 @@ export default function VisitorPhotoCapture({ photo, onPhoto }: { photo: string;
   const [camera, setCamera] = useState(false);
   const [ready, setReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [portrait, setPortrait] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [count, setCount] = useState(0);
@@ -44,7 +45,7 @@ export default function VisitorPhotoCapture({ photo, onPhoto }: { photo: string;
       await bounded((async () => {
         while (run === generation.current) {
           const v = video.current;
-          if (v) { v.srcObject = media; await v.play(); if (v.videoWidth && v.readyState >= 2) return; }
+          if (v) { v.srcObject = media; await v.play(); if (v.videoWidth && v.readyState >= 2) { setPortrait(v.videoHeight > v.videoWidth); return; } }
           await new Promise(r => setTimeout(r, 100));
         }
       })(), 10000, 'กล้องยังไม่ส่งภาพ กรุณาปิดกล้องในแอปอื่นแล้วลองใหม่');
@@ -108,9 +109,11 @@ export default function VisitorPhotoCapture({ photo, onPhoto }: { photo: string;
       <DialogContent className="flex flex-col gap-3 overflow-hidden sm:max-w-2xl sm:h-[85dvh]">
         <DialogTitle className="shrink-0 pr-8">ถ่ายใบหน้าผู้มาติดต่อ</DialogTitle>
         <DialogDescription className="sr-only">ถ่ายใบหน้าสดหลายมุมและตรวจการเคลื่อนไหว</DialogDescription>
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-md bg-muted">
+        <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden rounded-md bg-muted [container-type:size]">
+          <div className={portrait ? 'relative aspect-[3/4] w-[min(100%,75cqh)]' : 'relative aspect-[4/3] w-[min(100%,133cqh)]'}>
           <video ref={video} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-contain" aria-label="กล้องผู้มาติดต่อ"/>
-          <div aria-label="กรอบใบหน้า" className="pointer-events-none absolute left-1/2 top-1/2 h-[74%] max-h-[100vw] w-[82%] max-w-[44vh] -translate-x-1/2 -translate-y-1/2 rounded-[45%] border-4 border-primary"/>
+          <div aria-label="กรอบใบหน้า" className="pointer-events-none absolute left-1/2 top-1/2 h-[88%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[45%] border-4 border-primary"/>
+          </div>
         </div>
         <div className="shrink-0 space-y-3">
           <p role="status" className="min-h-12 text-center text-base font-medium">{message}<span className="block text-sm text-muted-foreground">{count}/5</span></p>
