@@ -60,10 +60,14 @@ class VoicePowerTests(unittest.TestCase):
             run.return_value.returncode=1
             self.assertFalse(power._run(['xset']))
 
-    def test_failed_screen_off_keeps_previous_state(self):
-        power._state['screen_off']=False
-        with patch.object(power,'IS_WINDOWS',False),patch.object(power,'_run',return_value=False):
-            self.assertFalse(power.screen_off())
+    def test_remote_screen_off_uses_kiosk_idle_screen_not_os_lock(self):
+        with patch.object(power,'IS_WINDOWS',True),patch.object(power,'_run') as run:
+            self.assertTrue(power.screen_off())
+            run.assert_not_called()
+            self.assertTrue(power.status()['screen_off'])
+            self.assertTrue(power.status()['manual_screen_off'])
+        with patch.object(power,'IS_WINDOWS',False),patch.object(power,'_run',return_value=True):
+            self.assertTrue(power.screen_on())
             self.assertFalse(power.status()['screen_off'])
 
 if __name__=='__main__':unittest.main()
