@@ -28,6 +28,8 @@ CloseApplications=force
 [Files]
 Source: "..\..\..\..\dist-facegate\FaceGate\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+Source: "optimize-kiosk.ps1"; DestDir: "{app}"; Flags: ignoreversion
+
 [Icons]
 Name: "{autodesktop}\BNG FaceGate"; Filename: "{app}\FaceGate.exe"; WorkingDir: "{app}"
 Name: "{group}\BNG FaceGate"; Filename: "{app}\FaceGate.exe"; WorkingDir: "{app}"
@@ -35,6 +37,7 @@ Name: "{group}\ถอนการติดตั้ง BNG FaceGate"; Filename: 
 Name: "{commonstartup}\BNG FaceGate"; Filename: "{app}\FaceGate.exe"; WorkingDir: "{app}"
 
 [Run]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\optimize-kiosk.ps1"""; StatusMsg: "กำลังปรับ Windows ให้เหมาะกับเครื่องสแกน (พลังงาน/ความเร็ว)..."; Flags: runhidden waituntilterminated
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""BNG FaceGate"" dir=in action=allow program=""{app}\FaceGate.exe"" enable=yes"; Flags: runhidden
 Filename: "{app}\FaceGate.exe"; Description: "เปิดโปรแกรมสแกนหน้าตอนนี้"; Flags: nowait postinstall
 

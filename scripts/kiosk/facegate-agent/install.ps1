@@ -109,6 +109,11 @@ foreach ($dir in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFo
   $sc.Save()
 }
 
+$opt = @((Join-Path $scriptDir "optimize-kiosk.ps1"), (Join-Path $scriptDir "windows\optimize-kiosk.ps1")) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($opt) {
+  Write-Host "      ปรับ Windows ให้เหมาะกับเครื่องสแกน (ต้องสิทธิ์ผู้ดูแล)..." -ForegroundColor Gray
+  try { Start-Process powershell -Verb RunAs -Wait -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$opt`"" } catch { Write-Host "      ข้ามการปรับ Windows: $_" -ForegroundColor Yellow }
+}
 Write-Host "[5/5] เริ่มโปรแกรม..." -ForegroundColor Cyan
 Start-Process -FilePath $run -WindowStyle Minimized
 
