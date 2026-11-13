@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {describe,it,expect} from 'vitest';
 import {activeVisitorFace,validFaceEmbedding,validVisitorPhoto} from '../../../supabase/functions/_shared/facegateVisitor';
 import {validFacegateCommand,validWakePayload} from '../../../supabase/functions/_shared/facegatePolicy';

@@ -111,8 +111,8 @@ async function storeSnapshot(db: ReturnType<typeof admin>, snapshot: string | nu
     const path = `scans/${bkkDate()}/${personId}-${Date.now()}.jpg`;
     const { error } = await db.storage.from("face-photos").upload(path, bytes, { contentType: "image/jpeg" });
     if (error) return null;
-    const { data } = await db.storage.from("face-photos").createSignedUrl(path, 60 * 60 * 24 * 7);
-    return data?.signedUrl ?? null;
+    // เก็บเฉพาะพาธส่วนตัว — ลิงก์ชั่่วคราวหมดอายุได และจะใชไมไดบนเครื่่องตอมารวมทังหลังเปลี่ยน backend
+    return path;
   } catch {
     return null;
   }

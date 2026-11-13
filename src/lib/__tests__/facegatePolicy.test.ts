@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {describe,it,expect} from 'vitest';
 import {validFacegateCommand,facegateSaver,FACEGATE_PAUSE_SECONDS,validateFacegateSettings} from '../../../supabase/functions/_shared/facegatePolicy';
 describe('FaceGate policy',()=>{
