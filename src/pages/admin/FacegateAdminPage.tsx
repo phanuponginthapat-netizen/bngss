@@ -9,6 +9,7 @@ import FacegateMedia from '@/components/kiosk/FacegateMedia';
 import FacegateMachines from '@/components/kiosk/FacegateMachines';
 import FacegateVisitors from '@/components/kiosk/FacegateVisitors';
 import FacegateCertificate from '@/components/kiosk/FacegateCertificate';
+import FacegateAlerts from '@/components/kiosk/FacegateAlerts';
 import FailedScanQueue from '@/components/kiosk/FailedScanQueue';
 import {useFacegateRelease} from '@/lib/facegateRelease';
 const Register=lazy(()=>import('@/components/facescan/FaceRegisterTab')),Staff=lazy(()=>import('@/components/facescan/StaffFaceTab')),Faces=lazy(()=>import('@/components/facescan/FaceDatabaseTab')),Approval=lazy(()=>import('@/components/facescan/FaceApprovalTab')),Report=lazy(()=>import('@/components/facescan/FaceReportTab')),Rules=lazy(()=>import('@/components/facescan/FaceSettingsTab'));
