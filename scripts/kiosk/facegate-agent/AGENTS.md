@@ -3,3 +3,4 @@
 - Native kiosk scan requests carry the visible guide mapped into upright image coordinates; scan_guide rejects partially outside faces before embedding and normalizes completed queue results to a fixed two-second pause, keeping display and recognition boundaries identical.
 - Cloud idle media is delivered through device-authorized reads with fresh signed URLs; wake removes video playback and unknown attendance remains unknown rather than fabricated absence.
 - Prepare offline speech from the synced Cloud roster with progress and individual failures; temporary visitor faces expire on the Bangkok day and never open doors automatically. Report operating-system failures and scheduled actions separately from completion.
+- Kiosk layout follows viewport orientation without reopening the camera; calculate the visible guide from current dimensions so portrait resizing preserves scan boundaries.
