@@ -17,7 +17,7 @@ class PlaylistTest(unittest.TestCase):
         # Isolate the actual playlist from camera/network/startup side effects.
         script = KIOSK_HTML.split('<script>')[1].split('</script>')[0]
         script = script[:script.index('setInterval(loadPower,1000);')]
-        self.page.set_content('<div id="saver" class="saver show"><div id="saverMedia"></div></div>')
+        self.page.set_content('<div id="saver" class="saver show"><div id="saverMedia"></div><section class="saverPanel"><span id="saverPages"></span></section></div>')
         self.page.add_script_tag(content=script)
         self.page.route('https://example.invalid/**', lambda route: route.abort())
         self.page.evaluate("""() => {
