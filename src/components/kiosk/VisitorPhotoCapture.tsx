@@ -69,7 +69,7 @@ export default function VisitorPhotoCapture({ photo, onPhoto }: { photo: string;
   return <div className="space-y-3">
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" onClick={() => void start()}><Camera className="mr-2 h-4 w-4"/>{photo ? 'ถ่ายใหม่' : 'เปิดกล้องถ่ายภาพ'}</Button>
-      <Button type="button" variant="outline" asChild><label className="cursor-pointer"><ImagePlus className="mr-2 h-4 w-4"/>เลือกภาพ<Input type="file" className="sr-only" aria-label="เลือกภาพผู้มาติดต่อ" accept="image/jpeg,image/png,image/webp" onChange={e => { void select(e.target.files?.[0]); e.target.value = ''; }}/></label></Button>
+      <Button type="button" variant="outline" asChild><label className="relative cursor-pointer"><ImagePlus className="mr-2 h-4 w-4"/>เลือกภาพ<Input type="file" className="sr-only" aria-label="เลือกภาพผู้มาติดต่อ" accept="image/jpeg,image/png,image/webp" onChange={e => { void select(e.target.files?.[0]); e.target.value = ''; }}/></label></Button>
     </div>
     {camera && <div className="space-y-2">
       <video ref={video} autoPlay muted playsInline onLoadedData={() => setReady(true)} className="aspect-[4/3] w-full rounded-md bg-muted object-contain" aria-label="กล้องผู้มาติดต่อ"/>
