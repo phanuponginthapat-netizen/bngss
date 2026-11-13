@@ -393,6 +393,9 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     if not person or person.get("is_active") is False:
         return {"result": "denied", "message": "ไม่พบผู้ใช้งานที่กำลังใช้งานในทะเบียน", "next_delay_seconds": 1}
     if person.get('person_type') == 'visitor':
+        today = clock.now_tz(timezone(__import__('datetime').timedelta(hours=7))).date().isoformat()
+        if person.get('valid_until') != today:
+            return {'result':'denied','message':'ทะเบียนผู้มาติดต่อหมดอายุ','next_delay_seconds':2}
         threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
         return {**(extra or {}), 'result': 'ok', 'student_id': sid, 'name': name, 'student': person,
                 'avatar_url': person.get('avatar_url'), 'message': f'ผู้มาติดต่อ {name} กรุณาแจ้งเจ้าหน้าที่',
@@ -671,7 +674,7 @@ def sync_once() -> None:
         for face_id in removed:
             faces.pop(face_id, None)
         state["faces"] = faces
-        state["students"] = {s["id"]: s for s in data.get("students", [])}
+        state["students"] = {s["id"]: {**s, "valid_until": datetime.now(timezone.utc).astimezone(timezone(__import__("datetime").timedelta(hours=7))).date().isoformat() if s.get("person_type")=="visitor" else None} for s in data.get("students", [])}
         state["settings"] = data.get("settings") or {}
         default_direction = (data.get("device") or {}).get("default_direction")
         state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
@@ -794,7 +797,7 @@ def note_failed_scan(snapshot: str | None) -> dict:
         else "พบบุคคลที่ไม่ใช่บุคลากรหรือนักเรียนของโรงเรียน กรุณาตรวจสอบ"
     )
     try:
-        requests.post(
+        response = requests.post(
             f"{CLOUD_URL}/kiosk-api/alert",
             headers=HEADERS,
             json={
@@ -806,6 +809,7 @@ def note_failed_scan(snapshot: str | None) -> dict:
             },
             timeout=10,
         )
+        response.raise_for_status()
         if first_report:
             _fails["reported"] = True
         if escalation:
