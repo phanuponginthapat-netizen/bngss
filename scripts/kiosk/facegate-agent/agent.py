@@ -902,6 +902,9 @@ def power_once() -> None:
             int(data.get("wake_port") or 9),
         )
         report_command(data, ok)
+    elif command == 'live_view':
+        _live["fast_until"] = time.time() + 300
+        report_command(data, True)
     elif command == 'prepare_voice':
         import local_voice
         with lock:
@@ -1120,7 +1123,7 @@ class ScanRequest(BaseModel):
     image: str
 
 
-_live = {"at": 0.0}
+_live = {"at": 0.0, "fast_until": 0.0, "busy": False}
 
 
 def push_live_frame(image: str) -> None:
@@ -1132,9 +1135,11 @@ def push_live_frame(image: str) -> None:
             return
         status = str(state.get("last_status") or "")
     now = time.time()
-    if now - _live["at"] < 2.0:
+    fast = now < float(_live.get("fast_until") or 0)
+    if now - _live["at"] < (0.4 if fast else 2.0) or _live.get("busy"):
         return
     _live["at"] = now
+    _live["busy"] = True
 
     def send() -> None:
         try:
@@ -1146,11 +1151,15 @@ def push_live_frame(image: str) -> None:
                 ok, buf = cv2.imencode(".jpg", cv2.resize(arr, (320, height)),
                                        [int(cv2.IMWRITE_JPEG_QUALITY), 55])
                 if ok:
-                    small = base64.b64encode(buf).decode()
+                    small = "data:image/jpeg;base64," + base64.b64encode(buf).decode()
+            if not small.startswith("data:"):
+                small = "data:image/jpeg;base64," + small
             requests.post(f"{CLOUD_URL}/kiosk-api/live", headers=HEADERS,
                           json={"image": small, "status": status}, timeout=10)
         except Exception as exc:  # noqa: BLE001
             print(f"[agent] live frame failed: {exc}")
+        finally:
+            _live["busy"] = False
 
     threading.Thread(target=send, daemon=True).start()
 

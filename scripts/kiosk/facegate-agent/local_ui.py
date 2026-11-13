@@ -467,12 +467,13 @@ async function loadStats() {
     if (v && v.paused) { try { await v.play(); } catch (e) {} }
   } catch (e) {}
 }
+let remoteSaver = false;
 let statsMode = true, windowsClosed = false, checkinOnly = false, idleMinutes = 0;
 let lastActivity = Date.now();
 function bumpActivity() { lastActivity = Date.now(); applySaver(); }
 function applySaver() {
   const idle = idleMinutes > 0 && Date.now() - lastActivity > idleMinutes * 60000;
-  const show = statsMode && (windowsClosed || idle);
+  const show = remoteSaver || (statsMode && (windowsClosed || idle));
   $('saver').className = 'saver' + (show ? ' show' : '');
   if (show) showBroadcast(); else {
     stopBroadcast();
@@ -537,7 +538,7 @@ function clock() {
   $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 async function cancelPower(){await fetch('/power/command',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({command:'cancel'})});await loadPower();}
-async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}
+async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;const rs=!!p.screen_off;if(rs!==remoteSaver){remoteSaver=rs;if(!rs)lastActivity=Date.now();applySaver();}$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}
 setInterval(loadPower,1000);
 loadBrand(); startCamera(); loadRecent(); loadStats(); clock();
 setInterval(tick, 300); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);

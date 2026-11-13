@@ -63,49 +63,33 @@ def _remember(action: str, ok: bool) -> bool:
 
 
 def screen_off() -> bool:
-    """Blank the monitor (the PC stays awake and keeps scanning nothing)."""
-    ok = False
-    if IS_WINDOWS:
-        try:
-            import ctypes
+    """Show the FaceGate idle screen (media + attendance) instead of the OS.
 
-            # WM_SYSCOMMAND / SC_MONITORPOWER / power off
-            ctypes.windll.user32.SendMessageW(0xFFFF, 0x0112, 0xF170, 2)
-            ok = True
-        except Exception as exc:  # noqa: BLE001
-            with _lock:
-                _state["last_error"] = str(exc)
-    else:
-        ok = _run(["xset", "dpms", "force", "off"])
-        if not ok:
-            ok = _run(["vbetool", "dpms", "off"])
+    Turning the monitor off through Windows on tablets with Modern Standby
+    (HP Pavilion x2 and similar) locks the session and stops the camera, and
+    it cannot be woken remotely. The kiosk screen polls /power/status and
+    shows its own idle screen while this flag is set.
+    """
     with _lock:
-        if ok:
-            _state["screen_off"] = True
-    return _remember("screen_off", ok)
+        _state["screen_off"] = True
+    return _remember("screen_off", True)
 
 
 def screen_on() -> bool:
-    """Wake the monitor back up."""
-    ok = False
+    """Leave the FaceGate idle screen and return to scanning."""
+    with _lock:
+        _state["screen_off"] = False
     if IS_WINDOWS:
-        try:
+        try:  # wake the display if Windows dimmed it on its own
             import ctypes
-
-            ctypes.windll.user32.SendMessageW(0xFFFF, 0x0112, 0xF170, -1)
-            # A tiny mouse nudge is what actually wakes some Atom boards.
+            ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000002 | 0x00000001)
             ctypes.windll.user32.mouse_event(1, 1, 0, 0, 0)
             ctypes.windll.user32.mouse_event(1, -1, 0, 0, 0)
-            ok = True
-        except Exception as exc:  # noqa: BLE001
-            with _lock:
-                _state["last_error"] = str(exc)
+        except Exception:  # noqa: BLE001
+            pass
     else:
-        ok = _run(["xset", "dpms", "force", "on"])
-    with _lock:
-        if ok:
-            _state["screen_off"] = False
-    return _remember("screen_on", ok)
+        _run(["xset", "dpms", "force", "on"])
+    return _remember("screen_on", True)
 
 
 def wake_lan(mac: str, broadcast: str = "255.255.255.255", port: int = 9) -> bool:
