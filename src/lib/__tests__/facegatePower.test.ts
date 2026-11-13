@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {describe,it,expect} from 'vitest';
 import {facegatePowerPlan,validateFacegatePower} from '../../../supabase/functions/_shared/facegatePolicy';
 const s={power_saving_enabled:true,screen_off_time:'18:00',screen_on_time:'06:00',power_off_time:'20:00'};
