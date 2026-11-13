@@ -5,3 +5,5 @@
 - Prepare offline speech from the synced Cloud roster with progress and individual failures; temporary visitor faces expire on the Bangkok day and never open doors automatically. Report operating-system failures and scheduled actions separately from completion.
 - Kiosk layout follows viewport orientation without reopening the camera; calculate the visible guide from current dimensions so portrait resizing preserves scan boundaries.
 - Scan speech finishes before the next voice starts, suppresses the same identity for ten seconds independently of the two-second scan pause, and includes the registered name for success, duplicates and visitors to avoid overlapping or truncated names.
+
+- Scrolling news occupies its own flex row outside the camera stage so scan instructions never share its overlay area in either orientation.
