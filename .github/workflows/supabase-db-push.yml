@@ -1,123 +1,16 @@
-name: Deploy Supabase Database Migrations
+name: Managed Cloud Database
 
-# ทุกครั้งที่ไฟล์ migration ใน supabase/migrations เปลี่ยน จะ push ขึ้น backend ของโรงเรียนอัตโนมัติ
-# ต้องตั้ง GitHub Secret: SUPABASE_ACCESS_TOKEN (Personal Access Token จาก Supabase Dashboard)
-# ต้องตั้ง GitHub Secret หรือ Variable: SUPABASE_PROJECT_REF (project ref ของ backend ภายนอก)
+# Compatibility entrypoint for older callers; the managed Cloud is authoritative.
 on:
   workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: supabase-db-push
-  cancel-in-progress: false
-
-env:
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  # ใช้ secret ถ้ามี ไม่งั้น fallback เป็น backend หลักของโรงเรียน (เหมือน deploy-edge-functions.yml)
-  PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF || 'gwmszzoqqxmejefhayqf' }}
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  managed-cloud:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.45.4
-          github-token: ${{ github.token }}
-
-      - name: Verify secrets
-        run: |
-          : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
-          : "${PROJECT_REF:?SUPABASE_PROJECT_REF secret is not set}"
-
-      - name: Link Supabase project
-        run: supabase link --project-ref "$PROJECT_REF"
-
-      - name: Repair migration history + push
-        run: |
-          set -uo pipefail
-
-          local_versions() {
-            ls supabase/migrations/*.sql 2>/dev/null \
-              | xargs -r -n1 basename \
-              | sed -E 's/^([0-9]+).*/\1/' \
-              | sort -u
-          }
-
-          repair_remote_only() {
-            supabase migration list --linked > /tmp/mig_list.txt 2>&1 || true
-            cat /tmp/mig_list.txt
-            local_versions > /tmp/local_versions.txt || true
-            # คอลัมน์ที่ 2 ของตารางคือ version บน remote (คอลัมน์แรกอาจว่างได้)
-            awk -F'|' 'NF>=2 { v=$2; gsub(/[^0-9]/,"",v); if (length(v)>=14) print v }' /tmp/mig_list.txt \
-              | sort -u > /tmp/remote_versions.txt || true
-            local found=0
-            while read -r v; do
-              [ -z "$v" ] && continue
-              if ! grep -qx "$v" /tmp/local_versions.txt; then
-                echo "Repairing remote-only migration: $v"
-                supabase migration repair --status reverted "$v" || true
-                found=1
-              fi
-            done < /tmp/remote_versions.txt
-            return $found
-          }
-
-          for attempt in 1 2 3 4 5; do
-            echo "=== Attempt $attempt ==="
-            repair_remote_only || true
-
-            if supabase db push 2>&1 | tee /tmp/push.log; then
-              echo "Push succeeded"
-              exit 0
-            fi
-
-            # ดึงเลข version จากข้อความ error แล้วซ่อมประวัติ migration
-            grep -oE 'migration repair --status reverted [0-9]+' /tmp/push.log \
-              | awk '{print $NF}' | sort -u > /tmp/err_versions.txt || true
-            if [ -s /tmp/err_versions.txt ]; then
-              while read -r v; do
-                echo "Repairing (from error): $v"
-                supabase migration repair --status reverted "$v" || true
-              done < /tmp/err_versions.txt
-              continue
-            fi
-
-            # 23505: อาจเป็นประวัติซ้ำ (schema_migrations) หรือ object ซ้ำใน catalog เช่น pg_proc/pg_type
-            # -> ถือว่า migration นั้นถูกใช้ไปแล้ว mark เป็น applied แล้วดันต่อ
-            if grep -qE '23505|already exists|schema_migrations_pkey|pg_proc_proname_args_nsp_index|pg_type_typname_nsp_index' /tmp/push.log; then
-              grep -oE '\(version\)=\(?[0-9]{14}' /tmp/push.log \
-                | grep -oE '[0-9]{14}' | sort -u > /tmp/dup_versions.txt || true
-              if [ ! -s /tmp/dup_versions.txt ]; then
-                grep -oE '[0-9]{14}' /tmp/push.log | tail -n1 > /tmp/dup_versions.txt || true
-              fi
-
-              if [ -s /tmp/dup_versions.txt ]; then
-                while read -r v; do
-                  echo "Marking as applied (duplicate on remote): $v"
-                  supabase migration repair --status applied "$v" || true
-                done < /tmp/dup_versions.txt
-                continue
-              fi
-            fi
-
-
-            # deadlock / lock timeout เป็นอาการชั่วคราว -> รอแล้วลองใหม่
-            if grep -qiE '40P01|deadlock detected|55P03|lock timeout|canceling statement due to lock' /tmp/push.log; then
-              echo "Transient lock error detected, retrying in 20s..."
-              sleep 20
-              continue
-            fi
-
-
-            echo "Push failed with a non-retryable error"
-            exit 1
-          done
-
-
-          echo "Final push"
-          supabase db push
-
-
+      - name: Managed Cloud deployment ownership
+        run: echo "Schema changes are applied through Lovable Cloud migrations. No external database push or history repair is performed."

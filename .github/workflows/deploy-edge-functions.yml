@@ -1,57 +1,16 @@
-name: Deploy Supabase Edge Functions
+name: Managed Cloud Functions
 
-# ทุกครั้งที่โค้ดใน supabase/functions เปลี่ยน จะ deploy ขึ้น Supabase ของโรงเรียนอัตโนมัติ
-# ต้องตั้ง GitHub Secret: SUPABASE_ACCESS_TOKEN (Personal Access Token จาก Supabase Dashboard)
+# Compatibility entrypoint for older callers; the managed Cloud is authoritative.
 on:
   workflow_call:
   workflow_dispatch:
 
-concurrency:
-  group: deploy-edge-functions
-  cancel-in-progress: false
-
-env:
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  PROJECT_REF: gwmszzoqqxmejefhayqf
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  managed-cloud:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 2.45.4
-          github-token: ${{ github.token }}
-      - name: Verify secrets
-        run: |
-          : "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN secret is not set}"
-          : "${PROJECT_REF:?PROJECT_REF is not set}"
-
-      - name: Sync Edge Function secrets
-        env:
-          FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
-        run: |
-          if [ -n "$FCM_SERVICE_ACCOUNT_JSON" ]; then
-            echo "Setting FCM_SERVICE_ACCOUNT_JSON in Supabase..."
-            supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$FCM_SERVICE_ACCOUNT_JSON" --project-ref "$PROJECT_REF"
-          fi
-      - name: Deploy all edge functions
-        run: |
-          set -uo pipefail
-          failed=""
-          for dir in supabase/functions/*/; do
-            name="$(basename "$dir")"
-            # ข้าม: _shared (ไม่ใช่ฟังก์ชัน), migrate-auth-push (one-time migration), mcp (Lovable deploy ให้เอง bundle ใหญ่เกิน 5MB)
-            case "$name" in _shared|migrate-auth-push|mcp) echo "--> skip $name"; continue ;; esac
-            echo "--> $name"
-            if ! supabase functions deploy "$name" --project-ref "$PROJECT_REF"; then
-              echo "::warning::deploy failed: $name"
-              failed="$failed $name"
-            fi
-          done
-          if [ -n "$failed" ]; then
-            echo "::error::functions failed to deploy:$failed"
-            exit 1
-          fi
-          echo "==> All deployable functions deployed successfully"
+      - name: Managed Cloud deployment ownership
+        run: echo "Edge functions are deployed from Lovable Cloud. No external project deployment is performed."

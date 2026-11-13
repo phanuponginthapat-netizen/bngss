@@ -53,3 +53,5 @@
 - Public app download page (/download-app) resolves the APK through src/lib/githubRelease.ts (canonical GitHub release URL + verified fallback, never API-provided URLs) so the file schools download always matches the published release.
 - Install uses shared release/platform resolvers and publicOrigin for domain-aware QR links; keep scanner packages separate and retain the old origin until custom DNS is ready.
 
+
+- GitHub backend workflow entrypoints must remain non-mutating Cloud handoffs, and web CI must not depend on external database/function deployments; retired project targets and migration-history repair can otherwise block releases or alter the wrong backend.
