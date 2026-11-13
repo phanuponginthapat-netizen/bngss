@@ -1,5 +1,5 @@
 // Service Worker — Web Push notifications (no app-shell caching)
-const SW_VERSION = "v8-ai-model-cache";
+const SW_VERSION = "v9-single-notification";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -103,8 +103,8 @@ self.addEventListener("push", (event) => {
   const isUrgent = data.urgent === true || data.severity === "critical";
 
   event.waitUntil((async () => {
-    // Dedup — ถ้า tag เดียวกันเพิ่งแสดงไปใน 8 วิ ให้ข้าม (ยกเว้น urgent)
-    if (!isUrgent && seenRecently(tag)) {
+    // Identical urgent deliveries are duplicates too; distinct IDs remain visible.
+    if (seenRecently(tag)) {
       return;
     }
 
@@ -112,14 +112,14 @@ self.addEventListener("push", (event) => {
     // ให้ realtime toast ในแอปจัดการแทน (กันเห็นซ้ำสองที่)
     const focused = await hasVisibleClient();
 
-    if (!focused || isUrgent) {
+    if (!focused) {
       const options = {
         body: data.body || "",
         icon: data.icon || "/icon-192.png",
         badge: "/icon-192.png",
         image: data.image || undefined,
         tag,
-        renotify: true, // เสียง/สั่นทุกครั้งแม้ tag เดิม
+        renotify: false,
         requireInteraction: data.requireInteraction === true || isUrgent,
         silent: false,
         timestamp: Date.now(),
@@ -136,7 +136,7 @@ self.addEventListener("push", (event) => {
     // แจ้งทุกแท็บให้เล่นเสียง / อัปเดต UI (ทำเสมอ ทั้งเปิดอยู่และไม่เปิด)
     try {
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const c of clients) c.postMessage({ type: "push", payload: data, urgent: isUrgent, tag });
+      for (const c of clients) c.postMessage({ type: "push", payload: data, urgent: isUrgent, tag, displayed: !focused });
     } catch (_) {}
   })());
 });

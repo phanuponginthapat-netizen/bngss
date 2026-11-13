@@ -204,6 +204,7 @@ export function useGlobalRealtime() {
             });
 
           if (table === "notifications" && row.user_id === userId) {
+            if (row.push_sent && document.visibilityState !== "visible") return;
             notify({
               title: row.title || "การแจ้งเตือนใหม่",
               body: row.message || undefined,
@@ -211,6 +212,8 @@ export function useGlobalRealtime() {
               icon: "🔔",
             });
           } else if (table === "inbox_items" && row.user_id === userId) {
+            // Notification mirrors are already handled by the original INSERT.
+            if (row.notification_id) return;
             notify({
               title: row.title || "ข้อความใหม่",
               body: row.message || undefined,
