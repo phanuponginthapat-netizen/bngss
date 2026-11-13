@@ -73,6 +73,9 @@ def _fetch_cloud(text: str, timeout: int = 20) -> bytes | None:
             headers={"Content-Type": "application/json", "User-Agent": "FaceGate"},
         )
         with urllib.request.urlopen(request, timeout=timeout) as response:
+            mime = response.headers.get('X-Audio-Content-Type') or response.headers.get('Content-Type') or ''
+            if 'audio' not in mime and 'mpeg' not in mime:
+                return None
             data = response.read()
         return data if data and len(data) > 1024 else None
     except Exception:
@@ -291,7 +294,8 @@ def synthesize(text: str) -> tuple[bytes, str] | None:
         _store(text, data, ".mp3")
         return data, "audio/mpeg"
 
-    tmp = os.path.join(tempfile.gettempdir(), f"fg-voice-{os.getpid()}.wav")
+    handle, tmp = tempfile.mkstemp(prefix='fg-voice-', suffix='.wav')
+    os.close(handle)
     if _synth_winrt(text, tmp) or _synth_sapi(text, tmp) or _synth_espeak(text, tmp):
         with open(tmp, "rb") as fh:
             wav = fh.read()
@@ -301,6 +305,10 @@ def synthesize(text: str) -> tuple[bytes, str] | None:
         except OSError:
             pass
         return wav, "audio/wav"
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
     return None
 
 
