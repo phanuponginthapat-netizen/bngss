@@ -70,7 +70,7 @@ KIOSK_HTML = r"""<!doctype html>
     .top{height:136px;padding:8px 12px;gap:6px}.brand{grid-column:1/-1}.brand b{white-space:normal;font-size:1rem}.brand span{display:none}.brandMark,.brand img{width:36px;height:36px}.timebox{grid-column:1/-1;grid-row:2;justify-content:space-between;text-align:left}.clock{font-size:1.25rem}.date{font-size:.65rem}.adminBtn{padding:8px 10px}.today{grid-row:3;font-size:.75rem;padding:4px}.today b{font-size:.9rem}
     .app{height:calc(100dvh - 136px)}.side{padding:12px}.welcome{font-size:1rem}.welcome i{width:32px;height:32px;flex-shrink:0}.profile.show{column-gap:12px}.profile .avatar{width:80px;height:80px}.profile h2{font-size:1.1rem}.fact{padding:8px}.fact b{font-size:.9rem}.resultTime{flex-wrap:wrap;padding:8px;gap:4px;font-size:.8rem}.resultBar{padding:10px;font-size:1rem}.saverPanel{padding:14px;gap:12px}.saverPanel h1{font-size:1.3rem}.saverGroup{padding-top:10px}.saverGroup .grid div{padding:10px}.saverGroup .grid b{font-size:2rem}
   }
-  @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+  @media(prefers-reduced-motion:reduce){*:not(.news):not(.news *){animation-duration:.001ms!important;transition-duration:.001ms!important}}
 .visitorBox{margin-bottom:12px;padding:12px;border-radius:16px;border:2px solid rgba(37,99,235,.35);background:#fff;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
 .visitorBox b{color:#1d4ed8;font-size:1rem}
 .visitorBox small{color:#64748b;font-size:.78rem}
