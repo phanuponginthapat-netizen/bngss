@@ -4,6 +4,7 @@
 export async function kioskMediaUrl(db: any, raw: unknown, defaultBucket = "face-photos"): Promise<string | null> {
   if (typeof raw !== "string" || !raw) return null;
   if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)) return raw;
+  if (/^(data:|blob:)/i.test(raw)) return null;
   const match = raw.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/?]+)\/([^?]+)/);
   let bucket = defaultBucket;
   let path = "";
