@@ -664,15 +664,16 @@ def today_stats() -> dict:
         else:
             left.add(sid)
 
-    late = 0
-    for stamp in first_in.values():
+    late_ids: set[str] = set()
+    for sid, stamp in first_in.items():
         try:
             hour = int(stamp[11:13]) + 7
             minute = int(stamp[14:16])
             if (hour % 24) * 60 + minute > late_limit:
-                late += 1
+                late_ids.add(sid)
         except Exception:  # noqa: BLE001
             pass
+    late = len(late_ids)
 
     minutes = rules.bangkok_minutes()
     is_workday = rules.is_work_day(settings, rules.bangkok_weekday())
