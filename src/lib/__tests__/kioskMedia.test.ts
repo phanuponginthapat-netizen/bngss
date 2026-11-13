@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { kioskMediaUrl } from "../../../supabase/functions/_shared/kioskMedia";
 describe("Kiosk media on the active backend", () => {
