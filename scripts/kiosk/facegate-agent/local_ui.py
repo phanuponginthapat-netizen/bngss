@@ -160,6 +160,22 @@ function showResult(d, captured) {
 }
 let audioReady = false, thaiVoice = null, browserVoiceOk = false;
 const clipCache = new Map();
+let voiceBusy = false, pendingVoice = null;
+const spokenPeople = new Map();
+function scanSpeechText(d) {
+  const name = d.name || (d.student || {}).full_name || '';
+  const text = d.speak || (name ? `สแกนสำเร็จ ${name}` : '');
+  return name && !text.includes(name) ? `${text} ${name}` : text;
+}
+function speakScan(d) {
+  const text = scanSpeechText(d);
+  const key = d.student_id || d.name || text;
+  const now = Date.now();
+  if (!text || now - (spokenPeople.get(key) || 0) < 10000) return;
+  spokenPeople.set(key, now);
+  if (spokenPeople.size > 200) spokenPeople.delete(spokenPeople.keys().next().value);
+  speak(text);
+}
 
 function unlockAudio() {
   if (audioReady) return;
@@ -203,30 +219,45 @@ async function speakOnDevice(text) {
       });
       if (!res.ok) return false;
       url = URL.createObjectURL(await res.blob());
-      if (clipCache.size > 60) clipCache.clear();
+      if (clipCache.size > 60) { clipCache.forEach(value => URL.revokeObjectURL(value)); clipCache.clear(); }
       clipCache.set(text, url);
     }
     const audio = new Audio(url);
     audio.volume = Math.min(Math.max(Number(display.voice_volume ?? 1), 0), 1);
     audio.playbackRate = Math.min(Math.max(Number(display.voice_rate || 1), 0.5), 2);
-    await audio.play();
+    await new Promise((resolve, reject) => {
+      audio.onended = resolve; audio.onerror = reject;
+      audio.play().catch(reject);
+    });
     return true;
   } catch (e) { return false; }
 }
 
 async function speak(text) {
   if (!display.voice_enabled || !text) return;
-  if (browserVoiceOk) {
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'th-TH'; u.voice = thaiVoice;
-      u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume ?? 1);
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-      return;
-    } catch (e) {}
+  if (voiceBusy) { pendingVoice = text; return; }
+  voiceBusy = true;
+  try {
+    let played = false;
+    if (browserVoiceOk) {
+      try {
+        await new Promise((resolve, reject) => {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = 'th-TH'; u.voice = thaiVoice;
+          u.rate = Number(display.voice_rate || 1); u.volume = Number(display.voice_volume ?? 1);
+          u.onend = resolve; u.onerror = reject;
+          speechSynthesis.speak(u);
+        });
+        played = true;
+      } catch (e) {}
+    }
+    if (!played) played = await speakOnDevice(text);
+    if (!played) chime();
+  } finally {
+    voiceBusy = false;
+    const next = pendingVoice; pendingVoice = null;
+    if (next) speak(next);
   }
-  const played = await speakOnDevice(text);
-  if (!played) chime();
 }
 
 function drawRotated(v, c, w, h) {
@@ -329,10 +360,10 @@ async function tick() {
     // aside and the camera keeps scanning without a manual touch.
     if (d.result !== 'no_face') bumpActivity();
     if (d.result === 'ok') {
-      say(d.message, 'ok'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); loadRecent(); loadStats();
+      say(d.message, 'ok'); showResult(d, 'data:image/jpeg;base64,' + image); speakScan(d); loadRecent(); loadStats();
       pausedUntil = Date.now() + 2000;
     } else if (d.result === 'duplicate' || d.result === 'denied') {
-      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speak(d.speak); pausedUntil = Date.now() + 2000;
+      say(d.message, 'bad'); showResult(d, 'data:image/jpeg;base64,' + image); speakScan(d); pausedUntil = Date.now() + 2000;
     } else if (d.message && d.result !== 'no_face') { say(d.message); }
     else { say($('subtitle').textContent); }
   } catch (e) {}

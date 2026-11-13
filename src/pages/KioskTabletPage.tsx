@@ -19,7 +19,7 @@ const TH_LOCALE = "th-TH-u-ca-buddhist-nu-latn";
 
 type Student = { full_name?: string; person_type?: string; department?: string; position?: string; class_room?: string; student_code?: string };
 type ScanResult = {
-  result?: string; message?: string; speak?: string; next_delay_seconds?: number;
+  student_id?: string; result?: string; message?: string; speak?: string; next_delay_seconds?: number;
   student?: Student; avatar_url?: string; snapshot_url?: string; name?: string;
 };
 type Display = {
@@ -49,6 +49,9 @@ export default function KioskTabletPage() {
   const serverOffsetRef = useRef(0);
   const lastActivityRef = useRef(Date.now());
   const hideTimerRef = useRef<number>();
+  const voiceBusyRef = useRef(false);
+  const pendingVoiceRef = useRef<string>();
+  const spokenPeopleRef = useRef(new Map<string, number>());
   const clipCache = useRef(new Map<string, string>());
   const statusRef = useRef("");
 
@@ -123,26 +126,60 @@ export default function KioskTabletPage() {
   const speak = async (text?: string) => {
     const d = displayRef.current;
     if (d.voice_enabled === false || !text) return;
-    const thai = window.speechSynthesis?.getVoices().find((v) => v.lang.toLowerCase().startsWith("th"));
-    if (thai) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "th-TH"; u.voice = thai; u.rate = Number(d.voice_rate || 1); u.volume = Number(d.voice_volume || 1);
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-      return;
-    }
+    if (voiceBusyRef.current) { pendingVoiceRef.current = text; return; }
+    voiceBusyRef.current = true;
     try {
-      let clip = clipCache.current.get(text);
-      if (!clip) {
-        const res = await fetch(`${hub}/local/kiosk-api/tts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
-        if (!res.ok) throw new Error();
-        clip = URL.createObjectURL(await res.blob());
-        if (clipCache.current.size > 60) clipCache.current.clear();
-        clipCache.current.set(text, clip);
+      const thai = window.speechSynthesis?.getVoices().find((v) => v.lang.toLowerCase().startsWith("th"));
+      let played = false;
+      if (thai) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = "th-TH"; u.voice = thai;
+            u.rate = Number(d.voice_rate || 1); u.volume = Number(d.voice_volume ?? 1);
+            u.onend = () => resolve(); u.onerror = reject;
+            speechSynthesis.speak(u);
+          });
+          played = true;
+        } catch { /* ลองเสียงจากเครื่อง FaceGate */ }
       }
-      const a = new Audio(clip);
-      a.volume = Math.min(Math.max(Number(d.voice_volume || 1), 0), 1);
-      await a.play();
+      if (!played) {
+        let clip = clipCache.current.get(text);
+        if (!clip) {
+          const res = await fetch(`${hub}/local/kiosk-api/tts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+          if (!res.ok) throw new Error();
+          clip = URL.createObjectURL(await res.blob());
+          if (clipCache.current.size > 60) { clipCache.current.forEach(value => URL.revokeObjectURL(value)); clipCache.current.clear(); }
+          clipCache.current.set(text, clip);
+        }
+        const audio = new Audio(clip);
+        audio.volume = Math.min(Math.max(Number(d.voice_volume ?? 1), 0), 1);
+        audio.playbackRate = Math.min(Math.max(Number(d.voice_rate || 1), .5), 2);
+        await new Promise<void>((resolve, reject) => {
+          audio.onended = () => resolve(); audio.onerror = reject;
+          audio.play().catch(reject);
+        });
+      }
     } catch { chime(); }
+    finally {
+      voiceBusyRef.current = false;
+      const next = pendingVoiceRef.current; pendingVoiceRef.current = undefined;
+      if (next) void speak(next);
+    }
+  };
+  const speakScan = (result: ScanResult) => {
+    const name = result.name || result.student?.full_name || "";
+    const base = result.speak || (name ? `สแกนสำเร็จ ${name}` : "");
+    const text = name && !base.includes(name) ? `${base} ${name}` : base;
+    const key = result.student_id || name || text;
+    const now = Date.now();
+    if (!text || now - (spokenPeopleRef.current.get(key) || 0) < 10000) return;
+    spokenPeopleRef.current.set(key, now);
+    if (spokenPeopleRef.current.size > 200) {
+      const oldest = spokenPeopleRef.current.keys().next().value;
+      if (oldest) spokenPeopleRef.current.delete(oldest);
+    }
+    void speak(text);
   };
 
   /* ── ข้อมูลหน้าจอจาก FaceGate ── */
@@ -242,10 +279,10 @@ export default function KioskTabletPage() {
         const d: ScanResult = await res.json();
         if (d.result !== "no_face") bump();
         if (d.result === "ok") {
-          say(d.message || "บันทึกสำเร็จ", "ok"); showResult(d); void speak(d.speak); void loadRecent(); void loadStats();
+          say(d.message || "บันทึกสำเร็จ", "ok"); showResult(d); speakScan(d); void loadRecent(); void loadStats();
           pauseUntilRef.current = Date.now() + (d.next_delay_seconds || 5) * 1000;
         } else if (d.result === "duplicate" || d.result === "denied") {
-          say(d.message || "", "bad"); showResult(d); void speak(d.speak);
+          say(d.message || "", "bad"); showResult(d); speakScan(d);
           pauseUntilRef.current = Date.now() + 3000;
         } else if (d.message && d.result !== "no_face") say(d.message);
         else say(content.kiosk_subtitle || "กรุณายืนให้ใบหน้าตรงกับกรอบใบหน้าบนหน้าจอ");
