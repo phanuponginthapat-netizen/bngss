@@ -16,7 +16,7 @@ class GuideTests(unittest.TestCase):
         self.assertFalse(module.face_inside((420, 100, 610, 320), 640, 480))
 
     def test_center_inside_but_face_crossing_edge_is_ignored(self):
-        self.assertFalse(module.face_inside((170, 140, 400, 340), 640, 480))
+        self.assertFalse(module.face_inside((60, 140, 290, 340), 640, 480))
 
     def test_actual_display_boundary_is_used(self):
         guide = dict(left=.4, top=.3, right=.6, bottom=.7)
