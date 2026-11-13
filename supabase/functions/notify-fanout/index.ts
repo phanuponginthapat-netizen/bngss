@@ -291,10 +291,12 @@ Deno.serve(async (req) => {
     // We set push_sent=true so the DB trigger (trigger_push_notification) skips
     // firing a duplicate push — this call handles push directly with the full URL.
     const willSendPush = channels.has("push");
+    const notificationIds = new Map(userIds.map((u) => [u, crypto.randomUUID()]));
     if (channels.has("in_app")) {
       const rows = userIds
         .filter((u) => shouldSend(u, "in_app"))
         .map((u) => ({
+          id: notificationIds.get(u),
           user_id: u,
           title: payload.title,
           message: payload.body ?? null,
@@ -342,13 +344,13 @@ Deno.serve(async (req) => {
             // FCM (Android APK) → Firebase HTTP v1; Web Push → pushOne
             const isFcm = s.provider === "fcm" && !!s.device_token;
             let r = isFcm
-              ? await sendFcm(s.device_token, pushPayload)
-              : await pushOne(s, pushPayload);
+              ? await sendFcm(s.device_token, { ...pushPayload, tag: `notifications-${notificationIds.get(s.user_id)}` })
+              : await pushOne(s, { ...pushPayload, tag: `notifications-${notificationIds.get(s.user_id)}` });
             if (!r.ok && !r.gone && (r.status === 429 || (r.status && r.status >= 500))) {
               await new Promise((res) => setTimeout(res, 400));
               r = isFcm
-                ? await sendFcm(s.device_token, pushPayload)
-                : await pushOne(s, pushPayload);
+                ? await sendFcm(s.device_token, { ...pushPayload, tag: `notifications-${notificationIds.get(s.user_id)}` })
+                : await pushOne(s, { ...pushPayload, tag: `notifications-${notificationIds.get(s.user_id)}` });
             }
             if (r.ok) {
               pushCount++;

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "./useUserRole";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { showLiveNotification } from "@/lib/liveNotification";
+import { notificationEventTag } from "@/lib/notificationIdentity";
 import { clearCurrentPeriodCache } from "@/lib/ppImportChecks";
 
 
@@ -198,11 +199,12 @@ export function useGlobalRealtime() {
               route: o.route,
               urgent: o.urgent,
               icon: o.icon,
-              tag: `${table}-${row.id ?? ""}`,
+              tag: notificationEventTag(table, row),
               onNavigate: (r) => navigate(r),
             });
 
           if (table === "notifications" && row.user_id === userId) {
+            if (row.push_sent && document.visibilityState !== "visible") return;
             notify({
               title: row.title || "การแจ้งเตือนใหม่",
               body: row.message || undefined,
@@ -210,6 +212,8 @@ export function useGlobalRealtime() {
               icon: "🔔",
             });
           } else if (table === "inbox_items" && row.user_id === userId) {
+            // Notification mirrors are already handled by the original INSERT.
+            if (row.notification_id) return;
             notify({
               title: row.title || "ข้อความใหม่",
               body: row.message || undefined,

@@ -23,6 +23,7 @@ import { th, enUS } from "date-fns/locale";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { setAppBadge, setTitleBadge } from "@/lib/liveNotification";
 import FacegateNotificationPhoto from "@/components/FacegateNotificationPhoto";
+import { uniqueInboxNotifications } from "@/lib/notificationIdentity";
 
 
 
@@ -125,7 +126,7 @@ const NotificationDropdown = () => {
     const inboxNotifIds = new Set(
       (inboxItems as any[]).map((i: any) => i.notification_id).filter(Boolean)
     );
-    const b: UnifiedItem[] = (inboxItems as any[]).map((i: any) => ({
+    const b: UnifiedItem[] = uniqueInboxNotifications(inboxItems as any[]).map((i: any) => ({
       source: "inbox", id: i.id, title: i.title,
       message: i.message, type: i.item_type || "notification",
       is_read: !!i.is_read, created_at: i.created_at,

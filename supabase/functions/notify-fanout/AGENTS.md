@@ -1,0 +1,1 @@
+- Assign notification IDs before insertion and reuse them as push tags; the database push trigger skips fanout-managed deliveries to prevent double sends.
