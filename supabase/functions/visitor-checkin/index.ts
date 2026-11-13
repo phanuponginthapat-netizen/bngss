@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
-import { validVisitorPhoto } from '../_shared/facegateVisitor.ts';
+import { validVisitorPhoto, visitorRegistrationApproval } from '../_shared/facegateVisitor.ts';
 const reply=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...corsHeaders,'Content-Type':'application/json'}});
 const Body=z.object({visitor_name:z.string().trim().min(2).max(120),visitor_phone:z.string().trim().regex(/^[0-9+\- ]{6,20}$/).optional().or(z.literal('')),organization:z.string().trim().max(150).optional(),purpose:z.string().trim().min(2).max(300),contact_person_name:z.string().trim().max(120).optional(),vehicle_plate:z.string().trim().max(20).optional(),face_consent:z.boolean().default(false),photo_url:z.string().optional()}).superRefine((v,c)=>{if(v.photo_url&&(!v.face_consent||!validVisitorPhoto(v.photo_url)))c.addIssue({code:z.ZodIssueCode.custom,message:'รูปไม่ถูกต้องหรือยังไม่ยินยอม',path:['photo_url']});});
 Deno.serve(async req=>{
@@ -17,8 +17,17 @@ Deno.serve(async req=>{
   let recentQuery=db.from('visitor_logs').select('id,check_in').eq('visitor_name',d.visitor_name).gte('check_in',since).is('check_out',null).limit(1);
   recentQuery=d.visitor_phone?recentQuery.eq('visitor_phone',d.visitor_phone):recentQuery.is('visitor_phone',null);
   const {data:recent,error:re}=await recentQuery;
-  if(re)throw re;if(recent?.length)return reply({ok:true,duplicate:true,id:recent[0].id,check_in:recent[0].check_in});
-  const {data,error}=await db.from('visitor_logs').insert({visitor_name:d.visitor_name,visitor_phone:d.visitor_phone||null,organization:d.organization||null,purpose:d.purpose,contact_person_name:d.contact_person_name||null,vehicle_plate:d.vehicle_plate||null,photo_url:d.photo_url||null,face_consent:d.face_consent,notes:'ลงทะเบียนผ่าน QR'}).select('id,check_in').single();
+  if(re)throw re;
+  const approval=visitorRegistrationApproval(d.face_consent,d.photo_url,new Date().toISOString());
+  if(recent?.length){
+    // A resubmission may add a consented photo; never reuse an embedding from a different image.
+    if(approval.face_approved_at){
+      const {error:updateError}=await db.from('visitor_logs').update({...approval,face_consent:true,photo_url:d.photo_url,face_embedding:null,face_error:null}).eq('id',recent[0].id).is('check_out',null);
+      if(updateError)throw updateError;
+    }
+    return reply({ok:true,duplicate:true,id:recent[0].id,check_in:recent[0].check_in});
+  }
+  const {data,error}=await db.from('visitor_logs').insert({visitor_name:d.visitor_name,visitor_phone:d.visitor_phone||null,organization:d.organization||null,purpose:d.purpose,contact_person_name:d.contact_person_name||null,vehicle_plate:d.vehicle_plate||null,photo_url:d.photo_url||null,face_consent:d.face_consent,...approval,notes:'ลงทะเบียนผู้มาติดต่อ'}).select('id,check_in').single();
   if(error)throw error;
   return reply({ok:true,id:data.id,check_in:data.check_in});
  }catch(e){console.error('visitor checkin',e);return reply({error:'failed'},500);}
