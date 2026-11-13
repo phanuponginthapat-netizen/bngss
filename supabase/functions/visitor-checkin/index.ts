@@ -14,7 +14,9 @@ Deno.serve(async req=>{
   const d=parsed.data;
   // Simple abuse guard: same name+phone at most once per 10 minutes.
   const since=new Date(Date.now()-600000).toISOString();
-  const {data:recent,error:re}=await db.from('visitor_logs').select('id,check_in').eq('visitor_name',d.visitor_name).eq('visitor_phone',d.visitor_phone||'').gte('check_in',since).limit(1);
+  let recentQuery=db.from('visitor_logs').select('id,check_in').eq('visitor_name',d.visitor_name).gte('check_in',since).is('check_out',null).limit(1);
+  recentQuery=d.visitor_phone?recentQuery.eq('visitor_phone',d.visitor_phone):recentQuery.is('visitor_phone',null);
+  const {data:recent,error:re}=await recentQuery;
   if(re)throw re;if(recent?.length)return reply({ok:true,duplicate:true,id:recent[0].id,check_in:recent[0].check_in});
   const {data,error}=await db.from('visitor_logs').insert({visitor_name:d.visitor_name,visitor_phone:d.visitor_phone||null,organization:d.organization||null,purpose:d.purpose,contact_person_name:d.contact_person_name||null,vehicle_plate:d.vehicle_plate||null,photo_url:d.photo_url||null,face_consent:d.face_consent,notes:'ลงทะเบียนผ่าน QR'}).select('id,check_in').single();
   if(error)throw error;

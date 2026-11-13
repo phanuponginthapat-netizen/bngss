@@ -9,6 +9,7 @@ import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPol
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
 import { facegateSaver, facegatePowerPlan } from "../_shared/facegatePolicy.ts";
 import {activeVisitorFace,validFaceEmbedding} from '../_shared/facegateVisitor.ts';
+import { fanout } from '../_shared/fanout.ts';
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"] ?? "authorization, x-client-info, apikey, content-type"}, x-device-key` };
 
@@ -463,36 +464,34 @@ Deno.serve(async (req) => {
     // ── คนแปลกหน้า ───────────────────────────────────────────────────────
     if (route === "alert") {
       const snapshotUrl = await storeSnapshot(db, typeof body?.snapshot === "string" ? body.snapshot : null, "unknown");
-      const { count } = await db
+      const { count,error:countError } = await db
         .from("kiosk_agent_alerts")
         .select("id", { count: "exact", head: true })
         .eq("device_id", device.device_id)
         .eq("kind", "unknown_face")
         .gte("created_at", new Date(Date.now() - 10 * 60_000).toISOString());
-      await db.from("kiosk_agent_alerts").insert({
+      if(countError)throw countError;
+      const escalated=(count??0)>=3||Number(body.attempts)>=5;
+      const {data:alert,error:alertError}=await db.from("kiosk_agent_alerts").insert({
         device_id: device.device_id, device_name: device.name,
         kind: "unknown_face", snapshot_url: snapshotUrl,
-        note: typeof body?.note === "string" ? body.note.slice(0, 300) : null,
-      });
-      return json({ ok: true, escalated: (count ?? 0) >= 3 });
+        note: typeof body?.message === "string" ? body.message.slice(0, 300) : typeof body?.note==='string'?body.note.slice(0,300):null,
+      }).select('id').single();
+      if(alertError)throw alertError;
+      const response=await fanout({roles:['admin','director'],title:escalated?'FaceGate: พบการสแกนไม่ทราบชื่อซ้ำ':'FaceGate: ไม่พบใบหน้าในทะเบียน',body:`เครื่อง ${device.name} กรุณาตรวจสอบบุคคลหน้าประตู`,type:'facegate_alert',severity:escalated?'critical':'warning',reference_id:alert.id,reference_type:'kiosk_agent_alerts',url:'/dashboard/admin/facegate?tab=alerts',channels:['in_app','push','line'],dedup_key:`facegate:${alert.id}`},db);
+      return json({ ok: true, escalated, notification_sent:response?.ok===true });
     }
 
     // ── ผู้มาติดต่อ ──────────────────────────────────────────────────────
     if (route === "visitor") {
       const snapshotUrl = await storeSnapshot(db, typeof body?.snapshot === "string" ? body.snapshot : null, "visitor");
-      await db.from("kiosk_visitors").insert({
-        device_id: device.device_id, device_name: device.name,
-        full_name: typeof body?.full_name === "string" ? body.full_name.slice(0, 120) : null,
-        phone: typeof body?.phone === "string" ? body.phone.slice(0, 32) : null,
-        purpose: typeof body?.purpose === "string" ? body.purpose.slice(0, 300) : null,
-        direction: body?.direction === "out" ? "out" : "in",
-        snapshot_url: snapshotUrl,
-      });
+      const {error}=await db.from('kiosk_agent_alerts').insert({device_id:device.device_id,device_name:device.name,kind:'visitor_unregistered',snapshot_url:snapshotUrl,note:'ผู้มาติดต่อยังไม่ได้ลงทะเบียน กรุณาแจ้งเจ้าหน้าที่'});
+      if(error)throw error;
       return json({
         result: "ok", visitor: true,
         message: "บันทึกผู้มาติดต่อแล้ว กรุณาติดต่อเจ้าหน้าที่",
         speak: "บันทึกผู้มาติดต่อแล้ว",
-        next_delay_seconds: Number(settings.next_person_delay_seconds) || 5,
+        next_delay_seconds: 2,
       });
     }
 
