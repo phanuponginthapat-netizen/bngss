@@ -9100,6 +9100,24 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_notification_cooldowns: {
+        Row: {
+          claim_token: string
+          claimed_at: string
+          notification_key: string
+        }
+        Insert: {
+          claim_token: string
+          claimed_at: string
+          notification_key: string
+        }
+        Update: {
+          claim_token?: string
+          claimed_at?: string
+          notification_key?: string
+        }
+        Relationships: []
+      }
       learning_center_bookings: {
         Row: {
           booking_date: string
@@ -17322,6 +17340,10 @@ export type Database = {
           _prompt: string
           _user_id: string
         }
+        Returns: string
+      }
+      claim_kiosk_notification: {
+        Args: { p_key: string; p_seconds: number }
         Returns: string
       }
       cleanup_expired_line_sessions: { Args: never; Returns: undefined }
