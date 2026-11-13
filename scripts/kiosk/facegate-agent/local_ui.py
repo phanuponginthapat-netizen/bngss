@@ -13,7 +13,7 @@ KIOSK_HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FaceGate — ตู้สแกนใบหน้า</title>
 <style>
-  :root { --primary:#123b67; --accent:#2f76b7; --ink:#17263a; --success:#15965f; --danger:#dc3545; --soft:#eef4fa; }
+  :root { --primary:#123b67; --accent:#2f76b7; --ink:#17263a; --success:#15965f; --danger:#dc3545; --soft:#eef4fa; --surface:#fff; }
   * { box-sizing:border-box; }
   html, body { height:100%; }
   body { margin:0; overflow:hidden; color:var(--ink); font-family:"Figtree","Noto Sans Thai","Segoe UI",system-ui,sans-serif; background:#f8fafc; }

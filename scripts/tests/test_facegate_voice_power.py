@@ -9,8 +9,15 @@ ROOT = Path(__file__).parents[1] / 'kiosk' / 'facegate-agent'
 sys.path.insert(0, str(ROOT))
 from voice_prepare import sentences, VoicePreparation
 import power
+from cloud_config import cloud_api_url, MANAGED_API
 
 class VoicePowerTests(unittest.TestCase):
+    def test_installer_school_origin_uses_managed_api(self):
+        for value in ['https://bngss.online','https://www.bngss.online','https://bngss.lovable.app']:
+            self.assertEqual(cloud_api_url(value),MANAGED_API)
+
+    def test_api_origin_is_not_duplicated(self):
+        self.assertEqual(cloud_api_url(MANAGED_API),MANAGED_API)
     def test_cloud_roster_names_and_both_directions(self):
         values = sentences([{'full_name':'สมชาย','person_type':'staff','is_active':True}], {'voice_welcome_text':'สวัสดี'})
         self.assertIn('สวัสดี สมชาย', values)

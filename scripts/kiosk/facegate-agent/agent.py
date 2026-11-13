@@ -68,6 +68,7 @@ import clock
 import door
 import power
 import power_profile
+from cloud_config import cloud_api_url
 from voice_prepare import VoicePreparation
 voice_preparation = VoicePreparation()
 import qr_reader
@@ -106,7 +107,7 @@ CLOUD_URL = (
     if SATELLITE
     else f"http://127.0.0.1:{PORT_ENV}/local"
     if STANDALONE
-    else os.environ.get("FACEGATE_CLOUD_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1")
+    else cloud_api_url(os.environ.get("FACEGATE_CLOUD_URL"))
 )
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
