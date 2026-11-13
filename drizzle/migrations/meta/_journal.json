@@ -260,6 +260,13 @@
       "when": 1794533610917,
       "tag": "0036_facegate_visitor_faces_command_results",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794533688818,
+      "tag": "0037_facegate_voice_commands",
+      "breakpoints": true
     }
   ]
 }
