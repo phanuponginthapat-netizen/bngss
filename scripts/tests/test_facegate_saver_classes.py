@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "kiosk", "facegate-agent"))
 
-from local_api import _class_sort_key, group_classes_by_room  # noqa: E402
+from saver_stats import _class_sort_key, group_classes_by_room  # noqa: E402
 
 
 def person(pid, room, ptype="student"):
