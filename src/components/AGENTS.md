@@ -1,0 +1,1 @@
+- FaceGate notification photos resolve the exact referenced alert under the current user's session and sign its stored media path at read time; unavailable evidence never hides the notification or substitutes another person's image.
