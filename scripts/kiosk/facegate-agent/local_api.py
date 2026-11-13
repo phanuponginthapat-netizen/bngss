@@ -746,6 +746,7 @@ def today_stats() -> dict:
         "absent_staff": max(total_staff - staff_present, 0) if is_workday else 0,
         "visitors_present": visitors_present,
         "visitor_register_enabled": bool(settings.get("visitor_register_enabled")),
+        "classes": group_classes_by_room(people, first_in, late_ids, is_workday),
         "late": late,
         "on_time": len(first_in) - late,
         "absent": max(len(people) - len(first_in), 0) if is_workday else 0,
