@@ -168,17 +168,31 @@ Deno.serve(async (req) => {
       const today = bkkDate();
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
-        const [studentResult, staffResult, totalStudents, totalStaff] = await Promise.all([
+        const clock = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
+        const [studentResult, staffResult, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
           db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
             .eq("scan_date", today).eq("scan_type", "entry"),
           db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
             .eq("kind", "staff_pass").gte("created_at", startUtc),
           db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
           db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
+          // สถิติรายชั้นใช้การรวมแบบเดียวกับหน้าแรกโรงเรียนเป๊ะ ๆ
+          readDigestRows<{ id: string; classrooms: { grade_level: string | null; name: string | null; reference_grade_level: string | null } | null }>((a, b) => db.from("students").select("id,classrooms!students_classroom_id_fkey(grade_level,name,reference_grade_level)").eq("status", "active").order("id").range(a, b)),
+          readDigestRows<SchoolAttendanceRow>((a, b) => db.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).eq("attendance_date", today).order("id").range(a, b)),
+          readDigestRows<SchoolScanRow>((a, b) => db.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).eq("scan_date", today).order("id").range(a, b)),
         ]);
         for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
+        const roster = rosterRows.map(s => ({ id: s.id, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
+        const grouped = aggregatePublicClasses(roster, [today], attendanceRows, scanRows, today, clock, settings.late_after, (settings as any).clock_in_end || settings.late_after);
+        const classes = grouped.map(c => {
+          const d = c.daily[0];
+          return { name: c.name, total: c.rosterTotal, present: d?.present ?? 0, late: d?.late ?? 0,
+            leave: d?.leave ?? 0, absent: d?.absent ?? 0, unrecorded: d?.unrecorded ?? 0, evidence: d?.evidence ?? false };
+        });
+        const absentStudents = classes.some(c => c.evidence) ? classes.reduce((sum, c) => sum + c.absent, 0) : null;
         return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
-          total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:null,absent_staff:null,
+          total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:absentStudents,absent_staff:null,
+          classes,
           server_time: new Date().toISOString(), visitor_register_enabled: (settings as any).visitor_register_enabled===true,
           visitor_url:'https://bngss.online/visit' });
       }
