@@ -69,6 +69,8 @@ import door
 import power
 import power_profile
 from cloud_config import cloud_api_url
+from power_schedule import plan as offline_power_plan, DailyShutdown
+daily_shutdown = DailyShutdown()
 from voice_prepare import VoicePreparation
 voice_preparation = VoicePreparation()
 import qr_reader
@@ -917,6 +919,14 @@ def power_once() -> None:
         ok = power.apply(str(command), 60)
         report_command(data, ok, scheduled=command in ('shutdown', 'sleep'))
 
+    enforce_power_plan(data)
+    power.tick()
+
+
+def enforce_power_plan(data):
+    with lock:
+        last_activity = float(state.get('last_activity') or time.time())
+        settings = dict(state.get('settings') or {})
     if data.get("power_saving_enabled"):
         idle_minutes = float(data.get("screen_idle_minutes") or 0)
         idle = idle_minutes > 0 and (time.time() - last_activity) > idle_minutes * 60
@@ -927,13 +937,10 @@ def power_once() -> None:
         elif not should_be_off and currently_off:
             power.screen_on()
 
-        if data.get("power_off_due") and not power.pending():
+        if data.get("power_off_due") and not power.pending() and daily_shutdown.reserve(clock.now_tz(timezone(timedelta(hours=7))), settings):
             action = str(data.get("power_off_action") or "shutdown")
             print(f"[power] scheduled {action} in 60s")
             power.schedule(action, 60)
-
-    power.tick()
-
 
 def power_loop() -> None:
     while True:
@@ -941,6 +948,9 @@ def power_loop() -> None:
             power_once()
         except Exception as exc:  # noqa: BLE001
             print(f"[agent] power poll failed: {exc}")
+            with lock:
+                settings = dict(state.get('settings') or {})
+            enforce_power_plan(offline_power_plan(settings, clock.now_tz(timezone(timedelta(hours=7)))))
         try:
             power.tick()
         except Exception:  # noqa: BLE001

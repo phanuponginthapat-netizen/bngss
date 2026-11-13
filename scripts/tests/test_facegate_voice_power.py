@@ -10,8 +10,22 @@ sys.path.insert(0, str(ROOT))
 from voice_prepare import sentences, VoicePreparation
 import power
 from cloud_config import cloud_api_url, MANAGED_API
+from power_schedule import plan, DailyShutdown
+from datetime import datetime
 
 class VoicePowerTests(unittest.TestCase):
+    def test_saved_power_plan_works_without_cloud(self):
+        settings={'power_saving_enabled':True,'screen_off_time':'18:00','screen_on_time':'06:00','power_off_time':'20:00'}
+        self.assertTrue(plan(settings,datetime(2026,11,13,20,0))['power_off_due'])
+        self.assertTrue(plan(settings,datetime(2026,11,13,23,0))['screen_off_window'])
+        self.assertFalse(plan(settings,datetime(2026,11,14,6,0))['screen_off_window'])
+
+    def test_cancelled_countdown_is_not_rescheduled_same_day(self):
+        guard=DailyShutdown()
+        now=datetime(2026,11,13,20,0)
+        self.assertTrue(guard.reserve(now,{'power_off_time':'20:00'}))
+        self.assertFalse(guard.reserve(now,{'power_off_time':'20:00'}))
+        self.assertTrue(guard.reserve(datetime(2026,11,14,20,0),{'power_off_time':'20:00'}))
     def test_installer_school_origin_uses_managed_api(self):
         for value in ['https://bngss.online','https://www.bngss.online','https://bngss.lovable.app']:
             self.assertEqual(cloud_api_url(value),MANAGED_API)
