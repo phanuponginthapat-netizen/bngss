@@ -64,7 +64,8 @@ class GroupClassesTest(unittest.TestCase):
 
 class SaverMarkupTest(unittest.TestCase):
     def test_saver_renders_class_table_and_hides_totals(self):
-        html = open(os.path.join(os.path.dirname(__file__), "..", "kiosk", "facegate-agent", "local_ui.py"), encoding="utf-8").read()
+        with open(os.path.join(os.path.dirname(__file__), "..", "kiosk", "facegate-agent", "local_ui.py"), encoding="utf-8") as fh:
+            html = fh.read()
         self.assertIn('id="saverClasses"', html)
         self.assertIn('id="studentGroup"', html)
         self.assertIn('id="staffGroup"', html)
