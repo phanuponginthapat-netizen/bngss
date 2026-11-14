@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "kiosk", "faceg
 from saver_stats import _class_sort_key, group_classes_by_room  # noqa: E402
 
 
-def person(pid, room, ptype="student"):
-    return {"id": pid, "class_room": room, "person_type": ptype}
+def person(pid, room, ptype="student", gender=None):
+    return {"id": pid, "class_room": room, "person_type": ptype, "gender": gender}
 
 
 class ClassSortOrderTest(unittest.TestCase):
@@ -39,6 +39,10 @@ class GroupClassesTest(unittest.TestCase):
         m1 = cells["ม.1"]
         self.assertEqual((m1["total"], m1["present"], m1["late"], m1["absent"]), (2, 1, 0, 1))
         self.assertTrue(p1["evidence"])
+
+    def test_gender_counts_follow_saved_profile(self):
+        cells = group_classes_by_room([person("s1", "ป.1", gender="male"), person("s2", "ป.1", gender="female"), person("s3", "ป.1")], {"s1": "x"}, set(), True)
+        self.assertEqual((cells[0]["rosterMale"], cells[0]["rosterFemale"], cells[0]["male"]["present"], cells[0]["female"]["absent"]), (1, 1, 1, 1))
 
     def test_no_scans_means_unrecorded_not_absent(self):
         people = [person("s1", "ป.1"), person("s2", "ป.1")]
@@ -71,7 +75,7 @@ class SaverMarkupTest(unittest.TestCase):
         self.assertIn('id="staffGroup"', html)
         self.assertIn("Array.isArray(s.classes)", html)
         # ร้อยละคำนวณจากมา+สาย เหมือนหน้าแรก
-        self.assertIn("Number(c.present) || 0) + (Number(c.late)", html)
+        self.assertIn("num(c.present) + num(c.late)", html)
 
 
 if __name__ == "__main__":

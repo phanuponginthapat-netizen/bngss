@@ -5,3 +5,5 @@
 - Device-authorized kiosk reads re-sign stored media paths against the active backend via kioskMedia, preventing retired origins and expired saved snapshot signatures from breaking school scanner images.
 - FaceGate machine commands are accepted only after server role checks, expire before device consumption, and queued status never implies hardware execution; broadcast media stays private and device-scoped. Visitor embeddings require explicit consent, a valid photo and server-issued automatic registration approval, expire at Bangkok midnight/checkout, and never authorize school record access.
 - Visitor camera registrations validate ordered motion evidence and persist multiple ArcFace samples; database identity guards serialize duplicate checks, while client challenge metadata alone must never be described as certified liveness.
+
+- Public attendance gender subtotals partition the same resolved daily statuses using saved roster gender only; keep unknown gender in totals, never guess it from names.
