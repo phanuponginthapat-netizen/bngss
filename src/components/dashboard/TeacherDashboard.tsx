@@ -1,4 +1,4 @@
-import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadDashboardAttendance, attendanceRate } from "@/lib/dashboardAttendance";
 import { useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
@@ -399,33 +399,22 @@ const TeacherDashboard = () => {
     },
   });
 
-  const { data: attendanceTrend, error: trendError } = useQuery({
-    queryKey: ["teacher_attendance_trend", userId, homeroomClassroomIds, schoolDate],
-    enabled: hasHomeroom && !!homeroomClassroomIds?.length,
+  const { data: schoolAttendance, error: schoolAttendanceError, isLoading: schoolAttendanceLoading, refetch: retrySchoolAttendance } = useQuery({
+    queryKey: ["teacher_school_attendance", userId, schoolDate],
+    enabled: !!userId,
     queryFn: async () => {
-      const ids = homeroomClassroomIds!;
-      const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
-      if (studentError) throw studentError;
-      const sids = (studs || []).map(s => s.id);
-      if (sids.length === 0) return [] as { date: string; rate: number }[];
-      const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-      const rows = await fetchAllRows((from,to) => supabase.from("attendance")
-        .select("student_id, attendance_date, status")
-        .in("student_id",sids).gte("attendance_date",since).lte("attendance_date",schoolDate)
-        .order("id").range(from,to));
-      const byDate: Record<string, Set<string>> = {};
-      rows.forEach(r=> {
-        if (!r.attendance_date || (r.status !== "present" && r.status !== "late")) return;
-        (byDate[r.attendance_date] ??= new Set()).add(r.student_id);
-      });
-      const out: { date: string; rate: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-        const v = byDate[d];
-        if (rows.some(r=>r.attendance_date === d)) out.push({ date: d.slice(5), rate: Math.round(((v?.size ?? 0) / sids.length) * 100) });
-      }
-      return out;
+      const attendance = await loadDashboardAttendance(schoolDate);
+      const since = new Date(new Date(`${schoolDate}T00:00:00Z`).getTime() - 6 * 86400000).toISOString().slice(0, 10);
+      const trend = attendance.daily
+        .filter(row => row.date >= since && row.date <= schoolDate)
+        .flatMap(row => {
+          const rate = attendanceRate(row);
+          return rate === null ? [] : [{ date: row.date.slice(5), rate }];
+        });
+      return { ...attendance, trend };
     },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 
   const getGreeting = () => {
@@ -551,7 +540,7 @@ const TeacherDashboard = () => {
           <Activity className="w-4 h-4 text-primary" /> ภาพรวมงานสอนวันนี้
           <span className="text-[11px] font-normal text-muted-foreground">Today overview · อัปเดตเรียลไทม์</span>
         </h2>
-        {subjectError || termError || homeroomError || gradingError || remediationError || trendError ? (
+        {subjectError || termError || homeroomError || gradingError || remediationError ? (
           <p role="alert" className="text-sm text-destructive">โหลดข้อมูลวิชาและภาคเรียนไม่สำเร็จ กรุณาลองใหม่</p>
         ) : isLoading || !termReady || gradingLoading || remediationLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -642,18 +631,28 @@ const TeacherDashboard = () => {
                     <div className="w-10 h-10 rounded-xl gradient-success flex items-center justify-center shadow-lg">
                       <UserCheck className="w-5 h-5 text-primary-foreground" />
                     </div>
-                    <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-0">{homeroomData?.attendanceRate || "0"}%</Badge>
+                    <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-0">ทั้งโรงเรียน</Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground font-medium">มาเรียนวันนี้</p>
-                  <p className="text-2xl font-extrabold tabular-nums">{homeroomData?.attendanceRate || "0"}%</p>
-                  <Progress value={parseFloat(homeroomData?.attendanceRate || "0")} className="h-1.5 mt-2" />
-                  <p className="text-[10px] text-muted-foreground mt-1 truncate">
-                    {homeroomData ? `มา ${homeroomData.attChart.find((d: any) => d.name === "มาเรียน")?.value || 0} · สาย ${homeroomData.attChart.find((d: any) => d.name === "มาสาย")?.value || 0} · ขาด ${homeroomData.attChart.find((d: any) => d.name === "ขาดเรียน")?.value || 0} · ยังไม่บันทึก ${homeroomData.attChart.find((d: any) => d.name === "ยังไม่บันทึก")?.value || 0}` : "ไม่มีข้อมูลห้องประจำชั้น"}
-                  </p>
+                  {schoolAttendanceLoading ? <Skeleton className="h-16 mt-2" /> : schoolAttendanceError ? (
+                    <div role="alert" className="text-xs text-destructive mt-2">
+                      <p>โหลดสถิติทั้งโรงเรียนไม่สำเร็จ</p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={event => { event.stopPropagation(); void retrySchoolAttendance(); }}>ลองใหม่</Button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-extrabold tabular-nums">{schoolAttendance?.rate == null ? "—" : `${schoolAttendance.rate}%`}</p>
+                      <Progress value={schoolAttendance?.rate ?? 0} className="h-1.5 mt-2" />
+                      <p className="text-[10px] text-muted-foreground mt-1">เข้าเรียน {(schoolAttendance?.day.present ?? 0) + (schoolAttendance?.day.late ?? 0)}/{schoolAttendance?.rosterTotal ?? 0} คน</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 break-words">
+                        {schoolAttendance ? `มา ${schoolAttendance.day.present} · สาย ${schoolAttendance.day.late} · ลา ${schoolAttendance.day.leave} · ขาด ${schoolAttendance.day.absent} · ยังไม่บันทึก ${schoolAttendance.day.unrecorded}` : "ยังไม่มีข้อมูล"}
+                      </p>
+                    </>
+                  )}
                   <div className="mt-2 h-[28px]">
-                    {attendanceTrend && attendanceTrend.length > 0 ? (
+                    {!schoolAttendanceError && !schoolAttendanceLoading && schoolAttendance && schoolAttendance.trend.length > 0 ? (
                       <ResponsiveContainer width="100%" height={28}>
-                        <AreaChart data={attendanceTrend}>
+                        <AreaChart data={schoolAttendance.trend}>
                           <Area type="monotone" dataKey="rate" stroke="hsl(var(--success))" strokeWidth={1.5} fill="hsl(var(--success) / 0.18)" />
                         </AreaChart>
                       </ResponsiveContainer>
