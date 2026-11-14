@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
     // ── หน้าจอสแกน (PC FaceGate + แท็บเล็ต): แบรนด์/ข้อความจาก CMS และหลังบ้าน ──
     if (route === "content") {
       const keys = ["app_name", "school_name", "school_short_name", "school_logo", "school_logo_512",
-        "theme_primary_color", "theme_accent_color", "primary_color", "theme_color"];
+        "theme_primary_color", "theme_accent_color", "primary_color", "theme_color", "school_motto", "school_name_en"];
       const [{ data: cms }, { data: school }] = await Promise.all([
         db.from("cms_settings").select("key, value").in("key", keys),
         db.from("schools").select("school_name, short_name, logo_url").eq("is_active", true).limit(1).maybeSingle(),
@@ -156,6 +156,8 @@ Deno.serve(async (req) => {
         ...kioskText,
         school_name: m.school_name || sc.school_name || "",
         brand_name: m.app_name || m.school_short_name || sc.short_name || "",
+        school_motto: m.school_motto || "",
+        school_name_en: m.school_name_en || "",
         logo_url: m.school_logo_512 || m.school_logo || sc.logo_url || "",
         theme_primary: (settings as any).theme_primary || m.theme_primary_color || m.primary_color || m.theme_color || undefined,
         theme_accent: (settings as any).theme_accent || m.theme_accent_color || undefined,
