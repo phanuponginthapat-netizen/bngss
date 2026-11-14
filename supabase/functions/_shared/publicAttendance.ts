@@ -17,6 +17,8 @@ export function aggregatePublicAttendance(ids: string[], dates: string[], attend
   for (const row of scans) if (row.student_id && roster.has(row.student_id)) {
     const group = entries.get(row.scan_date) ?? []; group.push(row); entries.set(row.scan_date, group);
   }
+  const personById = new Map(groups?.roster.map(s => [s.id, s]) ?? []);
+  const groupByName = new Map(groups?.classes.map(s => [s.name, s]) ?? []);
   return dates.map(date => {
     const statuses = resolveDigestStatuses(att.get(date) ?? [], entries.get(date) ?? [], threshold);
     const evidence = statuses.size > 0;
@@ -37,8 +39,8 @@ export function aggregatePublicAttendance(ids: string[], dates: string[], attend
       const classCell = classCells.get(classById.get(id) ?? "");
       if (classCell) {
         classCell[status === "sick" ? "leave" : status]++;
-        const person = groups?.roster.find(s => s.id === id);
-        const group = groups?.classes.find(s => s.name === person?.className);
+        const person = personById.get(id);
+        const group = groupByName.get(person?.className ?? "");
         const gender = attendanceGender(person?.gender);
         const sexCell = gender === "male" ? group?.maleDaily.at(-1) : gender === "female" ? group?.femaleDaily.at(-1) : undefined;
         if (sexCell) sexCell[status === "sick" ? "leave" : status]++;
