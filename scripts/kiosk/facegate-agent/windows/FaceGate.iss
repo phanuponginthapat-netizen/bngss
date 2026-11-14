@@ -29,6 +29,7 @@ CloseApplications=force
 Source: "..\..\..\..\dist-facegate\FaceGate\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 Source: "optimize-kiosk.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "update-facegate.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autodesktop}\BNG FaceGate"; Filename: "{app}\FaceGate.exe"; WorkingDir: "{app}"
@@ -40,9 +41,11 @@ Name: "{commonstartup}\BNG FaceGate"; Filename: "{app}\FaceGate.exe"; WorkingDir
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\optimize-kiosk.ps1"""; StatusMsg: "กำลังปรับ Windows ให้เหมาะกับเครื่องสแกน (พลังงาน/ความเร็ว)..."; Flags: runhidden waituntilterminated
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""BNG FaceGate"" dir=in action=allow program=""{app}\FaceGate.exe"" enable=yes"; Flags: runhidden
 Filename: "{app}\FaceGate.exe"; Description: "เปิดโปรแกรมสแกนหน้าตอนนี้"; Flags: nowait postinstall
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$a=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File """"{app}\update-facegate.ps1""""'; $t=New-ScheduledTaskTrigger -Daily -At 3am; $p=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest; Register-ScheduledTask -TaskName 'BNG FaceGate Update' -Action $a -Trigger $t -Principal $p -Force"""; Flags: runhidden waituntilterminated
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM FaceGate.exe"; Flags: runhidden; RunOnceId: "KillFaceGate"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""BNG FaceGate Update"" /F"; Flags: runhidden; RunOnceId: "RemoveUpdateTask"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""BNG FaceGate"""; Flags: runhidden; RunOnceId: "FwFaceGate"
 
 [Code]
@@ -84,8 +87,9 @@ begin
     Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM FaceGate.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
   if CurStep = ssPostInstall then
   begin
+    if FileExists(ExpandConstant('{app}\facegate.env')) then Exit;
     Key := Trim(KeyPage.Values[0]);
-    Body := 'FACEGATE_SITE_URL={#SiteUrl}' + #13#10;
+    Body := 'FACEGATE_SITE_URL={#SiteUrl}' + #13#10 + 'FACEGATE_CLOUD_URL=https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1' + #13#10 + 'FACEGATE_AUTO_UPDATE=1' + #13#10;
     if Key = '' then
       Body := Body + 'FACEGATE_STANDALONE=1' + #13#10
     else

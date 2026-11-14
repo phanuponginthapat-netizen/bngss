@@ -56,6 +56,7 @@ while IFS= read -r -d '' f; do
   copy_file "$f"
 done < <(find "$SRC" -maxdepth 1 -type f -print0)
 copy_file "$SRC/windows/optimize-kiosk.ps1"
+copy_file "$SRC/windows/update-facegate.ps1"
 
 # ---------- 2) ตรวจส ันแทกซ ์----------
 python3 - "$STAGE/facegate-agent" <<'PY'
