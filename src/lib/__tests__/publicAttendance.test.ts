@@ -7,6 +7,10 @@ describe("public school attendance", () => {
     const result = aggregatePublicClasses([{id:"s1",className:"ป.1"},{id:"s2",className:"ป.2"}], ["2026-11-11"], [{student_id:"s1",status:"present",attendance_date:"2026-11-11"}], [], "2026-11-11", "10:00:00", "08:30", "09:00");
     expect(result.map(c=>[c.name,c.rosterTotal,c.daily[0].present,c.daily[0].absent])).toEqual([["ป.1",1,1,0],["ป.2",1,0,1]]);
   });
+  it("splits class attendance by saved male and female records without guessing unknown gender", () => {
+    const c = aggregatePublicClasses([{id:"s1",className:"ป.1",gender:"male"},{id:"s2",className:"ป.1",gender:"หญิง"},{id:"s3",className:"ป.1",gender:null}], ["2026-11-11"], [{student_id:"s1",status:"present",attendance_date:"2026-11-11"}], [], "2026-11-11", "10:00:00", "08:30", "09:00")[0];
+    expect([c.rosterMale,c.rosterFemale,c.maleDaily[0].present,c.femaleDaily[0].absent,c.daily[0].absent]).toEqual([1,1,1,1,2]);
+  });
   it("classifies missing class records as unrecorded on an evidence-free day", () => {
     expect(aggregatePublicClasses([{id:"s1",className:"ป.1"}], ["2026-11-11"], [], [], "2026-11-11", "10:00:00", "08:30", "09:00")[0].daily[0]).toMatchObject({absent:0,unrecorded:1,evidence:false});
   });
