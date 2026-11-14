@@ -497,12 +497,11 @@ function layoutSaverPages() {
   const rows = Array.from(box.children);
   rows.forEach(row => { row.hidden = false; });
   const available = box.clientHeight;
-  let used = 0, page = 0;
-  rows.forEach(row => {
-    const height = row.getBoundingClientRect().height;
-    if (used && used + 6 + height > available) { page++; used = 0; }
-    row.dataset.page = String(page); used += height + (used ? 6 : 0);
-  });
+  const cols = Math.max(1, getComputedStyle(box).gridTemplateColumns.split(' ').filter(Boolean).length);
+  const h = rows.length ? rows[0].getBoundingClientRect().height + 4 : 40;
+  const perPage = Math.max(cols, Math.floor((available + 4) / h) * cols);
+  let page = 0;
+  rows.forEach((row, i) => { page = Math.floor(i / perPage); row.dataset.page = String(page); });
   saverPageCount = page + 1; saverPage %= saverPageCount;
   rows.forEach(row => { row.hidden = Number(row.dataset.page) !== saverPage; });
   $('saverPages').textContent = saverPageCount > 1 ? 'หน้า ' + (saverPage + 1) + ' / ' + saverPageCount : '';
