@@ -380,7 +380,7 @@ async function tick() {
     if (image === 'native') image = d.snapshot_b64 || '';
     // Any face at the screen counts as activity, so the stats board steps
     // aside and the camera keeps scanning without a manual touch.
-    if (d.result !== 'no_face') bumpActivity();
+    if (d.has_face || (d.result && d.result !== 'no_face')) wake();
     if (d.result === 'ok') {
       say(d.message, 'ok'); showResult(d, 'data:image/jpeg;base64,' + image); speakScan(d); loadRecent(); loadStats();
       pausedUntil = Date.now() + 2000;
@@ -512,10 +512,12 @@ setInterval(() => { if ($('saver').classList.contains('show')) { saverPage = (sa
 let remoteSaver = false;
 let statsMode = true, windowsClosed = false, checkinOnly = false, idleMinutes = 0;
 let lastActivity = Date.now();
-function bumpActivity() { lastActivity = Date.now(); applySaver(); }
+let lastPresence = 0;
+function bumpActivity() { lastActivity = Date.now(); lastPresence = lastActivity; applySaver(); }
 function applySaver() {
   const idle = idleMinutes > 0 && Date.now() - lastActivity > idleMinutes * 60000;
-  const show = remoteSaver || (statsMode && (windowsClosed || idle));
+  const active = lastPresence > 0 && Date.now() - lastPresence < 15000;
+  const show = !active && (remoteSaver || (statsMode && (windowsClosed || idle)));
   $('saver').className = 'saver' + (show ? ' show' : '') + (broadcastMedia.length ? '' : ' noMedia');
   if (show) requestAnimationFrame(layoutSaverPages);
   if (show) showBroadcast(); else {

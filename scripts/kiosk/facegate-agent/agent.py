@@ -933,7 +933,7 @@ def enforce_power_plan(data):
     if data.get("power_saving_enabled"):
         idle_minutes = float(data.get("screen_idle_minutes") or 0)
         idle = idle_minutes > 0 and (time.time() - last_activity) > idle_minutes * 60
-        should_be_off = bool(data.get("screen_off_window")) or idle
+        should_be_off = (bool(data.get("screen_off_window")) or idle) and not power.presence_active()
         status = power.status()
         currently_off = bool(status.get("screen_off"))
         if should_be_off and not currently_off:
@@ -1667,9 +1667,6 @@ def run_scan(image: str, direction: str | None = None, dry_run: bool = False, gu
 
 
 def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, guide=None):
-    with lock:
-        state["last_activity"] = time.time()
-
     raw = image.split(",", 1)[-1]
     arr = cv2.imdecode(np.frombuffer(base64.b64decode(raw), np.uint8), cv2.IMREAD_COLOR)
     with lock:
@@ -1699,6 +1696,10 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
     if settings.get("qr_card_enabled", True):
         card = scan_card_qr(arr, direction, dry_run, delay)
         if card is not None:
+            if card.get("result") != "no_face":
+                power.note_presence()
+                with lock:
+                    state["last_activity"] = time.time()
             return card
 
     # Detect only (cheap); the expensive embedding runs for one face at most.
@@ -1721,6 +1722,12 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
             "message": "กรุณาเข้าใกล้กล้องอีกนิด",
         }
 
+    # Wake before recognition and guide filtering so an approaching person
+    # can see where to stand, including faces not registered yet.
+    power.note_presence()
+    with lock:
+        state["last_activity"] = time.time()
+
     # The whole detected face must fit the visible rectangle, not just its centre.
     # Filter before embedding so outside faces are never recognised or recorded.
     present = [i for i in big if face_inside(dets[i, :4], frame_w, frame_h, guide)]
@@ -1729,6 +1736,7 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
         return {
             "result": "no_face",
             "message": "กรุณาจัดใบหน้าให้อยู่ในกรอบ",
+            "has_face": True,
         }
     # Queue scanning: when several faces are inside the guide, scan the
     # largest one — that is the person who stepped up to the camera. People

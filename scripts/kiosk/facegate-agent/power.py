@@ -28,6 +28,23 @@ _state: dict[str, object] = {
     "pending": None,  # {"action": "shutdown", "at": epoch}
 }
 _lock = threading.Lock()
+_presence_at: float | None = None
+
+
+def presence_active() -> bool:
+    """Keep the scan screen visible briefly while someone is at the camera."""
+    with _lock:
+        return _presence_at is not None and time.monotonic() - _presence_at < 15
+
+
+def note_presence() -> None:
+    """A detected face wakes even a manually requested kiosk screensaver."""
+    global _presence_at
+    with _lock:
+        _presence_at = time.monotonic()
+        asleep = bool(_state.get("screen_off"))
+    if asleep:
+        screen_on()
 
 _NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
 
