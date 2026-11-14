@@ -179,16 +179,16 @@ Deno.serve(async (req) => {
           db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
           db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
           // สถิติรายชั้นใช้การรวมแบบเดียวกับหน้าแรกโรงเรียนเป๊ะ ๆ
-          readDigestRows<{ id: string; classrooms: { grade_level: string | null; name: string | null; reference_grade_level: string | null } | null }>((a, b) => db.from("students").select("id,classrooms!students_classroom_id_fkey(grade_level,name,reference_grade_level)").eq("status", "active").order("id").range(a, b)),
+          readDigestRows<{ id: string; gender: string | null; classrooms: { grade_level: string | null; name: string | null; reference_grade_level: string | null } | null }>((a, b) => db.from("students").select("id,gender,classrooms!students_classroom_id_fkey(grade_level,name,reference_grade_level)").eq("status", "active").order("id").range(a, b)),
           readDigestRows<SchoolAttendanceRow>((a, b) => db.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).eq("attendance_date", today).order("id").range(a, b)),
           readDigestRows<SchoolScanRow>((a, b) => db.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).eq("scan_date", today).order("id").range(a, b)),
         ]);
         for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
-        const roster = rosterRows.map(s => ({ id: s.id, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
+        const roster = rosterRows.map(s => ({ id: s.id, gender: s.gender, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
         const grouped = aggregatePublicClasses(roster, [today], attendanceRows, scanRows, today, clock, settings.late_after, (settings as any).clock_in_end || settings.late_after);
         const classes = grouped.map(c => {
           const d = c.daily[0];
-          return { name: c.name, total: c.rosterTotal, present: d?.present ?? 0, late: d?.late ?? 0,
+          return { name: c.name, rosterMale: c.rosterMale, rosterFemale: c.rosterFemale, male: c.maleDaily[0], female: c.femaleDaily[0], total: c.rosterTotal, present: d?.present ?? 0, late: d?.late ?? 0,
             leave: d?.leave ?? 0, absent: d?.absent ?? 0, unrecorded: d?.unrecorded ?? 0, evidence: d?.evidence ?? false };
         });
         const absentStudents = classes.some(c => c.evidence) ? classes.reduce((sum, c) => sum + c.absent, 0) : null;

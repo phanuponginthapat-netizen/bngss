@@ -28,6 +28,12 @@ def group_classes_by_room(people: list[dict], first_in: dict[str, str],
                                         "leave": 0, "absent": 0, "unrecorded": 0,
                                         "evidence": bool(first_in)})
         cell["total"] += 1
+        gender = person.get("gender")
+        if gender in ("male", "female"):
+            sex = cell.setdefault(gender, {"total": 0, "present": 0, "late": 0, "leave": 0, "absent": 0, "unrecorded": 0})
+            sex["total"] += 1
+            if person["id"] in first_in:
+                sex["late" if person["id"] in late_ids else "present"] += 1
         if person["id"] in first_in:
             if person["id"] in late_ids:
                 cell["late"] += 1
@@ -37,4 +43,12 @@ def group_classes_by_room(people: list[dict], first_in: dict[str, str],
         missing = cell["total"] - cell["present"] - cell["late"]
         cell["absent"] = missing if (is_workday and cell["evidence"]) else 0
         cell["unrecorded"] = missing - cell["absent"]
+    for cell in groups.values():
+        for gender in ("male", "female"):
+            sex = cell.setdefault(gender, {"total": 0, "present": 0, "late": 0, "leave": 0, "absent": 0, "unrecorded": 0})
+            missing = sex["total"] - sex["present"] - sex["late"]
+            sex["absent"] = missing if (is_workday and cell["evidence"]) else 0
+            sex["unrecorded"] = missing - sex["absent"]
+        cell["rosterMale"] = cell["male"]["total"]
+        cell["rosterFemale"] = cell["female"]["total"]
     return sorted(groups.values(), key=lambda cell: _class_sort_key(cell["name"]))
