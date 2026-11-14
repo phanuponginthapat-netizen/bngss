@@ -2,6 +2,7 @@
 - Cloud mode exposes the same local Thai speech endpoint as the kiosk screen expects; registered avatars precede scan snapshots with explicit image fallbacks, avoiding broken pictures and missing voices.
 - Native kiosk scan requests carry the visible guide mapped into upright image coordinates; scan_guide rejects partially outside faces before embedding and normalizes completed queue results to a fixed two-second pause, keeping display and recognition boundaries identical.
 - Cloud idle media is delivered through device-authorized reads with fresh signed URLs; wake removes video playback and unknown attendance remains unknown rather than fabricated absence.
+- Detected nearby faces wake manual and scheduled idle screens before guide filtering or recognition, with a shared fifteen-second presence grace; empty camera polling is not activity and wake never bypasses attendance rules.
 - Idle media plays an ordered repeating playlist with videos always muted (no sound all day), timed images, bounded failed playback and no sound-permission prompt; wake disposes playback so scan speech never overlaps it.
 - Prepare offline speech from the synced Cloud roster with progress and individual failures; temporary visitor faces expire on the Bangkok day and never open doors automatically. Report operating-system failures and scheduled actions separately from completion.
 - Kiosk layout follows viewport orientation without reopening the camera; calculate the visible guide from current dimensions so portrait resizing preserves scan boundaries.
