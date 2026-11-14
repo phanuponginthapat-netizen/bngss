@@ -122,6 +122,7 @@ VPY="$ROOT/.venv/bin/python"
 "$VPY" -m pip install -r "$ROOT/requirements.txt"
 if [ "$NATIVE" = "1" ]; then "$VPY" -m pip install --quiet "pywebview>=5,<6"; fi
 
+if [ ! -f "$ROOT/config.env" ]; then
 cat > "$ROOT/config.env" <<EOF
 FACEGATE_CLOUD_URL=$CLOUD_URL
 FACEGATE_DEVICE_KEY=$DEVICE_KEY
@@ -135,6 +136,7 @@ FACEGATE_NATIVE_WINDOW=1
 FACEGATE_CAMERA_INDEX=${FACEGATE_CAMERA_INDEX:-0}
 PYWEBVIEW_GUI=gtk
 EOF
+fi
 fi
 
 # ---------- 4) ตัวเปิดโปรแกรม ----------
@@ -213,7 +215,7 @@ EOF
 else
   mkdir -p "$HOME/.config/autostart"
   cp "$HOME/.local/share/applications/facegate.desktop" "$HOME/.config/autostart/facegate.desktop"
-  nohup "$VPY" "$ROOT/agent.py" >"$ROOT/agent.log" 2>&1 &
+  nohup "$VPY" "$ROOT/auto_update.py" >"$ROOT/agent.log" 2>&1 &
 fi
 
 echo

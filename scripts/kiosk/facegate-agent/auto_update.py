@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import fcntl
 from pathlib import Path
 import shutil
 import subprocess
@@ -115,6 +116,8 @@ def main():
                     if any(p.exists() and p.read_text().strip() == sha for p in (marker, blocked)):
                         continue
                     health = requests.get('http://127.0.0.1:' + os.environ.get('FACEGATE_PORT', '8899') + '/health', timeout=5).json()
+                    if health.get('version') == release['version']:
+                        continue
                     if health.get('presence_active') or health.get('pending_uploads') or not release.get('enabled'):
                         continue
                     download = requests.get(release['url'], timeout=180)
@@ -139,4 +142,9 @@ def main():
         stop(child)
 
 if __name__ == '__main__':
-    main()
+    with open(Path(__file__).resolve().parent / '.update.lock', 'w') as guard:
+        try:
+            fcntl.flock(guard, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            sys.exit(0)
+        main()

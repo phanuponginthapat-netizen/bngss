@@ -14,9 +14,7 @@ Start with:  python agent.py
 """
 
 import base64
-import hashlib
 import io
-import zipfile
 from datetime import datetime, timezone, timedelta
 import json
 import os
@@ -1002,78 +1000,8 @@ def _storage_object_base() -> str:
     return origin.rstrip("/") + "/storage/v1/object"
 
 
-UPDATE_MANIFEST_URL = os.environ.get(
-    "FACEGATE_UPDATE_URL",
-    f"{_storage_object_base()}/public/app-downloads/facegate-version.json",
-)
-UPDATE_MARKER = os.path.join(CACHE_DIR, "update.sha256")
-UPDATE_KEEP = (".py", ".txt", ".md", ".sh", ".bat", ".ps1")
-
-
-def self_update_once() -> bool:
-    """Pull newer program files from the school's packaged installer (zip + checksum)."""
-    if FROZEN:
-        return False  # the .exe build is updated by running the new FaceGateSetup.exe
-    with lock:
-        if not state["settings"].get("auto_update_enabled", True):
-            return False
-    res = requests.get(UPDATE_MANIFEST_URL, timeout=20)
-    res.raise_for_status()
-    manifest = res.json()
-    url = str(manifest.get("url") or "").strip()
-    sha = str(manifest.get("sha256") or "").strip().lower()
-    if not url.startswith("http") or len(sha) != 64:
-        return False
-    try:
-        with open(UPDATE_MARKER, encoding="utf-8") as fh:
-            if fh.read().strip().lower() == sha:
-                return False  # this build is already installed here
-    except OSError:
-        pass
-
-    body = requests.get(url, timeout=120).content
-    if hashlib.sha256(body).hexdigest() != sha:
-        raise RuntimeError("update checksum mismatch")
-
-    here = os.path.dirname(os.path.abspath(__file__))
-    changed = 0
-    with zipfile.ZipFile(io.BytesIO(body)) as zf:
-        for info in zf.infolist():
-            name = info.filename.replace("\\", "/")
-            if name.endswith("/") or name.count("/") != 1:
-                continue  # facegate-agent/agent.py -> agent.py
-            base = name.split("/", 1)[1]
-            if base.startswith((".", "__")) or not base.endswith(UPDATE_KEEP):
-                continue
-            data = zf.read(info)
-            target = os.path.join(here, base)
-            try:
-                with open(target, "rb") as fh:
-                    if hashlib.sha256(fh.read()).hexdigest() == hashlib.sha256(data).hexdigest():
-                        continue
-            except OSError:
-                pass
-            with open(target, "wb") as fh:
-                fh.write(data)
-            changed += 1
-            print(f"[agent] updated {base}")
-    if changed:
-        with open(UPDATE_MARKER, "w", encoding="utf-8") as fh:
-            fh.write(sha)
-    return changed > 0
-
-
-def update_loop() -> None:
-    while True:
-        time.sleep(3600)
-        if STANDALONE:
-            continue
-        try:
-            if self_update_once():
-                print("[agent] มีเวอร์ชันใหม่ กรุณาปิดและเปิดโปรแกรมอีกครั้ง")
-                state["update_ready"] = True
-        except Exception as exc:  # noqa: BLE001
-            print(f"[agent] update check failed: {exc}")
+# Updates are owned by auto_update.py / the Windows scheduled task.
+# Never overwrite imported program modules while the scanner is running.
 
 
 def second_camera_loop() -> None:
@@ -1973,7 +1901,6 @@ if __name__ == "__main__":
     threading.Thread(target=outbox_loop, daemon=True).start()
     threading.Thread(target=command_loop, daemon=True).start()
     threading.Thread(target=power_loop, daemon=True).start()
-    threading.Thread(target=update_loop, daemon=True).start()
     threading.Thread(target=second_camera_loop, daemon=True).start()
     native_camera.start()
 

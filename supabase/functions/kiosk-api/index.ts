@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
       let downloadUrl: string;
       if (windows) {
         const parsed = new URL(file.url);
-        if (parsed.protocol !== "https:" || parsed.hostname !== "github.com" || !/^\/[^/]+\/[^/]+\/releases\/download\/facegate-windows-latest\/FaceGateSetup\.exe$/.test(parsed.pathname)) throw new Error("invalid release URL");
+        if (parsed.protocol !== "https:" || parsed.hostname !== "github.com" || parsed.pathname !== "/phanuponginthapat-netizen/bngss/releases/download/facegate-windows-latest/FaceGateSetup.exe") throw new Error("invalid release URL");
         downloadUrl = parsed.href;
       } else {
         if (!/^facegate-agent-v[\w.\-]+\.zip$/.test(manifest.fileName ?? "")) throw new Error("invalid release file");
