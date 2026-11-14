@@ -10,6 +10,7 @@ name: Build FaceGate Agent
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - 'scripts/kiosk/facegate-agent/**'
       - 'scripts/kiosk/package-facegate.sh'
@@ -88,19 +89,6 @@ jobs:
           upload "/tmp/facegate-build/facegate-version.json" "application/json" "facegate-version.json" || exit 1
           # ลบ ZIP รุ่นเก่า เก็บเฉพาะรุ่นที่ manifest ชี้ + latest
           python3 "$GITHUB_WORKSPACE/scripts/ci/prune-apks.py" facegate "$FACEGATE_FILE" || echo "::warning::prune old FaceGate zips failed"
-
-      - name: Commit fresh installer into public/downloads
-        # ให ้ล ิงก ์ /downloads/facegate-agent-installer.zip ของหน ้าเว็บเป ็นร ุ่ นล ่ าสุดเสมอ
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f public/downloads/facegate-agent-installer.zip
-          if git diff --cached --quiet; then
-            echo "ไฟล ์ในโปรเจกต ์เป ็นร ุ่ นล ่ าสุดอย ู่แล ้ว — ไม ่ต ้ องเข ียนซ ้้ำ"
-            exit 0
-          fi
-          git commit -m "build(facegate): refresh installer zip [skip ci]"
-          git push origin HEAD:"${GITHUB_REF_NAME}" || echo "::warning::push ล ้มเหลว (สาข าอ ่ืน/สิทธิ์) — ไฟล ์ยังอย ู่ใน Actions artifact"
 
       - name: Stage release file
         run: mkdir -p /tmp/rel && cp /tmp/facegate-build/facegate-agent-installer.zip /tmp/rel/facegate-agent-installer.zip
