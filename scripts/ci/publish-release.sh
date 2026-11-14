@@ -25,7 +25,7 @@ gh release create "$TAG" "$@" --title "$TITLE ($VERSION)" \
 
 if [ -n "${CI_UPLOAD_TOKEN:-}" ]; then
   python3 - "$PRODUCT" "$TITLE" "$VERSION" "$GITHUB_REPOSITORY" "$TAG" "$@" > /tmp/release-$PRODUCT.json <<'PY'
-import json, os, sys, datetime
+import json, os, sys, datetime, hashlib
 product, title, version, repo, tag, *files = sys.argv[1:]
 identity = {}
 if product == "scanner":
@@ -39,6 +39,7 @@ print(json.dumps({
   "releasedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
   "pageUrl": f"https://github.com/{repo}/releases/tag/{tag}",
   "files": [{"name": os.path.basename(f), "sizeBytes": os.path.getsize(f),
+             "sha256": hashlib.sha256(open(f, 'rb').read()).hexdigest(),
              "url": f"https://github.com/{repo}/releases/download/{tag}/{os.path.basename(f)}"} for f in files],
 }, ensure_ascii=False))
 PY

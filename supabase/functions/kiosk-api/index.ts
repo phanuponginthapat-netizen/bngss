@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS = {
   geometry_weight: 0.3,
   geometry_min_score: 0.45,
   checkin_only_mode: true,
-  auto_update_enabled: false,
+  auto_update_enabled: true,
   visitor_mode: false,
   late_after: "08:30",
   voice_welcome_text: "ยินดีต้อนรับ",
@@ -137,6 +137,28 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as any));
     const settings = await loadSettings(db);
+
+    if (route === "update-release") {
+      if (body.platform !== "windows" && body.platform !== "linux") return json({ error: "invalid platform" }, 400);
+      const windows = body.platform === "windows";
+      const { data: blob, error } = await db.storage.from("app-downloads").download(windows ? "release-facegate-windows.json" : "facegate-version.json");
+      if (error || !blob) throw new Error("release unavailable");
+      const manifest = JSON.parse(await blob.text());
+      const file = windows ? manifest.files?.find((f: any) => f.name === "FaceGateSetup.exe") : manifest;
+      if (!file || !/^[a-f0-9]{64}$/.test(file.sha256 ?? "")) throw new Error("verified release unavailable");
+      let downloadUrl: string;
+      if (windows) {
+        const parsed = new URL(file.url);
+        if (parsed.protocol !== "https:" || parsed.hostname !== "github.com" || parsed.pathname !== "/phanuponginthapat-netizen/bngss/releases/download/facegate-windows-latest/FaceGateSetup.exe") throw new Error("invalid release URL");
+        downloadUrl = parsed.href;
+      } else {
+        if (!/^facegate-agent-v[\w.\-]+\.zip$/.test(manifest.fileName ?? "")) throw new Error("invalid release file");
+        const signed = await db.storage.from("app-downloads").createSignedUrl(manifest.fileName, 3600);
+        if (signed.error || !signed.data?.signedUrl) throw new Error("download unavailable");
+        downloadUrl = signed.data.signedUrl;
+      }
+      return json({ enabled: settings.auto_update_enabled !== false, version: String(manifest.version).replace(/^v/, ""), sha256: file.sha256, url: downloadUrl });
+    }
 
     // ── หน้าจอสแกน (PC FaceGate + แท็บเล็ต): แบรนด์/ข้อความจาก CMS และหลังบ้าน ──
     if (route === "content") {
