@@ -18,7 +18,7 @@ try {
   if ($health.presence_active -or $health.pending_uploads -gt 0) { exit }
   $release = Invoke-RestMethod -Method Post -Uri ($config['FACEGATE_CLOUD_URL'].TrimEnd('/') + '/kiosk-api/update-release') -Headers @{'x-device-key'=$config['FACEGATE_DEVICE_KEY']} -ContentType 'application/json' -Body '{"platform":"windows"}' -TimeoutSec 30
   if (-not $release.enabled) { exit }
-  if ($release.version -eq $health.version) { exit }
+  if ([version]$release.version -le [version]$health.version) { exit }
   if ($release.sha256 -notmatch '^[a-f0-9]{64}$' -or $release.url -notmatch '^https://') { throw 'Invalid release' }
   foreach ($name in @('installed-release.sha256','failed-release.sha256')) {
     if ((Test-Path (Join-Path $root $name)) -and (Get-Content (Join-Path $root $name) -Raw).Trim() -eq $release.sha256) { exit }

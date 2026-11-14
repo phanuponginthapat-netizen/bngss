@@ -11,6 +11,11 @@ sys.path.insert(0, str(Path(__file__).parents[1] / 'kiosk/facegate-agent'))
 import auto_update as updater
 
 class UpdateTests(unittest.TestCase):
+    def test_does_not_install_older_or_same_release(self):
+        self.assertFalse(updater.newer_version('1.12.8', '1.13.0'))
+        self.assertFalse(updater.newer_version('1.13.0', '1.13.0'))
+        self.assertTrue(updater.newer_version('1.13.1', '1.13.0'))
+
     def archive(self):
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, 'w') as z:

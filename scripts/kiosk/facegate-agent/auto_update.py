@@ -19,6 +19,12 @@ def update_window(now=None):
     now = now or datetime.now(timezone(timedelta(hours=7)))
     return now.hour == 3  # 03:00–03:59 Bangkok, never during the school queue
 
+def newer_version(candidate, current):
+    try:
+        return tuple(map(int, candidate.split('.'))) > tuple(map(int, current.split('.')))
+    except (ValueError, AttributeError):
+        return False
+
 def unpack_verified(body, sha, target):
     if len(sha) != 64 or hashlib.sha256(body).hexdigest() != sha:
         raise ValueError('update checksum mismatch')
@@ -116,7 +122,7 @@ def main():
                     if any(p.exists() and p.read_text().strip() == sha for p in (marker, blocked)):
                         continue
                     health = requests.get('http://127.0.0.1:' + os.environ.get('FACEGATE_PORT', '8899') + '/health', timeout=5).json()
-                    if health.get('version') == release['version']:
+                    if not newer_version(release['version'], health.get('version')):
                         continue
                     if health.get('presence_active') or health.get('pending_uploads') or not release.get('enabled'):
                         continue
