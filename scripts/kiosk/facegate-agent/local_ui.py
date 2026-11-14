@@ -61,6 +61,11 @@ KIOSK_HTML = r"""<!doctype html>
   .saverRowHead{background:transparent;border:0;color:hsl(var(--saver-muted));font-size:.76rem;padding:0 12px 4px}.saverRowHead span:last-child{background:transparent;padding:0}.saverRowHead span{font-weight:600!important;color:inherit!important}
   .saverFooter{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid hsl(var(--saver-line));padding-top:12px;flex-shrink:0;font-size:.8rem;color:hsl(var(--saver-muted))}.saverReady{display:flex;align-items:center;gap:7px}.saverReady i{width:7px;height:7px;border-radius:50%;background:hsl(var(--saver-good))}.saverPages{font-variant-numeric:tabular-nums;color:var(--primary);font-weight:700}
   .saverGroup{padding:16px 0;border-top:1px solid hsl(var(--saver-line))}.saverHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.saverHead>span{font-size:.85rem;color:hsl(var(--saver-muted))}.saverGroup .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.saverGroup .grid div{background:hsl(var(--saver-good-soft));border-radius:8px;padding:16px}.saverGroup .grid div:last-child{background:hsl(var(--saver-bad-soft))}.saverGroup .grid b{display:block;font-size:2.5rem;color:hsl(var(--saver-good))}.saverGroup .grid div:last-child b{color:hsl(var(--saver-bad))}
+  .saverBrand{background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border-radius:14px;padding:14px 16px}.saverBrand .saverEyebrow,.saverBrand .saverDate{color:rgba(255,255,255,.88)}.saverBrand img{background:#fff;border-radius:50%;padding:4px}.saverBrand>div{flex:1}
+  .saverClock{font-size:2.2rem;font-weight:800;font-variant-numeric:tabular-nums;flex-shrink:0}
+  .saverMsg{display:flex;gap:10px;align-items:flex-start;flex-shrink:0;background:hsl(45 95% 94%);border-left:5px solid hsl(40 90% 50%);border-radius:10px;padding:10px 14px;font-size:1rem;line-height:1.55}.saverMsg b{color:hsl(30 80% 35%);white-space:nowrap}.saverMsg span{overflow-wrap:anywhere}
+  .saverPanel{gap:12px;padding:18px}.saverRows{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));align-content:start;gap:4px 10px}
+  .saverRow{padding:5px 10px;font-size:.88rem;line-height:1.35;border-radius:6px}.saverRowHead{padding:0 10px 2px;font-size:.7rem}.saverRow span:last-child{padding:2px 0}
   @media(orientation:portrait){.saver.show{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,30%) minmax(0,70%)}.saver.show.noMedia{grid-template-rows:minmax(0,1fr)}}
   @media(max-width:599px){.saverPanel{padding:16px;gap:12px}.saverPanel h1{font-size:1.15rem}.saverBrand img{width:42px;height:42px}.saverDate{font-size:.75rem}.saverRowHead{display:none}.saverRow{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 4px;padding:10px;font-size:.85rem}.saverRow span:first-child{grid-column:1/-1}.saverRow small{display:block;font-size:.6rem;color:hsl(var(--saver-muted));font-weight:500;line-height:1.6}.saverRow span:last-child{padding:0}.saverTableTitle{font-size:.95rem}.saverFooter{font-size:.7rem}}
   @media(orientation:landscape) and (max-height:650px){.saverPanel{padding:14px;gap:10px}.saverPanel h1{font-size:1.15rem}.saverBrand img{width:42px;height:42px}.saverRow{padding-block:7px}.saverFooter{padding-top:8px}}
@@ -106,7 +111,7 @@ body{display:flex;flex-direction:column}.top{flex-shrink:0}.app{flex:1;min-heigh
 </div>
 <div id="powerWarning" role="alert" style="display:none;position:fixed;inset:0;z-index:100;background:var(--ink);color:var(--surface);align-items:center;justify-content:center;flex-direction:column;gap:20px"><h2 id="powerCountdown"></h2><button class="adminBtn" onclick="cancelPower()">ยกเลิกปิดเครื่อง</button></div>
 <div class="news" id="newsBox" style="display:none"><div id="news"></div></div>
-<div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"></div><section class="saverPanel"><header class="saverBrand"><img id="saverLogo" alt="" style="display:none"/><div><small class="saverEyebrow">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool">โรงเรียนของเรา</h1><div id="saverDate" class="saverDate"></div></div></header><div class="saverClasses" id="saverClasses" style="display:none"></div><div class="saverGroup" id="studentGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">—</b></div><div>ขาด<b id="studentAbsent">—</b></div></div></div><div class="saverGroup" id="staffGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">—</b></div><div>ขาด<b id="staffAbsent">—</b></div></div></div><footer class="saverFooter"><span class="saverReady"><i></i>กล้องพร้อมสแกนตลอดเวลา</span><span id="saverPages" class="saverPages"></span></footer></section></div>
+<div class="saver" id="saver" onclick="wake()"><div class="saverMedia" id="saverMedia"></div><section class="saverPanel"><header class="saverBrand"><img id="saverLogo" alt="" style="display:none"/><div><small class="saverEyebrow">สรุปการมาโรงเรียนวันนี้</small><h1 id="saverSchool">โรงเรียนของเรา</h1><div id="saverSub" class="saverDate"></div><div id="saverDate" class="saverDate"></div></div><div class="saverClock" id="saverClock"></div></header><div class="saverMsg" id="saverMsg" style="display:none"><b>ประชาสัมพันธ์</b><span id="saverMsgText"></span></div><div class="saverClasses" id="saverClasses" style="display:none"></div><div class="saverGroup" id="studentGroup"><div class="saverHead"><b>นักเรียน</b><span>ในระบบ <b id="studentTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="studentPresent">—</b></div><div>ขาด<b id="studentAbsent">—</b></div></div></div><div class="saverGroup" id="staffGroup"><div class="saverHead"><b>บุคลากร</b><span>ในระบบ <b id="staffTotal">—</b> คน</span></div><div class="grid"><div>มาวันนี้<b id="staffPresent">—</b></div><div>ขาด<b id="staffAbsent">—</b></div></div></div><footer class="saverFooter"><span class="saverReady"><i></i>กล้องพร้อมสแกนตลอดเวลา</span><span id="saverPages" class="saverPages"></span></footer></section></div>
 <script>
 const $ = (id) => document.getElementById(id);
 let lastVoiceTest = 0;
@@ -404,6 +409,8 @@ async function loadBrand() {
     $('liveLabel').textContent = c.kiosk_live_label || 'กล้องสด';
     $('todayLabel').textContent = c.kiosk_today_label === 'เข้าเรียนวันนี้' ? 'วันนี้' : (c.kiosk_today_label || 'วันนี้');
     $('classLabel').textContent = c.kiosk_class_label || 'ชั้นเรียน'; $('idLabel').textContent = c.kiosk_id_label || 'รหัส'; $('timeLabel').textContent = c.kiosk_time_label || 'เวลาเข้า-ออก';
+    $('saverSub').textContent = [c.school_name_en, c.school_motto].filter(Boolean).join(' · ');
+    const msg = (c.kiosk_saver_message || '').trim(); $('saverMsg').style.display = msg ? 'flex' : 'none'; $('saverMsgText').textContent = msg;
     if (c.logo_url) { $('saverLogo').src = c.logo_url; $('saverLogo').style.display = ''; $('saverLogo').onerror = () => { $('saverLogo').style.display = 'none'; }; }
     if (c.logo_url) { $('logo').src = c.logo_url; $('logo').style.display = 'block'; $('logoFallback').style.display = 'none'; }
   } catch (e) {}
@@ -490,17 +497,17 @@ function layoutSaverPages() {
   const rows = Array.from(box.children);
   rows.forEach(row => { row.hidden = false; });
   const available = box.clientHeight;
-  let used = 0, page = 0;
-  rows.forEach(row => {
-    const height = row.getBoundingClientRect().height;
-    if (used && used + 6 + height > available) { page++; used = 0; }
-    row.dataset.page = String(page); used += height + (used ? 6 : 0);
-  });
+  const cols = Math.max(1, getComputedStyle(box).gridTemplateColumns.split(' ').filter(Boolean).length);
+  const h = rows.length ? rows[0].getBoundingClientRect().height + 4 : 40;
+  const perPage = Math.max(cols, Math.floor((available + 4) / h) * cols);
+  let page = 0;
+  rows.forEach((row, i) => { page = Math.floor(i / perPage); row.dataset.page = String(page); });
   saverPageCount = page + 1; saverPage %= saverPageCount;
   rows.forEach(row => { row.hidden = Number(row.dataset.page) !== saverPage; });
   $('saverPages').textContent = saverPageCount > 1 ? 'หน้า ' + (saverPage + 1) + ' / ' + saverPageCount : '';
 }
 new ResizeObserver(() => requestAnimationFrame(layoutSaverPages)).observe(document.querySelector('.saverPanel'));
+setInterval(() => { $('saverClock').textContent = serverNow().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }, 1000);
 setInterval(() => { if ($('saver').classList.contains('show')) { saverPage = (saverPage + 1) % saverPageCount; layoutSaverPages(); } }, 8000);
 let remoteSaver = false;
 let statsMode = true, windowsClosed = false, checkinOnly = false, idleMinutes = 0;
