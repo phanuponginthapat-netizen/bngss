@@ -114,7 +114,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.12.8"
+AGENT_VERSION = "1.13.0"
 
 
 def default_cache_dir() -> str:
@@ -1271,6 +1271,7 @@ def health():
         "pending_uploads": outbox_count(),
         "cache_dir": CACHE_DIR,
         "engine_ready": _engine is not None,
+        "presence_active": power.presence_active(),
         "door": door.status(),
         "power": power.status(),
         "perf": PERF.status(),

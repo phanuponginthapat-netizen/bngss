@@ -125,6 +125,7 @@ if [ "$NATIVE" = "1" ]; then "$VPY" -m pip install --quiet "pywebview>=5,<6"; fi
 cat > "$ROOT/config.env" <<EOF
 FACEGATE_CLOUD_URL=$CLOUD_URL
 FACEGATE_DEVICE_KEY=$DEVICE_KEY
+FACEGATE_AUTO_UPDATE=1
 EOF
 chmod 600 "$ROOT/config.env"
 if [ "$NATIVE" = "1" ]; then
@@ -145,11 +146,11 @@ export FACEGATE_THREADS="\${FACEGATE_THREADS:-\$(nproc)}"
 cd "$ROOT"
 # โหมดใช้กล้องโดยตรง: โปรแกรมเปิดกล้องและหน้าต่างเต็มจอเอง ไม่ใช้เบราว์เซอร์
 if [ "\${FACEGATE_NATIVE_WINDOW:-0}" = "1" ]; then
-  exec "$VPY" agent.py
+  exec "$VPY" auto_update.py
 fi
 # เริ่มตัวประมวลผลใบหน้า ถ้ายังไม่ทำงาน
 if ! curl -fsS --max-time 2 http://127.0.0.1:8899/health >/dev/null 2>&1; then
-  nohup "$VPY" agent.py >"$ROOT/agent.log" 2>&1 &
+  nohup "$VPY" auto_update.py >"$ROOT/agent.log" 2>&1 &
 fi
 # รอให้พร้อมสูงสุด 60 วินาที
 for i in \$(seq 1 60); do
@@ -199,7 +200,7 @@ After=network-online.target
 [Service]
 EnvironmentFile=$ROOT/config.env
 WorkingDirectory=$ROOT
-ExecStart=$VPY $ROOT/agent.py
+ExecStart=$VPY $ROOT/auto_update.py
 Restart=always
 RestartSec=5
 

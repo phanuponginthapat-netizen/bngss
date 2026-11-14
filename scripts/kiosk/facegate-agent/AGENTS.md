@@ -11,3 +11,4 @@
 - Scrolling news occupies its own flex row outside the camera stage so scan instructions never share its overlay area in either orientation.
 - The screensaver grade-level attendance report reuses the homepage's shared public aggregation server-side (kiosk-api today-stats classes); offline mode groups by local class_room via saver_stats.py, and days without evidence stay unrecorded rather than fabricated absence.
 - Idle layout separates CMS branding, Bangkok clock/date, contained media, announcements and measured grouped-table rows into orientation-aware grid tracks; reset media positioning so global camera styles cannot crop the playlist.
+- Automatic updates use device-authorized manifests and SHA-256 verification at 03:00 Bangkok only; Linux supervisor isolates dependencies and Windows uses an interactive elevated scheduled task, with readiness rollback and unchanged config/cache/outbox.
