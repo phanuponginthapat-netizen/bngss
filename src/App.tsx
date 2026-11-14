@@ -30,7 +30,6 @@ const PublicContactPage = lazy(() => import("./pages/public/ContactPage"));
 const SchoolInfoCmsPage = lazy(() => import("./pages/admin/SchoolInfoCmsPage"));
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import TranslationBubble from "./components/TranslationBubble";
 import FullPageTranslator from "./components/FullPageTranslator";
 import TranslatePackOverlay from "./components/TranslatePackOverlay";
 import IdleScreensaver from "./components/IdleScreensaver";
@@ -342,7 +341,6 @@ const App = () => {
         <FullPageTranslator />
         <TranslatePackOverlay />
         <IdleScreensaver />
-        {typeof window !== "undefined" && window.innerWidth >= 768 ? <TranslationBubble /> : null}
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <ErrorBoundary>
             <Suspense fallback={<SystemLoader />}>
