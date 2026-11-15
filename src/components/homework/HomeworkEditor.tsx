@@ -19,6 +19,8 @@ import MediaCaptureButtons from "./MediaCaptureButtons";
 interface Props {
   open: boolean;
   attachment: Attachment | null;
+  /** เปิดกระดานวาดเปล่า (ไม่มีไฟล์ต้นฉบับ) */
+  blank?: boolean;
   onClose: () => void;
   onSave: (blob: Blob, filename: string) => Promise<void> | void;
 }
@@ -36,7 +38,7 @@ export default function HomeworkEditor(props: Props) {
   return <CanvasImagePdfEditor {...props} />;
 }
 
-function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
+function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Props) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<any>(null);
   const fabricNsRef = useRef<any>(null);
@@ -55,6 +57,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
   const [color, setColor] = useState("#e11d48");
   const [size, setSize] = useState(3);
   const [signOpen, setSignOpen] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(0);
   const pushHistory = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || skipHistoryRef.current) return;
@@ -72,8 +75,9 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
   };
 
   useEffect(() => {
-    if (!open || !attachment) return;
+    if (!open || (!attachment && !blank)) return;
     let cancelled = false;
+    setTool("select");
     setLoading(true);
     setPageNum(1);
     setPageCount(1);
@@ -85,7 +89,10 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
     (async () => {
       const fabric: any = await import("fabric");
       fabricNsRef.current = fabric;
-      if (cancelled || !canvasElRef.current) return;
+      // Dialog อาจยัง mount canvas ไม่เสร็จในรอบแรก — รอจนกว่าจะพร้อม ไม่ปล่อยให้ค้าง "กำลังโหลด"
+      for (let i = 0; i < 40 && !cancelled && !canvasElRef.current; i++) await new Promise(r => setTimeout(r, 25));
+      if (cancelled) return;
+      if (!canvasElRef.current) throw new Error("พื้นที่วาดยังไม่พร้อม กรุณาปิดแล้วเปิดใหม่");
 
       try { fabricCanvasRef.current?.dispose?.(); } catch {}
 
@@ -96,6 +103,14 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
       fabricCanvasRef.current = canvas;
       attachHistory(canvas);
 
+      if (!attachment) {
+        const w = getCanvasWidth();
+        canvas.setDimensions({ width: w, height: Math.round(w * 1.3) });
+        canvas.requestRenderAll();
+        undoStackRef.current = [JSON.stringify(canvas.toJSON())];
+        if (!cancelled) { setLoading(false); setCanvasReady(v => v + 1); }
+        return;
+      }
       const blob = await downloadHomeworkBlob(attachment.path);
 
       if (isImageMime(attachment.mime)) {
@@ -122,7 +137,8 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
       } else {
         toast.error("ไฟล์นี้ยังแก้ไขในระบบไม่ได้");
       }
-      if (!cancelled) setLoading(false);
+      undoStackRef.current = [JSON.stringify(canvas.toJSON())];
+      if (!cancelled) { setLoading(false); setCanvasReady(v => v + 1); }
     })().catch((e) => {
       console.error(e);
       toast.error("เปิดไฟล์ไม่สำเร็จ: " + (e?.message || e));
@@ -137,7 +153,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
       pageStatesRef.current = {};
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, attachment?.id]);
+  }, [open, attachment?.id, blank]);
 
   // Handle tool switching + shape drawing
   useEffect(() => {
@@ -207,7 +223,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
       canvas.off("mouse:move", onMove);
       canvas.off("mouse:up", onUp);
     };
-  }, [tool, color, size]);
+  }, [tool, color, size, canvasReady]);
 
   const renderPdfPage = async (n: number) => {
     const canvas = fabricCanvasRef.current;
@@ -310,11 +326,15 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
   };
 
   const handleSave = async () => {
-    if (!attachment) return;
     setSaving(true);
     try {
       const canvas = fabricCanvasRef.current;
-      if (isImageMime(attachment.mime)) {
+      if (!canvas) throw new Error("พื้นที่วาดยังไม่พร้อม");
+      if (!attachment) {
+        const dataUrl = canvas.toDataURL({ format: "png", multiplier: 1 });
+        const blob = await (await fetch(dataUrl)).blob();
+        await onSave(blob, `ภาพวาด_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.png`);
+      } else if (isImageMime(attachment.mime)) {
         const dataUrl = canvas.toDataURL({ format: "png", multiplier: 1 });
         const blob = await (await fetch(dataUrl)).blob();
         const base = attachment.name.replace(/\.[^.]+$/, "");
@@ -373,7 +393,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-5xl flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="truncate">แก้ไข: {attachment?.name}</DialogTitle>
+          <DialogTitle className="truncate">{attachment ? `แก้ไข: ${attachment.name}` : "กระดานวาด"}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-1 items-center border-b pb-2">
@@ -414,12 +434,12 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
         <div className="overflow-auto min-h-0 flex-1 max-h-[60vh] bg-muted/30 rounded">
           {loading && <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
           <div className="flex justify-center p-3">
-            <canvas ref={canvasElRef} className="border bg-white shadow-sm" />
+            <canvas ref={canvasElRef} className="border bg-white shadow-sm touch-none" />
           </div>
         </div>
 
         <div className="flex justify-between gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={handleOpenOriginal}>เปิดต้นฉบับ</Button>
+          {attachment ? <Button variant="outline" size="sm" onClick={handleOpenOriginal}>เปิดต้นฉบับ</Button> : <span />}
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>ยกเลิก</Button>
             <Button onClick={handleSave} disabled={saving || loading}>
