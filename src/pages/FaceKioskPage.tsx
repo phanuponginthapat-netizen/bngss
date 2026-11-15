@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO } from "@/lib/dateBE";
+import { serverNow, serverTodayBangkok as todayBangkok, syncServerClock } from "@/lib/serverClock";
 import { attachStreamToVideo } from "@/lib/cameraIos";
 import { openCamera, stopStream } from "@/lib/cameraStream";
 
@@ -673,7 +674,7 @@ const FaceKioskPage = () => {
       seenTodayRef.current = { entry: entrySet, exit: exitSet };
       setTodayCounts({ entry: entrySet.size, exit: exitSet.size });
     };
-    void load();
+    void syncServerClock().then(load);
 
     // ข้ามวัน → ล้างสถานะกันสแกนซ้ำแล้วโหลดใหม่
     const dayTimer = window.setInterval(() => {
@@ -815,6 +816,7 @@ const FaceKioskPage = () => {
     method: "face" | "qr" = "face",
     quality?: { geometryScore?: number | null; engine?: string | null },
   ) => {
+    const capturedAt = serverNow();
     const now = Date.now();
     const mode = scanModeRef.current;
     const modeLabel = mode === "exit" ? "ออก" : "เข้า";
@@ -918,31 +920,29 @@ const FaceKioskPage = () => {
     cooldownRef.current.set(cdKey, now);
     cooldownRef.current.set(studentId, now);
 
-    // แสดงผลทันทีหลังกรอบเขียว — ไม่รออัปโหลด/DB (แก้หน่วง "เขียวแล้วนานกว่าจะแสดงผล")
-    const immediateTime = new Date().toLocaleTimeString("th-TH", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setLastMatch({ name, studentCode, classroom, confidence, scanType: mode, capturedFace, registeredFace: enrolledFace || null, time: immediateTime });
-    setRecent(r => [{ studentId, studentCode, name, classroom, avatar: enrolledFace || null, capturedFace, time: immediateTime, confidence, scanType: mode } as any, ...r].slice(0, 10));
-    playSuccessSound();
-    if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${name}`);
-    void runGate(name, { id: studentId, kind: "student" });
-    justScannedRef.current.set(cdKey, now);
-    justScannedRef.current.set(studentId, now);
-    markScanned(studentId, mode, method);
-    if (!seenSet.has(studentId)) { seenSet.add(studentId); setTodayCounts(c => ({ ...c, [mode]: c[mode] + 1 })); }
-
     const { data: { user } } = await supabase.auth.getUser();
     // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
     const scanTemp = gateRef.current.getLiveTemp();
     const attendancePayload = {
-      student_id: studentId, scan_date: todayBangkok(), scan_time: new Date(now).toISOString(), scan_type: mode, confidence,
+      student_id: studentId, scan_date: bkkDateISO(capturedAt), scan_time: capturedAt.toISOString(), scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
       ...(quality?.geometryScore != null ? { geometry_score: quality.geometryScore } : {}),
       ...(quality?.engine ? { match_engine: quality.engine } : {}),
       ...(scanTemp != null ? { temperature_c: scanTemp } : {}),
     } as any;
+    try {
+      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
+    } catch {
+      cooldownRef.current.delete(cdKey); cooldownRef.current.delete(studentId);
+      showNotice("error", "เก็บผลสแกนไม่สำเร็จ", "กรุณาสแกนใหม่ ไม่ได้ยืนยันบันทึก", 4000); return;
+    }
+    const immediateTime = capturedAt.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour12: false });
+    setLastMatch({ name, studentCode, classroom, confidence, scanType: mode, capturedFace, registeredFace: enrolledFace || null, time: immediateTime });
+    justScannedRef.current.set(cdKey, now); justScannedRef.current.set(studentId, now);
+    if (voiceEnabled) speakText(`รับผลสแกน${modeLabel}แล้ว ${name}`);
+    void runGate(name, { id: studentId, kind: "student" });
     // ออฟไลน์: อย่าพยายามอัปโหลดรูป/เขียนลง DB ทันที (จะ hang/ล้มเหลว) — เข้าคิวไว้ sync ทีหลังทันที
     if (!navigator.onLine) {
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("info", "บันทึกแบบออฟไลน์", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบเมื่อมีสัญญาณอินเทอร์เน็ต`, 4000);
       return;
     }
@@ -959,7 +959,6 @@ const FaceKioskPage = () => {
       error = res.error;
     } catch (networkErr) {
       // เครือข่ายล่ม/ขัดข้องกลางทาง — อย่าทิ้งข้อมูลการสแกน เก็บเข้าคิวไว้ sync ทีหลัง
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("warning", "ออฟไลน์ชั่วคราว", `${name} บันทึก${modeLabel}ไว้ในเครื่อง จะส่งขึ้นระบบอัตโนมัติเมื่อเชื่อมต่อได้`, 4000);
       return;
     }
@@ -971,7 +970,6 @@ const FaceKioskPage = () => {
         return;
       }
       // ข้อผิดพลาดอื่นที่อาจเกิดจากการเชื่อมต่อไม่เสถียร — เข้าคิวไว้ ดีกว่าทิ้งข้อมูลไปเลย
-      await enqueueOfflineScan({ ...attendancePayload, captured_face_url: null, __face_data: capturedFace || null });
       showNotice("error", "บันทึกไม่สำเร็จ ส่งเข้าคิวไว้แล้ว", saveErrorMessage(error), 5000); return;
     }
     if (!data) {
@@ -980,6 +978,10 @@ const FaceKioskPage = () => {
         showNotice("info", "สแกนซ้ำ", `${name} ถูกบันทึก${modeLabel}โรงเรียนวันนี้แล้ว`, 2500);
       return;
     }
+    markScanned(studentId, mode, method, capturedAt.toISOString());
+    seenSet.add(studentId);
+    setTodayCounts({entry: seenTodayRef.current.entry.size, exit: seenTodayRef.current.exit.size});
+    playSuccessSound();
     // immediate feedback already shown — just auto-hide timer
     if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
     matchTimerRef.current = window.setTimeout(() => setLastMatch(null), 6000);

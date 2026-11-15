@@ -1,6 +1,8 @@
 // สรุปการสแกนหน้า → ส่งเข้า Google Chat (CardV2 แบบตาราง)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { readDigestRows, resolveDigestStatuses, markMissingAsAbsent } from "../_shared/attendanceDigest.ts";
+import { attendanceGender } from "../_shared/publicAttendance.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { notifyGChat } from "../_shared/fanout.ts";
 import { bkkDateISO } from "../_shared/thaiDate.ts";
@@ -66,32 +68,15 @@ serve(async (req) => {
 
     const sb = makeAdmin();
 
-    // เกณฑ์สาย
-    const { data: setting } = await sb
-      .from("school_settings").select("setting_value")
-      .eq("setting_key", "clock_late_threshold").maybeSingle();
-    const threshold = (setting?.setting_value as string) || "08:30";
-
-    // นักเรียน active
-    const { data: students } = await sb
-      .from("students")
-      .select("id, gender, classrooms!students_classroom_id_fkey(grade_level, name)")
-      .eq("status", "active");
-
-    // logs ในช่วง
-    const { data: logs } = await sb
-      .from("face_scan_logs")
-      .select("student_id, scan_date, scan_time")
-      .gte("scan_date", r.start).lte("scan_date", r.end);
-
-    // first scan per (date, student)
-    const firstByKey = new Map<string, Date>();
-    for (const x of (logs || []) as any[]) {
-      const key = `${x.scan_date}|${x.student_id}`;
-      const t = new Date(x.scan_time);
-      const prev = firstByKey.get(key);
-      if (!prev || t < prev) firstByKey.set(key, t);
-    }
+    const {data: settingRows, error: settingsError} = await sb.from("school_settings").select("setting_key,setting_value").in("setting_key", ["clock_late_threshold", "clock_in_end"]);
+    if(settingsError) throw settingsError;
+    const settings = Object.fromEntries((settingRows ?? []).map(row=>[row.setting_key,row.setting_value]));
+    const threshold = settings.clock_late_threshold || "08:30";
+    const [students, logs, attendance] = await Promise.all([
+      readDigestRows<any>((a,b)=>sb.from("students").select("id,gender,classrooms!students_classroom_id_fkey(grade_level,name)").eq("status","active").order("id").range(a,b)),
+      readDigestRows<any>((a,b)=>sb.from("face_scan_logs").select("student_id,scan_date,scan_time,scan_type").in("scan_type",["entry","assembly"]).gte("scan_date",r.start).lte("scan_date",r.end).order("id").range(a,b)),
+      readDigestRows<any>((a,b)=>sb.from("attendance").select("student_id,status,attendance_date").is("subject_id",null).gte("attendance_date",r.start).lte("attendance_date",r.end).order("id").range(a,b)),
+    ]);
 
     // วันที่ในช่วง
     const dates: string[] = [];
@@ -100,34 +85,41 @@ serve(async (req) => {
     }
 
     // รวมต่อชั้น (รวมทั้งช่วง)
-    type Row = { cls: string; grade: string; male: number; female: number; arrived: number; late: number; absent: number; totalM: number; totalF: number; total: number };
+    type Row = { cls: string; grade: string; male: number; female: number; arrived: number; late: number; absent: number; totalM: number; totalF: number; total: number; unrecorded: number; leave: number };
     const clsMap = new Map<string, Row>();
     const clsKey = (s: any) => {
       const g = s.classrooms?.grade_level || "-";
       const n = s.classrooms?.name || "-";
       return n && n !== g ? `${g}/${n}` : g;
     };
+    const statusesByDate = new Map(dates.map(date => {
+      const statuses = resolveDigestStatuses(attendance.filter(a=>a.attendance_date===date),logs.filter(l=>l.scan_date===date),threshold);
+      if(date<=bkkDateISO(new Date())) markMissingAsAbsent(statuses,students.map(s=>s.id),date<bkkDateISO(new Date())?"23:59:59":new Date().toLocaleTimeString("en-GB",{timeZone:"Asia/Bangkok",hour12:false}),settings.clock_in_end||threshold);
+      return [date,statuses] as const;
+    }));
     for (const s of (students || []) as any[]) {
       const k = clsKey(s);
       if (!clsMap.has(k)) clsMap.set(k, {
         cls: k, grade: s.classrooms?.grade_level || "-",
         male: 0, female: 0, arrived: 0, late: 0, absent: 0,
-        totalM: 0, totalF: 0, total: 0,
+        totalM: 0, totalF: 0, total: 0, unrecorded: 0, leave: 0,
       });
-      const row = clsMap.get(k)!;
-      const isM = s.gender === "ชาย";
+      const row = clsMap.get(k);
+      if (!row) throw new Error("Class summary unavailable");
+      const gender = attendanceGender(s.gender);
+      const isM = gender === "male";
       // เพิ่ม count นักเรียนต่อวัน
       for (const d of dates) {
-        if (isM) row.totalM++; else row.totalF++;
+        if (isM) row.totalM++; else if (gender === "female") row.totalF++;
         row.total++;
-        const t = firstByKey.get(`${d}|${s.id}`);
-        if (t) {
+        const status = statusesByDate.get(d)?.get(s.id) ?? "unrecorded";
+        if (status === "present" || status === "late") {
           row.arrived++;
-          if (isM) row.male++; else row.female++;
-          if (bangkokHHMM(t) > threshold) row.late++;
-        } else {
-          row.absent++;
-        }
+          if (isM) row.male++; else if (gender === "female") row.female++;
+          if (status === "late") row.late++;
+        } else if (status === "absent") row.absent++;
+        else if (status === "leave" || status === "sick") row.leave++;
+        else row.unrecorded++;
       }
     }
 
@@ -145,8 +137,8 @@ serve(async (req) => {
       male: a.male + r.male, female: a.female + r.female,
       arrived: a.arrived + r.arrived, late: a.late + r.late,
       absent: a.absent + r.absent, totalM: a.totalM + r.totalM,
-      totalF: a.totalF + r.totalF, total: a.total + r.total,
-    }), { male:0, female:0, arrived:0, late:0, absent:0, totalM:0, totalF:0, total:0 });
+      totalF: a.totalF + r.totalF, total: a.total + r.total, unrecorded: a.unrecorded+r.unrecorded, leave: a.leave+r.leave,
+    }), { male:0, female:0, arrived:0, late:0, absent:0, totalM:0, totalF:0, total:0, unrecorded:0, leave:0 });
 
     const pct = sum.total > 0 ? Math.round((sum.arrived / sum.total) * 1000) / 10 : 0;
     const periodLabel = { day: "รายวัน", week: "รายสัปดาห์", month: "รายเดือน", term: "รายเทอม" }[period];
@@ -169,7 +161,9 @@ serve(async (req) => {
       "มาเรียน (✅)": `${sum.arrived.toLocaleString()} ครั้ง (${pct}%)`,
       "ตรงเวลา": `${(sum.arrived - sum.late).toLocaleString()} ครั้ง`,
       "สาย (⏰)": `${sum.late.toLocaleString()} ครั้ง`,
-      "ขาด/ไม่ได้สแกน (❌)": `${sum.absent.toLocaleString()} ครั้ง`,
+      "ยังไม่บันทึก": `${sum.unrecorded.toLocaleString()} ครั้ง`,
+      "ลา": `${sum.leave.toLocaleString()} ครั้ง`,
+      "ขาด (❌)": `${sum.absent.toLocaleString()} ครั้ง`,
       "ชาย (มาเรียน)": `${sum.male.toLocaleString()} ครั้ง`,
       "หญิง (มาเรียน)": `${sum.female.toLocaleString()} ครั้ง`,
     };
