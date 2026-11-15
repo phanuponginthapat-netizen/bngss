@@ -38,7 +38,7 @@ const MyRadarWidget = lazy(() => import("./MyRadarWidget"));
 
 const StudentDashboard = () => {
   const { lang } = useLanguage();
-  const { userId } = useUserRole();
+  const { userId, isParent } = useUserRole();
   const navigate = useNavigate();
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
   const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
@@ -54,14 +54,16 @@ const StudentDashboard = () => {
   })();
 
   const { data, isLoading, error: dashboardError } = useQuery({
-    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester, schoolDate],
+    queryKey: ["student_dashboard", userId, isParent, currentAcademicYear, currentSemester, schoolDate],
     enabled: !!userId && termReady,
     queryFn: async () => {
-      const { data: student, error: studentError } = await supabase
+      // Parents see their linked child (students.parent_user_id/_2); students see themselves.
+      const base = supabase
         .from("students")
-        .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url")
-        .eq("auth_user_id", userId!)
-        .maybeSingle();
+        .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url");
+      const { data: student, error: studentError } = isParent
+        ? await base.or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`).order("student_code").limit(1).maybeSingle()
+        : await base.eq("auth_user_id", userId!).maybeSingle();
       if (studentError) throw studentError;
 
       if (!student) {
