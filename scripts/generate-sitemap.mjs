@@ -11,8 +11,15 @@ try {
     if (match && !env[match[1]]) env[match[1]] = match[2];
   }
 } catch { /* CI can supply these public values directly. */ }
-const backend = env.VITE_SUPABASE_URL;
-const key = env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// CI may not ship .env; reuse the app's canonical public connection instead
+// of maintaining another backend identity or requiring a private credential.
+const runtime = readFileSync('src/lib/runtimeConfig.ts', 'utf8');
+const canonical = runtime.match(/export const CANONICAL_BACKEND = \{([\s\S]*?)\} as const;/)?.[1] || '';
+const canonicalUrl = canonical.match(/url: "([^"]+)"/)?.[1];
+const canonicalKey = canonical.match(/anonKey: "([^"]+)"/)?.[1];
+const backend = canonicalUrl;
+const key = env.VITE_SUPABASE_URL?.replace(/\/+$/, '') === canonicalUrl && env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ? env.VITE_SUPABASE_PUBLISHABLE_KEY : canonicalKey;
 if (!backend || !key) throw new Error('Public CMS connection is required to generate a complete sitemap');
 const paths = new Set(staticPaths);
 for (let offset = 0; ; offset += 1000) {
