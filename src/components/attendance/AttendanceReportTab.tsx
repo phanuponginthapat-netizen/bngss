@@ -55,7 +55,7 @@ export function AttendanceReportTab({
   }, [records, classStudents, startDate, endDate]);
 
   // Each saved lesson remains an independent record; never collapse it to school days.
-  const studentSummary = useMemo(() => Object.fromEntries(classStudents.map((s: any) => [s.id, countLessonStatuses(filteredRecords.filter((r: any) => r.student_id === s.id))])), [classStudents, filteredRecords]);
+  const studentSummary = useMemo<Record<string, ReturnType<typeof countLessonStatuses>>>(() => Object.fromEntries(classStudents.map((s: any) => [s.id, countLessonStatuses(filteredRecords.filter((r: any) => r.student_id === s.id))])), [classStudents, filteredRecords]);
 
   // Overall stats
   const overallStats = useMemo(() => {

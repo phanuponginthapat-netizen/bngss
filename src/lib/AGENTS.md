@@ -12,3 +12,4 @@
 - Pending scanner writes retain the captured timestamp; invalid times stay pending instead of becoming today's attendance, preventing retry-time historical corruption.
 - Invalidate shared scan caches after confirmed queue replay and only mark the captured Bangkok day; delayed uploads must never create today's duplicate state.
 - Mount one school scan Realtime bridge per app; reconnect, identity changes, resume and confirmed queue replay refresh attendance views under existing RLS, while scan photos use durable paths signed at read time.
+- Attendance uses subject_id NULL with period 0 for school days and explicit subject/period for lessons; seed and count lesson records only in their exact scope, never infer them from gate scans.
