@@ -31,9 +31,6 @@ verify_jwt = false
 [functions.qr-login]
 verify_jwt = false
 
-[functions.lookup-email]
-verify_jwt = false
-
 [functions.link-account]
 verify_jwt = false
 

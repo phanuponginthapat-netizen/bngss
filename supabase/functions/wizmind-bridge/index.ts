@@ -95,14 +95,9 @@ Deno.serve(async (req) => {
         bytes = b64ToBytes(b64);
         const m = /^data:([^;]+);base64,/.exec(b64);
         if (m) mime = m[1];
-      } else if (typeof (body as any).image_url === "string") {
-        // ดึงภาพจาก snapshot URL ของกล้อง (bridge อยู่ในวงแลนเดียวกัน จึงมักส่ง base64 มากกว่า)
-        const r = await fetch((body as any).image_url);
-        if (r.ok) {
-          bytes = new Uint8Array(await r.arrayBuffer());
-          mime = r.headers.get("content-type") || mime;
-        }
       }
+      // image_url is intentionally not fetched server-side (prevents requests to arbitrary addresses);
+      // bridges must send the snapshot as image_base64.
     } else if (ctype.startsWith("image/")) {
       bytes = new Uint8Array(await req.arrayBuffer());
       mime = ctype.split(";")[0];
