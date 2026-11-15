@@ -18,7 +18,7 @@ export default function HistoryPage() {
         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(info?.content?.body || "<p>กำลังโหลด...</p>") }} />
         {Array.isArray(info?.content?.timeline) && info.content.timeline.length > 0 && (
           <div className="not-prose mt-10">
-            <h3 className="mb-6 text-xl font-bold">ไทม์ไลน์</h3>
+            <h2 className="mb-6 text-xl font-bold">ไทม์ไลน์</h2>
             <ol className="relative space-y-6 border-l-2 border-primary/30 pl-6">
               {info.content.timeline.map((t: any, i: number) => (
                 <li key={i} className="relative">

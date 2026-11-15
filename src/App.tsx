@@ -2,6 +2,8 @@ import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-qu
 import { reliableQueryDefaults } from "@/lib/dataReliability";
 import { toast } from "sonner";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
+import PageMetadata from "@/components/public/PageMetadata";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -332,6 +334,7 @@ const App = () => {
   <ErrorBoundary label="AppRoot">
   <SkipToContent />
   <QueryClientProvider client={queryClient}>
+    <HelmetProvider>
     <LanguageProvider>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <TooltipProvider>
@@ -342,6 +345,7 @@ const App = () => {
         <TranslatePackOverlay />
         <IdleScreensaver />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <PageMetadata />
           <ErrorBoundary>
             <Suspense fallback={<SystemLoader />}>
               <AnimatedRoutesWrapper>

@@ -3,6 +3,7 @@ import PublicNavbar from "./PublicNavbar";
 import CreditFooter from "@/components/CreditFooter";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { Link } from "react-router-dom";
+import PageMetadata from "./PageMetadata";
 
 interface Props {
   title?: string;
@@ -16,6 +17,7 @@ export default function PublicPageLayout({ title, subtitle, breadcrumbs, childre
   const s = useSystemSettings();
   return (
     <div className="min-h-screen bg-[#fffaf5]">
+      <PageMetadata title={title} />
       {/* decorative blobs */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />

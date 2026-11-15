@@ -1,0 +1,1 @@
+- Generate public/sitemap.xml from static public routes and anonymously readable published cms_pages before dev/build; fail on source errors and omit generation-time lastmod so discovery never advertises private school records or fabricated changes.
