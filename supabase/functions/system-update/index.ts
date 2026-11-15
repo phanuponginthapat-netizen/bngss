@@ -39,6 +39,8 @@ const FULL_EXTRA: Record<string, string> = {
 };
 
 const PAGE = 1000;
+// Hosts a config bundle may be fetched from (prevents server-side requests to arbitrary sites).
+const BUNDLE_HOSTS = ["raw.githubusercontent.com", "github.com", "objects.githubusercontent.com", "bngss.online", "bngss.lovable.app"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -111,7 +113,14 @@ Deno.serve(async (req) => {
 
       if (!bundle && sourceUrl) {
         if (!/^https:\/\//i.test(sourceUrl)) return json({ error: "URL ต้องเป็น https" }, 400);
-        const res = await fetch(sourceUrl);
+        let host = "";
+        try { host = new URL(sourceUrl).hostname.toLowerCase(); } catch { /* invalid */ }
+        const backendHost = (() => { try { return new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname; } catch { return ""; } })();
+        const allowedHost = host && (host === backendHost || BUNDLE_HOSTS.some((h) => host === h || host.endsWith("." + h)));
+        if (!allowedHost) return json({ error: "อนุญาตเฉพาะไฟล์จาก GitHub หรือพื้นที่เก็บไฟล์ของระบบ" }, 400);
+        const res = await fetch(sourceUrl, { redirect: "error" });
+        const len = Number(res.headers.get("content-length") || 0);
+        if (len > 20 * 1024 * 1024) return json({ error: "ไฟล์ใหญ่เกินไป" }, 413);
         if (!res.ok) return json({ error: `ดึงไฟล์ไม่สำเร็จ: HTTP ${res.status}` }, 400);
         bundle = await res.json();
       }
