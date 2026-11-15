@@ -22,6 +22,20 @@ export const PUBLIC_PAGE_TITLES: Record<string, string> = {
   "/find": "ค้นหาบุคคลในโรงเรียน",
   "/ar": "ผลงาน AR",
   "/help": "ศูนย์ช่วยเหลือ",
+  "/install": "ติดตั้งแอปโรงเรียน",
+  "/parent-app": "บริการผู้ปกครอง",
+  "/visit": "ลงทะเบียนผู้มาติดต่อ",
+  "/kiosk-tablet": "FaceGate จุดสแกนโรงเรียน",
+  "/kiosk": "FaceGate จุดสแกนโรงเรียน",
+  "/face-kiosk": "FaceGate จุดสแกนโรงเรียน",
+  "/login": "เข้าสู่ระบบ",
+  "/signup": "สมัครบัญชี",
+  "/setup": "ตั้งค่าระบบโรงเรียน",
+  "/link-account": "เชื่อมบัญชีโรงเรียน",
+  "/liff": "บริการโรงเรียนผ่าน LINE",
+  "/liff/leave": "แจ้งลานักเรียนผ่าน LINE",
+  "/liff/grades": "ผลการเรียนผ่าน LINE",
+  "/liff/attendance": "การมาเรียนผ่าน LINE",
 };
 
 export default function PageMetadata({ title, description, schema }: {
@@ -40,11 +54,19 @@ export default function PageMetadata({ title, description, schema }: {
   }, [pathname]);
   const { data: settings } = useCmsSettingsBulk();
   const school = settings?.school_name || "โรงเรียนบ้านหนองเงือก";
-  const page = title || PUBLIC_PAGE_TITLES[pathname] || settings?.app_name || "BNG Smart School";
+  const dynamicTitle = pathname.startsWith("/ar/p/") ? "งาน AR แหล่งเรียนรู้"
+    : pathname.startsWith("/ar/") ? "สื่อ AR แหล่งเรียนรู้"
+    : pathname.startsWith("/p/") ? "โปรไฟล์สาธารณะ"
+    : pathname.startsWith("/asset/") ? "ข้อมูลวัสดุและครุภัณฑ์"
+    : pathname.startsWith("/sdq-assess/") ? "แบบประเมิน SDQ"
+    : pathname.startsWith("/page/") ? "ข้อมูลโรงเรียน"
+    : pathname.startsWith("/dashboard") ? "พื้นที่ทำงานโรงเรียน"
+    : "ไม่พบหน้าที่ต้องการ";
+  const page = title || PUBLIC_PAGE_TITLES[pathname] || dynamicTitle;
   const fullTitle = page === school ? `${school} | BNG Smart School` : `${page} | ${school}`;
   const summary = description || (pathname === "/"
     ? `ติดตามข่าวสาร กิจกรรม ปฏิทิน และข้อมูลบุคลากรของ${school} พร้อมบริการ BNG Smart School สำหรับชุมชนโรงเรียน`
-    : `อ่านข้อมูล${page}ของ${school} ผ่านเว็บไซต์ BNG Smart School พร้อมข่าวสารและช่องทางติดต่อโรงเรียน`);
+    : `${page} — ข้อมูลจาก${school} ผ่านเว็บไซต์ BNG Smart School พร้อมข่าวสารและช่องทางติดต่อโรงเรียน`);
   const url = `https://bngss.online${pathname}`;
   const schoolSchema = pathname === "/" ? {
     "@context": "https://schema.org", "@type": "School", name: school, url,

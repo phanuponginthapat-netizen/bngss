@@ -53,7 +53,6 @@ function hydrateFromCache() {
     const raw = localStorage.getItem(BRAND_CACHE_KEY);
     if (!raw) return;
     const b = JSON.parse(raw);
-    if (b?.name) document.title = b.name;
     if (b?.themeColor) {
       setMeta("theme-color", b.themeColor);
       applyThemeVars(b.themeColor);

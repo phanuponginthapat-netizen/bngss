@@ -186,7 +186,6 @@
             if (!name || String(name).replace(/\s/g, "").length < 3) {
               name = DEFAULT_NAME;
             }
-            document.title = name;
             var n = document.getElementById("ldr-name");
             if (n) { n.textContent = name; n.style.display = "block"; }
             var brand = document.getElementById("ldr-brand");
