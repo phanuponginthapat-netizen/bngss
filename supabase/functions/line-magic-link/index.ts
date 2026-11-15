@@ -1,6 +1,7 @@
 // Send Magic Link + Install link to LINE user after successful account linking
 // Triggered by line-webhook on successful link command
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { ensureParentAccount } from "../_shared/parentAccount.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
@@ -160,27 +161,26 @@ Deno.serve(async (req) => {
     } else if (student_id) {
       const { data: s } = await sb
         .from("students")
-        .select("prefix, first_name, last_name, auth_user_id, line_user_id, line_user_id_2, line_user_id_3")
+        .select("id, student_code, prefix, first_name, last_name, school_id, status, parent_user_id, parent_user_id_2, auth_user_id, line_user_id, line_user_id_2, line_user_id_3")
         .eq("id", student_id)
         .maybeSingle();
       // The LINE account must already be linked to this student record.
       const bound = !!s && [s.line_user_id, s.line_user_id_2, s.line_user_id_3].includes(line_user_id);
       if (s && bound) {
         displayLabel = `ผู้ปกครองของ ${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
-        // 1) พยายามใช้บัญชีผู้ปกครองที่เชื่อมไว้ก่อน (profiles.line_id = lineUserId)
-        const { data: prof } = await sb
-          .from("profiles")
-          .select("id, google_email")
-          .eq("line_id", line_user_id)
-          .maybeSingle();
-        if (prof?.id) {
-          const { data: u } = await sb.auth.admin.getUserById(prof.id);
-          userEmail = u.user?.email || prof.google_email || null;
-        }
-        // 2) Fallback: ใช้บัญชีนักเรียนเข้าระบบให้ผู้ปกครองเลย
-        if (!userEmail && s.auth_user_id) {
+        if (s.line_user_id === line_user_id && s.auth_user_id) {
+          // Slot 1 is the student's own LINE → student's account.
+          displayLabel = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
           const { data: u } = await sb.auth.admin.getUserById(s.auth_user_id);
           userEmail = u.user?.email || null;
+        } else {
+          // Parent slots → the parent's own account (created/linked if needed), never the student's.
+          const ensured = await ensureParentAccount(sb, s);
+          if (!("error" in ensured)) {
+            await sb.from("profiles").update({ line_user_id }).eq("id", ensured.parentUserId).is("line_user_id", null);
+            const { data: u } = await sb.auth.admin.getUserById(ensured.parentUserId);
+            userEmail = u.user?.email || null;
+          } else console.error("[line-magic-link] parent account", ensured.error);
         }
       }
     }
