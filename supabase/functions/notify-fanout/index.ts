@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
     const sevRank = SEVERITY_RANK[severity] ?? 0;
     // Critical events always fan out to Google Chat so admins/directors see them,
     // even if the caller didn't opt-in to gchat.
-    if (severity === "critical") channels.add("gchat");
+    if (severity === "critical" && (!callerId || callerIsStaff)) channels.add("gchat");
 
     // School-wide per-category routing (admin controlled). Skip channel entirely
     // when this category is disabled in school_settings.channel_category_routing.

@@ -109,7 +109,10 @@ Deno.serve(async (req) => {
     }
 
     if (notifications.length) {
-      const { error: notifErr } = await admin.from("notifications").insert(notifications);
+      const { error: notifErr } = await admin.from("notifications").insert(
+        // notifications columns are message/is_read; this function sends the pushes itself.
+        notifications.map((n: any) => ({ user_id: n.user_id, title: n.title, message: n.body, type: n.type, is_read: false, push_sent: true })),
+      );
       if (notifErr) console.error("Notification insert error:", notifErr);
     }
 
@@ -129,7 +132,7 @@ Deno.serve(async (req) => {
           title: "📋 แจ้งเตือนการขาดเรียน",
           body: `${name} — ${label} วันที่ ${attendance_date}`,
           url: "/dashboard/student/attendance",
-          tag: "attendance-absent",
+          tag: `attendance-absent-${matchingStudent?.student_id ?? "x"}`,
         };
 
         const r = isFcm

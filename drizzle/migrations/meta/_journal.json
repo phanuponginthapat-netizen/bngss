@@ -323,6 +323,13 @@
       "when": 1794732235594,
       "tag": "0045_notify_both_parents_on_absence",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794732790752,
+      "tag": "0046_notification_triggers_use_cron_invoke",
+      "breakpoints": true
     }
   ]
 }
