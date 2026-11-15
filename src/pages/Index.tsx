@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { installedAppEntry } from "@/lib/installedAppEntry";
+import SystemLoader from "@/components/SystemLoader";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -130,20 +133,17 @@ const Index = () => {
   const [newsPosts, setNewsPosts] = useState<NewsPost[]>([]);
   
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
-  const { session } = useAuthSession();
-  const navigate = useNavigate();
-
-  // เมื่อเปิดจาก PWA ที่ติดตั้งแล้ว และผู้ใช้ล็อกอินอยู่ → พาเข้าหน้าระบบทันที
-  // (start_url เป็น "/" เพื่อ identity ที่เสถียร แต่ผู้ใช้ที่ล็อกอินอยู่ไม่ควรค้างที่หน้าประชาสัมพันธ์)
-  useEffect(() => {
-    if (slug) return; // /page/:slug — ไม่ต้อง redirect
-    if (!session?.user) return;
-    const isPwa =
-      window.matchMedia?.("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true ||
-      new URLSearchParams(window.location.search).get("source")?.startsWith("pwa");
-    if (isPwa) navigate("/dashboard", { replace: true });
-  }, [session?.user?.id, slug, navigate]);
+  const { session, isReady } = useAuthSession();
+  const location = useLocation();
+  const entry = installedAppEntry({
+    pathname: location.pathname,
+    installed: Capacitor.isNativePlatform() ||
+      window.matchMedia?.("(display-mode: standalone)").matches === true ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+      new URLSearchParams(location.search).get("source")?.startsWith("pwa") === true,
+    authReady: isReady,
+    signedIn: Boolean(session?.user),
+  });
 
 
   useEffect(() => {
@@ -303,6 +303,9 @@ const Index = () => {
 
 
 
+
+  if (entry === "pending") return <SystemLoader />;
+  if (entry === "dashboard") return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fffaf5] dark:bg-background">
