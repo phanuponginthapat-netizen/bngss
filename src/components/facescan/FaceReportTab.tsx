@@ -348,7 +348,7 @@ const FaceReportTab = () => {
         profiles.forEach((p: any) => { if (!nameMap.has(p.id)) nameMap.set(p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim()); });
         rows.forEach((r) => { r.scanner_name = nameMap.get(r.scanned_by) || "-"; });
       }
-      return rows;
+      return Promise.all(rows.map(async r => ({...r,captured_face_url:await resolveKioskMediaUrl(r.captured_face_url)})));
     },
     staleTime: 15_000,
     refetchInterval: 30_000,

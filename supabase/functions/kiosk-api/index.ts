@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
       if (logsError) throw logsError;
       const ids = [...new Set((logs ?? []).map((l: any) => l.student_id).filter(Boolean))];
       const { data: faces, error: faceError } = ids.length
-        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("created_at", { ascending: false })
+        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("quality_score", { ascending: false, nullsFirst: false }).order("id")
         : { data: [], error: null };
       if (faceError) throw faceError;
       const avatars = new Map<string, string>();

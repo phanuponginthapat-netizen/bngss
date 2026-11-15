@@ -19,6 +19,7 @@ import { useAutoScanMode } from "@/hooks/useAutoScanMode";
 import { useSchoolGeofence, calcDistanceMeters, getCurrentCoords } from "@/hooks/useSchoolGeofence";
 import { MapPin } from "lucide-react";
 import { uploadFaceScanSnapshot } from "@/lib/faceScanUpload";
+import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
 import { getRegisteredFaceImage } from "@/lib/registeredFace";
 import { checkTodayScan, markScanned, methodLabel as scanMethodLabel } from "@/lib/scanDedup";
 
@@ -276,9 +277,9 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
           name: `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim(),
           classroom: cls,
           confidence: Number(r.confidence) || 0,
-          time: new Date(r.scan_time).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          time: new Date(r.scan_time).toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
           registeredFace: (await getRegisteredFaceImage(r.student_id, s.photo_url)) || undefined,
-          capturedFace: r.captured_face_url || undefined,
+          capturedFace: await resolveKioskMediaUrl(r.captured_face_url) || undefined,
           entryMethod: r.entry_method || undefined,
           scanType: r.scan_type === "exit" ? "exit" : "entry",
         };
