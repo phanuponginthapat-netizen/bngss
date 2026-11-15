@@ -1,0 +1,1 @@
+- Preserve empty successful upstream responses as bodyless responses, including refresh retries; Drive deletion returning 204 must never become a false failure.
