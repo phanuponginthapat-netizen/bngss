@@ -24,13 +24,13 @@ export async function syncServerClock(force = false): Promise<number> {
     try {
       const t0 = Date.now();
       const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
-        method: "HEAD",
+        method: "GET",
         cache: "no-store",
         headers: { apikey: getBackendConfig().anonKey },
       });
       const t1 = Date.now();
       const header = res.headers.get("date");
-      if (header) {
+      if (res.ok && header) {
         const server = new Date(header).getTime();
         if (Number.isFinite(server)) {
           // ชดเชยเวลาเดินทางของคำขอครึ่งหนึ่ง
