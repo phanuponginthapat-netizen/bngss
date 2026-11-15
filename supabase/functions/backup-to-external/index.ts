@@ -1,6 +1,7 @@
 // Second-layer backup: copies core tables into a *separate* Supabase project
 // (EXTERNAL_SUPABASE_URL / EXTERNAL_SUPABASE_SERVICE_KEY) as daily snapshots
 // in public.backup_snapshots. Admin-only, also callable by cron.
+import { allowedTables } from "../_shared/bundleValidation.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { getSecret } from "../_shared/getSecret.ts";
@@ -40,7 +41,9 @@ Deno.serve(async (req) => {
     const snapshotDate = new Date().toISOString().slice(0, 10);
 
     const body = await req.json().catch(() => ({}));
-    const tables: string[] = Array.isArray(body?.tables) && body.tables.length ? body.tables : TABLES;
+    let tables: string[];
+    try { tables = allowedTables(body.tables, Object.fromEntries(TABLES.map(t => [t, "id"]))); }
+    catch { return json({ error: "table outside backup scope" }, 400); }
 
     let ok = 0, failed = 0;
     const results: Record<string, any> = {};
@@ -53,7 +56,7 @@ Deno.serve(async (req) => {
           if (error) throw new Error(error.message);
           rows.push(...(data || []));
           if ((data || []).length < PAGE) break;
-          if (rows.length >= 50000) break; // safety cap per table
+          if (rows.length >= 50000) throw new Error("backup exceeds safe limit; no partial snapshot written");
         }
 
         const { error: upErr } = await ext.from("backup_snapshots").upsert({

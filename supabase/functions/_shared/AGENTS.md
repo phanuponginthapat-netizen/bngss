@@ -12,3 +12,5 @@
 - FaceGate live person counts use shared resolved student class statuses and distinct confirmed staff identities, never event-row counts; legacy staff pass rows without direction remain direction-unknown.
 - Edge functions authorize callers through _shared/callerAuth.ts (service key, cron secret, or school role); never rely on a bare session or open endpoints.
 - Shared school reference data RLS uses public.is_school_member(auth.uid()) so open sign-ups cannot read school records.
+
+- Validate upload size/type/path before privileged writes; verify LINE webhook HMAC on raw bytes, and constrain bundle tables and fields with server-owned allowlists to prevent untrusted payloads choosing authority.
