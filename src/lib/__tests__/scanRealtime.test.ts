@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { scanQueryAffected } from "../scanRealtime";
 describe("shared scan receipt refresh", () => {
