@@ -168,13 +168,9 @@ Deno.serve(async (req) => {
       const bound = !!s && [s.line_user_id, s.line_user_id_2, s.line_user_id_3].includes(line_user_id);
       if (s && bound) {
         displayLabel = `ผู้ปกครองของ ${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
-        if (s.line_user_id === line_user_id && s.auth_user_id) {
-          // Slot 1 is the student's own LINE → student's account.
-          displayLabel = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
-          const { data: u } = await sb.auth.admin.getUserById(s.auth_user_id);
-          userEmail = u.user?.email || null;
-        } else {
-          // Parent slots → the parent's own account (created/linked if needed), never the student's.
+        {
+          // LINE registration via student_id is always the parent → parent's own account, never the student's.
+          // the parent's own account (created/linked if needed), never the student's.
           const ensured = await ensureParentAccount(sb, s);
           if (!("error" in ensured)) {
             await sb.from("profiles").update({ line_user_id }).eq("id", ensured.parentUserId).is("line_user_id", null);
