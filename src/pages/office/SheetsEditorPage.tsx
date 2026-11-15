@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,11 +93,11 @@ export default function SheetsEditorPage() {
       const parts = wb.SheetNames.map(n => {
         const ws = wb.Sheets[n];
         const arr = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: "" }) as any[][];
-        return `<h3>${n}</h3><table>${arr.map(r =>
-          `<tr>${(r as any[]).map(c => `<td>${c ?? ""}</td>`).join("")}</tr>`
+        return `<h3>${escapeHtml(n)}</h3><table>${arr.map(r =>
+          `<tr>${(r as any[]).map(c => `<td>${escapeHtml(c ?? "")}</td>`).join("")}</tr>`
         ).join("")}</table>`;
       }).join("<div style='page-break-after:always'></div>");
-      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${fileName}</title>
+      win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fileName)}</title>
         <style>@page{size:A4 landscape;margin:1cm}
         body{font-family:Sarabun,sans-serif;font-size:11pt}
         table{border-collapse:collapse;width:100%;margin-bottom:12px}

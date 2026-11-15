@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,7 +224,8 @@ export default function GradeRemediationPage() {
   };
 
   const handlePrint = () => {
-    const rows = filtered.map((r) => `<tr><td>${r.students ? `${r.students.prefix || ""}${r.students.first_name} ${r.students.last_name} (${r.students.student_code})` : r.student_id.slice(0, 8)}</td><td>${r.subject_code} ${r.subject_name || ""}</td><td>${r.term}</td><td>${r.original_grade}</td><td>${r.status}</td><td>${r.new_grade || "-"}</td></tr>`).join("");
+    const e = escapeHtml;
+    const rows = filtered.map((r) => `<tr><td>${e(r.students ? `${r.students.prefix || ""}${r.students.first_name} ${r.students.last_name} (${r.students.student_code})` : r.student_id.slice(0, 8))}</td><td>${e(`${r.subject_code} ${r.subject_name || ""}`)}</td><td>${e(r.term)}</td><td>${e(r.original_grade)}</td><td>${e(r.status)}</td><td>${e(r.new_grade || "-")}</td></tr>`).join("");
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`<html><head><title>0 ร มส</title><style>table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:left}th{background:#f5f5f5}</style></head><body><h2>ประกาศรายชื่อติด 0 ร มส มผ</h2><table><thead><tr><th>นักเรียน</th><th>วิชา</th><th>เทอม</th><th>เกรดเดิม</th><th>สถานะ</th><th>เกรดใหม่</th></tr></thead><tbody>${rows}</tbody></table><script>window.print()</script></body></html>`);
