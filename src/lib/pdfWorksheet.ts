@@ -55,17 +55,18 @@ export async function renderPdfToImages(
   }
   const doc = await pdfjsLib.getDocument({ data }).promise;
   const out: WorksheetPageImage[] = [];
+  try {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
-    if (!base.width || !base.height) continue;
+    if (!base.width || !base.height) throw new Error(`อ่านขนาด PDF หน้า ${i} ไม่สำเร็จ`);
     const scale = targetWidth / base.width;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
+    if (!ctx) throw new Error(`แสดง PDF หน้า ${i} ไม่สำเร็จ`);
     await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
     out.push({
       page: i,
@@ -74,7 +75,9 @@ export async function renderPdfToImages(
       height: canvas.height,
     });
   }
+  if (!out.length) throw new Error("PDF ไม่มีหน้าที่อ่านได้");
   return out;
+  } finally { await doc.destroy(); }
 }
 
 export function newField(

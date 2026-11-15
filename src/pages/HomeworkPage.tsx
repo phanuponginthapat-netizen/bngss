@@ -203,21 +203,22 @@ const HomeworkPage = () => {
   const [subsOpen, setSubsOpen] = useState(false);
   const [subsAssignmentId, setSubsAssignmentId] = useState<string | null>(null);
 
-  const { data: richList = [] } = useQuery({
+  const { data: richList = [], error: richError, refetch: retryRich } = useQuery({
     queryKey: ["hw-assignments", role, userId, studentRow?.classroom_id],
-    enabled: !!role && !!userId,
+    enabled: !!role && !!userId && (!isStudentLike || !!studentRow?.classroom_id),
     queryFn: async () => {
       let q = supabase.from("homework_assignments").select("*").order("created_at", { ascending: false });
       if (isStudentLike && studentRow?.classroom_id) q = q.eq("classroom_id", studentRow.classroom_id);
       else if (isTeacher && !isAdmin && !isDirector) q = q.eq("created_by", userId!);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return (data || []).filter((a: any) => !!a.content_html || !!a.pdf_path);
     },
   });
 
 
   // Homework list
-  const { data: list = [], isLoading } = useQuery({
+  const { data: list = [], isLoading, error: listError, refetch: retryList } = useQuery({
     queryKey: ["homework-list", role, userId, studentRow?.classroom_id],
     enabled: !!role && !!userId,
     queryFn: async () => {
@@ -554,6 +555,7 @@ const HomeworkPage = () => {
       })()}
 
       {/* ===== Rich homework section ===== */}
+      {(richError || listError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); }}>ลองใหม่</Button></div>}
       {richList.length > 0 && (
         <section className="space-y-2 border-t pt-5">
             <h2 className="text-base font-semibold flex items-center gap-2">
