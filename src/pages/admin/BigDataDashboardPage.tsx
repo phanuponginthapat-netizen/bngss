@@ -49,7 +49,7 @@ type OneStopAttendance = { date: string; total_today: number; sample: any[] };
 type OneStopGrades = { count: number; avg_score: number; distribution: Record<string, number>; sample: any[] };
 type OneStopFinance = {
   budget: { income_total: number; expense_total: number; balance: number; count: number };
-  petty_cash: { income_total: number; expense_total: number; balance: number; count: number };
+  petty_cash: { income_total: number; expense_total: number; balance: number; count: number } | null;
 };
 type OneStopLibrary = {
   books_total: number;
@@ -334,8 +334,8 @@ export default function BigDataDashboardPage() {
       { name: "จ่าย", value: data.finance?.budget?.expense_total ?? 0 },
     ];
     const pettyBar = [
-      { name: "เงินสดรับ", value: data.finance?.petty_cash?.income_total ?? 0 },
-      { name: "เงินสดจ่าย", value: data.finance?.petty_cash?.expense_total ?? 0 },
+      
+      
     ];
     // library bar
     const libBar = [
@@ -613,7 +613,7 @@ export default function BigDataDashboardPage() {
               การเงิน (Finance)
             </CardTitle>
             <CardDescription className="text-xs">
-              budget • {fmtNum(finance?.budget.count)} รายการ • petty {fmtNum(finance?.petty_cash.count)}
+              budget • {fmtNum(finance?.budget.count)} รายการ 
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-2">
@@ -627,9 +627,10 @@ export default function BigDataDashboardPage() {
               </div>
               <div className="rounded border p-2 bg-amber-50/50">
                 <div className="text-xs text-muted-foreground">เงินสดย่อยคงเหลือ</div>
-                <div className="font-bold text-amber-700">{fmtMoney(finance?.petty_cash.balance)} ฿</div>
+                {!finance?.petty_cash && <p className="text-xs text-muted-foreground">ไม่มีแหล่งข้อมูลเงินสดย่อย</p>}
+                <div className="font-bold text-amber-700">{fmtMoney(finance?.petty_cash?.balance)} ฿</div>
                 <div className="text-[11px] text-muted-foreground">
-                  รับ {fmtMoney(finance?.petty_cash.income_total)} • จ่าย {fmtMoney(finance?.petty_cash.expense_total)}
+                  รับ {fmtMoney(finance?.petty_cash?.income_total)} • จ่าย {fmtMoney(finance?.petty_cash?.expense_total)}
                 </div>
               </div>
             </div>
@@ -1093,17 +1094,17 @@ export default function BigDataDashboardPage() {
                   <CardContent className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">รับรวม</span>
-                      <span className="font-medium text-emerald-600">{fmtMoney(finance?.petty_cash.income_total)} ฿</span>
+                      <span className="font-medium text-emerald-600">{fmtMoney(finance?.petty_cash?.income_total)} ฿</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">จ่ายรวม</span>
-                      <span className="font-medium text-rose-600">{fmtMoney(finance?.petty_cash.expense_total)} ฿</span>
+                      <span className="font-medium text-rose-600">{fmtMoney(finance?.petty_cash?.expense_total)} ฿</span>
                     </div>
                     <div className="flex justify-between border-t pt-1 font-bold">
                       <span>คงเหลือ</span>
-                      <span>{fmtMoney(finance?.petty_cash.balance)} ฿</span>
+                      <span>{fmtMoney(finance?.petty_cash?.balance)} ฿</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{fmtNum(finance?.petty_cash.count)} รายการ</p>
+                    <p className="text-xs text-muted-foreground">{fmtNum(finance?.petty_cash?.count)} รายการ</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1114,8 +1115,8 @@ export default function BigDataDashboardPage() {
                     data={[
                       { name: "งบรับ", value: finance?.budget.income_total ?? 0 },
                       { name: "งบจ่าย", value: finance?.budget.expense_total ?? 0 },
-                      { name: "สดรับ", value: finance?.petty_cash.income_total ?? 0 },
-                      { name: "สดจ่าย", value: finance?.petty_cash.expense_total ?? 0 },
+                      
+                      
                     ]}
                   >
                     <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
