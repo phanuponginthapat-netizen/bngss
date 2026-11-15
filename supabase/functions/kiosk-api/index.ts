@@ -5,6 +5,7 @@
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { scanTimestamp } from "../_shared/scanTimestamp.ts";
+import { scanReceipt } from "../_shared/scanReceipt.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
@@ -445,9 +446,11 @@ Deno.serve(async (req) => {
       if (isStaff) {
         // บุคลากรยังไม่มีตารางลงเวลาเฉพาะ — บันทึกเป็นประวัติการผ่านประตูไว้ก่อน
         const { error } = await db.from("kiosk_agent_alerts").insert({
+          ...(body?.scanned_at ? {id: await scanReceipt(device.device_id, personId, capturedAt.toISOString(), direction)} : {}),
           device_id: device.device_id, device_name: device.name,
           kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId, created_at: capturedAt.toISOString(),
         });
+        if (error?.code === "23505") return json({result: "duplicate", student_id: personId, name});
         if (error) throw error;
       } else {
         const now = capturedAt;
