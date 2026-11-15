@@ -339,7 +339,10 @@ Deno.serve(async (req) => {
       const liveIds = new Set(rows.map((f) => f.id));
       const removed = incremental ? Object.keys(known).filter((id) => !liveIds.has(id)) : [];
 
+      const scanDate = bkkDate();
+      const scanRows = await readDigestRows<{student_id: string; scan_type: string}>((a,b) => db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date", scanDate).in("scan_type", ["entry", "exit"]).order("id").range(a,b));
       return json({
+        scan_date: scanDate, scans: scanRows.map(row => ({student_id: row.student_id, direction: row.scan_type === "exit" ? "out" : "in"})),
         device: { id: device.device_id, name: device.name, default_direction: device.default_direction },
         settings,
         students: people,

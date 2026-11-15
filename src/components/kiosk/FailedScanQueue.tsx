@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { pendingScanPayload } from "@/lib/pendingScanPayload";
+import { clearScanDedupCache } from "@/lib/scanDedup";
 import { supabase } from "@/integrations/supabase/client";
 import { swal } from "@/lib/swal";
 import { RefreshCw, Send, Trash2 } from "lucide-react";
@@ -29,11 +31,15 @@ export default function FailedScanQueue() {
   const retry = async (r: Row) => {
     const raw = r.payload?.payload ?? {};
     const { __face_data, ...payload } = raw;
-    const { error } = await supabase.from("face_scan_logs").insert(payload as any);
+    let original;
+    try { original = pendingScanPayload(payload); }
+    catch (error) { void swal.error("ส่งไม่สำเร็จ", String(error)); return; }
+    const { error } = await supabase.from("face_scan_logs").insert(original as any);
     if (error && error.code !== "23505") {
       swal.error("ส่งไม่สำเร็จ", error.message);
       return;
     }
+    clearScanDedupCache();
     const { error: deleteError } = await supabase.from("offline_failed_queue").delete().eq("id", r.id);
     if (deleteError) {
       void swal.error("บันทึกแล้ว แต่ล้างรายการค้างไม่สำเร็จ", deleteError.message);

@@ -326,13 +326,12 @@ const FaceReportTab = () => {
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["face-logs-range", range.start, range.end],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllRows((from,to) => supabase
         .from("face_scan_logs")
         .select("id, scan_date, scan_time, confidence, scan_type, captured_face_url, entry_method, scanned_by, students!inner(id, prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level))")
         .gte("scan_date", range.start)
         .lte("scan_date", range.end)
-        .order("scan_time", { ascending: false });
-      if (error) throw error;
+        .order("scan_time", { ascending: false }).order("id").range(from,to));
       const rows = (data || []) as any[];
       // resolve scanner names in batch
       const ids = Array.from(new Set(rows.map((r) => r.scanned_by).filter(Boolean))) as string[];
@@ -356,13 +355,13 @@ const FaceReportTab = () => {
 
   const { data: chartData = [] } = useQuery({
     queryKey: ["face-chart", range.start, range.end],
+    refetchInterval: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllRows((from,to) => supabase
         .from("face_scan_logs")
         .select("scan_date")
         .gte("scan_date", range.start)
-        .lte("scan_date", range.end);
-      if (error) throw error;
+        .lte("scan_date", range.end).order("id").range(from,to));
       const map = new Map<string, number>();
       for (const r of data as any[]) map.set(r.scan_date, (map.get(r.scan_date) || 0) + 1);
       return Array.from(map.entries())

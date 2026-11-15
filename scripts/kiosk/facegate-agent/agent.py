@@ -74,6 +74,7 @@ voice_preparation = VoicePreparation()
 import qr_reader
 from school_scan_policy import evaluate_school_scan
 from scan_outbox import ScanOutbox
+from scan_state import confirmed_scan_keys
 from scan_guide import face_inside, completed_result, NEXT_PERSON_SECONDS
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
@@ -113,7 +114,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.13.1"
+AGENT_VERSION = "1.13.2"
 
 
 def default_cache_dir() -> str:
@@ -257,6 +258,8 @@ state: dict[str, Any] = {
     "last_activity": time.time(),
     "power": {},
     "camera_ok": None,
+    "scan_date": None,
+    "confirmed_scans": set(),
 }
 lock = threading.Lock()
 outbox_lock = threading.Lock()
@@ -402,12 +405,15 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     if not rule["allowed"]:
         return {"result": "denied", "message": rule["reason"], "speak": rule["reason"], "next_delay_seconds": 1}
     payload["direction"] = rule["direction"]
-    duplicate_key = f"{sid}:{rule['direction']}"
+    today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
+    duplicate_key = f"{today}:{sid}:{rule['direction']}"
+    with lock:
+        confirmed = state.get("scan_date") == today and (sid, rule["direction"]) in state.get("confirmed_scans", set())
     is_staff = person.get("person_type") == "staff"
     cooldown_s = float(settings.get("duplicate_cooldown_minutes") or 0) * 60
     now = time.time()
     last = _recent_ok.get(duplicate_key)
-    if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
+    if not is_staff and (confirmed or (last is not None and cooldown_s > 0 and now - last < cooldown_s)):
         return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
                 "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
                 "speak": f'{settings.get("voice_duplicate_text") or "บันทึกไปแล้ว"} {name}',
@@ -650,6 +656,8 @@ def sync_once() -> None:
         default_direction = (data.get("device") or {}).get("default_direction")
         state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
         state["last_sync"] = time.time()
+        state["scan_date"] = data.get("scan_date")
+        state["confirmed_scans"] = confirmed_scan_keys(data, clock.now_tz(timezone(timedelta(hours=7))).date().isoformat())
         door_cfg = door_config_from_settings(state["settings"])
         rebuild_matrix_locked()
         valid_ids = set(faces.keys())
