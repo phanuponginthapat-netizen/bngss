@@ -13,3 +13,4 @@
 - Idle layout separates CMS branding, Bangkok clock/date, contained media, announcements and measured grouped-table rows into orientation-aware grid tracks; reset media positioning so global camera styles cannot crop the playlist.
 - Automatic updates use device-authorized manifests and SHA-256 verification at 03:00 Bangkok only; Linux supervisor isolates dependencies and Windows uses an interactive elevated scheduled task, with readiness rollback and unchanged config/cache/outbox.
 - Persist every scan to ScanOutbox before local acknowledgement; one uploader retains original timestamps and removes only Cloud-confirmed lines without holding the append lock during network waits, preventing restart loss and blocked scanning.
+- Sync confirmed student entry/exit receipts by Bangkok day alongside faces; keep them separate from local pending scans so other kiosks reconcile without carrying yesterday's cooldown into today.

@@ -10,3 +10,4 @@
 - FaceGate print documents clone only selected evidence or QR into an isolated iframe and await image/font readiness; dashboard navigation never enters printed certificates.
 - Notification inbox mirrors and push deliveries share the original notification ID; collapse exact mirrors only, keeping distinct events and original history intact.
 - Pending scanner writes retain the captured timestamp; invalid times stay pending instead of becoming today's attendance, preventing retry-time historical corruption.
+- Invalidate shared scan caches after confirmed queue replay and only mark the captured Bangkok day; delayed uploads must never create today's duplicate state.
