@@ -46,7 +46,7 @@ export function AttendanceHistoryTab({
   const qc = useQueryClient();
 
   const filteredRecords = useMemo(() => {
-    let result = records;
+    let result = records.filter((r: any) => r.subject_id);
     if (gradeFilter && gradeFilter !== "all") {
       result = result.filter((r: any) => r.students?.classrooms?.grade_level === gradeFilter);
     }
@@ -92,6 +92,7 @@ export function AttendanceHistoryTab({
                 <TableHead>{lang === "th" ? "วันที่" : "Date"}</TableHead>
                 <TableHead>{lang === "th" ? "นักเรียน" : "Student"}</TableHead>
                 <TableHead>{lang === "th" ? "ห้อง" : "Room"}</TableHead>
+                <TableHead>{lang === "th" ? "วิชา / คาบ" : "Subject / period"}</TableHead>
                 <TableHead>{lang === "th" ? "สถานะ" : "Status"}</TableHead>
                 <TableHead>{lang === "th" ? "หมายเหตุ" : "Notes"}</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -100,7 +101,7 @@ export function AttendanceHistoryTab({
             <TableBody>
               {filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {lang === "th" ? "ไม่มีข้อมูล" : "No data"}
                   </TableCell>
                 </TableRow>
@@ -117,6 +118,7 @@ export function AttendanceHistoryTab({
                       ? r.students.classrooms.name
                       : "-"}
                   </TableCell>
+                  <TableCell className="text-xs">{r.subjects?.name_th || r.subjects?.code || "—"} · {r.period > 0 ? `คาบ ${r.period}` : "ไม่ระบุคาบ (ข้อมูลเดิม)"}</TableCell>
                   <TableCell>
                     <Badge className={SC[r.status] || ""}>
                       {SL[r.status]?.[lang] || r.status}
