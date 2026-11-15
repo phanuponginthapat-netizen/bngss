@@ -60,7 +60,21 @@ Deno.serve(async (req) => {
     const folderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || undefined;
 
     if (action === "delete") {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${body.fileId}`, {
+      // Only admins/directors may delete, and only files inside the school's configured folder.
+      const fileId = String(body.fileId ?? "");
+      if (!/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return json({ error: "invalid fileId" }, 400);
+      const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      if (!(roleRows ?? []).some((r: any) => r.role === "admin" || r.role === "director")) {
+        return json({ error: "forbidden" }, 403);
+      }
+      if (!folderId) return json({ error: "drive folder not configured" }, 400);
+      const meta = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meta.status === 404) return json({ success: true });
+      const parents: string[] = meta.ok ? ((await meta.json()).parents ?? []) : [];
+      if (!parents.includes(folderId)) return json({ error: "forbidden" }, 403);
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
