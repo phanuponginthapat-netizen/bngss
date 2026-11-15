@@ -129,7 +129,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
               try {
                 const { uploadFaceScanSnapshot } = await import("@/lib/faceScanUpload");
                 const url = await uploadFaceScanSnapshot(__face_data, payload.student_id);
-                if (url && /^https?:\/\//i.test(url)) payload = { ...payload, captured_face_url: url };
+                if (url && !url.startsWith("data:")) payload = { ...payload, captured_face_url: url };
               } catch { /* ไม่มีรูปก็ยังบันทึกเวลาได้ */ }
             }
           }

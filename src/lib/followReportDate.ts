@@ -1,0 +1,1 @@
+export const followReportDate = (selected: string, previousToday: string, nextToday: string) => selected === previousToday ? nextToday : selected;

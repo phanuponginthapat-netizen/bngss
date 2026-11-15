@@ -3,7 +3,7 @@ import { todayBangkok } from "@/lib/dateBE";
 
 /**
  * อัปโหลดรูปใบหน้าที่จับได้ (data URL) ขึ้น bucket `face-photos`
- * แล้วคืน signed URL อายุ 7 วัน เพื่อให้ LINE/แจ้งเตือนใช้แสดงรูปได้
+ * แล้วคืนพาธถาวร ให้แต่ละหน้าขอลิงก์อ่านรูปเมื่อแสดงผล
  *
  * ถ้า input ว่าง / อัปโหลดล้มเหลว — คืนค่าเดิม (data URL หรือ null)
  * เพื่อไม่ให้ขัดการ insert log
@@ -35,11 +35,7 @@ export async function uploadFaceScanSnapshot(
       return dataUrl;
     }
 
-    // 7 days signed URL — LINE caches at delivery time
-    const { data: signed } = await supabase.storage
-      .from("face-photos")
-      .createSignedUrl(path, 60 * 60 * 24 * 7);
-    return signed?.signedUrl || dataUrl;
+    return path;
   } catch (e) {
     console.warn("[faceScanUpload] error:", e);
     return dataUrl;

@@ -27,6 +27,7 @@ import {
   Heart,
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
+import { parentAttendanceStatus } from "@/lib/parentAttendance";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -150,6 +151,13 @@ export default function ParentAppPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [lateThreshold,setLateThreshold]=useState<string|null>(null);
+  useEffect(()=>{
+    let disposed=false;
+    const load=async()=>{const {data,error}=await supabase.from("school_settings").select("setting_value").eq("setting_key","clock_late_threshold").maybeSingle();if(!disposed)setLateThreshold(error?null:String(data?.setting_value||"08:30"));};
+    void load();window.addEventListener("facegate:receipt",load);
+    return()=>{disposed=true;window.removeEventListener("facegate:receipt",load);};
+  },[]);
 
   // ---- 1) resolve current user id ----
   useEffect(() => {
@@ -481,7 +489,8 @@ export default function ParentAppPage() {
     };
     const timer = window.setInterval(refreshScans,30_000);
     window.addEventListener("focus",refreshScans); window.addEventListener("online",refreshScans);
-    return () => {window.clearInterval(timer);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
+    window.addEventListener("facegate:receipt",refreshScans);
+    return () => {window.clearInterval(timer);window.removeEventListener("facegate:receipt",refreshScans);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
   },[children]);
 
   const handleRefresh = async () => {
@@ -777,8 +786,10 @@ export default function ParentAppPage() {
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
             const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
-            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || (selBundle?.faceLogs?.length ? "present" : "") || "present") : null;
-            const attendanceLabel = selBundle?.attendanceError ? L("อ่านไม่สำเร็จ", "Unavailable") : !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
+            let attendanceToday:string|null=null;
+            let statusUnavailable=!!selBundle?.attendanceError||!lateThreshold;
+            if(selBundle&&lateThreshold)try{attendanceToday=parentAttendanceStatus(selChild.id,selBundle.attendance,selBundle.faceLogs,lateThreshold);}catch{statusUnavailable=true;}
+            const attendanceLabel = statusUnavailable ? L("อ่านไม่สำเร็จ", "Unavailable") : !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
             return (
               <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[0,1,2,3].map((idx) => {

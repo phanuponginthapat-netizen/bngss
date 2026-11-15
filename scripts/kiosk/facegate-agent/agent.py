@@ -75,6 +75,7 @@ import qr_reader
 from school_scan_policy import evaluate_school_scan
 from scan_outbox import ScanOutbox
 from scan_state import confirmed_scan_keys
+from receipt_stream import consume_receipts
 from scan_guide import face_inside, completed_result, NEXT_PERSON_SECONDS
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
@@ -114,7 +115,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.13.2"
+AGENT_VERSION = "1.13.4"
 
 
 def default_cache_dir() -> str:
@@ -438,6 +439,8 @@ def outbox_flush() -> None:
         response.raise_for_status()
         return response.json()
     scan_outbox.flush(send)
+    if not STANDALONE and not SATELLITE:
+        receipt_wake.set()
 
 
 def outbox_loop() -> None:
@@ -1017,6 +1020,63 @@ def second_camera_loop() -> None:
         time.sleep(0.8)
 
 
+receipt_wake = threading.Event()
+receipt_lock = threading.Lock()
+receipt_cache: dict[str, Any] = {}
+receipt_refresh_lock = threading.Lock()
+
+
+def reconcile_receipts() -> None:
+    if not receipt_refresh_lock.acquire(blocking=False):
+        receipt_wake.set()
+        return
+    try:
+        response = requests.get(f"{CLOUD_URL}/kiosk-api/receipt-state", headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data.get("items"), list) or not isinstance(data.get("scans"), list):
+            raise ValueError("receipt source unavailable")
+        today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
+        with lock:
+            state["scan_date"] = data.get("scan_date")
+            state["confirmed_scans"] = confirmed_scan_keys(data, today)
+        with receipt_lock:
+            receipt_cache.update(recent=data, updated_at=time.time())
+    finally:
+        receipt_refresh_lock.release()
+
+
+def receipt_fallback_loop() -> None:
+    while True:
+        receipt_wake.wait(15)
+        receipt_wake.clear()
+        try:
+            reconcile_receipts()
+        except Exception:
+            with receipt_lock:
+                receipt_cache["error"] = "อ่านผลสแกนล่าสุดไม่สำเร็จ กำลังลองใหม่"
+
+
+def receipt_loop() -> None:
+    while True:
+        try:
+            with requests.get(f"{CLOUD_URL}/kiosk-api/receipt-stream", headers=HEADERS,
+                              stream=True, timeout=(10, 35)) as response:
+                response.raise_for_status()
+                with receipt_lock:
+                    receipt_cache["error"] = None
+                consume_receipts(response, reconcile_receipts)
+        except Exception:
+            with receipt_lock:
+                receipt_cache["error"] = "การเชื่อมต่อผลสแกนสดขัดข้อง กำลังเชื่อมต่อใหม่"
+            try:
+                reconcile_receipts()
+            except Exception:
+                pass
+            receipt_wake.wait(5)
+            receipt_wake.clear()
+
+
 def sync_loop() -> None:
     while True:
         try:
@@ -1391,7 +1451,15 @@ if not STANDALONE and not SATELLITE:
 
     @app.get("/local/kiosk-api/recent")
     def cloud_recent():
-        result = dict(_cloud_get("recent", _local_recent))
+        with receipt_lock:
+            recent = receipt_cache.get("recent")
+            result = dict(recent) if recent else None
+            stream_error = receipt_cache.get("error")
+        if result is None:
+            result = {"items": [], "display": {"show_recent": True}}
+            stream_error = stream_error or "กำลังเชื่อมต่อผลสแกนสด"
+        result["realtime_error"] = stream_error
+        result["receipt_revision"] = {"server_time": result.get("server_time"), "items": [(r.get("receipt_id"), r.get("scanned_at")) for r in result.get("items", [])]}
         result["voice_test_at"] = state.get("voice_test_at")
         return result
 
@@ -1879,6 +1947,9 @@ if __name__ == "__main__":
     door.start()
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=outbox_loop, daemon=True).start()
+    if not STANDALONE and not SATELLITE:
+        threading.Thread(target=receipt_loop, daemon=True).start()
+        threading.Thread(target=receipt_fallback_loop, daemon=True).start()
     threading.Thread(target=command_loop, daemon=True).start()
     threading.Thread(target=power_loop, daemon=True).start()
     threading.Thread(target=second_camera_loop, daemon=True).start()

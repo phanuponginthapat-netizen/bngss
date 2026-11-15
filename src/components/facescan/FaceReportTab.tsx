@@ -2,6 +2,7 @@ import { useQuery as useCalendarQuery } from "@tanstack/react-query";
 import { resolveDigestStatuses, markMissingAsAbsent } from "../../../supabase/functions/_shared/attendanceDigest";
 import { attendanceGender } from "../../../supabase/functions/_shared/publicAttendance";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -348,7 +349,7 @@ const FaceReportTab = () => {
         profiles.forEach((p: any) => { if (!nameMap.has(p.id)) nameMap.set(p.id, `${p.first_name || ""} ${p.last_name || ""}`.trim()); });
         rows.forEach((r) => { r.scanner_name = nameMap.get(r.scanned_by) || "-"; });
       }
-      return rows;
+      return Promise.all(rows.map(async r => ({...r,captured_face_url:await resolveKioskMediaUrl(r.captured_face_url)})));
     },
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -405,15 +406,16 @@ const FaceReportTab = () => {
         const e = new Date(ev.end_date || ev.event_date);
         for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) holidays.add(bkkDateISO(d));
       }
-      // Effective dates: exclude weekend, future, holiday
+      // Every recorded day is evidence, including weekend/holiday kiosk scans.
+      // Match the homepage: unrecorded dates do not fabricate person-days.
+      const evidenceDates = new Set([...scanRows.map(r=>r.scan_date),...attRows.map(r=>r.attendance_date)]);
       const eff: string[] = [];
       const startD = new Date(range.start), endD = new Date(range.end);
       const cap = endD < new Date(todayStr) ? endD : new Date(todayStr);
       for (let d = new Date(startD); d <= cap; d.setDate(d.getDate() + 1)) {
         const dow = d.getDay();
         const iso = bkkDateISO(d);
-        if (dow === 0 || dow === 6) continue;
-        if (holidays.has(iso)) continue;
+        if (!evidenceDates.has(iso)) continue;
         eff.push(iso);
       }
       const effSet = new Set(eff);

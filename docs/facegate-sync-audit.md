@@ -31,6 +31,37 @@ Rule: the same captured scan must retain its identity, Bangkok date/time and ent
 
 ## Verification and limitations
 
+## Live receipts (1.13.3)
+
+### Follow-up flow sweep (1.13.4)
+
+| Place read now | Rule outcome / action |
+|---|---|
+| Native agent / SSE / outbox / local UI | Fixed heartbeat and independent 15-second reconciliation, upload wake, stream error retention, Bangkok clock/day reset; unresolved old timestamp rows stay pending but do not block valid new scans. No remote speech/door actions. |
+| Native recent / screensaver API | Shared student present+late totals now match class/homepage aggregation; staff totals count distinct people, not repeated passes. Scan snapshot precedes enrolled/profile fallback. Staff legacy direction remains unknown. |
+| App root / global role Realtime | Shared bridge reconnects after failure, session identity changes, web focus/visibility and native resume; includes actual admin v3, director, student, teacher briefing query keys. Existing role hook remains for unrelated modules; no access changes. |
+| Browser/tablet kiosk / face tab / QR queues | Serial/coalesced recent reads, captured Bangkok time, signed read-time scan photos; confirmed QR queue replays notify the same bridge including duplicate receipt responses. |
+| FaceGate live admin / alerts / report | Latest committed scans, deterministic order and per-image fallback; report reads signed scan paths, alerts now refresh on shared receipt events. Live verification exposed weekend filtering that hid a real Sunday scan; recorded days now remain in totals regardless of weekend/holiday, while days without evidence do not create person-days. |
+| Public homepage | Private student Realtime is unavailable anonymously; aggregate-only refresh every five seconds without granting private table reads; day selection follows midnight only when it still followed today. This is a polling fallback, not anonymous instant row delivery. |
+| Teacher / admin / director / student dashboards | Inspected shared aggregation/attendance reads; live cache-key coverage repaired, no stored attendance/grades altered. |
+| Parent / LINE check-in / spider view | Parent status now resolves saved school attendance + earliest entry using shared threshold, ignores exit-only evidence; LINE and spider retain shared receipt refresh/read-error handling. |
+| LINE text history / Google Chat summary | Fresh read per request/job; fixed entry/exit label and source-error reporting; scan summary range uses captured scan_time, not upload created_at. Already sent messages unchanged. |
+| OneStop / Big Data screen / warehouse | Today's OneStop read errors now fail instead of empty success, deterministic bounded sample; live screen refreshes attendance only, does not rerun ETL or other modules. Warehouse remains scheduled derived history, not a live scanner source. |
+| Daily / period / 10:00 digests | Re-read code: shared digest, original capture date and fail-closed reads; scheduled/sent snapshots remain snapshots and are not resent on live events. |
+| Personnel attendance / browser staff scan | Inspected time_clock/personnel attendance separately from native staff pass receipts. Their meanings are intentionally distinct; no conversion of gate passes to work attendance or role/settings changes. |
+| PP5 matrix / certificates / printed documents | Explicit reads are up to date when requested; saved academic rows and generated/printed snapshots remain unchanged. |
+| Database triggers / publication / existing policies | Read hosted functions and publication: captured term/time, per-day dedup and original notification time preserved. No DML, permission or notification resend changes. |
+| Windows/Linux release | Rebuilt 1.13.4 ZIP; Windows EXE/physical kiosk rollout must still pass CI and installation. |
+
+Public live latency fallback is at most the polling interval plus network/read time; no guarantee of synchronized screens while a device is offline. Physical cross-kiosk recognition/upload/display latency remains unverified.
+
+Verified follow-up: hosted device-authorized SSE signals ready; two read-only canonical receipt-state reads agree; today-stats student count equals its class totals (1). Authenticated admin live readback and queue-refresh event preserve original 09:48:57. After recorded-day fix, report and homepage both show 1 late, 167 absent and 0.6%; no scan or notification writes used for validation. 38 targeted Vitest and 13 Python tests passed across the final changes; preview build OK; kiosk-api, onestop-api, gchat-summary and line-webhook deployed, ZIP1.13.4 inspected. Windows CI release and two physical school kiosks remain unverified.
+
+- Device-authorized receipt-stream sends data-free SSE doorbells from committed student/staff receipts and attendance; receipt-state re-reads identity, original timestamp, freshly signed pictures and day-scoped duplicate keys. Keys are revalidated on stream rotation; no client gets service credentials or wider permissions.
+- Native screens read the local receipt cache every 500ms (not the Cloud every 500ms), display a fresh receipt from another kiosk without replaying speech or opening doors, and refresh shared screensaver statistics when receipt revision changes. Requests uses one-byte SSE chunks to avoid buffered event delays.
+- One app Realtime bridge refreshes attendance query caches and state-based scanner, parent and LINE views. The admin live page now lists the latest twelve committed student/staff receipts across kiosks; photos fail independently and timestamps display Bangkok time.
+- Verified authenticated live page with one existing receipt and successful readback/retry, desktop/mobile layout, simulated two-screen name/time equality, targeted tests and compiled 1.13.3 ZIP. No synthetic attendance records were written. Physical two-kiosk latency and Windows release/install remain pending; offline kiosks cannot display unconfirmed scans from another offline device.
+
 - 34 targeted Vitest and 18 Python tests passed; package compilation and ZIP module inspection passed; old native pending scans with unknown capture time stay queued for review instead of becoming today's scans.
 - Hosted attendance trigger definition re-read after migration; no settled rows updated.
 - Deployed kiosk-api, face-scan-daily-report and face-scan-summary.

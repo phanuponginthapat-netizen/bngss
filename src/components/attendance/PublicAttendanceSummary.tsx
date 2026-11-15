@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { followReportDate } from "@/lib/followReportDate";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { todayBangkok } from "@/lib/dateBE";
@@ -24,6 +25,13 @@ export default function PublicAttendanceSummary() {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [term, setTerm] = useState("");
   const [periods, setPeriods] = useState<Period[]>([]);
+  const previousToday=useRef(today);
+  useEffect(()=>{
+    // Follow today only when the user has not selected another reporting date.
+    const previous=previousToday.current;
+    setDate(selected=>followReportDate(selected,previous,today));
+    previousToday.current=today;
+  },[today]);
   useEffect(() => {
     const timer = window.setInterval(() => setToday(todayBangkok()), 30_000);
     return () => window.clearInterval(timer);
@@ -38,7 +46,8 @@ export default function PublicAttendanceSummary() {
       return data as Report;
     },
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    // Public visitors cannot subscribe to private student rows; aggregate-only fallback.
+    refetchInterval: 5_000,
   });
   useEffect(() => {
     if (!query.data) return;

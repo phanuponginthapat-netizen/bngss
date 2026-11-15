@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { resolveProfileImageUrl } from "@/lib/profileImageUrl";
+import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
 
 /**
  * ดึง "ใบหน้าที่ลงทะเบียนไว้" ของนักเรียน เพื่อนำไปแสดงเทียบกับใบหน้าที่สแกนได้
@@ -36,7 +37,7 @@ export async function getRegisteredFaceImage(
 ): Promise<string | null> {
   if (cache.has(studentId)) {
     const hit = cache.get(studentId);
-    if (hit) return hit;
+    if (hit) return await resolveKioskMediaUrl(hit) || resolveFallback(studentId, fallback);
     return resolveFallback(studentId, fallback);
   }
   try {
@@ -46,11 +47,12 @@ export async function getRegisteredFaceImage(
       .eq("student_id", studentId)
       .not("face_image", "is", null)
       .order("quality_score", { ascending: false, nullsFirst: false })
+      .order("id")
       .limit(1)
       .maybeSingle();
     const img = (data as any)?.face_image || null;
     cache.set(studentId, img);
-    if (img) return img;
+    if (img) return await resolveKioskMediaUrl(img) || resolveFallback(studentId, fallback);
   } catch {
     cache.set(studentId, null);
   }

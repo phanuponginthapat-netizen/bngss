@@ -40,11 +40,13 @@ class ScanOutbox:
             with self.lock:
                 lines = self._lines()
             confirmed = Counter()
+            review_error = None
             for line in lines:
                 try:
                     payload = json.loads(line)
                     if not payload.get("scanned_at"):
-                        raise RuntimeError("Pending scan has no original timestamp; manual review required")
+                        review_error = "Pending scan has no original timestamp; manual review required"
+                        continue  # Retain unresolved evidence, but do not block later valid scans.
                     reply = send(payload)
                     if reply.get("result") not in ("ok", "duplicate"):
                         raise RuntimeError(reply.get("message") or "Cloud did not confirm attendance")
@@ -69,5 +71,7 @@ class ScanOutbox:
                         stream.flush()
                         os.fsync(stream.fileno())
                     os.replace(self.path + ".tmp", self.path)
+            if review_error:
+                self.last_error = review_error
         finally:
             self.flush_lock.release()

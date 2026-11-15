@@ -64,6 +64,15 @@ class ScanOutboxTests(unittest.TestCase):
         self.assertEqual(sent, [])
         self.assertEqual(self.queue.count(), 1)
 
+    def test_unknown_old_scan_does_not_block_new_valid_scan(self):
+        self.queue.append({"student_id":"old","direction":"in"})
+        self.queue.append(self.scan)
+        sent=[]
+        self.queue.flush(lambda payload:sent.append(payload) or {"result":"ok"})
+        self.assertEqual(sent,[self.scan])
+        self.assertEqual(self.queue.count(),1)
+        self.assertIn("manual review",self.queue.last_error)
+
 
 if __name__ == "__main__":
     unittest.main()

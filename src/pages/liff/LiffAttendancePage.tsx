@@ -84,7 +84,8 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       }catch{setScanError("อ่านผลสแกนไม่สำเร็จ กรุณาลองใหม่");}
     };
     void refresh();const timer=window.setInterval(refresh,30_000);window.addEventListener("focus",refresh);
-    return ()=>{window.clearInterval(timer);window.removeEventListener("focus",refresh);};
+    window.addEventListener("facegate:receipt",refresh);
+    return ()=>{window.clearInterval(timer);window.removeEventListener("facegate:receipt",refresh);window.removeEventListener("focus",refresh);};
   },[students,today]);
 
   const save = async () => {
