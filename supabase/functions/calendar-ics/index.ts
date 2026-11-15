@@ -1,6 +1,7 @@
 import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { readAllRows } from "../bigdata-warehouse-cron/readSources.ts";
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function toIcsDate(dateStr: string, allDay = true): string {
@@ -23,15 +24,12 @@ Deno.serve(async (req) => {
   if (__caller instanceof Response) return __caller;
 
   try {
-    const supabase = makeAdmin();
-
-    const { data: events, error } = await supabase
-      .from('academic_events')
-      .select('*')
-      .order('event_date', { ascending: true })
-      .limit(500);
-
-    if (error) throw error;
+    // User-scoped RLS is authoritative, including the restrictive school policy.
+    if (__caller.kind !== 'user') return new Response(null, { status: 403, headers: corsHeaders });
+    const url = Deno.env.get('SUPABASE_URL'), key = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!url || !key) throw new Error('configuration unavailable');
+    const supabase = createClient(url, key, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } });
+    const events = await readAllRows<any>((from, to) => supabase.from('academic_events').select('*').order('event_date').order('id').range(from, to));
 
     const now = new Date();
     const dtstamp = toIcsDate(now.toISOString(), false);
@@ -69,7 +67,7 @@ Deno.serve(async (req) => {
         ...corsHeaders,
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': 'inline; filename="school-calendar.ics"',
-        'Cache-Control': 'public, max-age=300',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (error) {

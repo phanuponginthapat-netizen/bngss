@@ -1,6 +1,9 @@
 // Dedicated LINE OA webhook for LINE Vault (group/room capture only).
 // Uses its own channel access token: LINE_VAULT_CHANNEL_ACCESS_TOKEN
 // so it is fully independent from the chatbot OA.
+import { verifyLineSignature } from "../_shared/lineSignature.ts";
+import { getSecret } from "../_shared/getSecret.ts";
+import { authorizeCaller, ADMIN_ROLES } from "../_shared/callerAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { captureLineGroupEvent, fetchLineGroupMemberProfile, registerLineGroupFromJoin } from "../_shared/lineVaultCapture.ts";
 
@@ -60,14 +63,22 @@ Deno.serve(async (req) => {
     );
     const token = await getConfiguredVaultToken(sb);
 
-    const body = await req.json().catch(() => ({}));
+    if (req.method !== "POST") return new Response(null, { status: 405, headers: corsHeaders });
+    const raw = await req.text();
+    const body = JSON.parse(raw);
 
     // Health-check ping from admin UI
     if (body?.__ping) {
+      const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+      if (caller instanceof Response) return caller;
       return new Response(JSON.stringify({ ok: true, token_configured: !!token }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const secret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
+    if (!secret) return new Response(JSON.stringify({ error: "LINE Vault channel secret not configured" }), { status: 503, headers: corsHeaders });
+    if (!(await verifyLineSignature(raw, req.headers.get("x-line-signature"), secret))) return new Response(null, { status: 403, headers: corsHeaders });
 
     if (!token) {
       console.error("LINE_VAULT_CHANNEL_ACCESS_TOKEN not set");

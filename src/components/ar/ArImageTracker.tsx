@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadArViewer } from "@/lib/mindAr";
+import { arAttribute, arMediaUrl } from "@/lib/arSceneSafety";
 import { resolveArUrl } from "@/lib/arMedia";
 import { Button } from "@/components/ui/button";
 import { X, Volume2, VolumeX, ScanLine, Camera, CheckCircle2 } from "lucide-react";
@@ -59,7 +60,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
     return items.filter((i) => {
       if (i.target_index === null || i.target_index === undefined) return false;
       const idx = Number(i.target_index);
-      if (!Number.isFinite(idx) || seen.has(idx)) return false;
+      if (!Number.isInteger(idx) || idx < 0 || seen.has(idx)) return false;
       seen.add(idx);
       return true;
     });
@@ -111,7 +112,9 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
         );
         if (disposed || !hostRef.current) return;
 
-        const assets = media
+        const safeMindUrl = arMediaUrl(mindUrl);
+        const safeMedia = media.map(m => ({ ...m, url: arMediaUrl(m.url), poster: m.poster ? arMediaUrl(m.poster) : "", item: { ...m.item, id: arAttribute(m.item.id) } }));
+        const assets = safeMedia
           .map(({ item, url, poster }) => {
             const id = `armedia-${item.id}`;
             if (item.media_type === "video")
@@ -122,7 +125,7 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
           })
           .join("");
 
-        const entities = media
+        const entities = safeMedia
           .map(({ item, url }) => {
             const w = Number(item.overlay_width) || 1;
             const h = Number(item.overlay_height) || 0.5625;
@@ -133,14 +136,14 @@ export default function ArImageTracker({ targetsUrl, items, title, onClose }: Pr
             else if (item.media_type === "model3d")
               inner = `<a-gltf-model src="url(${url})" scale="${w} ${w} ${w}" position="0 0 0.05" rotation="0 0 0" animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"></a-gltf-model>`;
             else inner = `<a-image src="#${id}" width="${w}" height="${h}" position="0 0 0.01" material="shader: flat; side: double"></a-image>`;
-            return `<a-entity data-item="${item.id}" mindar-image-target="targetIndex: ${item.target_index}">${inner}</a-entity>`;
+            return `<a-entity data-item="${item.id}" mindar-image-target="targetIndex: ${Number(item.target_index)}">${inner}</a-entity>`;
           })
           .join("");
 
         // uiScanning/uiLoading ปิด เพราะเราทำ overlay เอง
         // autoStart: false → เริ่มจับภาพเองหลังทุกอย่างพร้อม เพื่อให้ "ส่องปุ๊บติดปั๊บ"
         hostRef.current.innerHTML = `
-          <a-scene mindar-image="imageTargetSrc: ${mindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0005; filterBeta: 300; missTolerance: 2; warmupTolerance: 4"
+          <a-scene mindar-image="imageTargetSrc: ${safeMindUrl}; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0005; filterBeta: 300; missTolerance: 2; warmupTolerance: 4"
                    color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
                    vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
                    embedded>

@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 
+import { authorizeCaller, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -52,6 +53,8 @@ function hexToRgb(hex?: string): { r: number; g: number; b: number } {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const caller = await authorizeCaller(req, corsHeaders, { roles: STAFF_ROLES, allowService: false });
+  if (caller instanceof Response) return caller;
   try {
     const authHeader = req.headers.get("Authorization") || "";
     const userToken = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -67,7 +70,8 @@ Deno.serve(async (req) => {
     if (authErr || !u?.user?.id) return json({ error: "Unauthorized" }, 401);
     const userId: string = u.user.id;
 
-    const { data: tpl, error: tplErr } = await supa
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authHeader } } });
+    const { data: tpl, error: tplErr } = await userClient
       .from("print_templates")
       .select("id, name, source_pdf_path, field_map")
       .eq("id", template_id)
@@ -165,11 +169,13 @@ Deno.serve(async (req) => {
       data: values,
       output_pdf_path: `filled/${fileName}`,
     });
-    // Bump usage counter
-    const { data: cur } = await supa.from("print_templates").select("fill_count").eq("id", template_id).single();
-    await supa.from("print_templates")
-      .update({ last_used_at: new Date().toISOString(), fill_count: (cur?.fill_count || 0) + 1 })
-      .eq("id", template_id);
+    // School staff can fill readable templates; only owners of management rights may change counters.
+    if (caller.roles.some(role => role === 'admin' || role === 'director')) {
+      const { data: cur, error: countError } = await userClient.from('print_templates').select('fill_count').eq('id', template_id).single();
+      if (countError) throw countError;
+      const { error: updateError } = await userClient.from('print_templates').update({ last_used_at: new Date().toISOString(), fill_count: (cur?.fill_count || 0) + 1 }).eq('id', template_id);
+      if (updateError) throw updateError;
+    }
 
     return json({
       ok: true,
