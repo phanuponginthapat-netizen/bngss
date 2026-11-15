@@ -13,3 +13,4 @@
 - Invalidate shared scan caches after confirmed queue replay and only mark the captured Bangkok day; delayed uploads must never create today's duplicate state.
 - Mount one school scan Realtime bridge per app; reconnect, identity changes, resume and confirmed queue replay refresh attendance views under existing RLS, while scan photos use durable paths signed at read time.
 - Attendance uses subject_id NULL with period 0 for school days and explicit subject/period for lessons; seed and count lesson records only in their exact scope, never infer them from gate scans.
+- Installed native/PWA root entry waits for restored auth and replaces the root with dashboard only when signed in; preserve deep links and ordinary web entry to avoid losing task destinations.
