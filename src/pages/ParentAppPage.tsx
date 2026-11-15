@@ -481,7 +481,8 @@ export default function ParentAppPage() {
     };
     const timer = window.setInterval(refreshScans,30_000);
     window.addEventListener("focus",refreshScans); window.addEventListener("online",refreshScans);
-    return () => {window.clearInterval(timer);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
+    window.addEventListener("facegate:receipt",refreshScans);
+    return () => {window.clearInterval(timer);window.removeEventListener("facegate:receipt",refreshScans);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
   },[children]);
 
   const handleRefresh = async () => {

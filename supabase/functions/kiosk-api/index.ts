@@ -166,6 +166,7 @@ Deno.serve(async (req) => {
           channel = db.channel(`device-receipts-${crypto.randomUUID()}`)
             .on("postgres_changes", {event:"*",schema:"public",table:"face_scan_logs"}, () => emit("receipt"))
             .on("postgres_changes", {event:"*",schema:"public",table:"attendance"}, () => emit("receipt"))
+            .on("postgres_changes", {event:"INSERT",schema:"public",table:"kiosk_agent_alerts",filter:"kind=eq.staff_pass"}, () => emit("receipt"))
             .subscribe(status => {
               if (status === "SUBSCRIBED") emit("ready");
               else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") end();

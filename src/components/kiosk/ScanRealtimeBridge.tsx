@@ -20,6 +20,7 @@ export default function ScanRealtimeBridge() {
     const channel = supabase.channel(`school-scan-receipts-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "face_scan_logs" }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kiosk_agent_alerts" }, refresh)
       .subscribe(status => { if (status === "SUBSCRIBED") refresh(); });
     window.addEventListener("online", refresh);
     return () => {

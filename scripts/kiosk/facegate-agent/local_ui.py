@@ -599,7 +599,7 @@ async function cancelPower(){await fetch('/power/command',{method:'POST',headers
 async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;const rs=!!p.screen_off;if(rs!==remoteSaver){remoteSaver=rs;if(!rs)lastActivity=Date.now();applySaver();}$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}
 setInterval(loadPower,1000);
 loadBrand(); startCamera(); loadRecent(); loadStats(); clock();
-setInterval(tick, 300); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);
+setInterval(tick, 300); setInterval(loadRecent, 500); setInterval(loadStats, 60000);
 setInterval(applySaver, 5000);
 setInterval(clock, 1000); setInterval(loadBrand, 120000);
 </script>

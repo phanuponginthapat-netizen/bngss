@@ -292,7 +292,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     window.addEventListener("focus", load);
     window.addEventListener("online", load);
     window.addEventListener("offline-queue:synced", load);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", load); window.removeEventListener("online", load); window.removeEventListener("offline-queue:synced", load); };
+    window.addEventListener("facegate:receipt", load);
+    return () => { window.clearInterval(timer); window.removeEventListener("facegate:receipt", load);window.removeEventListener("focus", load); window.removeEventListener("online", load); window.removeEventListener("offline-queue:synced", load); };
   }, [isFiltered, homeroomClassroomIds]);
 
   // Load model — โหมด QR ไม่ต้องโหลดโมเดลใบหน้า (~28MB) → เปิดกล้องเร็ว + ประหยัดแบต
