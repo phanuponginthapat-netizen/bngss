@@ -24,6 +24,10 @@ export default function PublicAttendanceSummary() {
   const [month, setMonth] = useState(today.slice(0, 7));
   const [term, setTerm] = useState("");
   const [periods, setPeriods] = useState<Period[]>([]);
+  useEffect(()=>{
+    // Follow today only when the user has not selected another reporting date.
+    setDate(previous=>previous===new Date(Date.parse(`${today}T00:00:00Z`)-86400000).toISOString().slice(0,10)?today:previous);
+  },[today]);
   useEffect(() => {
     const timer = window.setInterval(() => setToday(todayBangkok()), 30_000);
     return () => window.clearInterval(timer);
