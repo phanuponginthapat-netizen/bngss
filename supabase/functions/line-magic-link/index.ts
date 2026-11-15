@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { authorizeCaller } from "../_shared/callerAuth.ts";
 
 async function getSetting(sb: any, key: string): Promise<string> {
   const { data } = await sb.from("school_settings").select("setting_value").eq("setting_key", key).maybeSingle();
@@ -82,6 +83,9 @@ function buildWelcomeFlex(opts: {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // Internal only: invoked by line-webhook with the service key after a verified link.
+  const caller = await authorizeCaller(req, corsHeaders, { roles: ["__internal_only__"] });
+  if (caller instanceof Response) return caller;
 
   try {
     const body = await req.json();
@@ -140,22 +144,28 @@ Deno.serve(async (req) => {
         .select("user_id, email, prefix, first_name, last_name")
         .eq("id", personnel_id)
         .maybeSingle();
-      if (p) {
+      // The LINE account must already be linked to this staff member's profile.
+      let bound = false;
+      if (p?.user_id) {
+        const { data: prof } = await sb.from("profiles").select("line_user_id").eq("id", p.user_id).maybeSingle();
+        bound = prof?.line_user_id === line_user_id;
+      }
+      if (p && bound) {
         displayLabel = `${p.prefix || ""}${p.first_name || ""} ${p.last_name || ""}`.trim() || displayLabel;
         if (p.user_id) {
           const { data: u } = await sb.auth.admin.getUserById(p.user_id);
           userEmail = u.user?.email || p.email || null;
-        } else if (p.email) {
-          userEmail = p.email;
         }
       }
     } else if (student_id) {
       const { data: s } = await sb
         .from("students")
-        .select("prefix, first_name, last_name, auth_user_id")
+        .select("prefix, first_name, last_name, auth_user_id, line_user_id, line_user_id_2, line_user_id_3")
         .eq("id", student_id)
         .maybeSingle();
-      if (s) {
+      // The LINE account must already be linked to this student record.
+      const bound = !!s && [s.line_user_id, s.line_user_id_2, s.line_user_id_3].includes(line_user_id);
+      if (s && bound) {
         displayLabel = `ผู้ปกครองของ ${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
         // 1) พยายามใช้บัญชีผู้ปกครองที่เชื่อมไว้ก่อน (profiles.line_id = lineUserId)
         const { data: prof } = await sb
