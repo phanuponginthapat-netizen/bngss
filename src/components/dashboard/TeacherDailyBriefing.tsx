@@ -108,7 +108,7 @@ export const TeacherDailyBriefing = ({ userId, personnelId, personnelFullName, h
               .limit(10),
             supabase
               .from("attendance")
-              .select("id, student_id, status, attendance_date")
+              .select("id, student_id, status, attendance_date").is("subject_id", null)
               .in("student_id", studentIds)
               .in("status", ["absent", "late"])
               .gte("attendance_date", sevenDaysAgo)

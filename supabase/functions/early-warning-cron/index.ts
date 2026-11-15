@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     // attendance in window
     const attendance = await pageAll((from, to) =>
-      admin.from("attendance").select("student_id, status").gte("attendance_date", since).range(from, to));
+      admin.from("attendance").select("student_id, status").is("subject_id", null).gte("attendance_date", since).range(from, to));
     for (const a of attendance) {
       const row = agg.get(a.student_id);
       if (!row) continue;

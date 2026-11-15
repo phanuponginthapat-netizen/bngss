@@ -86,7 +86,7 @@ const StudentDashboard = () => {
         student.classroom_id
           ? supabase.from("classrooms").select("name, grade_level, homeroom_teacher").eq("id", student.classroom_id).maybeSingle()
           : Promise.resolve({ data: null } as any),
-        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
+        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").is("subject_id", null).eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
         supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
           .eq("student_id", student.id).order("record_date", { ascending: false }).limit(5),
         supabase.from("student_leaves").select("id, status, start_date, end_date, reason")

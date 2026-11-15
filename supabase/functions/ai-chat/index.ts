@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
           try {
             const since = new Date(); since.setDate(since.getDate()-60);
             const sinceStr = since.toISOString().slice(0,10);
-            const { data: att } = await sb.from("attendance").select("attendance_date, status").eq("student_id", stu.id).gte("attendance_date", sinceStr).order("attendance_date",{ascending:false}).limit(60);
+            const { data: att } = await sb.from("attendance").select("attendance_date, status").is("subject_id", null).eq("student_id", stu.id).gte("attendance_date", sinceStr).order("attendance_date",{ascending:false}).limit(60);
             if (att && att.length) {
               let absent=0, late=0, present=0;
               att.forEach((a:any)=>{ const s=String(a.status||"").toLowerCase(); if(s.includes("ขาด")||s==="absent") absent++; else if(s.includes("สาย")||s==="late") late++; else present++; });

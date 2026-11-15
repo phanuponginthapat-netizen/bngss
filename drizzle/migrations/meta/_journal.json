@@ -330,6 +330,13 @@
       "when": 1794732790752,
       "tag": "0046_notification_triggers_use_cron_invoke",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794734232964,
+      "tag": "0047_separate_school_and_lesson_attendance",
+      "breakpoints": true
     }
   ]
 }

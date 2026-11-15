@@ -1661,6 +1661,7 @@ export type Database = {
           id: string
           late_minutes: number | null
           notes: string | null
+          period: number
           recorded_by: string | null
           school_id: string | null
           semester: number | null
@@ -1675,6 +1676,7 @@ export type Database = {
           id?: string
           late_minutes?: number | null
           notes?: string | null
+          period?: number
           recorded_by?: string | null
           school_id?: string | null
           semester?: number | null
@@ -1689,6 +1691,7 @@ export type Database = {
           id?: string
           late_minutes?: number | null
           notes?: string | null
+          period?: number
           recorded_by?: string | null
           school_id?: string | null
           semester?: number | null
