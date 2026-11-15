@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, Trash2, Type, AlignLeft, ListChecks, CheckSquare, Pencil, Mic, MousePointer2 } from "lucide-react";
-import { renderPdfToImages, newField, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
+import { renderPdfToImages, newField, isWorksheetGradable, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -30,6 +30,9 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
   const [pages, setPages] = useState<WorksheetPageImage[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [retryPdf, setRetryPdf] = useState(0);
+  const renderVersion = useRef(0);
   const [fields, setFields] = useState<WorksheetField[]>(initialFields || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<WorksheetFieldType | null>(null);
@@ -42,18 +45,28 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
 
   useEffect(() => {
     if (!initialPdfUrl) return;
+    const version = ++renderVersion.current;
     setLoading(true);
-    renderPdfToImages(initialPdfUrl).then(setPages).catch(e => toast.error(saveErrorMessage(e))).finally(() => setLoading(false));
-  }, [initialPdfUrl]);
+    setPdfError(null);
+    renderPdfToImages(initialPdfUrl)
+      .then(pages => { if (renderVersion.current === version) setPages(pages); })
+      .catch(e => { if (renderVersion.current === version) setPdfError(saveErrorMessage(e)); })
+      .finally(() => { if (renderVersion.current === version) setLoading(false); });
+    return () => { renderVersion.current += 1; };
+  }, [initialPdfUrl, retryPdf]);
 
   const handleUpload = async (file: File) => {
     if (file.type !== "application/pdf") { toast.error("กรุณาเลือกไฟล์ PDF"); return; }
+    const version = ++renderVersion.current;
     setLoading(true);
+    setPdfError(null);
     try {
       const imgs = await renderPdfToImages(file);
+      if (renderVersion.current !== version) return;
       setPages(imgs);
       onPdfChange(file);
-    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setLoading(false); }
+    } catch (e: any) { if (renderVersion.current === version) setPdfError(saveErrorMessage(e)); }
+    finally { if (renderVersion.current === version) setLoading(false); }
   };
 
   const handlePageClick = (page: number, e: React.MouseEvent<HTMLDivElement>) => {
@@ -158,6 +171,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
           </div>
         )}
         {loading && <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>}
+        {pdfError && <div className="space-y-2"><p className="text-destructive">{pdfError}</p>{initialPdfUrl && <Button variant="outline" onClick={() => setRetryPdf(v => v + 1)}>ลองใหม่</Button>}</div>}
 
         {pages.length > 0 && (
           <div className="sticky top-0 z-10 bg-background border rounded-md p-2 flex flex-wrap gap-1 items-center">
@@ -273,7 +287,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
           </>
         )}
         {fields.length > 0 && (
-          <div className="pt-2 border-t text-xs text-muted-foreground">รวม {fields.length} กล่อง · คะแนนเต็ม {fields.reduce((s, f) => s + (f.score ?? 0), 0)}</div>
+          <div className="pt-2 border-t text-xs text-muted-foreground">รวม {fields.length} กล่อง · คะแนนตรวจอัตโนมัติ {fields.reduce((s, f) => s + (isWorksheetGradable(f) ? f.score ?? 1 : 0), 0)}</div>
         )}
       </div>
     </div>

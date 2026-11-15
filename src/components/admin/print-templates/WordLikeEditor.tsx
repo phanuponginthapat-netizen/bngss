@@ -103,7 +103,7 @@ const WordLikeEditor = ({
     editable: !disabled,
     parseOptions: { preserveWhitespace: "full" },
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false, underline: false }),
       Underline,
       ResizableImage.configure({ inline: false, allowBase64: true }),
       Link.configure({ openOnClick: false }),

@@ -48,7 +48,7 @@ const RichTextEditor = ({ content, onChange }: RichTextEditorProps) => {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false, underline: false }),
       Image.configure({ HTMLAttributes: { class: 'rounded-lg max-w-full mx-auto shadow-md' } }),
       Link.configure({ openOnClick: false, HTMLAttributes: { class: 'text-primary underline' } }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),

@@ -103,7 +103,7 @@ const EFormTemplateDesigner = ({ initialHtml, initialFields, onChange, headerExt
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ paragraph: false, heading: false }),
+      StarterKit.configure({ paragraph: false, heading: false, link: false, underline: false }),
       EFormParagraph,
       EFormHeading,
       Underline,

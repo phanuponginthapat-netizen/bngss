@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Loader2, Eraser, Check, X, ZoomIn, ZoomOut } from "lucide-react";
-import { renderPdfToImages, gradeField, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
+import { renderPdfToImages, gradeField, isWorksheetGradable, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { supabase } from "@/integrations/supabase/client";
 import MediaCaptureButtons from "./MediaCaptureButtons";
 
@@ -24,15 +24,19 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
   const [pages, setPages] = useState<WorksheetPageImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryPdf, setRetryPdf] = useState(0);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
+    setPages([]);
     renderPdfToImages(pdfUrl)
-      .then(setPages)
-      .catch((e: any) => setError(String(e?.message ?? e) || "เปิด PDF ไม่สำเร็จ"))
-      .finally(() => setLoading(false));
-  }, [pdfUrl]);
+      .then(pages => { if (active) setPages(pages); })
+      .catch((e: any) => { if (active) setError(String(e?.message ?? e) || "เปิด PDF ไม่สำเร็จ"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [pdfUrl, retryPdf]);
 
   const set = (id: string, v: any) => onAnswersChange({ ...answers, [id]: v });
 
@@ -40,7 +44,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
   if (error) return (
     <div className="p-6 text-center space-y-2">
       <p className="text-sm text-destructive">โหลด PDF ไม่สำเร็จ: {error}</p>
-      <Button size="sm" variant="outline" onClick={() => { setLoading(true); setError(null); renderPdfToImages(pdfUrl).then(setPages).catch((e: any) => setError(String(e?.message ?? e))).finally(() => setLoading(false)); }}>
+      <Button size="sm" variant="outline" onClick={() => setRetryPdf(v => v + 1)}>
         ลองใหม่
       </Button>
     </div>
@@ -64,7 +68,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
           <div className="relative bg-card shadow-sm border mx-auto min-w-[280px]" style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}` }}>
             <img src={p.dataUrl} alt={`page ${p.page}`} className="absolute inset-0 w-full h-full select-none pointer-events-none" draggable={false} />
             {fields.filter(f => f.page === p.page).map(f => {
-              const result = showResults && f.correct !== undefined ? gradeField(f, answers[f.id]) : null;
+              const result = showResults && isWorksheetGradable(f) ? gradeField(f, answers[f.id]) : null;
               return (
                 <div key={f.id}
                   className="absolute"
@@ -116,7 +120,7 @@ function FieldControl({ field, value, onChange, readOnly, studentId }: {
       <div className="w-full h-full bg-background/95 border border-primary/50 rounded p-1 overflow-auto text-xs space-y-0.5">
         {(field.options || []).map((opt, i) => (
           <label key={i} className="flex items-center gap-1 cursor-pointer">
-            <input type="radio" name={field.id} disabled={readOnly} checked={Number(value) === i} onChange={() => onChange(i)} />
+            <input type="radio" name={field.id} disabled={readOnly} checked={value !== undefined && value !== null && value !== "" && Number(value) === i} onChange={() => onChange(i)} />
             <span className="truncate">{opt}</span>
           </label>
         ))}
