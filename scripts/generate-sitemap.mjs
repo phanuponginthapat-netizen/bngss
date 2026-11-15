@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 // Only public CMS pages are enumerated. School records, profile inventories,
 // auth flows and session-protected news details are deliberately excluded.
 const origin = 'https://bngss.online';
-const staticPaths = ['/', '/about/history', '/about/vision', '/about/philosophy', '/about/org-chart', '/org-chart', '/personnel', '/subject-groups', '/news', '/calendar', '/downloads', '/download-app', '/faq', '/contact', '/pdpa', '/find', '/ar', '/help'];
+const staticPaths = ['/', '/about/history', '/about/vision', '/about/philosophy', '/about/org-chart', '/org-chart', '/personnel', '/subject-groups', '/news', '/calendar', '/downloads', '/download-app', '/faq', '/contact', '/pdpa', '/find', '/ar', '/help', '/install'];
 const env = { ...process.env };
 try {
   for (const line of readFileSync('.env', 'utf8').split('\n')) {
@@ -24,6 +24,20 @@ for (let offset = 0; ; offset += 1000) {
   if (!Array.isArray(rows)) throw new Error('Invalid public CMS sitemap response');
   for (const row of rows) if (typeof row.slug === 'string' && row.slug) paths.add(`/page/${encodeURIComponent(row.slug)}`);
   if (rows.length < 1000) break;
+}
+// Match the public AR loaders' is_public/is_active conditions, without the
+// list RPC's 200-row ceiling. These reads use the existing anonymous policies.
+for (const [table, field, prefix] of [['ar_projects', 'slug', '/ar/p/'], ['ar_experiences', 'code', '/ar/']]) {
+  for (let offset = 0; ; offset += 1000) {
+    const response = await fetch(`${backend}/rest/v1/${table}?select=${field}&is_public=eq.true&is_active=eq.true&order=id.asc&offset=${offset}&limit=1000`, {
+      headers: { apikey: key }, signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`Public AR sitemap read failed (${response.status})`);
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error('Invalid public AR sitemap response');
+    for (const row of rows) if (typeof row[field] === 'string' && row[field]) paths.add(prefix + encodeURIComponent(row[field]));
+    if (rows.length < 1000) break;
+  }
 }
 const escape = value => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 // No lastmod: generation time is not a page content modification timestamp.

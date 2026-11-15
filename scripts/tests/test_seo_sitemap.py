@@ -11,7 +11,8 @@ class SitemapPrivacyTests(unittest.TestCase):
         self.assertIn('https://bngss.online/news', urls)
         for url in urls:
             self.assertTrue(url.startswith('https://bngss.online/'))
-            self.assertFalse(any(path in url for path in ['/dashboard', '/login', '/signup', '/sdq-assess/', '/p/']))
+            path = url.removeprefix('https://bngss.online')
+            self.assertFalse(any(path.startswith(prefix) for prefix in ['/dashboard', '/login', '/signup', '/sdq-assess/', '/p/', '/liff', '/asset/', '/visit', '/parent-app', '/kiosk']))
 
     def test_no_generated_modification_dates(self):
         tree = ET.parse(ROOT / 'public/sitemap.xml')
