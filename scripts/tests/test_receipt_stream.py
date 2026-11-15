@@ -15,7 +15,7 @@ class ReceiptStreamTests(unittest.TestCase):
     def test_other_kiosk_receipt_reconciles_immediately_and_reconnect_reads_back(self):
         reads=[]
         module.consume_receipts(Response(), lambda: reads.append("cloud"))
-        self.assertEqual(reads,["cloud","cloud"])
+        self.assertEqual(reads,["cloud","cloud","cloud"])
     def test_authorization_failure_never_reports_receipt(self):
         class Denied(Response):
             def raise_for_status(self): raise ValueError("unauthorized")

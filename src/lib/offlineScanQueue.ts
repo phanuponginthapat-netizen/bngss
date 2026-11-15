@@ -132,6 +132,11 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
   } finally {
     flushing = false;
   }
+  if (synced && typeof window !== "undefined") {
+    const {clearScanDedupCache}=await import("@/lib/scanDedup");
+    clearScanDedupCache();
+    window.dispatchEvent(new CustomEvent("offline-queue:synced",{detail:{ok:synced,failed}}));
+  }
   return { synced, failed };
 }
 

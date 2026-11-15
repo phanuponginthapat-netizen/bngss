@@ -385,7 +385,7 @@ const FaceKioskPage = () => {
           const display = mapped[0];
           if (latest && display && latestCloudReceiptRef.current && latestCloudReceiptRef.current !== latest.id && Date.now()-Date.parse(latest.scan_time)<15000) {
             setLastMatch({name:display.name,studentCode:display.studentCode,classroom:display.classroom,confidence:Number(display.confidence)||0,
-              scanType:display.scanType === "exit" ? "exit" : "entry",capturedFace:display.capturedFace||undefined,registeredFace:display.avatar,time:display.time});
+              scanType:display.scanType === "exit" ? "exit" : "entry",capturedFace:display.capturedFace||undefined,registeredFace:display.capturedFace||display.avatar,time:display.time});
             if (matchTimerRef.current) window.clearTimeout(matchTimerRef.current);
             matchTimerRef.current=window.setTimeout(()=>setLastMatch(null),6000);
           }

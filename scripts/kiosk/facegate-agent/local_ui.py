@@ -169,7 +169,7 @@ function showResult(d, captured) {
   const student = d.student || {};
   const ok = d.result === 'ok';
   $('waiting').style.display = 'none'; $('profile').className = 'profile show';
-  applyAvatar($('profileAvatar'), d.avatar_url || student.avatar_url, d.snapshot_url || captured);
+  applyAvatar($('profileAvatar'), d.snapshot_url || captured, d.avatar_url || student.avatar_url);
   $('profileName').textContent = student.full_name || d.name || d.message || 'ไม่พบข้อมูล';
   $('profileRole').textContent = student.person_type === 'staff'
     ? ['บุคลากร', student.department, student.position].filter(Boolean).join(' • ')
@@ -445,11 +445,11 @@ async function loadRecent() {
     $('list').innerHTML = (display.show_recent ? (data.items || []) : []).map((i) => `
       <div class="item"><img alt="" />
         <div><b>${i.name}</b><span>${i.detail || ''} • ${new Date(i.scanned_at).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'})}</span></div>
-        <div class="tag ${i.direction === 'out' ? 'out' : ''}">${i.direction === 'out' ? 'ออก' : 'เข้า'}</div></div>`).join('')
+        <div class="tag ${i.direction === 'out' ? 'out' : ''}">${i.direction === 'out' ? 'ออก' : i.direction === 'in' ? 'เข้า' : 'ผ่าน'}</div></div>`).join('')
       || '<div style="color:#94a3b8;font-size:.9rem">ยังไม่มีการสแกนวันนี้</div>';
     document.querySelectorAll('#list .item img').forEach((img, index) => {
       const item = (data.items || [])[index];
-      if (item) applyAvatar(img, item.avatar_url, item.snapshot_url);
+      if (item) applyAvatar(img, item.snapshot_url, item.avatar_url);
     });
   } catch (e) {} finally { recentBusy = false; }
 }

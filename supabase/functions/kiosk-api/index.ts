@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { scanTimestamp } from "../_shared/scanTimestamp.ts";
 import { scanReceipt } from "../_shared/scanReceipt.ts";
+import { scanLiveCounts } from "../_shared/scanLiveCounts.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
@@ -166,7 +167,7 @@ Deno.serve(async (req) => {
           channel = db.channel(`device-receipts-${crypto.randomUUID()}`)
             .on("postgres_changes", {event:"*",schema:"public",table:"face_scan_logs"}, () => emit("receipt"))
             .on("postgres_changes", {event:"*",schema:"public",table:"attendance"}, () => emit("receipt"))
-            .on("postgres_changes", {event:"INSERT",schema:"public",table:"kiosk_agent_alerts",filter:"kind=eq.staff_pass"}, () => emit("receipt"))
+            .on("postgres_changes", {event:"*",schema:"public",table:"kiosk_agent_alerts",filter:"kind=eq.staff_pass"}, () => emit("receipt"))
             .subscribe(status => {
               if (status === "SUBSCRIBED") emit("ready");
               else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") end();
@@ -237,11 +238,8 @@ Deno.serve(async (req) => {
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
         const clock = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
-        const [studentResult, staffResult, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
-          db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
-            .eq("scan_date", today).eq("scan_type", "entry"),
-          db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
-            .eq("kind", "staff_pass").gte("created_at", startUtc),
+        const [staffRows, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
+          readDigestRows<{person_id:string|null}>((a,b)=>db.from("kiosk_agent_alerts").select("person_id").eq("kind","staff_pass").gte("created_at",startUtc).lt("created_at",new Date(Date.parse(startUtc)+86400000).toISOString()).order("id").range(a,b)),
           db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
           db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
           // สถิติรายชั้นใช้การรวมแบบเดียวกับหน้าแรกโรงเรียนเป๊ะ ๆ
@@ -249,7 +247,7 @@ Deno.serve(async (req) => {
           readDigestRows<SchoolAttendanceRow>((a, b) => db.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).eq("attendance_date", today).order("id").range(a, b)),
           readDigestRows<SchoolScanRow>((a, b) => db.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).eq("scan_date", today).order("id").range(a, b)),
         ]);
-        for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
+        for(const result of [totalStudents,totalStaff]) if(result.error) throw result.error;
         const roster = rosterRows.map(s => ({ id: s.id, gender: s.gender, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
         const grouped = aggregatePublicClasses(roster, [today], attendanceRows, scanRows, today, clock, settings.late_after, (settings as any).clock_in_end || settings.late_after);
         const classes = grouped.map(c => {
@@ -258,7 +256,7 @@ Deno.serve(async (req) => {
             leave: d?.leave ?? 0, absent: d?.absent ?? 0, unrecorded: d?.unrecorded ?? 0, evidence: d?.evidence ?? false };
         });
         const absentStudents = classes.some(c => c.evidence) ? classes.reduce((sum, c) => sum + c.absent, 0) : null;
-        return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
+        return json({ ...facegateSaver(settings), ...scanLiveCounts(classes,staffRows),
           total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:absentStudents,absent_staff:null,
           classes,
           server_time: new Date().toISOString(), visitor_register_enabled: (settings as any).visitor_register_enabled===true,
@@ -287,7 +285,7 @@ Deno.serve(async (req) => {
         scanned_at: l.scan_time,
         direction: l.scan_type === "exit" ? "out" : "in",
         snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
-        avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
+        avatar_url: await kioskMediaUrl(db, l.captured_face_url) || avatars.get(l.student_id) || await kioskMediaUrl(db, l.students?.photo_url) || null,
       })));
       const {data:staffLogs,error:staffError} = await db.from("kiosk_agent_alerts")
         .select("id,person_id,note,created_at,snapshot_url,device_name")
@@ -297,7 +295,7 @@ Deno.serve(async (req) => {
       if (staffError) throw staffError;
       const staffItems = await Promise.all((staffLogs??[]).map(async l => ({
         receipt_id:l.id,student_id:l.person_id,person_type:"staff",student_code:"",device_name:l.device_name,
-        name:l.note||"บุคลากร",detail:"บุคลากร",scanned_at:l.created_at,direction:"in",avatar_url:null,
+        name:l.note||"บุคลากร",detail:"บุคลากร",scanned_at:l.created_at,direction:null,avatar_url:null,
         snapshot_url:await kioskMediaUrl(db,l.snapshot_url),
       })));
       const recentItems = [...items,...staffItems].sort((a,b)=>Date.parse(b.scanned_at)-Date.parse(a.scanned_at)||a.receipt_id.localeCompare(b.receipt_id)).slice(0,12);
@@ -399,7 +397,7 @@ Deno.serve(async (req) => {
       const removed = incremental ? Object.keys(known).filter((id) => !liveIds.has(id)) : [];
 
       const scanDate = bkkDate();
-      const scanRows = await readDigestRows<{student_id: string; scan_type: string}>((a,b) => db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date", scanDate).in("scan_type", ["entry", "exit"]).order("id").range(a,b));
+      const scanRows = await readDigestRows<{student_id: string; scan_type: string}>((a,b) => db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date", scanDate).in("scan_type", ["entry", "assembly", "exit"]).order("id").range(a,b));
       return json({
         scan_date: scanDate, scans: scanRows.map(row => ({student_id: row.student_id, direction: row.scan_type === "exit" ? "out" : "in"})),
         device: { id: device.device_id, name: device.name, default_direction: device.default_direction },
