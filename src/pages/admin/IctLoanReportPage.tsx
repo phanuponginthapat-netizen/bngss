@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { csvCell } from "@/lib/csvCell";
 import { useEffect, useMemo, useState } from "react";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,7 +109,7 @@ export default function IctLoanReportPage() {
         isOverdue(l) ? "เกินกำหนด" : l.status,
       ]),
     ];
-    const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,7 +172,7 @@ export default function GarbageHistoryPage() {
       r.holder_code, r.holder_name, r.holder_sub, r.item_name,
       r.quantity, r.unit, r.points, r.recorded_by_name || "",
     ]);
-    const csv = [header, ...rows2].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header, ...rows2].map((r) => r.map(csvCell).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `garbage-history-${from}-to-${to}.csv`; a.click();

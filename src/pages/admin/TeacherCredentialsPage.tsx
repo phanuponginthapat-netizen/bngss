@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -43,10 +44,7 @@ type ResetRow = {
 };
 
 function csvEscape(v: string): string {
-  if (v == null) return "";
-  const s = String(v);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
+  return csvCell(v);
 }
 
 function downloadCsv(filename: string, headers: string[], rows: (string | number | undefined | null)[][]) {
