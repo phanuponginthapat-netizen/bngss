@@ -57,9 +57,19 @@ const StudentLeaveForm = () => {
   // Find the student record linked to this user via students.auth_user_id (primary FK).
   // Fall back to profiles.student_code only if the FK is not yet set (legacy unlinked rows).
   const { data: myStudent } = useQuery({
-    queryKey: ["my_student_record", userId],
+    queryKey: ["my_student_record", userId, isParent],
     enabled: !!userId,
     queryFn: async () => {
+      if (isParent) {
+        // Parents file leave for their linked child (students.parent_user_id/_2).
+        const { data: child, error: childErr } = await supabase
+          .from("students")
+          .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
+          .or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`)
+          .order("student_code").limit(1).maybeSingle();
+        if (childErr) throw childErr;
+        if (child) return child;
+      }
       const { data: byFk } = await supabase
         .from("students")
         .select("id, student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)")
@@ -348,11 +358,12 @@ const AdminLeaveView = () => {
     try {
       const rec = (records as any[]).find((r: any) => r.id === id);
       if (!rec) return;
-      const { data: stu } = await supabase.from("students").select("id, auth_user_id, prefix, first_name, last_name").eq("id", rec.student_id).maybeSingle();
-      if (!stu?.auth_user_id) return;
+      const { data: stu } = await supabase.from("students").select("id, auth_user_id, parent_user_id, parent_user_id_2, prefix, first_name, last_name").eq("id", rec.student_id).maybeSingle();
+      const recipients = [stu?.auth_user_id, stu?.parent_user_id, stu?.parent_user_id_2].filter(Boolean) as string[];
+      if (!recipients.length) return;
       const isOk = decision === "approved";
       await notify({
-        user_ids: [stu.auth_user_id],
+        user_ids: recipients,
         title: isOk ? "✅ ใบลาได้รับการอนุมัติ" : "❌ ใบลาไม่ได้รับอนุมัติ",
         body: `${typeLabels[rec.leave_type]?.th || rec.leave_type} • ${rec.start_date} ถึง ${rec.end_date}`,
         type: "student_leave_decision",
@@ -596,7 +607,7 @@ const StudentLeavePage = () => {
 
   if (loading) return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading...</div>;
 
-  // Parents use the same form as students (looks up child via shared student_code on profile).
+  // Parents use the same form as students; the form resolves the linked child via parent links.
   return (isStudent || isParent) ? <StudentLeaveForm /> : <AdminLeaveView />;
 };
 
