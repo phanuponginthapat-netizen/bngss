@@ -555,13 +555,11 @@ const HomeworkPage = () => {
 
       {/* ===== Rich homework section ===== */}
       {richList.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
+        <section className="space-y-2 border-t pt-5">
+            <h2 className="text-base font-semibold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" /> ใบงาน / Liveworksheet ({richList.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+            </h2>
+          <div className="space-y-2">
             {richList.map((a: any) => (
               <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b py-3">
                 <div className="min-w-0">
@@ -589,8 +587,8 @@ const HomeworkPage = () => {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       <HomeworkRichDesignerDialog open={richOpen} onOpenChange={setRichOpen} editingId={richEditingId} />
