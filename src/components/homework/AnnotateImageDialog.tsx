@@ -28,11 +28,20 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
   const [width, setWidth] = useState(3);
   const [textValue, setTextValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(0);
 
   // Init canvas when dialog opens
   useEffect(() => {
-    if (!open || !canvasElRef.current) return;
-    const fc = new FabricCanvas(canvasElRef.current, {
+    if (!open) return;
+    // Dialog mount canvas หลัง effect รอบแรก — รอจนพร้อมแทนการไม่สร้างพื้นที่วาดเลย
+    let fc: FabricCanvas | null = null; let cancelled = false; let tries = 0;
+    const start = () => {
+      if (cancelled) return;
+      if (!canvasElRef.current) { if (tries++ < 80) setTimeout(start, 25); else toast.error("เปิดพื้นที่วาดไม่สำเร็จ"); return; }
+      fc = init(canvasElRef.current);
+    };
+    const init = (el: HTMLCanvasElement) => {
+    const fc = new FabricCanvas(el, {
       width: 800, height: 600, backgroundColor: "#f8fafc",
     });
     fcRef.current = fc;
@@ -45,12 +54,16 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       const h = (img.height || 0) * scale;
       fc.setDimensions({ width: w, height: h });
       img.scale(scale);
-      img.set({ selectable: false, evented: false });
+      img.set({ originX: "left", originY: "top", left: 0, top: 0, selectable: false, evented: false });
       fc.backgroundImage = img;
       fc.renderAll();
     }).catch(() => toast.error("โหลดรูปไม่สำเร็จ (อาจติด CORS)"));
 
-    return () => { fc.dispose(); fcRef.current = null; };
+    setReady(v => v + 1);
+    return fc;
+    };
+    start();
+    return () => { cancelled = true; fc?.dispose(); fcRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -65,13 +78,13 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       fc.freeDrawingBrush = brush;
     }
     fc.selection = tool === "select";
-  }, [tool, color, width]);
+  }, [tool, color, width, ready]);
 
-  const addShape = () => {
+  const addShape = (kind: "circle" | "rect") => {
     const fc = fcRef.current; if (!fc) return;
-    const common = { left: 80, top: 80, fill: "transparent", stroke: color, strokeWidth: width };
-    if (tool === "circle") fc.add(new Circle({ ...common, radius: 50 }));
-    else if (tool === "rect") fc.add(new Rect({ ...common, width: 120, height: 80 }));
+    const common = { originX: "left" as const, originY: "top" as const, left: 80, top: 80, fill: "transparent", stroke: color, strokeWidth: width };
+    if (kind === "circle") fc.add(new Circle({ ...common, radius: 50 }));
+    else fc.add(new Rect({ ...common, width: 120, height: 80 }));
     fc.setActiveObject(fc.getObjects().slice(-1)[0]);
     setTool("select");
   };
@@ -80,7 +93,7 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
     const fc = fcRef.current; if (!fc) return;
     if (!textValue.trim()) { toast.error("พิมพ์ข้อความก่อน"); return; }
     const t = new FabricText(textValue, {
-      left: 100, top: 100, fill: color, fontSize: 24, fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
+      originX: "left", originY: "top", left: 100, top: 100, fill: color, fontSize: 24, fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
     });
     fc.add(t); fc.setActiveObject(t);
     setTextValue(""); setTool("select");
@@ -121,8 +134,8 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
 
         <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
           <Button size="sm" variant={tool === "draw" ? "default" : "outline"} onClick={() => setTool("draw")}><Pencil className="w-3.5 h-3.5 mr-1" />วาด</Button>
-          <Button size="sm" variant={tool === "circle" ? "default" : "outline"} onClick={() => { setTool("circle"); setTimeout(addShape, 0); }}><CircleIcon className="w-3.5 h-3.5 mr-1" />วงกลม</Button>
-          <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => { setTool("rect"); setTimeout(addShape, 0); }}><Square className="w-3.5 h-3.5 mr-1" />สี่เหลี่ยม</Button>
+          <Button size="sm" variant={tool === "circle" ? "default" : "outline"} onClick={() => { addShape("circle"); }}><CircleIcon className="w-3.5 h-3.5 mr-1" />วงกลม</Button>
+          <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => { addShape("rect"); }}><Square className="w-3.5 h-3.5 mr-1" />สี่เหลี่ยม</Button>
           <Button size="sm" variant={tool === "select" ? "default" : "outline"} onClick={() => setTool("select")}>เลือก/ย้าย</Button>
           <div className="h-6 w-px bg-border" />
           {COLORS.map(c => (

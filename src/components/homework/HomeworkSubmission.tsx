@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import HomeworkToolsBar from "./HomeworkToolsBar";
+import HomeworkEditor from "./HomeworkEditor";
 import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -109,6 +110,7 @@ export function StudentSubmissionPanel({
   const [text, setText] = useState("");
   const [pending, setPending] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
 
   const submit = async (extraAttachments: Attachment[] = []) => {
     const merged = [...pending, ...extraAttachments];
@@ -254,7 +256,18 @@ export function StudentSubmissionPanel({
         </div>
       )}
 
-      <HomeworkToolsBar compact title="สร้างงานด้วย" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <HomeworkToolsBar compact title="สร้างงานด้วย" />
+        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setDrawOpen(true)} disabled={busy}>
+          <Pencil className="w-3.5 h-3.5 mr-1" />กระดานวาด
+        </Button>
+      </div>
+      <HomeworkEditor open={drawOpen} blank attachment={null} onClose={() => setDrawOpen(false)} onSave={async (blob, filename) => {
+        // ภาพวาดเปล่าแนบรอส่ง ไม่ส่งงานอัตโนมัติ
+        const att = await uploadHomeworkFile(new File([blob], filename, { type: "image/png" }), `submissions/${taskId}`);
+        setPending(p => [...p, { ...att, name: filename }]);
+        toast.success("แนบภาพวาดแล้ว กด ส่งงาน เมื่อพร้อม");
+      }} />
       <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำตอบ หรือบันทึกถึงครู..." className="text-sm" />
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <AttachmentUploader folder={`submissions/${taskId}`} value={pending} onChange={setPending} maxFiles={5} label="แนบไฟล์งาน" />
