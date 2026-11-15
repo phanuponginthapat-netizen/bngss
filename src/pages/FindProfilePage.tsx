@@ -154,11 +154,12 @@ const FindProfilePage = () => {
             </div>
 
             <form onSubmit={onSubmit} className="space-y-3">
-              <label className="text-sm font-medium text-foreground">
+              <label htmlFor="public-profile-search" className="text-sm font-medium text-foreground">
                 รหัสนักเรียน / รหัสบุคลากร / ชื่อ / นามสกุล / ชื่อเล่น
               </label>
               <div className="flex gap-2">
                 <Input
+                  id="public-profile-search"
                   autoFocus
                   placeholder="เช่น 0001-2567 หรือ สมชาย"
                   value={query}

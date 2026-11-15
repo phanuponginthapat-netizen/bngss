@@ -34,7 +34,6 @@ export default function ARGalleryPage() {
   const [scanOpen, setScanOpen] = useState(false);
 
   useEffect(() => {
-    document.title = "คลังสื่อ AR แหล่งเรียนรู้ | สแกน QR ดูภาพ วิดีโอ และโมเดล 3 มิติ";
     (async () => {
       const [list, projs] = await Promise.all([
         (supabase.rpc as any)("list_public_ar_experiences", { _limit: 120 }),
@@ -73,7 +72,7 @@ export default function ARGalleryPage() {
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหางาน ชื่อสื่อ วิชา หรือรหัส" className="pl-9" />
+            <Input aria-label="ค้นหางาน AR ชื่อสื่อ วิชา หรือรหัส" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหางาน ชื่อสื่อ วิชา หรือรหัส" className="pl-9" />
           </div>
           <Button onClick={() => setScanOpen(true)}><ScanLine className="h-4 w-4 mr-2" />สแกน QR</Button>
         </div>

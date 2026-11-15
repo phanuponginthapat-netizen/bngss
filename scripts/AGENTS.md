@@ -1,0 +1,1 @@
+- Generate public/sitemap.xml and its Lovable-origin mirror from static public routes, anonymously readable published cms_pages and public active AR rows before dev/build; page all reads, fail on source errors and omit generation-time lastmod so discovery never advertises private school records or fabricated changes.

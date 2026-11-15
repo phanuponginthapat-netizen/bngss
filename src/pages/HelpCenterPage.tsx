@@ -192,6 +192,7 @@ export default function HelpCenterPage() {
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label="ค้นหาคำถามในศูนย์ช่วยเหลือ"
               placeholder="ค้นหาคำถาม เช่น 'ลืมรหัสผ่าน', 'เช็คชื่อ', 'AI'..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}

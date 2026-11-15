@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Building2, Briefcase, ArrowLeft, User, Award } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import PortfolioGrid from "@/components/social/PortfolioGrid";
+import PageMetadata from "@/components/public/PageMetadata";
 
 interface PublicProfile {
   id: string;
@@ -93,6 +94,12 @@ const PublicProfilePage = () => {
         if (t.tagName === "IMG" || t.tagName === "VIDEO") e.preventDefault();
       }}
     >
+      <PageMetadata title={fullName} description={`โปรไฟล์สาธารณะ ผลงานและรางวัลของ${fullName}${profile.position_title ? ` ${profile.position_title}` : ""}${profile.school_name ? ` ${profile.school_name}` : ""}`} schema={{
+        "@context": "https://schema.org", "@type": "Person", name: fullName,
+        url: `https://bngss.online/p/${profile.id}`,
+        ...(profile.position_title ? { jobTitle: profile.position_title } : {}),
+        ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
+      }} />
       <style>{`
         .public-profile-protected img,
         .public-profile-protected video {

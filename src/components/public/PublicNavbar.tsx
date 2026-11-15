@@ -81,6 +81,9 @@ export default function PublicNavbar() {
               >
                 {hasChildren ? (
                   <button
+                    aria-expanded={openMenu === item.id}
+                    onClick={() => setOpenMenu(current => current === item.id ? null : item.id)}
+                    onFocus={() => setOpenMenu(item.id)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition",
                       "text-foreground/80 hover:bg-primary/10 hover:text-primary"
@@ -104,7 +107,7 @@ export default function PublicNavbar() {
                 {hasChildren && openMenu === item.id && (
                   <div className="absolute left-0 top-full pt-2">
                     <div className="w-72 rounded-2xl border border-border/60 bg-background/95 p-2 shadow-xl backdrop-blur-xl">
-                      {item.children!.map((child) => (
+                      {item.children?.map((child) => (
                         <Link
                           key={child.id}
                           to={child.url || "#"}
@@ -146,7 +149,8 @@ export default function PublicNavbar() {
           <button
             className="rounded-xl p-2 text-foreground lg:hidden hover:bg-primary/10"
             onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Menu"
+            aria-label={mobileOpen ? "ปิดเมนู" : "เปิดเมนู"}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
