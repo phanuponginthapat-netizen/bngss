@@ -30,7 +30,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { code, line_id } = await req.json();
+    const { code, line_id, verify } = await req.json();
+    const deny = (error: string, status = 403) => new Response(JSON.stringify({ error }), {
+      status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    // A session alone does not prove identity: require a confirmed email address.
+    if (!user.email || !user.email_confirmed_at) return deny('email_not_confirmed');
     if (!code || typeof code !== 'string' || code.trim().length < 2) {
       return new Response(JSON.stringify({ error: 'Invalid code' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -49,7 +54,7 @@ Deno.serve(async (req) => {
     // Try personnel first
     const { data: personnel } = await supabase
       .from('personnel')
-      .select('id, user_id, first_name, last_name')
+      .select('id, user_id, first_name, last_name, email')
       .eq('employee_code', trimmed)
       .eq('status', 'active')
       .maybeSingle();
@@ -60,6 +65,9 @@ Deno.serve(async (req) => {
           status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      // Staff accounts link only to the email the school registered for that staff member.
+      const registered = String(personnel.email || '').trim().toLowerCase();
+      if (!registered || registered !== user.email.trim().toLowerCase()) return deny('email_mismatch');
       foundType = 'personnel';
       recordId = personnel.id;
       firstName = personnel.first_name;
@@ -67,7 +75,7 @@ Deno.serve(async (req) => {
     } else {
       const { data: student } = await supabase
         .from('students')
-        .select('id, auth_user_id, first_name, last_name')
+        .select('id, auth_user_id, first_name, last_name, national_id')
         .eq('student_code', trimmed)
         .eq('status', 'active')
         .maybeSingle();
@@ -78,6 +86,10 @@ Deno.serve(async (req) => {
             status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        // Students prove identity with the last 4 digits of their national ID.
+        const nid = String(student.national_id || '').replace(/\D/g, '');
+        if (nid.length < 4) return deny('needs_admin');
+        if (String(verify || '').replace(/\D/g, '') !== nid.slice(-4)) return deny('verify_failed');
         foundType = 'student';
         recordId = student.id;
         firstName = student.first_name;
@@ -95,7 +107,6 @@ Deno.serve(async (req) => {
     if (foundType === 'personnel') {
       await supabase.from('personnel').update({
         user_id: user.id,
-        email: user.email,
       }).eq('id', recordId);
 
       // Make sure user has role: teacher (don't downgrade admin/director)
