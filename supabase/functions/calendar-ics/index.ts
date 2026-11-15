@@ -17,8 +17,7 @@ function escapeIcs(s: string | null | undefined): string {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders }
-);
+    return new Response('ok', { headers: corsHeaders });
   }
   const __caller = await authorizeCaller(req, corsHeaders, { roles: [] });
   if (__caller instanceof Response) return __caller;

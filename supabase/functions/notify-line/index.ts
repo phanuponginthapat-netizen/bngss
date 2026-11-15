@@ -67,8 +67,7 @@ function buildFlexNotification(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders }
-);
+    return new Response(null, { headers: corsHeaders });
   }
   const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
   if (__caller instanceof Response) return __caller;
