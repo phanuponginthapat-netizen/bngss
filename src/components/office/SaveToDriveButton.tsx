@@ -13,9 +13,10 @@ interface Props {
   mimeType: string;
   getBlob: () => Promise<Blob | ArrayBuffer>;
   onSaved?: (fileId: string, name: string) => void;
+  disabled?: boolean;
 }
 
-export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, getBlob, onSaved }: Props) {
+export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, getBlob, onSaved, disabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(fileName || defaultName);
   const [saving, setSaving] = useState(false);
@@ -26,6 +27,7 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
   }, [fileName, defaultName]);
 
   const doSave = async (asNew: boolean) => {
+    if (disabled || saving) return;
     setSaving(true);
     try {
       const data = await getBlob();
@@ -37,7 +39,7 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
         await updateFileContent(fileId, data, mimeType);
         const finalName = name.trim() || fileName;
         if (finalName !== fileName) {
-          try { await renameFile(fileId, finalName); } catch { /* rename fails non-fatally */ }
+          await renameFile(fileId, finalName);
         }
         swal.toast.success("บันทึกทับไฟล์เดิมแล้ว");
         onSaved?.(fileId, finalName);
@@ -52,12 +54,12 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
 
   return (
     <>
-      <Button size="sm" onClick={() => fileId ? doSave(false) : setOpen(true)} disabled={saving}>
+      <Button size="sm" onClick={() => fileId ? doSave(false) : setOpen(true)} disabled={disabled || saving}>
         <Save className="w-4 h-4 mr-1" />
         {saving ? "กำลังบันทึก…" : fileId ? "บันทึก" : "บันทึกลง Drive"}
       </Button>
       {fileId && (
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)} disabled={saving}>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} disabled={disabled || saving}>
           บันทึกเป็นไฟล์ใหม่
         </Button>
       )}
@@ -75,7 +77,7 @@ export function SaveToDriveButton({ fileId, fileName, defaultName, mimeType, get
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={() => doSave(true)} disabled={saving || !name.trim()}>
+            <Button onClick={() => doSave(true)} disabled={disabled || saving || !name.trim()}>
               {saving ? "กำลังบันทึก…" : "บันทึก"}
             </Button>
           </DialogFooter>

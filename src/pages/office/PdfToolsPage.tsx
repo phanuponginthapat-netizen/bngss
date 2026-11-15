@@ -37,6 +37,10 @@ export default function PdfToolsPage() {
   const fileIdParam = sp.get("file");
   const [fileId, setFileId] = useState<string | null>(fileIdParam);
   const [fileName, setFileName] = useState("เอกสาร.pdf");
+  const [loading, setLoading] = useState(!!fileIdParam);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const sourceVersion = useRef(0);
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [pageIdx, setPageIdx] = useState(0);
@@ -57,25 +61,38 @@ export default function PdfToolsPage() {
   const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes } : undefined), [pdfBytes]);
 
   useEffect(() => {
-    setFileId(fileIdParam);
+    const version = ++sourceVersion.current;
+    setFileId(fileIdParam); setLoading(!!fileIdParam); setReadError(null);
+    setPdfBytes(null); setNumPages(0); setPageIdx(0); setAnnots([]); setRotations({});
     if (!fileIdParam) return;
     (async () => {
       try {
         const meta = await getFileMeta(fileIdParam);
-        setFileName(meta.name);
         const buf = await downloadFile(fileIdParam);
-        setPdfBytes(new Uint8Array(buf));
-      } catch (e: any) { swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e)); setFileId(null); }
+        await PDFDocument.load(buf);
+        if (version !== sourceVersion.current) return;
+        setFileName(meta.name); setPdfBytes(new Uint8Array(buf));
+      } catch (e: any) { if (version === sourceVersion.current) setReadError(String(e?.message ?? e)); }
+      finally { if (version === sourceVersion.current) setLoading(false); }
     })();
-  }, [fileIdParam]);
+    return () => { sourceVersion.current += 1; };
+  }, [fileIdParam, retry]);
 
   const handleUpload = async (file: File) => {
-    const buf = await file.arrayBuffer();
-    setPdfBytes(new Uint8Array(buf));
-    setFileName(file.name); setFileId(null); setAnnots([]); setPageIdx(0); setRotations({});
+    const version = ++sourceVersion.current;
+    setLoading(true);
+    try {
+      const buf = await file.arrayBuffer();
+      await PDFDocument.load(buf);
+      if (version !== sourceVersion.current) return;
+      setPdfBytes(new Uint8Array(buf)); setReadError(null);
+      setFileName(file.name); setFileId(null); setAnnots([]); setPageIdx(0); setRotations({});
+    } catch (e: any) { if (version === sourceVersion.current) setReadError(String(e?.message ?? e)); }
+    finally { if (version === sourceVersion.current) setLoading(false); }
   };
 
   const handleMerge = async (files: FileList) => {
+    if (loading || readError) return;
     try {
       const merged = await PDFDocument.create();
       if (pdfBytes) {
@@ -239,7 +256,7 @@ export default function PdfToolsPage() {
             <Button variant="outline" size="sm" asChild><span><Merge className="w-4 h-4 mr-1" />รวม</span></Button>
           </label>
           <div className="ml-auto flex items-center gap-2">
-            {pdfBytes && (
+            {pdfBytes && !loading && !readError && (
               <>
                 <Button variant="outline" size="sm" onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
                 <Button variant="outline" size="sm" onClick={download}><Download className="w-4 h-4 mr-1" />โหลด</Button>
@@ -252,7 +269,7 @@ export default function PdfToolsPage() {
         </div>
       </div>
 
-      {!pdfBytes ? (
+      {loading ? <div className="text-center py-12 text-muted-foreground">กำลังอ่าน PDF…</div> : readError ? <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิด PDF ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p>{fileIdParam && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button>}</div> : !pdfBytes ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3">
             <p className="text-muted-foreground">อัปโหลดไฟล์ PDF เพื่อเริ่มต้น</p>
