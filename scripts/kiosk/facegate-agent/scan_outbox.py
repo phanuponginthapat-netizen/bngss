@@ -42,7 +42,10 @@ class ScanOutbox:
             confirmed = Counter()
             for line in lines:
                 try:
-                    reply = send(json.loads(line))
+                    payload = json.loads(line)
+                    if not payload.get("scanned_at"):
+                        raise RuntimeError("Pending scan has no original timestamp; manual review required")
+                    reply = send(payload)
                     if reply.get("result") not in ("ok", "duplicate"):
                         raise RuntimeError(reply.get("message") or "Cloud did not confirm attendance")
                     confirmed[line] += 1

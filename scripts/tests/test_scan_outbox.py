@@ -57,6 +57,13 @@ class ScanOutboxTests(unittest.TestCase):
         with self.assertRaises(OSError):
             self.queue.append(self.scan)
 
+    def test_legacy_unknown_time_is_not_uploaded_as_today(self):
+        self.queue.append({"student_id": "student-1", "direction": "in"})
+        sent = []
+        self.queue.flush(lambda payload: sent.append(payload) or {"result": "ok"})
+        self.assertEqual(sent, [])
+        self.assertEqual(self.queue.count(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
