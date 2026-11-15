@@ -10,6 +10,7 @@ import { ArrowLeft, Calendar, User } from "lucide-react";
 import DOMPurify from "dompurify";
 import BackButton from "@/components/BackButton";
 import { useUserRole } from "@/hooks/useUserRole";
+import PageMetadata from "@/components/public/PageMetadata";
 
 const NewsDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +24,8 @@ const NewsDetailPage = () => {
     queryKey: ["news_post", id, canSeeDraft],
     enabled: !!id && !roleLoading,
     queryFn: async () => {
-      let q = supabase.from("news_posts").select("*").eq("id", id!);
+      if (!id) return null;
+      let q = supabase.from("news_posts").select("*").eq("id", id);
       if (!canSeeDraft) q = q.eq("is_published", true);
       const { data } = await q.maybeSingle();
       return data;
@@ -32,6 +34,12 @@ const NewsDetailPage = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
+      {data && <PageMetadata title={data.title} description={String(data.content || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160) || `ข่าวสารและกิจกรรม: ${data.title}`} schema={data.is_published ? {
+        "@context": "https://schema.org", "@type": "Article", headline: data.title,
+        url: `https://bngss.online/dashboard/news/${id}`,
+        ...(data.published_at ? { datePublished: data.published_at } : {}),
+        ...(data.author ? { author: { "@type": "Person", name: data.author } } : {}),
+      } : undefined} />}
       <BackButton fallback="/dashboard/news" />
 
 
