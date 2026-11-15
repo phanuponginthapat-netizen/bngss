@@ -86,12 +86,10 @@ Deno.serve(async (req) => {
     if (!student) return respond({ error: "not_found" }, 404);
     if (student.status && student.status !== "active") return respond({ error: "inactive" }, 403);
 
-    // รหัสนักเรียนเดาได้ง่าย → ต้องยืนยันวันเกิดเสมอ (QR แบบ UUID เดาไม่ได้ จึงสแกนเข้าได้ทันที)
-    if (!uuid) {
-      if (!dob || typeof dob !== "string") return respond({ error: "dob_required" }, 401);
-      if (!normalizeDob(dob)) return respond({ error: "invalid_dob_format" }, 400);
-      if (!dobMatches(student.date_of_birth, dob)) return respond({ error: "dob_mismatch" }, 401);
-    }
+    // QR บนบัตรเป็นเพียงตัวระบุ (คัดลอก/ถ่ายรูปได้) → ต้องยืนยันวันเกิดเสมอก่อนออก session
+    if (!dob || typeof dob !== "string") return respond({ error: "dob_required" }, 401);
+    if (!normalizeDob(dob)) return respond({ error: "invalid_dob_format" }, 400);
+    if (!dobMatches(student.date_of_birth, dob)) return respond({ error: "dob_mismatch" }, 401);
 
     // 1) หาบัญชีผู้ปกครองที่ผูกไว้แล้ว (ต้องมี role = parent จริง)
     let parentUserId: string | null = null;

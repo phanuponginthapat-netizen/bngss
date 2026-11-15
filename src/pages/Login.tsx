@@ -140,20 +140,34 @@ const Login = () => {
     setLoading(false);
   };
 
-  const handleQrLogin = async (qr: string) => {
+  const handleQrLogin = async (qr: string, dob?: string) => {
     const clean = (qr || "").trim();
     if (!clean) return;
     setUserScanOpen(false);
     setQrLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("qr-login", { body: { qr: clean } });
-      const code = (data as any)?.error;
+      const { data, error } = await supabase.functions.invoke("qr-login", { body: { qr: clean, dob } });
+      let code = (data as any)?.error;
+      if (!code && error && "context" in (error as any)) {
+        try { code = (await (error as any).context.json())?.error; } catch { /* ignore */ }
+      }
+      if (code === "dob_required" || code === "dob_mismatch" || code === "invalid_dob_format") {
+        setQrLoading(false);
+        const title = code === "dob_required"
+          ? (lang === "th" ? "กรอกวันเกิดของเจ้าของบัตร (วว/ดด/ปปปป พ.ศ.)" : "Enter the card owner's birth date (DD/MM/YYYY)")
+          : (lang === "th" ? "วันเกิดไม่ตรง ลองอีกครั้ง (วว/ดด/ปปปป พ.ศ.)" : "Birth date did not match, try again");
+        const entered = await swal.prompt(title, { placeholder: "12/05/2553" });
+        if (entered) return handleQrLogin(clean, entered.trim());
+        return;
+      }
       if (error || !data?.success || !data?.access_token) {
         const msg =
           code === "not_found"
             ? lang === "th" ? "ไม่พบผู้ใช้ตาม QR นี้" : "User not found for this QR"
             : code === "no_account"
             ? lang === "th" ? "บัตรนี้ยังไม่ได้ผูกบัญชีผู้ใช้ — แจ้งผู้ดูแลระบบเพื่อสร้างบัญชี" : "This ID card has no linked account yet"
+            : code === "dob_unavailable"
+            ? lang === "th" ? "ยังไม่มีวันเกิดในระบบ ใช้วิธีเข้าสู่ระบบอื่นหรือติดต่อผู้ดูแลระบบ" : "No birth date on file, use another sign-in method"
             : code === "inactive"
             ? lang === "th" ? "บัญชีถูกระงับ" : "Account inactive"
             : code === "invalid_qr" || code === "invalid_input"
