@@ -359,13 +359,14 @@ const FaceKioskPage = () => {
     const loadRecentFromServer = async () => {
       try {
         const today = todayBangkok();
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("face_scan_logs")
           .select("student_id, scan_time, scan_type, confidence, captured_face_url, students!inner(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
           .eq("scan_date", today)
           .order("scan_time", { ascending: false })
           .limit(10);
-        if (data && data.length) {
+        if (error) throw error;
+        if (data) {
           const mapped = (data as any[]).map(r => ({
             studentId: r.student_id,
             studentCode: r.students.student_code || "-",
@@ -385,7 +386,10 @@ const FaceKioskPage = () => {
     const ch = supabase.channel("kiosk-recent-global").on("postgres_changes", { event: "INSERT", schema: "public", table: "face_scan_logs" }, () => {
       setTimeout(loadRecentFromServer, 800);
     }).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const timer = window.setInterval(loadRecentFromServer,30_000);
+    window.addEventListener("online",loadRecentFromServer);
+    window.addEventListener("focus",loadRecentFromServer);
+    return () => { window.clearInterval(timer);window.removeEventListener("online",loadRecentFromServer);window.removeEventListener("focus",loadRecentFromServer);supabase.removeChannel(ch); };
   }, []);
 
   // ---- ปลดล็อกเสียง — Chromium kiosk บล็อก AudioContext จนกว่าจะมี gesture ครั้งแรก ----
@@ -893,9 +897,10 @@ const FaceKioskPage = () => {
         return;
       }
       // ดูเวลา entry ล่าสุดจาก DB เพื่อกัน race / state stale
-      const { data: lastEntry } = await supabase.from("face_scan_logs")
+      const { data: lastEntry, error: entryError } = await supabase.from("face_scan_logs")
         .select("scan_time").eq("student_id", studentId).eq("scan_date", todayBangkok())
         .eq("scan_type", "entry").order("scan_time", { ascending: false }).limit(1).maybeSingle();
+      if(entryError) {showNotice("error","ตรวจสอบเวลาเข้าไม่สำเร็จ","กรุณาลองใหม่",4000);return;}
       if (lastEntry?.scan_time) {
         const gapMin = (now - new Date(lastEntry.scan_time).getTime()) / 60000;
         if (gapMin < 30) {

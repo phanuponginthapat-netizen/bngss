@@ -286,6 +286,7 @@ export default function ParentAppPage() {
       .select("id, attendance_date, status, notes")
       .eq("student_id", child.id)
       .eq("attendance_date", today)
+      .is("subject_id",null).order("id")
       .limit(5);
 
     // latest grades from student_scores (uses student_code) — keep fast with .limit(5)
@@ -517,7 +518,7 @@ export default function ParentAppPage() {
                     <Badge variant={f.scan_type === "in" ? "default" : "secondary"} className="capitalize">
                       {f.scan_type || "scan"}
                     </Badge>
-                    <span className="text-xs font-mono">{f.scan_time?.slice(0, 8) || new Date(f.created_at).toLocaleTimeString("th-TH")}</span>
+                    <span className="text-xs font-mono">{new Date(f.scan_time || f.created_at).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour12:false})}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{f.scan_date}</span>
                 </div>
@@ -809,7 +810,7 @@ export default function ParentAppPage() {
                           </div>
                           <p className="text-[11px] text-muted-foreground font-medium">{L("มาเรียนวันนี้", "Today")}</p>
                           <p className="text-lg font-bold">{attendanceLabel}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{selBundle?.faceLogs?.[0]?.scan_time?.slice(0,5) || selBundle?.attendance?.[0]?.attendance_date || todayBangkok()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{(selBundle?.faceLogs?.[0]?.scan_time ? new Date(selBundle.faceLogs[0].scan_time).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit",hour12:false}) : undefined) || selBundle?.attendance?.[0]?.attendance_date || todayBangkok()}</p>
                         </CardContent>
                       </Card>
                     </motion.div>
