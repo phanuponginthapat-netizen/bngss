@@ -16,6 +16,9 @@
     "rollup"
   ],
   "scripts": {
+    "predev": "node scripts/generate-sitemap.mjs",
+    "prebuild": "node scripts/generate-sitemap.mjs",
+    "prebuild:dev": "node scripts/generate-sitemap.mjs",
     "dev": "vite",
     "build": "node --max-old-space-size=4096 node_modules/vite/bin/vite.js build",
     "build:dev": "vite build --mode development",

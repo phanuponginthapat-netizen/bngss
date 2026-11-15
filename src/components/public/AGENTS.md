@@ -1,0 +1,1 @@
+- PageMetadata owns route titles, descriptions, self-referencing canonicals and public JSON-LD through one HelmetProvider; CMS branding must not overwrite titles and session-only news remains protected because SEO must never expand access.
