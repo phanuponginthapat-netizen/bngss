@@ -1,3 +1,5 @@
+import { getSecret } from "../_shared/getSecret.ts";
+import { secretKeys } from "../_shared/secretKeys.ts";
 import { pushOne } from "../_shared/webPush.ts";
 import { sendFcm } from "../_shared/fcmPush.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -23,7 +25,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!(await authorizePushRecipient(req, admin, user_id, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""))) {
+    if (!(await authorizePushRecipient(req, admin, user_id, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      req.headers.get("x-cron-secret") ? await getSecret(secretKeys.cron).catch(() => null) : null))) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
