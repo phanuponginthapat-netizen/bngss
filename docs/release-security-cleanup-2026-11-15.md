@@ -2,7 +2,7 @@
 
 ## Completed
 - Deep scan returned 17 findings; 14 code/permission issues were fixed and marked fixed, none ignored.
-- Deployed drive-storage, kiosk-api, line-vault-webhook, notify-google-chat, calendar-ics, visitor-checkin, fill-pdf-template, system-update and backup-to-external.
+- Deployed drive-storage, kiosk-api, line-vault-webhook, notify-google-chat, calendar-ics, visitor-checkin, fill-pdf-template, system-update backup-to-external and onestop-api.
 - Migration0050 makes face identity depend exclusively on saved account linkage; duplicate-face lookup requires staff/service authority. SQL behavior regression passed.
 - File writes enforce bounded base64 decoding, type/path limits, configured shared Drive folder and staff/service authority; kiosk snapshot accepts JPEG signatures only. Full image decoder certification is not claimed.
 - LINE Vault validates raw-body HMAC before captures; admin health ping is authorized. Dedicated OA secret is absent; unsigned capture now fails closed503. Settings now provide secret entry; legitimate LINE receipt requires that original secret.
