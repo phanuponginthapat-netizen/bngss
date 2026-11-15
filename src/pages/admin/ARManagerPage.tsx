@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -295,12 +296,12 @@ export default function ARManagerPage() {
     if (!html) return;
     const w = window.open("", "_blank", "width=900,height=1200");
     if (!w) { toast.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์"); return; }
-    w.document.write(`<html><head><title>QR ${active?.title || "AR"}</title>
+    w.document.write(`<html><head><title>QR ${escapeHtml(active?.title || "AR")}</title>
       <style>body{font-family:sans-serif;padding:16px}
       .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
       .cell{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center;page-break-inside:avoid}
       .t{font-weight:600;font-size:13px;margin-top:6px}.s{font-size:11px;color:#666;word-break:break-all}
-      </style></head><body><h2>${active?.title || "สื่อ AR"}</h2><div class="grid">${html}</div></body></html>`);
+      </style></head><body><h2>${escapeHtml(active?.title || "สื่อ AR")}</h2><div class="grid">${html}</div></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 400);
   };
