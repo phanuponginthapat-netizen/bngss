@@ -120,7 +120,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
         const w = img.width * scale, h = img.height * scale;
         canvas.setDimensions({ width: w, height: h });
         img.scale(scale);
-        img.set({ selectable: false, evented: false, left: 0, top: 0, excludeFromExport: true });
+        img.set({ originX: "left", originY: "top", selectable: false, evented: false, left: 0, top: 0, excludeFromExport: true });
         skipHistoryRef.current = true;
         canvas.add(img); canvas.sendObjectToBack(img);
         skipHistoryRef.current = false;
@@ -183,7 +183,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
       start = p;
       if (tool === "text") {
         const t = new fabric.IText("พิมพ์ที่นี่", {
-          left: p.x, top: p.y, fontSize: 20, fill: color,
+          originX: "left", originY: "top", left: p.x, top: p.y, fontSize: 20, fill: color,
           fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
         });
         canvas.add(t); canvas.setActiveObject(t);
@@ -191,9 +191,9 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
         return;
       }
       if (tool === "rect") {
-        shape = new fabric.Rect({ left: p.x, top: p.y, width: 1, height: 1, fill: "transparent", stroke: color, strokeWidth: size });
+        shape = new fabric.Rect({ originX: "left", originY: "top", left: p.x, top: p.y, width: 1, height: 1, fill: "transparent", stroke: color, strokeWidth: size });
       } else if (tool === "ellipse") {
-        shape = new fabric.Ellipse({ left: p.x, top: p.y, rx: 1, ry: 1, fill: "transparent", stroke: color, strokeWidth: size });
+        shape = new fabric.Ellipse({ originX: "left", originY: "top", left: p.x, top: p.y, rx: 1, ry: 1, fill: "transparent", stroke: color, strokeWidth: size });
       } else if (tool === "arrow") {
         shape = new fabric.Line([p.x, p.y, p.x, p.y], { stroke: color, strokeWidth: size });
       }
@@ -245,7 +245,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     canvas.backgroundColor = "#fff";
     canvas.setDimensions({ width: scaled.width, height: scaled.height });
     const img = await fabric.FabricImage.fromURL(dataUrl);
-    img.set({ selectable: false, evented: false, left: 0, top: 0, excludeFromExport: true });
+    img.set({ originX: "left", originY: "top", selectable: false, evented: false, left: 0, top: 0, excludeFromExport: true });
     canvas.add(img); canvas.sendObjectToBack(img);
     const state = pageStatesRef.current[n];
     if (state?.objects?.length) {
