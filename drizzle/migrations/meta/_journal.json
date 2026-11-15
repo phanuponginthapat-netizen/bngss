@@ -316,6 +316,13 @@
       "when": 1794730942960,
       "tag": "0044_tighten_school_member_access",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794732235594,
+      "tag": "0045_notify_both_parents_on_absence",
+      "breakpoints": true
     }
   ]
 }
