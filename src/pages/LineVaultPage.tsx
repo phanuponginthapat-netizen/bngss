@@ -1204,8 +1204,10 @@ function VaultSettings() {
   const SUPABASE_URL = getBackendConfig().url;
   const webhookUrl = `${SUPABASE_URL}/functions/v1/line-vault-webhook`;
   const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState<{ token: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
+  const [status, setStatus] = useState<{ token: boolean; signature?: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
+  const [signatureDraft, setSignatureDraft] = useState("");
+  const [savingSignature, setSavingSignature] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [savingToken, setSavingToken] = useState(false);
   const [quota, setQuota] = useState<{
@@ -1230,6 +1232,8 @@ function VaultSettings() {
         .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
         .maybeSingle();
       const dbHasToken = !!(row as any)?.value && String((row as any).value).trim().length > 0;
+      const { data: signatureRow, error: signatureError } = await supabase.from("app_secrets").select("key").eq("key", "LINE_VAULT_CHANNEL_SECRET").maybeSingle();
+      if (signatureError) throw signatureError;
 
       // Best-effort: also ping the webhook to see if env is already synced
       let envHasToken = false;
@@ -1253,6 +1257,7 @@ function VaultSettings() {
       ]);
       setStatus({
         token: dbHasToken || envHasToken,
+        signature: !!signatureRow,
         webhook_ok: webhookOk,
         error: errMsg,
         groups: groups || 0,
@@ -1308,6 +1313,21 @@ function VaultSettings() {
     }
   }
 
+  async function saveSignature() {
+    const value = signatureDraft.trim();
+    if (!value) return;
+    setSavingSignature(true);
+    try {
+      const { data, error } = await supabase.from("app_secrets").upsert({ key: "LINE_VAULT_CHANNEL_SECRET", value, category: "line", description: "Channel Secret สำหรับตรวจลายเซ็น LINE Vault", updated_at: new Date().toISOString() }, { onConflict: "key" }).select("key");
+      if (error) throw error;
+      if (!data?.length) throw new Error("บันทึก Channel Secret ไม่สำเร็จ");
+      setSignatureDraft("");
+      toast.success("บันทึก Channel Secret แล้ว");
+      await checkStatus();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
+    finally { setSavingSignature(false); }
+  }
+
   return (
     <div className="space-y-4 max-w-3xl">
       <Card>
@@ -1326,6 +1346,9 @@ function VaultSettings() {
               <RefreshCw className={`h-3.5 w-3.5 mr-1 ${checking ? "animate-spin" : ""}`} />ตรวจสอบ
             </Button>
           </div>
+          <p className={`text-sm ${status?.signature ? "text-muted-foreground" : "text-destructive"}`}>
+            {status?.signature ? "ตั้งค่า Channel Secret แล้ว" : "ยังไม่ได้ตั้ง Channel Secret — ระงับการรับข้อความเพื่อป้องกันข้อความปลอม"}
+          </p>
           {status && (
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2 rounded bg-muted"><div className="text-muted-foreground">กลุ่มที่เชื่อม</div><div className="text-lg font-semibold">{status.groups ?? "-"}</div></div>
@@ -1408,6 +1431,17 @@ function VaultSettings() {
         </CardContent>
       </Card>
 
+
+      <Card>
+        <CardHeader><CardTitle>Channel Secret (LINE Vault)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <Label htmlFor="vault-channel-secret">Channel Secret</Label>
+          <div className="flex gap-2">
+            <Input id="vault-channel-secret" type="password" value={signatureDraft} onChange={e => setSignatureDraft(e.target.value)} autoComplete="off" placeholder="Channel Secret ของ LINE OA สำหรับ Vault" />
+            <Button onClick={saveSignature} disabled={savingSignature || !signatureDraft.trim()}><Save className="h-4 w-4 mr-1" />บันทึก</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Webhook URL (ตั้งใน LINE Developers ของ OA ตัวใหม่)</CardTitle></CardHeader>
