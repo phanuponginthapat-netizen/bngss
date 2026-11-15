@@ -14,6 +14,8 @@ import AttachmentList from "./AttachmentList";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { notify } from "@/lib/notify";
 import { saveErrorMessage } from "@/lib/saveError";
+import { writeTaskJson } from "@/lib/taskJsonWrite";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 export type HistoryEntry = {
   at: string;
@@ -118,34 +120,37 @@ export function StudentSubmissionPanel({
       toast.error("พิมพ์ข้อความหรือแนบไฟล์อย่างน้อย 1 อย่าง");
       return;
     }
+    if (busy) return;
     setBusy(true);
-    const isResubmit = !!mine;
+    let isResubmit = !!mine;
     const now = new Date().toISOString();
-    const prevHistory = mine?.history || [];
-    const entry: HistoryEntry = {
-      at: now,
-      by: "student",
-      action: isResubmit ? "resubmitted" : "submitted",
-      text: text.trim() || undefined,
-      attachments: merged.length ? merged : undefined,
-    };
-    const next: SubmissionsMap = {
-      ...(submissions || {}),
-      [studentId]: {
-        status: "submitted",
-        submitted_at: now,
-        text: text.trim() || undefined,
-        attachments: merged,
-        grade: mine?.grade ?? null,
-        feedback: mine?.feedback,
-        teacher_annotations: mine?.teacher_annotations,
-        history: [...prevHistory, entry],
-      },
-    };
-    const { data: updated, error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId).select("id");
-    setBusy(false);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
-    if (!updated || updated.length === 0) { toast.error("บันทึกการส่งงานไม่สำเร็จ กรุณาลองใหม่หรือแจ้งครู"); return; }
+    try {
+      await writeTaskJson(taskId, "submissions", current => {
+        const latest = current as unknown as SubmissionsMap;
+        const previous = latest[studentId];
+        if (previous && previous.status !== "needs_revision") {
+          throw new Error("งานนี้ถูกส่งหรือตรวจแล้ว กรุณาโหลดใหม่ก่อนดำเนินการ");
+        }
+        isResubmit = !!previous;
+        const entry: HistoryEntry = {
+          at: now, by: "student", action: isResubmit ? "resubmitted" : "submitted",
+          text: text.trim() || undefined, attachments: merged.length ? merged : undefined,
+        };
+        return {
+          ...latest,
+          [studentId]: {
+            ...previous, status: "submitted", submitted_at: now,
+            text: text.trim() || undefined, attachments: merged,
+            grade: previous?.grade ?? null,
+            history: [...(previous?.history || []), entry],
+          },
+        };
+      });
+    } catch (error) {
+      toast.error(saveErrorMessage(error));
+      invalidateKeys.forEach(k => qc.invalidateQueries({ queryKey: k }));
+      return;
+    } finally { setBusy(false); }
     setText(""); setPending([]);
     toast.success("ส่งงานเรียบร้อย");
     invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
@@ -305,41 +310,36 @@ export function TeacherGradingPanel({
   assignmentMaxScore,
 }: TeacherProps) {
   const qc = useQueryClient();
-  const { data: students = [] } = useQuery({
+  const studentsQuery = useQuery({
     queryKey: ["hw-classroom-students", classroomId],
     enabled: !!classroomId,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("students")
+      if (!classroomId) return [];
+      return fetchAllRows(() => supabase.from("students")
         .select("id,prefix,first_name,last_name,student_code,auth_user_id")
-        .eq("classroom_id", classroomId!)
-        .eq("status", "active")
-        .order("student_code", { ascending: true });
-      return data || [];
+        .eq("classroom_id", classroomId).eq("status", "active")
+        .order("student_code", { ascending: true }).order("id"));
     },
   });
+  const students = studentsQuery.data || [];
 
   const updateSubmission = async (studentId: string, patch: Partial<Submission>, historyAction?: HistoryEntry["action"]) => {
-    const cur = submissions?.[studentId];
-    if (!cur) { toast.error("นักเรียนยังไม่ได้ส่งงาน"); return; }
-    const prevHistory = cur.history || [];
-    const action: HistoryEntry["action"] | undefined = historyAction
-      || (patch.status === "graded" ? "graded"
-        : patch.status === "needs_revision" ? "returned"
-        : patch.teacher_annotations ? "annotated"
-        : undefined);
-    const entry: HistoryEntry | null = action ? {
-      at: new Date().toISOString(),
-      by: "teacher",
-      action,
-      feedback: patch.feedback,
-      grade: patch.grade ?? undefined,
-      attachments: action === "annotated" ? patch.teacher_annotations : undefined,
-    } : null;
-    const merged: Submission = { ...cur, ...patch, history: entry ? [...prevHistory, entry] : prevHistory };
-    const next: SubmissionsMap = { ...(submissions || {}), [studentId]: merged };
-    const { error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    await writeTaskJson(taskId, "submissions", current => {
+      const latest = current as unknown as SubmissionsMap;
+      const cur = latest[studentId];
+      if (!cur) throw new Error("นักเรียนยังไม่ได้ส่งงาน");
+      if (JSON.stringify(cur) !== JSON.stringify(submissions?.[studentId])) {
+        throw new Error("งานนักเรียนมีการเปลี่ยนแปลง กรุณาโหลดใหม่ก่อนตรวจ");
+      }
+      const action = historyAction || (patch.status === "graded" ? "graded"
+        : patch.status === "needs_revision" ? "returned" : patch.teacher_annotations ? "annotated" : undefined);
+      const entry: HistoryEntry | null = action ? {
+        at: new Date().toISOString(), by: "teacher", action,
+        feedback: patch.feedback, grade: patch.grade ?? undefined,
+        attachments: action === "annotated" ? patch.teacher_annotations : undefined,
+      } : null;
+      return { ...latest, [studentId]: { ...cur, ...patch, history: entry ? [...(cur.history || []), entry] : cur.history || [] } };
+    });
     invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
 
     // Notify the student (and parent) — realtime
@@ -404,7 +404,7 @@ export function TeacherGradingPanel({
     queueMicrotask(() => setSelectedId(submitted[0].id));
   }
   const selectedStudent = submitted.find((s: any) => s.id === selectedId) || null;
-  const selectedSub = selectedStudent ? submissions![selectedStudent.id] : null;
+  const selectedSub = selectedStudent ? submissions[selectedStudent.id] : null;
 
   const handleAnnotationSave = async (studentId: string, blob: Blob, filename: string) => {
     try {
@@ -416,11 +416,19 @@ export function TeacherGradingPanel({
       await updateSubmission(studentId, { teacher_annotations: ann });
       toast.success("บันทึกไฟล์ที่ตรวจแล้ว — นักเรียนจะเห็นทันที");
     } catch (e: any) {
-      toast.error(e?.message || "บันทึกไม่สำเร็จ");
+      toast.error(saveErrorMessage(e));
+      throw e;
     }
   };
 
   const [tab, setTab] = useState<"submitted" | "notSubmitted">("submitted");
+
+  if (studentsQuery.isError || studentsQuery.isLoading) return (
+    <div className="p-6 space-y-3" role="alert">
+      <p>{studentsQuery.isError ? "อ่านรายชื่อนักเรียนไม่สำเร็จ" : "กำลังโหลดรายชื่อนักเรียน"}</p>
+      {studentsQuery.isError && <Button variant="outline" onClick={() => studentsQuery.refetch()}>ลองใหม่</Button>}
+    </div>
+  );
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden bg-muted/30 min-h-0 overscroll-contain">
@@ -454,7 +462,7 @@ export function TeacherGradingPanel({
             <p className="text-xs text-muted-foreground text-center py-8">ยังไม่มีนักเรียนส่งงาน</p>
           )}
           {tab === "submitted" && submitted.map((s: any) => {
-            const sub = submissions![s.id];
+            const sub = submissions[s.id];
             const active = s.id === selectedId;
             const statusBadge =
               sub.status === "graded" ? { cls: "bg-emerald-100 text-emerald-700 ring-emerald-200", label: `คะแนน ${sub.grade ?? "-"}` }
@@ -500,6 +508,7 @@ export function TeacherGradingPanel({
       <div className="flex-none lg:flex-1 flex flex-col lg:flex-row overflow-visible lg:overflow-hidden min-h-0">
         {selectedStudent && selectedSub ? (
           <StudentSubmissionRow
+            key={selectedStudent.id}
             student={selectedStudent}
             submission={selectedSub}
             teacherAttachments={teacherAttachments}
@@ -541,6 +550,13 @@ function StudentSubmissionRow({
   const [feedback, setFeedback] = useState<string>(submission.feedback || "");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const saveAction = async (write: () => Promise<void>, success: string, after?: () => void) => {
+    if (busy) return;
+    setBusy(true);
+    try { await write(); toast.success(success); after?.(); }
+    catch (error) { toast.error(saveErrorMessage(error)); }
+    finally { setBusy(false); }
+  };
 
   return (
     <>
@@ -725,8 +741,7 @@ function StudentSubmissionRow({
                 toast.error(`ห้ามให้คะแนนเกินคะแนนเต็ม (${maxScore})`);
                 return;
               }
-              setBusy(true); await onGrade(g, feedback.trim() || undefined); setBusy(false);
-              toast.success("บันทึกคะแนนแล้ว");
+              await saveAction(() => onGrade(g, feedback.trim() || undefined), "บันทึกคะแนนแล้ว");
             }}
           >
             <CheckCircle2 className="w-5 h-5" /> ให้คะแนน
@@ -739,8 +754,7 @@ function StudentSubmissionRow({
             className="w-full h-11 font-bold rounded-2xl border-2 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800 gap-2"
             onClick={async () => {
               if (!feedback.trim()) { toast.error("ใส่เหตุผลสั้นๆ ก่อนส่งกลับให้แก้"); return; }
-              setBusy(true); await onReturn(feedback.trim()); setBusy(false);
-              toast.success("ส่งกลับให้นักเรียนแก้ไขแล้ว");
+              await saveAction(() => onReturn(feedback.trim()), "ส่งกลับให้นักเรียนแก้ไขแล้ว");
             }}
           >
             <Undo2 className="w-4 h-4" /> ส่งกลับให้แก้ไข
@@ -762,8 +776,8 @@ function StudentSubmissionRow({
                   disabled={busy || !comment.trim()}
                   className="rounded-xl shrink-0"
                   onClick={async () => {
-                    setBusy(true); await onComment!(comment.trim()); setBusy(false); setComment("");
-                    toast.success("ส่งคอมเมนต์แล้ว");
+                    if (!onComment) return;
+                    await saveAction(() => onComment(comment.trim()), "ส่งคอมเมนต์แล้ว", () => setComment(""));
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />
