@@ -85,7 +85,7 @@ export async function calculateRisk(studentId: string): Promise<RiskResult> {
       // attendance — last ~90 days or all if few
       supabase
         .from("attendance")
-        .select("status, attendance_date")
+        .select("status, attendance_date").is("subject_id", null)
         .eq("student_id", studentId)
         .order("attendance_date", { ascending: false })
         .limit(500),

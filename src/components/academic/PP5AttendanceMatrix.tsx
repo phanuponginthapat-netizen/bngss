@@ -141,7 +141,7 @@ const PP5AttendanceMatrix = ({
         student_id: studentId, subject_id: subjectId,
         attendance_date: dateIso, status: next,
         academic_year: academicYear, semester,
-      } as any, { onConflict: "student_id,attendance_date,subject_id", ignoreDuplicates: false });
+      } as any, { onConflict: "student_id,attendance_date,subject_id,period", ignoreDuplicates: false });
       if (error) { toast.error("บันทึกไม่สำเร็จ: " + error.message); return; }
     }
     qc.invalidateQueries({ queryKey: ["pp5_absences"] });
@@ -249,49 +249,6 @@ const PP5AttendanceMatrix = ({
     qc.invalidateQueries({ queryKey: ["subjects"] });
   };
 
-  const [autoScanLoading, setAutoScanLoading] = useState(false);
-  const autoFillFromScan = async () => {
-    if (!canEdit) return;
-    const validDates = dates.filter(Boolean);
-    if (validDates.length === 0) { toast.error("ยังไม่มีวันที่กำกับคาบ"); return; }
-    if (students.length === 0) { toast.error("ไม่มีนักเรียน"); return; }
-    setAutoScanLoading(true);
-    try {
-      const from = validDates.reduce((a, b) => a < b ? a : b);
-      const to = validDates.reduce((a, b) => a > b ? a : b);
-      // Deduplicate to distinct dates (face_scan is per day, not per period)
-      const distinctDates = Array.from(new Set(validDates)).sort().filter(d => !isHoliday(d));
-      if (distinctDates.length === 0) { toast.info("ทุกคาบเป็นวันหยุด ไม่ต้องดึงสแกน"); setAutoScanLoading(false); return; }
-      const fromH = distinctDates[0], toH = distinctDates[distinctDates.length-1];
-      const scans = await fetchAllRows((a,b)=>supabase.from("face_scan_logs").select("student_id,scan_date").in("scan_type",["entry","assembly"]).gte("scan_date",fromH).lte("scan_date",toH).in("student_id",studentIds).order("id").range(a,b));
-      const attends = await fetchAllRows((a,b)=>supabase.from("attendance").select("student_id,attendance_date").in("status",["present","late"]).gte("attendance_date",fromH).lte("attendance_date",toH).in("student_id",studentIds).order("id").range(a,b));
-      const presentSet = new Set<string>();
-      for (const s of (scans as any[]) || []) presentSet.add(`${s.student_id}|${s.scan_date}`);
-      for (const a of (attends as any[]) || []) presentSet.add(`${a.student_id}|${a.attendance_date}`);
-      // Also check manual attendance present = not in absences (already handled) - scan is extra evidence for present
-      let filled = 0;
-      for (const s of students) {
-        for (const d of distinctDates) {
-          const key = `${s.id}|${d}`;
-          const hasScan = presentSet.has(key);
-          const cur = statusMap.get(key);
-          // If has scan and currently absent/leave or not present, set to present (delete absent/leave)
-          if (hasScan && cur) {
-            // Existing academic attendance is settled; gate evidence does not delete it.
-            continue;
-          } else if (!hasScan && !cur) {
-            // No scan and no record => keep as present (no row) - don't auto mark absent to avoid overwriting holidays
-            // Do nothing; teacher can bulk mark absent if needed
-          }
-        }
-      }
-      qc.invalidateQueries({ queryKey: ["pp5_absences"] });
-      toast.success(`ดึงจากการสแกนแล้ว ${filled} รายการ (สแกนเข้า = มาเรียน)`);
-    } catch (e: any) {
-      toast.error("ดึงสแกนไม่สำเร็จ: " + (e?.message || ""));
-    } finally { setAutoScanLoading(false); }
-  };
-
   return (
     <div className="space-y-3">
       <Card>
@@ -332,9 +289,6 @@ const PP5AttendanceMatrix = ({
             </div>
           </div>
           <div className="ml-auto flex gap-1">
-            <Button size="sm" variant="secondary" onClick={autoFillFromScan} disabled={!canEdit || autoScanLoading} title="ดึงบันทึกสแกนเข้าเรียน (face_scan_logs + attendance) มาใส่ช่องเวลาเรียนอัตโนมัติ">
-              {autoScanLoading ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1" />} ดึงจากการสแกน
-            </Button>
             <Button size="sm" onClick={saveConfig} disabled={!canEdit}>
               <Save className="w-3.5 h-3.5 mr-1" />บันทึกตั้งค่า
             </Button>

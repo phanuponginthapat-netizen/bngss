@@ -14,6 +14,7 @@ import { ScanAttendanceFlow, AttendanceStatus } from "./ScanAttendanceFlow";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { sortGrades } from "@/lib/gradeOrder";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { lessonStatusMap } from "@/lib/lessonAttendance";
 import { saveErrorMessage } from "@/lib/saveError";
 
 const toDbAcademicYear = (year?: number) => {
@@ -41,6 +42,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   const [gradeFilter, setGradeFilter] = useState<string>("");
   const [classroomId, setClassroomId] = useState<string>("");
   const [subjectId, setSubjectId] = useState<string>("");
+  const [selectedPeriod, setSelectedPeriod] = useState(0);
   const dbAcademicYear = toDbAcademicYear(academicYear);
 
   // Get current teacher's full name
@@ -137,10 +139,9 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
     });
   }, [mySchedules, classroomId]);
 
-  const periodForSelected = useMemo(() => {
-    const found = mySchedules.find((s: any) => s.classroom_id === classroomId && s.subject_id === subjectId);
-    return found?.period;
-  }, [mySchedules, classroomId, subjectId]);
+  const availablePeriods = useMemo(() => [...new Set(mySchedules.filter((s: any) => s.classroom_id === classroomId && s.subject_id === subjectId).map((s: any) => Number(s.period)).filter(p => p > 0))].sort((a, b) => a - b), [mySchedules, classroomId, subjectId]);
+  useEffect(() => { setSelectedPeriod(availablePeriods[0] || 0); }, [availablePeriods]);
+  const periodForSelected = selectedPeriod;
 
   const classStudents = useMemo(() => {
     if (!classroomId) return [];
@@ -152,44 +153,29 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
   const classroomName = classrooms.find((c: any) => c.id === classroomId)?.name || "";
   const subjectName = subjectsForClass.find((s: any) => s.id === subjectId)?.name_th || "";
 
-  // ผลที่บันทึกแล้ววันนี้: สแกนหน้า/ประตู (รายวัน) และผลเช็ครายวิชาเดิม — ถือว่ามาแล้ว ไม่ตั้งเป็น "ขาด"
+  // Only the exact lesson's saved records seed this lesson; gate scans are unrelated.
   const classIdsKey = classStudents.map((s: any) => s.id).join(",");
   const { data: prescanned, isSuccess: prescannedReady, isError: prescannedError } = useQuery({
-    queryKey: ["attendance", "subject-prescanned", checkDate, subjectId, classIdsKey],
-    enabled: !!subjectId && classStudents.length > 0,
+    queryKey: ["attendance", "lesson-saved", checkDate, subjectId, selectedPeriod, dbAcademicYear, semester, classIdsKey],
+    enabled: !!subjectId && selectedPeriod > 0 && !!dbAcademicYear && !!semester && classStudents.length > 0,
     queryFn: async () => {
-      const ids = classStudents.map((s: any) => s.id);
       const { data, error } = await supabase.from("attendance")
-        .select("student_id, subject_id, status")
-        .eq("attendance_date", checkDate)
-        .in("student_id", ids)
-        .or(`subject_id.is.null,subject_id.eq.${subjectId}`);
+        .select("student_id, subject_id, period, status")
+        .eq("attendance_date", checkDate).eq("subject_id", subjectId).eq("period", selectedPeriod)
+        .eq("academic_year", dbAcademicYear ?? 0).eq("semester", semester ?? 0)
+        .in("student_id", classStudents.map((s: any) => s.id));
       if (error) throw error;
-      const map: Record<string, AttendanceStatus> = {};
-      // รายวัน (สแกนเข้าโรงเรียน) ก่อน: เฉพาะ มา/สาย
-      (data ?? []).forEach((r: any) => {
-        if (r.subject_id === null && (r.status === "present" || r.status === "late")) map[r.student_id] = r.status;
-      });
-      // ผลรายวิชาที่ครูบันทึกไว้แล้วชนะ (ยกเว้นขาด เพื่อให้สแกนใหม่ได้)
-      (data ?? []).forEach((r: any) => {
-        if (r.subject_id === subjectId && r.status !== "absent") map[r.student_id] = r.status;
-      });
-      return map;
+      return lessonStatusMap(data ?? [], subjectId, selectedPeriod);
     },
   });
 
   const handleSubmit = async (statusMap: Record<string, AttendanceStatus>) => {
-    if (!classroomId || !subjectId || classStudents.length === 0) return;
+    if (!classroomId || !subjectId || !selectedPeriod || !dbAcademicYear || !semester || classStudents.length === 0) throw new Error("กรุณาเลือกปี ภาคเรียน และคาบก่อนบันทึก");
     try {
-      const studentIds = classStudents.map((s: any) => s.id);
-      await supabase.from("attendance").delete()
-        .in("student_id", studentIds)
-        .eq("attendance_date", checkDate)
-        .eq("subject_id", subjectId);
-
       const inserts = classStudents.map((s: any) => ({
         student_id: s.id,
         subject_id: subjectId,
+        period: selectedPeriod,
         attendance_date: checkDate,
         status: statusMap[s.id] || "absent",
         notes: null,
@@ -197,12 +183,13 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
         academic_year: dbAcademicYear,
         semester: semester && semester > 0 ? semester : undefined,
       }));
-      const { error } = await supabase.from("attendance").insert(inserts as any);
+      const { error } = await supabase.from("attendance").upsert(inserts as any, { onConflict: "student_id,attendance_date,subject_id,period" });
       if (error) throw error;
       toast.success(lang === "th" ? `บันทึกเช็คชื่อรายวิชา ${inserts.length} คน` : `Saved ${inserts.length}`);
       qc.invalidateQueries({ queryKey: ["attendance"] });
     } catch (err: any) {
       toast.error(saveErrorMessage(err));
+      throw err;
     }
   };
 
@@ -218,7 +205,7 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
             <div>
               <Label>{lang === "th" ? "วันที่" : "Date"}</Label>
               <BEDatePicker value={checkDate} onChange={(v) => {
@@ -261,21 +248,28 @@ export function SubjectPeriodCheckTab({ students, classrooms, academicYear, seme
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>{lang === "th" ? "คาบ" : "Period"}</Label>
+              <Select value={selectedPeriod ? String(selectedPeriod) : ""} onValueChange={v => setSelectedPeriod(Number(v))} disabled={!availablePeriods.length}>
+                <SelectTrigger><SelectValue placeholder="เลือกคาบ" /></SelectTrigger>
+                <SelectContent>{availablePeriods.map(p => <SelectItem key={p} value={String(p)}>คาบ {p}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {classroomId && subjectId && classStudents.length > 0 && prescannedError ? (
         <Card><CardContent className="py-8 text-center text-destructive">
-          {lang === "th" ? "โหลดผลสแกนวันนี้ไม่สำเร็จ กรุณารีเฟรชก่อนเช็คชื่อ เพื่อไม่ให้นักเรียนที่สแกนแล้วถูกบันทึกว่าขาด" : "Could not load today's scans. Refresh before checking."}
+          {lang === "th" ? "โหลดผลเช็คชื่อคาบนี้ไม่สำเร็จ กรุณาลองใหม่ก่อนบันทึก" : "Could not load this lesson's attendance."}
         </CardContent></Card>
       ) : classroomId && subjectId && classStudents.length > 0 && !prescannedReady ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground">
-          {lang === "th" ? "กำลังโหลดผลสแกนวันนี้…" : "Loading today's scans…"}
+          {lang === "th" ? "กำลังโหลดผลเช็คชื่อคาบนี้…" : "Loading lesson records…"}
         </CardContent></Card>
       ) : classroomId && subjectId && classStudents.length > 0 ? (
         <ScanAttendanceFlow
-          key={`${classroomId}-${subjectId}-${checkDate}`}
+          key={`${classroomId}-${subjectId}-${selectedPeriod}-${checkDate}`}
           students={classStudents}
           prescanned={prescanned}
           scanTitle={lang === "th" ? `แสกน QR — ${subjectName} • ${classroomName}` : `Scan — ${subjectName}`}

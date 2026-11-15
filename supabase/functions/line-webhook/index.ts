@@ -449,7 +449,7 @@ async function handleAttendanceCommand(sb: any, token: string, rt: string, lineU
   const now = new Date();
   const first = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-01`;
   const last = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()}`;
-  const { data: rows } = await sb.from("attendance").select("status, attendance_date").eq("student_id", user.id).gte("attendance_date", first).lte("attendance_date", last);
+  const { data: rows } = await sb.from("attendance").select("status, attendance_date").is("subject_id", null).eq("student_id", user.id).gte("attendance_date", first).lte("attendance_date", last);
   const c = (s: string) => rows?.filter((r: any) => r.status === s).length || 0;
   const name = `${user.prefix || ""}${user.first_name} ${user.last_name}`;
   await replyFlex(token, rt, `เข้าเรียน ${name}`,
@@ -588,7 +588,7 @@ async function handleAttendanceList(sb: any, token: string, rt: string, classroo
   const today = todayBangkokISO();
   const ids = students.map((s: any) => s.id);
   let q = sb.from("attendance").select("student_id, status").in("student_id", ids).eq("attendance_date", today);
-  q = subjectId ? q.eq("subject_id", subjectId) : q.is("subject_id", null);
+  q = subjectId ? q.eq("subject_id", subjectId).eq("period", Number(period) || 0) : q.is("subject_id", null);
   const { data: existing } = await q;
   const statusMap = new Map<string, string>();
   existing?.forEach((a: any) => statusMap.set(a.student_id, a.status));
@@ -643,12 +643,12 @@ async function handleMarkAttendance(sb: any, token: string, rt: string, lineUser
   const sid = subjectId && subjectId !== "-" ? subjectId : null;
   const row: any = {
     student_id: studentId, attendance_date: date, status,
-    academic_year: year, semester, recorded_by: user.id, subject_id: sid,
+    academic_year: year, semester, recorded_by: user.id, subject_id: sid, period: sid ? Number(period) || 0 : 0,
   };
   if (period && period !== "-") row.notes = `period:${period}`;
   let saved: any = null; let saveErr: any = null;
   try {
-    const r = await sb.from("attendance").upsert(row, { onConflict: "student_id,attendance_date,subject_id" }).select("id").maybeSingle();
+    const r = await sb.from("attendance").upsert(row, { onConflict: "student_id,attendance_date,subject_id,period" }).select("id").maybeSingle();
     saved = r.data; saveErr = r.error;
   } catch (e) { saveErr = e; }
   if (saveErr) {
@@ -1292,7 +1292,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
       const status = askAbsent ? "absent" : askLate ? "late" : "sick";
       const stLabel = askAbsent ? "❌ ขาดเรียน" : askLate ? "⏰ มาสาย" : "🤒 ป่วย";
       const { data: rows } = await sb.from("attendance")
-        .select("attendance_date, notes")
+        .select("attendance_date, notes").is("subject_id", null)
         .eq("student_id", user.id).eq("status", status)
         .gte("attendance_date", fStr).lte("attendance_date", tStr)
         .order("attendance_date", { ascending: false }).limit(40);
@@ -1341,7 +1341,7 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
       const lines: string[] = [];
       for (const c of cls) {
         const { data: att } = await sb.from("attendance")
-          .select("status, students!inner(first_name,last_name,classroom_id)")
+          .select("status, students!inner(first_name,last_name,classroom_id)").is("subject_id", null)
           .eq("attendance_date", today).in("status", ["absent","late","sick"])
           .eq("students.classroom_id", c.id);
         const label = c.name || `${c.grade_level}/${c.section}`;

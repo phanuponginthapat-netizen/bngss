@@ -47,7 +47,7 @@ const Pp8Page = () => {
 
     // Fetch related data in parallel
     const [attRes, behRes, hvRes, hrRes] = await Promise.all([
-      supabase.from("attendance").select("*").eq("student_id", s.id).order("attendance_date", { ascending: false }).limit(100),
+      supabase.from("attendance").select("*").is("subject_id", null).eq("student_id", s.id).order("attendance_date", { ascending: false }).limit(100),
       supabase.from("behavior_records").select("*").eq("student_id", s.id).order("record_date", { ascending: false }).limit(50),
       supabase.from("home_visits").select("*").eq("student_id", s.id).order("visit_date", { ascending: false }),
       supabase.from("health_records").select("*").eq("student_id", s.id).order("visit_date", { ascending: false }),

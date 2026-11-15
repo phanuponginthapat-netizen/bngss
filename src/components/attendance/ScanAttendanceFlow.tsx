@@ -35,7 +35,7 @@ interface Props {
   onSubmit: (statusMap: Record<string, AttendanceStatus>) => Promise<void> | void;
   /** Optional context label (e.g. "ป.5/1 — คาบ 2 วิชาคณิตศาสตร์") */
   contextLabel?: string;
-  /** นักเรียนที่มีบันทึกมาแล้ว (เช่น สแกนหน้าประตู/ใบหน้า) — ถือว่าแสกนแล้ว ไม่ต้องแสกนซ้ำ */
+  /** สถานะเดิมของการเช็คชื่อครั้งนี้เท่านั้น — caller ต้องไม่ส่งข้อมูลคนละขอบเขต */
   prescanned?: Record<string, AttendanceStatus>;
 }
 
@@ -54,7 +54,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
   const [scanned, setScanned] = useState<Record<string, AttendanceStatus>>(prescanned || {}); // present/late
   const [scanLog, setScanLog] = useState<{ id: string; name: string; at: number }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
-  // เติมสถานะจากการสแกนหน้าประตู/ใบหน้าที่บันทึกไว้แล้ววันนี้ (ไม่ทับสิ่งที่ครูเพิ่งแสกน)
+  // เติมสถานะเดิมในขอบเขตเดียวกัน ไม่ทับสิ่งที่ครูเพิ่งบันทึก
   useEffect(() => {
     if (!prescanned || Object.keys(prescanned).length === 0) return;
     setScanned(prev => ({ ...prescanned, ...prev }));
@@ -63,7 +63,8 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Manual mode: default all to present, teacher ticks off exceptions
-  const [manualStatus, setManualStatus] = useState<Record<string, AttendanceStatus>>({});
+  const [manualStatus, setManualStatus] = useState<Record<string, AttendanceStatus>>(prescanned || {});
+  useEffect(() => { if (prescanned) setManualStatus(prev => ({ ...prescanned, ...prev })); }, [prescanned]);
   const getManual = (id: string): AttendanceStatus => manualStatus[id] || "present";
   const setOneManual = (id: string, v: AttendanceStatus) =>
     setManualStatus(p => ({ ...p, [id]: v }));
@@ -123,7 +124,7 @@ export function ScanAttendanceFlow({ students, scanTitle, autoOpen = false, onSu
       toast.error(lang === "th" ? `ไม่พบนักเรียนจาก QR ในรายชื่อนี้` : `Not in roster`);
       return;
     }
-    if (scanned[s.id]) {
+    if (scanned[s.id] && scanned[s.id] !== "absent") {
       toast.info(lang === "th" ? `${s.first_name} ${s.last_name} แสกนแล้ว` : `${s.first_name} already scanned`);
       return;
     }

@@ -76,7 +76,7 @@ const ReportCardPage = ({ embedded = false }: { embedded?: boolean }) => {
     queryKey: ["report_attendance", studentCode, yearCE, semester],
     queryFn: async () => {
       if (!studentCode || !student) return [];
-      const { data, error } = await supabase.from("attendance").select("*").eq("student_id", student.id).eq("academic_year", yearCE).eq("semester", parseInt(semester));
+      const { data, error } = await supabase.from("attendance").select("*").is("subject_id", null).eq("student_id", student.id).eq("academic_year", yearCE).eq("semester", parseInt(semester));
       if (error) throw error;
       return data || [];
     },

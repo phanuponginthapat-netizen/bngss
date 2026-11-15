@@ -193,7 +193,7 @@ export async function loadClassBookletData(classroomId: string, opts: { semester
     (opts.semester ? scoreQuery.eq("semester", opts.semester) : scoreQuery).order("academic_year").order("semester"),
     supabase.from("student_assessment_scores").select("*, assessment_criteria(*)").in("student_id", ids),
     opts.semester
-      ? supabase.from("attendance").select("student_id, status").in("student_id", ids).eq("semester", opts.semester)
+      ? supabase.from("attendance").select("student_id, status").is("subject_id", null).in("student_id", ids).eq("semester", opts.semester)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
