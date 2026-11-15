@@ -10,6 +10,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import CreditFooter from "@/components/CreditFooter";
 import HomepagePopup from "@/components/cms/HomepagePopup";
+import PageMetadata from "@/components/public/PageMetadata";
 
 
 // Sanitize CMS-authored HTML before injecting into the public landing page
@@ -305,6 +306,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fffaf5] dark:bg-background">
+      <PageMetadata title={isHome ? schoolName : currentPage?.title} description={isHome ? undefined : currentPage?.content ? String(currentPage.content).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160) : undefined} />
       {isHome && <HomepagePopup />}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-card/80 backdrop-blur-xl border-b border-[#fecaca]/40 dark:border-border/40 shadow-[0_1px_20px_-8px_rgba(249,168,168,0.35)]">
@@ -555,12 +557,14 @@ const Index = () => {
                     {bannerImages.length > 1 && (
                       <>
                         <button
+                          aria-label="ภาพประชาสัมพันธ์ก่อนหน้า"
                           onClick={() => setCurrentBanner(prev => (prev - 1 + bannerImages.length) % bannerImages.length)}
                           className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
                         >
                           <ChevronLeft className="w-5 h-5" />
                         </button>
                         <button
+                          aria-label="ภาพประชาสัมพันธ์ถัดไป"
                           onClick={() => setCurrentBanner(prev => (prev + 1) % bannerImages.length)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center backdrop-blur-sm transition-colors"
                         >
@@ -570,6 +574,8 @@ const Index = () => {
                           {bannerImages.map((_, i) => (
                             <button
                               key={i}
+                              aria-label={`แสดงภาพประชาสัมพันธ์ ${i + 1}`}
+                              aria-current={currentBanner === i ? "true" : undefined}
                               onClick={() => setCurrentBanner(i)}
                               className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                                 currentBanner === i ? 'bg-white scale-125' : 'bg-white/50 hover:bg-white/75'
@@ -891,12 +897,12 @@ const Index = () => {
               {(socialFacebook || socialLine) && (
                 <div className="flex gap-3 mt-4">
                   {socialFacebook && (
-                    <a href={socialFacebook} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                    <a href={socialFacebook} aria-label={`Facebook ${schoolName}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
                       <Facebook className="w-5 h-5" />
                     </a>
                   )}
                   {socialLine && (
-                    <a href={socialLine} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors text-sm font-bold">
+                    <a href={socialLine} aria-label={`LINE ${schoolName}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors text-sm font-bold">
                       LINE
                     </a>
                   )}

@@ -53,7 +53,6 @@ function hydrateFromCache() {
     const raw = localStorage.getItem(BRAND_CACHE_KEY);
     if (!raw) return;
     const b = JSON.parse(raw);
-    if (b?.name) document.title = b.name;
     if (b?.themeColor) {
       setMeta("theme-color", b.themeColor);
       applyThemeVars(b.themeColor);
@@ -130,14 +129,10 @@ export async function applyDynamicBranding() {
       prepareSquareLogo(source, 512, bgColor).catch(() => DEFAULT_ICON_512),
     ]);
 
-    document.title = name;
     setMeta("theme-color", themeColor);
-    setMeta("description", description);
     // iOS ใช้ meta เหล่านี้ตอนติดตั้งจาก Safari (manifest อย่างเดียวไม่พอ)
     setMeta("apple-mobile-web-app-title", shortName);
     setMeta("application-name", shortName);
-    setMeta("og:title", name, "property");
-    setMeta("og:description", description, "property");
     setLink("apple-touch-icon", logo192);
     setLink("apple-touch-icon", logo192, "180x180");
     setLink("apple-touch-icon", logo192, "192x192");

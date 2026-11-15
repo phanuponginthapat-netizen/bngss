@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye, Boxes, ScanLine } from "lucide-react";
 import ArMediaViewer from "@/components/ar/ArMediaViewer";
+import PageMetadata from "@/components/public/PageMetadata";
 
 interface ArItem {
   id: string; code: string; title: string; description: string | null;
@@ -39,9 +40,6 @@ export default function ARViewPage() {
     load();
   }, [code]);
 
-  useEffect(() => {
-    if (item?.title) document.title = `${item.title} | สื่อ AR แหล่งเรียนรู้`;
-  }, [item?.title]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">กำลังโหลด...</div>;
@@ -64,6 +62,7 @@ export default function ARViewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <PageMetadata title={item.title} description={item.description || `สื่อ AR ${item.title} สำหรับดู${typeLabel[item.media_type] || "สื่อการเรียนรู้"}ของโรงเรียน`} />
       <div className="max-w-3xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <Button asChild variant="ghost" size="sm"><Link to={item.project_slug ? `/ar/p/${item.project_slug}` : "/ar"}><ArrowLeft className="h-4 w-4 mr-2" />{item.project_title || "คลังสื่อ AR"}</Link></Button>

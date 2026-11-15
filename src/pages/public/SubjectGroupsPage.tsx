@@ -33,7 +33,7 @@ export default function SubjectGroupsPage() {
             <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <BookOpen className="h-6 w-6" />
             </div>
-            <h3 className="text-lg font-bold">{g.subject_group}</h3>
+            <h2 className="text-lg font-bold">{g.subject_group}</h2>
             <p className="text-sm text-muted-foreground">ครู {g.count} คน</p>
           </div>
         ))}

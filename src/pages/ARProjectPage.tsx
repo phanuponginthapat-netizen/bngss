@@ -10,6 +10,7 @@ import ArImage from "@/components/ar/ArImage";
 import ArImageTracker, { type TrackedItem } from "@/components/ar/ArImageTracker";
 import { extractArCode } from "@/lib/arCode";
 import { useCmsValues } from "@/hooks/useCmsSettings";
+import PageMetadata from "@/components/public/PageMetadata";
 
 
 interface Project {
@@ -53,9 +54,6 @@ export default function ARProjectPage() {
     })();
   }, [slug]);
 
-  useEffect(() => {
-    if (project?.title) document.title = `${project.title} | งาน AR แหล่งเรียนรู้`;
-  }, [project?.title]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">กำลังโหลด...</div>;
@@ -81,6 +79,7 @@ export default function ARProjectPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <PageMetadata title={project.title} description={project.description || `งาน AR ${project.title} ภาพ วิดีโอ และสื่อการเรียนรู้ของโรงเรียน`} />
       {arOpen && project.targets_url && (
         <ArImageTracker
           targetsUrl={project.targets_url}

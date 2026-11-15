@@ -4,6 +4,8 @@
  * Use for critical, low-frequency writes like attendance check-in.
  */
 
+import { pendingScanPayload } from "@/lib/pendingScanPayload";
+import { clearScanDedupCache } from "@/lib/scanDedup";
 import { supabase } from "@/integrations/supabase/client";
 
 const DB_NAME = "offline-queue";
@@ -118,7 +120,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
       try {
         let res: any;
         if (it.op === "insert") {
-          let payload = it.payload;
+          let payload = it.table === "face_scan_logs" ? pendingScanPayload(it.payload) : it.payload;
           // รูปหน้าที่ถ่ายตอนออฟไลน์: อัปโหลดก่อน แล้วเก็บเฉพาะลิงก์ (ไม่เก็บรูปดิบลงฐานข้อมูล)
           if (payload && typeof payload === "object" && "__face_data" in payload) {
             const { __face_data, ...rest } = payload;
@@ -127,7 +129,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
               try {
                 const { uploadFaceScanSnapshot } = await import("@/lib/faceScanUpload");
                 const url = await uploadFaceScanSnapshot(__face_data, payload.student_id);
-                if (url && /^https?:\/\//i.test(url)) payload = { ...payload, captured_face_url: url };
+                if (url && !url.startsWith("data:")) payload = { ...payload, captured_face_url: url };
               } catch { /* ไม่มีรูปก็ยังบันทึกเวลาได้ */ }
             }
           }
@@ -142,6 +144,7 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
           res = await q;
         }
         if (res.error) throw res.error;
+        if (it.table === "face_scan_logs") clearScanDedupCache();
         await remove(it.id);
         ok++;
       } catch (e: any) {
@@ -171,8 +174,9 @@ export async function flush(): Promise<{ ok: number; failed: number }> {
  * Install background auto-flush. Call once at app boot.
  */
 let _intervalId: ReturnType<typeof setInterval> | null = null;
+const tryFlush = () => flush().catch(() => {});
 export function installOfflineSync() {
-  const tryFlush = () => flush().catch(() => {});
+  if (_intervalId != null) return;
   window.addEventListener("online", tryFlush);
   window.addEventListener("focus", tryFlush);
   _intervalId = setInterval(tryFlush, 60_000);
@@ -180,6 +184,8 @@ export function installOfflineSync() {
 }
 
 export function uninstallOfflineSync() {
+  window.removeEventListener("online", tryFlush);
+  window.removeEventListener("focus", tryFlush);
   if (_intervalId != null) {
     clearInterval(_intervalId);
     _intervalId = null;

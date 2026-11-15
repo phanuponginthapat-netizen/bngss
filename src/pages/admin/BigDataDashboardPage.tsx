@@ -192,6 +192,24 @@ export default function BigDataDashboardPage() {
   }, []);
 
   // ---- Warehouse fetch -----------------------------------------------------
+  useEffect(()=>{
+    let disposed=false,busy=false,again=false;
+    const refresh=async()=>{
+      if(busy){again=true;return;}busy=true;
+      try{
+        const {data:session}=await supabase.auth.getSession();
+        if(!session.session)return;
+        const response=await fetch(`${SUPABASE_RUNTIME_URL}/functions/v1/onestop-api?module=attendance`,{headers:{Authorization:`Bearer ${session.session.access_token}`,apikey:SUPABASE_RUNTIME_ANON_KEY}});
+        if(!response.ok)throw new Error("อ่านผลสแกนไม่สำเร็จ");
+        const fresh=await response.json();
+        if(!disposed)setData(prev=>prev?{...prev,attendance:fresh.attendance,generated_at:fresh.generated_at}:prev);
+      }catch{if(!disposed)setError("อ่านผลสแกนล่าสุดไม่สำเร็จ");}
+      finally{busy=false;if(again&&!disposed){again=false;void refresh();}}
+    };
+    window.addEventListener("facegate:receipt",refresh);
+    return()=>{disposed=true;window.removeEventListener("facegate:receipt",refresh);};
+  },[]);
+
   const fetchWarehouse = useCallback(async () => {
     setWhLoading(true);
     setWhError(null);

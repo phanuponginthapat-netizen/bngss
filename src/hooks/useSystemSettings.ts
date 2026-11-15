@@ -4,12 +4,7 @@ import { useCmsSettingsBulk } from "./useCmsSettings";
 export function useSystemSettings() {
   const { data: settings } = useCmsSettingsBulk();
 
-  // Dynamically update document title
-  useEffect(() => {
-    if (settings?.app_name) {
-      document.title = settings.app_name;
-    }
-  }, [settings?.app_name]);
+  // Route metadata owns document titles; branding must not overwrite them.
 
   // Dynamically update favicon, apple-touch-icon, and PWA manifest icons
   useEffect(() => {

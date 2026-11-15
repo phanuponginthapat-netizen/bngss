@@ -1,0 +1,54 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+
+// Only public CMS pages are enumerated. School records, profile inventories,
+// auth flows and session-protected news details are deliberately excluded.
+const origin = 'https://bngss.online';
+const staticPaths = ['/', '/about/history', '/about/vision', '/about/philosophy', '/about/org-chart', '/org-chart', '/personnel', '/subject-groups', '/news', '/calendar', '/downloads', '/download-app', '/faq', '/contact', '/pdpa', '/find', '/ar', '/help', '/install'];
+const env = { ...process.env };
+try {
+  for (const line of readFileSync('.env', 'utf8').split('\n')) {
+    const match = line.match(/^(VITE_SUPABASE_URL|VITE_SUPABASE_PUBLISHABLE_KEY)=["']?([^"'\r]+)["']?$/);
+    if (match && !env[match[1]]) env[match[1]] = match[2];
+  }
+} catch { /* CI can supply these public values directly. */ }
+// CI may not ship .env; reuse the app's canonical public connection instead
+// of maintaining another backend identity or requiring a private credential.
+const runtime = readFileSync('src/lib/runtimeConfig.ts', 'utf8');
+const canonical = runtime.match(/export const CANONICAL_BACKEND = \{([\s\S]*?)\} as const;/)?.[1] || '';
+const canonicalUrl = canonical.match(/url: "([^"]+)"/)?.[1];
+const canonicalKey = canonical.match(/anonKey: "([^"]+)"/)?.[1];
+const backend = canonicalUrl;
+const key = env.VITE_SUPABASE_URL?.replace(/\/+$/, '') === canonicalUrl && env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ? env.VITE_SUPABASE_PUBLISHABLE_KEY : canonicalKey;
+if (!backend || !key) throw new Error('Public CMS connection is required to generate a complete sitemap');
+const paths = new Set(staticPaths);
+for (let offset = 0; ; offset += 1000) {
+  const response = await fetch(`${backend}/rest/v1/cms_pages?select=slug&is_published=eq.true&order=id.asc&offset=${offset}&limit=1000`, {
+    headers: { apikey: key }, signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw new Error(`Public CMS sitemap read failed (${response.status})`);
+  const rows = await response.json();
+  if (!Array.isArray(rows)) throw new Error('Invalid public CMS sitemap response');
+  for (const row of rows) if (typeof row.slug === 'string' && row.slug) paths.add(`/page/${encodeURIComponent(row.slug)}`);
+  if (rows.length < 1000) break;
+}
+// Match the public AR loaders' is_public/is_active conditions, without the
+// list RPC's 200-row ceiling. These reads use the existing anonymous policies.
+for (const [table, field, prefix] of [['ar_projects', 'slug', '/ar/p/'], ['ar_experiences', 'code', '/ar/']]) {
+  for (let offset = 0; ; offset += 1000) {
+    const response = await fetch(`${backend}/rest/v1/${table}?select=${field}&is_public=eq.true&is_active=eq.true&order=id.asc&offset=${offset}&limit=1000`, {
+      headers: { apikey: key }, signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`Public AR sitemap read failed (${response.status})`);
+    const rows = await response.json();
+    if (!Array.isArray(rows)) throw new Error('Invalid public AR sitemap response');
+    for (const row of rows) if (typeof row[field] === 'string' && row[field]) paths.add(prefix + encodeURIComponent(row[field]));
+    if (rows.length < 1000) break;
+  }
+}
+const escape = value => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+// No lastmod: generation time is not a page content modification timestamp.
+writeFileSync('public/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[...paths].map(path => `  <url><loc>${escape(origin + path)}</loc></url>`).join('\n')}\n</urlset>\n`);
+console.log(`Generated sitemap for ${paths.size} public pages`);
+// Search Console's Lovable URL-prefix requires a sitemap on that same origin.
+writeFileSync('public/sitemap-lovable.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[...paths].map(path => `  <url><loc>${escape('https://bngss.lovable.app' + path)}</loc></url>`).join('\n')}\n</urlset>\n`);

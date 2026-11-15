@@ -27,6 +27,7 @@ import {
   Heart,
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
+import { parentAttendanceStatus } from "@/lib/parentAttendance";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -107,6 +108,7 @@ type ChildBundle = {
   homework: HomeworkRow[];
   remediation: RemediationRow[];
   loading: boolean;
+  attendanceError?: string;
 };
 
 // ---------- Helpers ----------
@@ -149,6 +151,13 @@ export default function ParentAppPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [lateThreshold,setLateThreshold]=useState<string|null>(null);
+  useEffect(()=>{
+    let disposed=false;
+    const load=async()=>{const {data,error}=await supabase.from("school_settings").select("setting_value").eq("setting_key","clock_late_threshold").maybeSingle();if(!disposed)setLateThreshold(error?null:String(data?.setting_value||"08:30"));};
+    void load();window.addEventListener("facegate:receipt",load);
+    return()=>{disposed=true;window.removeEventListener("facegate:receipt",load);};
+  },[]);
 
   // ---- 1) resolve current user id ----
   useEffect(() => {
@@ -285,6 +294,7 @@ export default function ParentAppPage() {
       .select("id, attendance_date, status, notes")
       .eq("student_id", child.id)
       .eq("attendance_date", today)
+      .is("subject_id",null).order("id")
       .limit(5);
 
     // latest grades from student_scores (uses student_code) — keep fast with .limit(5)
@@ -348,6 +358,7 @@ export default function ParentAppPage() {
       incompletePromise,
     ]);
 
+    const attendanceError = faceRes.status === "rejected" || attRes.status === "rejected" || (faceRes.status === "fulfilled" && faceRes.value.error) || (attRes.status === "fulfilled" && attRes.value.error) ? "อ่านผลสแกน/เช็คชื่อไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const faceLogs = faceRes.status === "fulfilled" ? ((faceRes.value.data as unknown as FaceLog[]) ?? []) : [];
     const attendance = attRes.status === "fulfilled" ? ((attRes.value.data as unknown as AttendanceRow[]) ?? []) : [];
     const scores = scoresRes.status === "fulfilled" ? ((scoresRes.value.data as unknown as ScoreRow[]) ?? []) : [];
@@ -391,7 +402,7 @@ export default function ParentAppPage() {
       }
     }
 
-    return { faceLogs, attendance, scores, homework, remediation };
+    return { faceLogs, attendance, scores, homework, remediation, attendanceError };
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -434,7 +445,8 @@ export default function ParentAppPage() {
       results.forEach((r) => {
         if (r.status === "fulfilled") {
           const { childId, data } = r.value;
-          const child = kids.find((k) => k.id === childId)!;
+          const child = kids.find((k) => k.id === childId);
+          if (!child) return;
           next[childId] = { child, ...data, loading: false };
         }
       });
@@ -457,8 +469,29 @@ export default function ParentAppPage() {
   }, [userId, fetchChildren, fetchBundleForChild, L]);
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
+    // Initial child loading stays separate; the effect below reconciles scans.
   }, [loadAll]);
+
+  useEffect(() => {
+    const refreshScans = async () => {
+      for (const child of children) {
+        try {
+          const today = todayBangkok();
+          const [face, attendance] = await Promise.all([
+            supabase.from("face_scan_logs").select("id,scan_date,scan_time,scan_type,entry_method,created_at").eq("student_id", child.id).eq("scan_date",today).order("scan_time",{ascending:false}).limit(5),
+            supabase.from("attendance").select("id,attendance_date,status,notes").eq("student_id",child.id).eq("attendance_date",today).is("subject_id",null).order("id").limit(5),
+          ]);
+          if(face.error || attendance.error) throw new Error("อ่านผลสแกนไม่สำเร็จ");
+          setBundles(prev => prev[child.id] ? {...prev,[child.id]:{...prev[child.id],faceLogs:face.data as FaceLog[],attendance:attendance.data as AttendanceRow[],attendanceError:undefined}} : prev);
+        } catch { setBundles(prev => prev[child.id] ? {...prev,[child.id]:{...prev[child.id],attendanceError:"อ่านผลสแกนไม่สำเร็จ กรุณาลองใหม่"}} : prev); }
+      }
+    };
+    const timer = window.setInterval(refreshScans,30_000);
+    window.addEventListener("focus",refreshScans); window.addEventListener("online",refreshScans);
+    window.addEventListener("facegate:receipt",refreshScans);
+    return () => {window.clearInterval(timer);window.removeEventListener("facegate:receipt",refreshScans);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
+  },[children]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -471,6 +504,7 @@ export default function ParentAppPage() {
     if (b.loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {L("กำลังโหลดการมาเรียน...", "Loading attendance...")}</div>;
     const today = todayBangkok();
     const hasFace = b.faceLogs.length > 0;
+    if (b.attendanceError) return <p role="alert" className="text-sm text-destructive">{b.attendanceError}</p>;
     const hasAtt = b.attendance.length > 0;
     if (!hasFace && !hasAtt) {
       return (
@@ -493,7 +527,7 @@ export default function ParentAppPage() {
                     <Badge variant={f.scan_type === "in" ? "default" : "secondary"} className="capitalize">
                       {f.scan_type || "scan"}
                     </Badge>
-                    <span className="text-xs font-mono">{f.scan_time?.slice(0, 8) || new Date(f.created_at).toLocaleTimeString("th-TH")}</span>
+                    <span className="text-xs font-mono">{new Date(f.scan_time || f.created_at).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour12:false})}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">{f.scan_date}</span>
                 </div>
@@ -752,8 +786,10 @@ export default function ParentAppPage() {
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
             const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
-            const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || (selBundle?.faceLogs?.length ? "present" : "") || "present") : null;
-            const attendanceLabel = !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
+            let attendanceToday:string|null=null;
+            let statusUnavailable=!!selBundle?.attendanceError||!lateThreshold;
+            if(selBundle&&lateThreshold)try{attendanceToday=parentAttendanceStatus(selChild.id,selBundle.attendance,selBundle.faceLogs,lateThreshold);}catch{statusUnavailable=true;}
+            const attendanceLabel = statusUnavailable ? L("อ่านไม่สำเร็จ", "Unavailable") : !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
             return (
               <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[0,1,2,3].map((idx) => {
@@ -785,7 +821,7 @@ export default function ParentAppPage() {
                           </div>
                           <p className="text-[11px] text-muted-foreground font-medium">{L("มาเรียนวันนี้", "Today")}</p>
                           <p className="text-lg font-bold">{attendanceLabel}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{selBundle?.faceLogs?.[0]?.scan_time?.slice(0,5) || selBundle?.attendance?.[0]?.attendance_date || todayBangkok()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{(selBundle?.faceLogs?.[0]?.scan_time ? new Date(selBundle.faceLogs[0].scan_time).toLocaleTimeString("th-TH",{timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit",hour12:false}) : undefined) || selBundle?.attendance?.[0]?.attendance_date || todayBangkok()}</p>
                         </CardContent>
                       </Card>
                     </motion.div>

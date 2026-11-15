@@ -87,20 +87,14 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
     const items = await getPending();
     for (const item of items) {
       try {
-        // กันเวลาเพี้ยน: ถ้าเวลาที่บันทึกไว้ในเครื่อง "อยู่ในอนาคต" หรือย้อนหลังเกิน 7 วัน
-        // ให้ถือว่านาฬิกาเครื่องผิด แล้วใช้เวลาปัจจุบันของเซิร์ฟเวอร์แทน
-        const localTs = new Date(item.scanned_at).getTime();
-        const nowTs = Date.now();
-        const sane =
-          Number.isFinite(localTs) &&
-          localTs <= nowTs + 60_000 &&
-          nowTs - localTs <= 7 * 24 * 3600_000;
-        const stamp = sane ? new Date(localTs) : null;
+        const stamp = new Date(item.scanned_at);
+        if (!Number.isFinite(stamp.getTime()) || stamp.getTime() > Date.now() + 60_000) {
+          throw new Error("เวลาสแกนไม่ถูกต้อง เก็บรายการไว้ตรวจสอบโดยไม่เปลี่ยนเป็นวันนี้");
+        }
 
         const { error } = await supabase.from("face_scan_logs").insert({
           student_id: item.student_id,
-          // ไม่ส่งวัน/เวลาเมื่อเวลาเครื่องไม่น่าเชื่อถือ → ฐานข้อมูลประทับเวลาไทยเอง
-          ...(stamp ? { scan_date: bkkDateISO(stamp), scan_time: stamp.toISOString() } : {}),
+          scan_date: bkkDateISO(stamp), scan_time: stamp.toISOString(),
           scan_type: item.scan_type,
 
           confidence: 1,
@@ -123,7 +117,7 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
           }
         } else {
           const { markScanned } = await import("@/lib/scanDedup");
-          markScanned(item.student_id, item.scan_type, item.entry_method);
+          markScanned(item.student_id, item.scan_type, item.entry_method, item.scanned_at);
           if (item.id != null) await removePending(item.id);
           synced++;
         }
@@ -138,12 +132,19 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
   } finally {
     flushing = false;
   }
+  if (synced && typeof window !== "undefined") {
+    const {clearScanDedupCache}=await import("@/lib/scanDedup");
+    clearScanDedupCache();
+    window.dispatchEvent(new CustomEvent("offline-queue:synced",{detail:{ok:synced,failed}}));
+  }
   return { synced, failed };
 }
 
 /** Register auto-flush listeners (idempotent) */
 let installed = false;
 let _intervalId: ReturnType<typeof setInterval> | null = null;
+let autoTrigger: (() => Promise<void>) | null = null;
+let initialTimer: ReturnType<typeof setTimeout> | null = null;
 export function installAutoSync(onChange?: () => void) {
   if (installed || typeof window === "undefined") return;
   installed = true;
@@ -152,13 +153,16 @@ export function installAutoSync(onChange?: () => void) {
     const { synced, failed } = await flushQueue();
     if ((synced || failed) && onChange) onChange();
   };
+  autoTrigger = trigger;
   window.addEventListener("online", trigger);
   window.addEventListener("focus", trigger);
   _intervalId = setInterval(trigger, 30_000);
-  setTimeout(trigger, 1_500);
+  initialTimer = setTimeout(trigger, 1_500);
 }
 
 export function uninstallAutoSync() {
+  if (autoTrigger) {window.removeEventListener("online", autoTrigger); window.removeEventListener("focus", autoTrigger); autoTrigger = null;}
+  if (initialTimer) {clearTimeout(initialTimer); initialTimer = null;}
   if (_intervalId != null) {
     clearInterval(_intervalId);
     _intervalId = null;

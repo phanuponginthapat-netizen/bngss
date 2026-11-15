@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { bkkDateISO } from "@/lib/dateBE";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +18,7 @@ import {
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  enqueueScan, flushQueue, countPending, installAutoSync,
+  enqueueScan, flushQueue, countPending, installAutoSync, uninstallAutoSync,
 } from "@/lib/offlineScanQueue";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import {
@@ -100,6 +101,7 @@ export default function MobileQrScanPage() {
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => {
+      uninstallAutoSync();
       window.removeEventListener("online", on);
       window.removeEventListener("offline", off);
     };
@@ -163,11 +165,9 @@ export default function MobileQrScanPage() {
 
     let queued = false;
     try {
-      // ⚠️ ออนไลน์: ไม่ส่ง scan_date / scan_time ขึ้นไป
-      // ให้ฐานข้อมูลประทับวัน-เวลาไทยของเซิร์ฟเวอร์เอง — ข้อมูลจึงตรงเสมอ
-      // แม้นาฬิกาหรือโซนเวลาของมือถือเครื่องที่ใช้สแกนจะตั้งผิด
       const { error } = await supabase.from("face_scan_logs").insert({
         student_id: scan.student_id,
+        scan_time: scan.scanned_at, scan_date: bkkDateISO(new Date(scan.scanned_at)),
         scan_type: scan.scan_type,
         confidence: 1,
         scanned_by: scan.scanned_by,

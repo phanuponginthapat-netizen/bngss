@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { swal } from "@/lib/swal";
 import { useMemo, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -262,8 +263,8 @@ const PP5AttendanceMatrix = ({
       const distinctDates = Array.from(new Set(validDates)).sort().filter(d => !isHoliday(d));
       if (distinctDates.length === 0) { toast.info("ทุกคาบเป็นวันหยุด ไม่ต้องดึงสแกน"); setAutoScanLoading(false); return; }
       const fromH = distinctDates[0], toH = distinctDates[distinctDates.length-1];
-      const { data: scans } = await supabase.from("face_scan_logs").select("student_id, scan_date").eq("scan_type", "entry").gte("scan_date", fromH).lte("scan_date", toH).in("student_id", studentIds);
-      const { data: attends } = await supabase.from("attendance").select("student_id, attendance_date").gte("attendance_date", fromH).lte("attendance_date", toH).in("student_id", studentIds);
+      const scans = await fetchAllRows((a,b)=>supabase.from("face_scan_logs").select("student_id,scan_date").in("scan_type",["entry","assembly"]).gte("scan_date",fromH).lte("scan_date",toH).in("student_id",studentIds).order("id").range(a,b));
+      const attends = await fetchAllRows((a,b)=>supabase.from("attendance").select("student_id,attendance_date").in("status",["present","late"]).gte("attendance_date",fromH).lte("attendance_date",toH).in("student_id",studentIds).order("id").range(a,b));
       const presentSet = new Set<string>();
       for (const s of (scans as any[]) || []) presentSet.add(`${s.student_id}|${s.scan_date}`);
       for (const a of (attends as any[]) || []) presentSet.add(`${a.student_id}|${a.attendance_date}`);
@@ -276,8 +277,8 @@ const PP5AttendanceMatrix = ({
           const cur = statusMap.get(key);
           // If has scan and currently absent/leave or not present, set to present (delete absent/leave)
           if (hasScan && cur) {
-            await supabase.from("attendance").delete().eq("id", cur.id);
-            filled++;
+            // Existing academic attendance is settled; gate evidence does not delete it.
+            continue;
           } else if (!hasScan && !cur) {
             // No scan and no record => keep as present (no row) - don't auto mark absent to avoid overwriting holidays
             // Do nothing; teacher can bulk mark absent if needed

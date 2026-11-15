@@ -1,3 +1,4 @@
+import { resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 import { loadDashboardAttendance, attendanceRate } from "@/lib/dashboardAttendance";
 import { useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
@@ -223,7 +224,8 @@ const TeacherDashboard = () => {
     queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate],
     enabled: hasHomeroom && !!homeroomClassroomIds?.length,
     queryFn: async () => {
-      const classIds = homeroomClassroomIds!;
+      const classIds = homeroomClassroomIds;
+      if (!classIds?.length) throw new Error("Homeroom unavailable");
       const { data: studentList, error: studentError } = await supabase.from("students")
         .select("id, prefix, first_name, last_name, gender, status, student_code, photo_url")
         .in("classroom_id", classIds).eq("status", "active");
@@ -232,37 +234,19 @@ const TeacherDashboard = () => {
 
       const today = todayBangkok();
       const [attendance, behavior, leaves, homeVisits, sdq, faceLogs, lateSetting] = await Promise.all([
-        supabase.from("attendance").select("id, status, student_id").in("student_id", studentIds).eq("attendance_date", today),
+        supabase.from("attendance").select("id, status, student_id").in("student_id", studentIds).eq("attendance_date", today).is("subject_id",null),
         supabase.from("behavior_records").select("id, behavior_type, description, record_date")
           .in("student_id", studentIds).order("record_date", { ascending: false }).limit(10),
         supabase.from("student_leaves").select("id, status").in("student_id", studentIds),
         supabase.from("home_visits").select("id").in("classroom_id", classIds),
         supabase.from("sdq_records").select("id").in("student_id", studentIds),
-        supabase.from("face_scan_logs").select("student_id, scan_time").in("student_id", studentIds).eq("scan_date", today).eq("scan_type", "entry"),
-        supabase.from("school_settings").select("setting_value").eq("setting_key", "face_scan_late_threshold").maybeSingle(),
+        supabase.from("face_scan_logs").select("student_id, scan_time, scan_type").in("student_id", studentIds).eq("scan_date", today).in("scan_type", ["entry","assembly"]),
+        supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
       ]);
 
-      const lateThreshold = (lateSetting.data?.setting_value as string) || "08:00";
+      const lateThreshold = (lateSetting.data?.setting_value as string) || "08:30";
       requireSuccessfulReads([attendance, behavior, leaves, homeVisits, sdq, faceLogs, lateSetting]);
-      const statusByStudent = new Map<string, "present" | "late" | "absent">();
-      attendance.data?.forEach((a: any) => {
-        if (a.student_id && (a.status === "present" || a.status === "late" || a.status === "absent")) {
-          statusByStudent.set(a.student_id, a.status);
-        }
-      });
-      const firstScan = new Map<string, Date>();
-      (faceLogs.data || []).forEach((x: any) => {
-        const t = new Date(x.scan_time);
-        const prev = firstScan.get(x.student_id);
-        if (!prev || t < prev) firstScan.set(x.student_id, t);
-      });
-      const fmtHHMM = (d: Date) => new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false,
-      }).format(d);
-      firstScan.forEach((t, sid) => {
-        if (statusByStudent.has(sid)) return;
-        statusByStudent.set(sid, fmtHHMM(t) > lateThreshold ? "late" : "present");
-      });
+      const statusByStudent = resolveDigestStatuses(attendance.data || [], faceLogs.data || [], lateThreshold);
 
       const totalStu = studentList?.length || 0;
       const present = Array.from(statusByStudent.values()).filter(s => s === "present").length;
@@ -292,7 +276,8 @@ const TeacherDashboard = () => {
         sdqCount: sdq.data?.length || 0,
       };
     },
-    staleTime: 5 * 60_000,
+    refetchInterval: 30_000,
+    staleTime: 30_000,
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,

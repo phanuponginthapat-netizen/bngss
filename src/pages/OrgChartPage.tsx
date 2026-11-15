@@ -85,7 +85,6 @@ const OrgChartPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = `ผังบุคลากร · ${appName || "โรงเรียน"}`;
     (async () => {
       const { data } = await (supabase.rpc as any)("get_public_org_chart");
       setPeople((data as OrgPerson[]) || []);

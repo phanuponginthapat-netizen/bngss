@@ -164,21 +164,23 @@ function applyCameraLook() {
 }
 // Reflow the existing camera, not a new stream, when the monitor turns.
 window.addEventListener('resize', applyCameraLook);
+let resultTimer = null;
 function showResult(d, captured) {
   const student = d.student || {};
   const ok = d.result === 'ok';
   $('waiting').style.display = 'none'; $('profile').className = 'profile show';
-  applyAvatar($('profileAvatar'), d.avatar_url || student.avatar_url, d.snapshot_url || captured);
+  applyAvatar($('profileAvatar'), d.snapshot_url || captured, d.avatar_url || student.avatar_url);
   $('profileName').textContent = student.full_name || d.name || d.message || 'ไม่พบข้อมูล';
   $('profileRole').textContent = student.person_type === 'staff'
     ? ['บุคลากร', student.department, student.position].filter(Boolean).join(' • ')
     : ['นักเรียน', student.class_room ? 'ชั้น ' + student.class_room : ''].filter(Boolean).join(' • ');
   $('profileClass').textContent = student.class_room || student.department || '—';
   $('profileId').textContent = student.student_code || '—';
-  $('scanTime').textContent = serverNow().toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
+  $('scanTime').textContent = (d.scanned_at ? new Date(d.scanned_at) : serverNow()).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
   $('resultBar').className = 'resultBar' + (ok ? '' : ' bad');
-  $('resultBar').textContent = ok ? (content.kiosk_success_label || 'บันทึกสำเร็จ') : d.message;
-  setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, 2000);
+  $('resultBar').textContent = ok ? (d.upload_status === 'pending' ? 'เก็บในเครื่องแล้ว • กำลังส่งเข้าระบบ' : (content.kiosk_success_label || 'บันทึกสำเร็จ')) : d.message;
+  if (resultTimer) clearTimeout(resultTimer);
+  resultTimer = setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, 2000);
 }
 let audioReady = false, thaiVoice = null, browserVoiceOk = false;
 const clipCache = new Map();
@@ -416,9 +418,24 @@ async function loadBrand() {
     if (c.logo_url) { $('logo').src = c.logo_url; $('logo').style.display = 'block'; $('logoFallback').style.display = 'none'; }
   } catch (e) {}
 }
+let recentBusy = false, recentInitialized = false, latestReceipt = null, receiptRevision = '';
+let receiptConnectionError = '';
 async function loadRecent() {
+  if (recentBusy) return;
+  recentBusy = true;
   try {
     const data = await (await fetch('/local/kiosk-api/recent')).json();
+    const revision = JSON.stringify(data.receipt_revision || (data.items || []).map(i => [i.receipt_id, i.scanned_at]));
+    const item = (data.items || [])[0];
+    if (recentInitialized && item && item.receipt_id !== latestReceipt && Date.now() - Date.parse(item.scanned_at) < 15000) {
+      showResult({result:'ok',name:item.name,avatar_url:item.avatar_url,snapshot_url:item.snapshot_url,scanned_at:item.scanned_at,
+        student:{full_name:item.name,person_type:item.person_type,student_code:item.student_code,class_room:item.detail}}, item.snapshot_url);
+    }
+    latestReceipt = item?.receipt_id || null;
+    recentInitialized = true;
+    if (revision !== receiptRevision) { receiptRevision = revision; loadStats(); }
+    if (data.realtime_error) {receiptConnectionError=data.realtime_error;say(receiptConnectionError, 'bad');}
+    else if(receiptConnectionError){receiptConnectionError='';say('พร้อมสแกน', 'ok');}
     if(data.voice_test_at && data.voice_test_at > lastVoiceTest){lastVoiceTest=data.voice_test_at; speak('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ');}
     display = data.display || display;
     updateBroadcast(data.broadcast_media || []);
@@ -429,14 +446,14 @@ async function loadRecent() {
     } else { $('newsBox').style.display = 'none'; }
     $('list').innerHTML = (display.show_recent ? (data.items || []) : []).map((i) => `
       <div class="item"><img alt="" />
-        <div><b>${i.name}</b><span>${i.detail || ''} • ${new Date(i.scanned_at).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit'})}</span></div>
-        <div class="tag ${i.direction === 'out' ? 'out' : ''}">${i.direction === 'out' ? 'ออก' : 'เข้า'}</div></div>`).join('')
+        <div><b>${i.name}</b><span>${i.detail || ''} • ${new Date(i.scanned_at).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'})}</span></div>
+        <div class="tag ${i.direction === 'out' ? 'out' : ''}">${i.direction === 'out' ? 'ออก' : i.direction === 'in' ? 'เข้า' : 'ผ่าน'}</div></div>`).join('')
       || '<div style="color:#94a3b8;font-size:.9rem">ยังไม่มีการสแกนวันนี้</div>';
     document.querySelectorAll('#list .item img').forEach((img, index) => {
       const item = (data.items || [])[index];
-      if (item) applyAvatar(img, item.avatar_url, item.snapshot_url);
+      if (item) applyAvatar(img, item.snapshot_url, item.avatar_url);
     });
-  } catch (e) {}
+  } catch (e) {} finally { recentBusy = false; }
 }
 let serverOffset = 0; // real Thai time minus this PC's clock
 function serverNow() { return new Date(Date.now() + serverOffset); }
@@ -577,14 +594,14 @@ function clock() {
   const thaiOptions = { timeZone:'Asia/Bangkok', weekday:'long',day:'numeric',month:'long',year:'numeric' };
   $('saverClock').textContent = now.toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'});
   $('saverDate').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn',thaiOptions);
-  $('clock').textContent = now.toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn', { hour: '2-digit', minute: '2-digit', second:'2-digit', hour12:false });
-  $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('clock').textContent = now.toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn', { timeZone:'Asia/Bangkok',hour: '2-digit', minute: '2-digit', second:'2-digit', hour12:false });
+  $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { timeZone:'Asia/Bangkok',weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 async function cancelPower(){await fetch('/power/command',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({command:'cancel'})});await loadPower();}
 async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;const rs=!!p.screen_off;if(rs!==remoteSaver){remoteSaver=rs;if(!rs)lastActivity=Date.now();applySaver();}$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}
 setInterval(loadPower,1000);
 loadBrand(); startCamera(); loadRecent(); loadStats(); clock();
-setInterval(tick, 300); setInterval(loadRecent, 15000); setInterval(loadStats, 60000);
+setInterval(tick, 300); setInterval(loadRecent, 500); setInterval(loadStats, 60000);
 setInterval(applySaver, 5000);
 setInterval(clock, 1000); setInterval(loadBrand, 120000);
 </script>

@@ -64,7 +64,7 @@ export default function PersonnelPage() {
       <div className="mb-6 flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="ค้นหาชื่อ / กลุ่มสาระ / ตำแหน่ง" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input aria-label="ค้นหาบุคลากรด้วยชื่อ กลุ่มสาระ หรือตำแหน่ง" placeholder="ค้นหาชื่อ / กลุ่มสาระ / ตำแหน่ง" className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </div>
 

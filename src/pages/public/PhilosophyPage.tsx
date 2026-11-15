@@ -34,9 +34,9 @@ export default function PhilosophyPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="rounded-3xl border border-border/60 bg-background/70 p-6 shadow-sm">
             <Sparkles className="mb-3 h-7 w-7 text-primary" />
-            <h3 className="mb-1 text-lg font-bold">อัตลักษณ์</h3>
+            <h2 className="mb-1 text-lg font-bold">อัตลักษณ์</h2>
             <p className="text-sm text-foreground/80">{i.identity || "—"}</p>
-            <h3 className="mt-5 mb-1 text-lg font-bold">เอกลักษณ์</h3>
+            <h2 className="mt-5 mb-1 text-lg font-bold">เอกลักษณ์</h2>
             <p className="text-sm text-foreground/80">{i.uniqueness || "—"}</p>
           </div>
           <div className="rounded-3xl border border-border/60 bg-background/70 p-6 shadow-sm">

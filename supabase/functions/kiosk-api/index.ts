@@ -4,6 +4,9 @@
 //                                   /content /recent /today-stats (หน้าจอสแกนดึง CMS/หลังบ้าน)
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { scanTimestamp } from "../_shared/scanTimestamp.ts";
+import { scanReceipt } from "../_shared/scanReceipt.ts";
+import { scanLiveCounts } from "../_shared/scanLiveCounts.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
@@ -138,6 +141,48 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({} as any));
     const settings = await loadSettings(db);
 
+    // Device keys remain server-side authorization, never Realtime credentials.
+    // Stream contains no identity or photos; clients re-read through this API.
+    if (route === "receipt-stream") {
+      const encoder = new TextEncoder();
+      let channel: ReturnType<typeof db.channel> | undefined;
+      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      let expiry: ReturnType<typeof setTimeout> | undefined;
+      let closed = false;
+      let end: () => void = () => {};
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        if (heartbeat) clearInterval(heartbeat);
+        if (expiry) clearTimeout(expiry);
+        req.signal.removeEventListener("abort", end);
+        if (channel) void db.removeChannel(channel);
+      };
+      const stream = new ReadableStream({
+        start(controller) {
+          end = () => { cleanup(); try { controller.close(); } catch { /* disconnected */ } };
+          const emit = (event: string) => {
+            if (!closed) try { controller.enqueue(encoder.encode(`event: ${event}\ndata: {}\n\n`)); } catch { end(); }
+          };
+          channel = db.channel(`device-receipts-${crypto.randomUUID()}`)
+            .on("postgres_changes", {event:"*",schema:"public",table:"face_scan_logs"}, () => emit("receipt"))
+            .on("postgres_changes", {event:"*",schema:"public",table:"attendance"}, () => emit("receipt"))
+            .on("postgres_changes", {event:"*",schema:"public",table:"kiosk_agent_alerts",filter:"kind=eq.staff_pass"}, () => emit("receipt"))
+            .subscribe(status => {
+              if (status === "SUBSCRIBED") emit("ready");
+              else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") end();
+            });
+          heartbeat = setInterval(() => emit("heartbeat"), 15000);
+          // Rotate to revalidate active device keys and stay below worker lifetime.
+          expiry = setTimeout(end, 90000);
+          req.signal.addEventListener("abort", end, {once:true});
+          if (req.signal.aborted) end();
+        },
+        cancel() { cleanup(); },
+      });
+      return new Response(stream, {headers:{...cors,"Content-Type":"text/event-stream","Cache-Control":"no-store","X-Accel-Buffering":"no"}});
+    }
+
     if (route === "update-release") {
       if (body.platform !== "windows" && body.platform !== "linux") return json({ error: "invalid platform" }, 400);
       const windows = body.platform === "windows";
@@ -188,16 +233,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (route === "recent" || route === "today-stats") {
+    if (route === "recent" || route === "today-stats" || route === "receipt-state") {
       const today = bkkDate();
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
         const clock = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Bangkok", hour12: false });
-        const [studentResult, staffResult, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
-          db.from("face_scan_logs").select("student_id", { count: "exact", head: true })
-            .eq("scan_date", today).eq("scan_type", "entry"),
-          db.from("kiosk_agent_alerts").select("id", { count: "exact", head: true })
-            .eq("kind", "staff_pass").gte("created_at", startUtc),
+        const [staffRows, totalStudents, totalStaff, rosterRows, attendanceRows, scanRows] = await Promise.all([
+          readDigestRows<{person_id:string|null}>((a,b)=>db.from("kiosk_agent_alerts").select("person_id").eq("kind","staff_pass").gte("created_at",startUtc).lt("created_at",new Date(Date.parse(startUtc)+86400000).toISOString()).order("id").range(a,b)),
           db.from("students").select("id",{count:"exact",head:true}).eq("status","active"),
           db.from("personnel").select("id",{count:"exact",head:true}).eq("status","active"),
           // สถิติรายชั้นใช้การรวมแบบเดียวกับหน้าแรกโรงเรียนเป๊ะ ๆ
@@ -205,7 +247,7 @@ Deno.serve(async (req) => {
           readDigestRows<SchoolAttendanceRow>((a, b) => db.from("attendance").select("student_id,status,attendance_date").is("subject_id", null).eq("attendance_date", today).order("id").range(a, b)),
           readDigestRows<SchoolScanRow>((a, b) => db.from("face_scan_logs").select("student_id,scan_date,scan_time,created_at,scan_type").in("scan_type", ["entry", "assembly"]).eq("scan_date", today).order("id").range(a, b)),
         ]);
-        for(const result of [studentResult,staffResult,totalStudents,totalStaff]) if(result.error) throw result.error;
+        for(const result of [totalStudents,totalStaff]) if(result.error) throw result.error;
         const roster = rosterRows.map(s => ({ id: s.id, gender: s.gender, className: s.classrooms?.reference_grade_level || s.classrooms?.grade_level || s.classrooms?.name || "ยังไม่จัดชั้น" }));
         const grouped = aggregatePublicClasses(roster, [today], attendanceRows, scanRows, today, clock, settings.late_after, (settings as any).clock_in_end || settings.late_after);
         const classes = grouped.map(c => {
@@ -214,19 +256,19 @@ Deno.serve(async (req) => {
             leave: d?.leave ?? 0, absent: d?.absent ?? 0, unrecorded: d?.unrecorded ?? 0, evidence: d?.evidence ?? false };
         });
         const absentStudents = classes.some(c => c.evidence) ? classes.reduce((sum, c) => sum + c.absent, 0) : null;
-        return json({ ...facegateSaver(settings), students_present: studentResult.count, staff_present: staffResult.count,
+        return json({ ...facegateSaver(settings), ...scanLiveCounts(classes,staffRows),
           total_students:totalStudents.count,total_staff:totalStaff.count,absent_students:absentStudents,absent_staff:null,
           classes,
           server_time: new Date().toISOString(), visitor_register_enabled: (settings as any).visitor_register_enabled===true,
           visitor_url:'https://bngss.online/visit' });
       }
       const { data: logs, error: logsError } = await db.from("face_scan_logs")
-        .select("student_id, scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
-        .eq("scan_date", today).order("scan_time", { ascending: false }).limit(12);
+        .select("id, student_id, scan_time, scan_type, captured_face_url, device_label, students(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(name))")
+        .eq("scan_date", today).order("scan_time", { ascending: false }).order("id").limit(12);
       if (logsError) throw logsError;
       const ids = [...new Set((logs ?? []).map((l: any) => l.student_id).filter(Boolean))];
       const { data: faces, error: faceError } = ids.length
-        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("created_at", { ascending: false })
+        ? await db.from("student_face_descriptors").select("student_id, face_image").in("student_id", ids).order("quality_score", { ascending: false, nullsFirst: false }).order("id")
         : { data: [], error: null };
       if (faceError) throw faceError;
       const avatars = new Map<string, string>();
@@ -237,13 +279,27 @@ Deno.serve(async (req) => {
         }
       }
       const items = await Promise.all(((logs as any[]) ?? []).map(async (l) => ({
+        receipt_id: l.id, student_id: l.student_id, person_type: "student", student_code: l.students?.student_code || "", device_name: l.device_label,
         name: `${l.students?.prefix ?? ""}${l.students?.first_name ?? ""} ${l.students?.last_name ?? ""}`.trim() || "นักเรียน",
         detail: l.students?.classrooms?.name ?? "",
         scanned_at: l.scan_time,
         direction: l.scan_type === "exit" ? "out" : "in",
         snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
-        avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
+        avatar_url: await kioskMediaUrl(db, l.captured_face_url) || avatars.get(l.student_id) || await kioskMediaUrl(db, l.students?.photo_url) || null,
       })));
+      const {data:staffLogs,error:staffError} = await db.from("kiosk_agent_alerts")
+        .select("id,person_id,note,created_at,snapshot_url,device_name")
+        .eq("kind","staff_pass").gte("created_at",`${today}T00:00:00+07:00`)
+        .lt("created_at",new Date(new Date(`${today}T00:00:00+07:00`).getTime()+86400000).toISOString())
+        .order("created_at",{ascending:false}).order("id").limit(12);
+      if (staffError) throw staffError;
+      const staffItems = await Promise.all((staffLogs??[]).map(async l => ({
+        receipt_id:l.id,student_id:l.person_id,person_type:"staff",student_code:"",device_name:l.device_name,
+        name:l.note||"บุคลากร",detail:"บุคลากร",scanned_at:l.created_at,direction:null,avatar_url:null,
+        snapshot_url:await kioskMediaUrl(db,l.snapshot_url),
+      })));
+      const recentItems = [...items,...staffItems].sort((a,b)=>Date.parse(b.scanned_at)-Date.parse(a.scanned_at)||a.receipt_id.localeCompare(b.receipt_id)).slice(0,12);
+      const receiptRows = route === "receipt-state" ? await readDigestRows<{student_id:string;scan_type:string}>((a,b)=>db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date",today).in("scan_type",["entry","assembly","exit"]).order("id").range(a,b)) : [];
       const media:any[]=[];
       for(let from=0;;from+=500){
         const {data,error}=await db.from("facegate_broadcast_media").select("id,title,storage_path,media_type,duration_seconds").eq("is_active",true).order("sort_order").order("id").range(from,from+499);
@@ -264,7 +320,9 @@ Deno.serve(async (req) => {
           news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
           news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),
         },
-        items,
+        items: recentItems, scan_date: today,
+        scans: receiptRows.map(r=>({student_id:r.student_id,direction:r.scan_type==="exit"?"out":"in"})),
+        server_time: new Date().toISOString(),
       });
     }
 
@@ -338,7 +396,10 @@ Deno.serve(async (req) => {
       const liveIds = new Set(rows.map((f) => f.id));
       const removed = incremental ? Object.keys(known).filter((id) => !liveIds.has(id)) : [];
 
+      const scanDate = bkkDate();
+      const scanRows = await readDigestRows<{student_id: string; scan_type: string}>((a,b) => db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date", scanDate).in("scan_type", ["entry", "assembly", "exit"]).order("id").range(a,b));
       return json({
+        scan_date: scanDate, scans: scanRows.map(row => ({student_id: row.student_id, direction: row.scan_type === "exit" ? "out" : "in"})),
         device: { id: device.device_id, name: device.name, default_direction: device.default_direction },
         settings,
         students: people,
@@ -353,6 +414,9 @@ Deno.serve(async (req) => {
 
     // ── บันทึกผลสแกน ─────────────────────────────────────────────────────
     if (route === "attendance") {
+      let capturedAt: Date;
+      try { capturedAt = scanTimestamp(body?.scanned_at); }
+      catch { return json({ error: "invalid_scan_time", message: "เวลาสแกนไม่ถูกต้อง กรุณาตรวจนาฬิกาเครื่อง" }, 400); }
       const personId = String(body?.student_id ?? "");
       const confidence = Number(body?.confidence ?? 0);
       const isQr = body?.method === "qr";
@@ -366,7 +430,7 @@ Deno.serve(async (req) => {
       }
 
       const requested = body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction === "out" ? "out" : device.default_direction === "in" ? "in" : undefined;
-      const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(new Date()), requested);
+      const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(capturedAt), requested);
       const direction = scanPolicy.direction;
       if (!scanPolicy.allowed) return json({ result: "denied", message: scanPolicy.reason, speak: scanPolicy.reason, next_delay_seconds: 1 });
       const geometryScore = typeof body?.geometry_score === "number" ? body.geometry_score : null;
@@ -410,13 +474,15 @@ Deno.serve(async (req) => {
       // กันสแกนซ้ำ (ช่วงเวลาตั้งค่าได้)
       const cooldownMin = Number(settings.duplicate_cooldown_minutes) || 0;
       if (!isStaff && cooldownMin > 0) {
-        const since = new Date(Date.now() - cooldownMin * 60_000).toISOString();
+        const since = new Date(capturedAt.getTime() - cooldownMin * 60_000).toISOString();
         const { data: recent, error: recentError } = await db
           .from("face_scan_logs")
           .select("id, scan_time")
           .eq("student_id", personId)
           .eq("scan_type", direction === "out" ? "exit" : "entry")
+          .eq("scan_date", bkkDate(capturedAt))
           .gte("scan_time", since)
+          .lte("scan_time", capturedAt.toISOString())
           .limit(1);
         if (recentError) throw recentError;
         if ((recent as any[])?.length) {
@@ -436,12 +502,14 @@ Deno.serve(async (req) => {
       if (isStaff) {
         // บุคลากรยังไม่มีตารางลงเวลาเฉพาะ — บันทึกเป็นประวัติการผ่านประตูไว้ก่อน
         const { error } = await db.from("kiosk_agent_alerts").insert({
+          ...(body?.scanned_at ? {id: await scanReceipt(device.device_id, personId, capturedAt.toISOString(), direction)} : {}),
           device_id: device.device_id, device_name: device.name,
-          kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId,
+          kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId, created_at: capturedAt.toISOString(),
         });
+        if (error?.code === "23505") return json({result: "duplicate", student_id: personId, name});
         if (error) throw error;
       } else {
-        const now = new Date();
+        const now = capturedAt;
         const { error } = await db.from("face_scan_logs").insert({
           student_id: personId,
           scan_date: bkkDate(now),
