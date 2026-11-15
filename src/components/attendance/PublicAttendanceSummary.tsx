@@ -38,7 +38,8 @@ export default function PublicAttendanceSummary() {
       return data as Report;
     },
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    // Public visitors cannot subscribe to private student rows; aggregate-only fallback.
+    refetchInterval: 5_000,
   });
   useEffect(() => {
     if (!query.data) return;

@@ -17,10 +17,10 @@ export default function LiveScanReceipts() {
         const today=serverTodayBangkok();
         const [scans,staff]=await Promise.all([
           supabase.from("face_scan_logs").select("id,student_id,scan_time,scan_type,device_label,captured_face_url,students(prefix,first_name,last_name,photo_url,classrooms!students_classroom_id_fkey(name))").eq("scan_date",today).order("scan_time",{ascending:false}).order("id").limit(12),
-          supabase.from("kiosk_agent_alerts").select("id,note,created_at,device_name,snapshot_url").eq("kind","staff_pass").gte("created_at",`${today}T00:00:00+07:00`).order("created_at",{ascending:false}).order("id").limit(12),
+          supabase.from("kiosk_agent_alerts").select("id,note,created_at,device_name,snapshot_url").eq("kind","staff_pass").gte("created_at",`${today}T00:00:00+07:00`).lt("created_at",new Date(Date.parse(`${today}T00:00:00+07:00`)+86400000).toISOString()).order("created_at",{ascending:false}).order("id").limit(12),
         ]);
         if(scans.error||staff.error)throw scans.error||staff.error;
-        const students=await Promise.all((scans.data??[]).map(async r=>({id:r.id,name:`${r.students?.prefix||""}${r.students?.first_name||""} ${r.students?.last_name||""}`.trim(),detail:`${r.students?.classrooms?.name||""} · ${r.scan_type==="exit"?"ออก":"เข้า"}`,time:r.scan_time,device:r.device_label||"—",photo:await getRegisteredFaceImage(r.student_id,r.students?.photo_url)||await resolveKioskMediaUrl(r.captured_face_url)})));
+        const students=await Promise.all((scans.data??[]).map(async r=>({id:r.id,name:`${r.students?.prefix||""}${r.students?.first_name||""} ${r.students?.last_name||""}`.trim(),detail:`${r.students?.classrooms?.name||""} · ${r.scan_type==="exit"?"ออก":"เข้า"}`,time:r.scan_time,device:r.device_label||"—",photo:await resolveKioskMediaUrl(r.captured_face_url)||await getRegisteredFaceImage(r.student_id,r.students?.photo_url)})));
         const personnel=await Promise.all((staff.data??[]).map(async r=>({id:r.id,name:r.note||"บุคลากร",detail:"บุคลากร",time:r.created_at,device:r.device_name||"—",photo:await resolveKioskMediaUrl(r.snapshot_url)})));
         if(!disposed){setRows([...students,...personnel].sort((a,b)=>Date.parse(b.time)-Date.parse(a.time)||a.id.localeCompare(b.id)).slice(0,12));setError("");}
       }catch{if(!disposed)setError("อ่านผลสแกนสดไม่สำเร็จ");}

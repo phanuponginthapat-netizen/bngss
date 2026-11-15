@@ -115,7 +115,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.13.3"
+AGENT_VERSION = "1.13.4"
 
 
 def default_cache_dir() -> str:
@@ -1023,18 +1023,38 @@ def second_camera_loop() -> None:
 receipt_wake = threading.Event()
 receipt_lock = threading.Lock()
 receipt_cache: dict[str, Any] = {}
+receipt_refresh_lock = threading.Lock()
 
 
 def reconcile_receipts() -> None:
-    response = requests.get(f"{CLOUD_URL}/kiosk-api/receipt-state", headers=HEADERS, timeout=15)
-    response.raise_for_status()
-    data = response.json()
-    today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
-    with lock:
-        state["scan_date"] = data.get("scan_date")
-        state["confirmed_scans"] = confirmed_scan_keys(data, today)
-    with receipt_lock:
-        receipt_cache.update(recent=data, updated_at=time.time(), error=None)
+    if not receipt_refresh_lock.acquire(blocking=False):
+        receipt_wake.set()
+        return
+    try:
+        response = requests.get(f"{CLOUD_URL}/kiosk-api/receipt-state", headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data.get("items"), list) or not isinstance(data.get("scans"), list):
+            raise ValueError("receipt source unavailable")
+        today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
+        with lock:
+            state["scan_date"] = data.get("scan_date")
+            state["confirmed_scans"] = confirmed_scan_keys(data, today)
+        with receipt_lock:
+            receipt_cache.update(recent=data, updated_at=time.time())
+    finally:
+        receipt_refresh_lock.release()
+
+
+def receipt_fallback_loop() -> None:
+    while True:
+        receipt_wake.wait(15)
+        receipt_wake.clear()
+        try:
+            reconcile_receipts()
+        except Exception:
+            with receipt_lock:
+                receipt_cache["error"] = "อ่านผลสแกนล่าสุดไม่สำเร็จ กำลังลองใหม่"
 
 
 def receipt_loop() -> None:
@@ -1042,6 +1062,9 @@ def receipt_loop() -> None:
         try:
             with requests.get(f"{CLOUD_URL}/kiosk-api/receipt-stream", headers=HEADERS,
                               stream=True, timeout=(10, 35)) as response:
+                response.raise_for_status()
+                with receipt_lock:
+                    receipt_cache["error"] = None
                 consume_receipts(response, reconcile_receipts)
         except Exception:
             with receipt_lock:
@@ -1433,7 +1456,8 @@ if not STANDALONE and not SATELLITE:
             result = dict(recent) if recent else None
             stream_error = receipt_cache.get("error")
         if result is None:
-            result = dict(_cloud_get("recent", _local_recent))
+            result = {"items": [], "display": {"show_recent": True}}
+            stream_error = stream_error or "กำลังเชื่อมต่อผลสแกนสด"
         result["realtime_error"] = stream_error
         result["receipt_revision"] = [(r.get("receipt_id"), r.get("scanned_at")) for r in result.get("items", [])]
         result["voice_test_at"] = state.get("voice_test_at")
@@ -1925,6 +1949,7 @@ if __name__ == "__main__":
     threading.Thread(target=outbox_loop, daemon=True).start()
     if not STANDALONE and not SATELLITE:
         threading.Thread(target=receipt_loop, daemon=True).start()
+        threading.Thread(target=receipt_fallback_loop, daemon=True).start()
     threading.Thread(target=command_loop, daemon=True).start()
     threading.Thread(target=power_loop, daemon=True).start()
     threading.Thread(target=second_camera_loop, daemon=True).start()
