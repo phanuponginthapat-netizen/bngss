@@ -41,6 +41,14 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryLoad, setRetryLoad] = useState(0);
+  const [pendingPdfUrl, setPendingPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingPdfFile) { setPendingPdfUrl(null); return; }
+    const url = URL.createObjectURL(pendingPdfFile);
+    setPendingPdfUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingPdfFile]);
 
   // มือถือ = fullscreen เสมอ กัน dialog เล็กจนใช้ไม่ได้; desktop ให้ผู้ใช้เลือก
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
@@ -334,7 +342,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
             <div className="w-full md:w-64 md:shrink-0 overflow-visible md:overflow-auto border rounded p-3">{metaPanel}</div>
             <div className="flex-1 min-w-0 min-h-0">
               <PdfWorksheetDesigner
-                initialPdfUrl={pdfSignedUrl}
+                initialPdfUrl={pendingPdfUrl || pdfSignedUrl}
                 initialFields={worksheetFields}
                 onPdfChange={setPendingPdfFile}
                 onFieldsChange={setWorksheetFields}
