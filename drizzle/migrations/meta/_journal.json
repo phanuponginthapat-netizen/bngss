@@ -309,6 +309,13 @@
       "when": 1794712230765,
       "tag": "0043_facegate_staff_receipt_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794730942960,
+      "tag": "0044_tighten_school_member_access",
+      "breakpoints": true
     }
   ]
 }

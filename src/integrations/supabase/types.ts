@@ -17822,7 +17822,10 @@ export type Database = {
         Args: { _student_id: string; _user_id?: string }
         Returns: boolean
       }
+      is_public_ar_object: { Args: { _name: string }; Returns: boolean }
+      is_school_member: { Args: { _uid: string }; Returns: boolean }
       is_staff_any: { Args: { _uid: string }; Returns: boolean }
+      is_staff_avatar_folder: { Args: { _folder: string }; Returns: boolean }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
       is_subject_group_head: {
         Args: { _group: string; _user_id: string }
