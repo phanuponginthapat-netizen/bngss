@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -244,9 +245,9 @@ export default function ObservationSessionPage() {
     const win = window.open("", "_blank");
     if (!win) return;
     const rows = RUBRIC_CRITERIA.map((c) =>
-      `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:600">${c.label_th}</td>` +
-      `<td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:18px">${record.scores?.[c.key] ?? 0}</td>` +
-      `<td style="padding:8px;border:1px solid #ddd">${record.comments?.[c.key] || "-"}</td></tr>`
+      `<tr><td style="padding:8px;border:1px solid #ddd;font-weight:600">${escapeHtml(c.label_th)}</td>` +
+      `<td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:18px">${escapeHtml(record.scores?.[c.key] ?? 0)}</td>` +
+      `<td style="padding:8px;border:1px solid #ddd">${escapeHtml(record.comments?.[c.key] || "-")}</td></tr>`
     ).join("");
     const tl = L("ครู", "Teacher", lang);
     const cl = L("ห้องเรียน", "Classroom", lang);
@@ -267,20 +268,20 @@ export default function ObservationSessionPage() {
       `.score-box{background:#f0f4ff;padding:16px;border-radius:8px;text-align:center;margin:16px 0}` +
       `.score-big{font-size:36px;font-weight:700;color:#2563eb}.section{margin:20px 0}` +
       `.section h3{font-size:15px;margin-bottom:6px}.section p{font-size:13px;line-height:1.6}` +
-      `@media print{body{padding:15px}}</style></head><body><h1>${title}</h1>` +
-      `<div class="meta"><div>${tl}: ${session?.teacher_name || session?.teacher_id || "-"}</div>` +
-      `<div>${cl}: ${session?.classroom || "-"} | ${sl}: ${session?.subject || "-"}</div>` +
-      `<div>${dl}: ${formatDate(((session as any)?.scheduled_date ?? (session as any)?.observation_date ?? ""), lang)}</div>` +
-      `<div>${ol}: ${session?.observer_name || "-"}</div></div>` +
+      `@media print{body{padding:15px}}</style></head><body><h1>${escapeHtml(title)}</h1>` +
+      `<div class="meta"><div>${tl}: ${escapeHtml(session?.teacher_name || session?.teacher_id || "-")}</div>` +
+      `<div>${cl}: ${escapeHtml(session?.classroom || "-")} | ${sl}: ${escapeHtml(session?.subject || "-")}</div>` +
+      `<div>${dl}: ${escapeHtml(formatDate(((session as any)?.scheduled_date ?? (session as any)?.observation_date ?? ""), lang))}</div>` +
+      `<div>${ol}: ${escapeHtml(session?.observer_name || "-")}</div></div>` +
       `<table><thead><tr><th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:left">${crl}</th>` +
       `<th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:center">${scl}</th>` +
       `<th style="padding:8px;border:1px solid #ddd;background:#f5f5f5;text-align:left">${cml}</th></tr></thead>` +
       `<tbody>${rows}</tbody></table>` +
-      `<div class="score-box"><div class="score-big">${record.total_score} / ${record.max_score}</div>` +
+      `<div class="score-box"><div class="score-big">${escapeHtml(record.total_score)} / ${escapeHtml(record.max_score)}</div>` +
       `<div>${calcPercentage(record.total_score, record.max_score)}%</div></div>` +
-      `<div class="section"><h3>${ovl}</h3><p>${record.overall_comment || "-"}</p></div>` +
-      `<div class="section"><h3>${stl}</h3><p>${record.strengths || "-"}</p></div>` +
-      `<div class="section"><h3>${sgl}</h3><p>${record.suggestions || "-"}</p></div>` +
+      `<div class="section"><h3>${ovl}</h3><p>${escapeHtml(record.overall_comment || "-")}</p></div>` +
+      `<div class="section"><h3>${stl}</h3><p>${escapeHtml(record.strengths || "-")}</p></div>` +
+      `<div class="section"><h3>${sgl}</h3><p>${escapeHtml(record.suggestions || "-")}</p></div>` +
       `<script>window.onload=function(){window.print()}</script></body></html>`
     );
     win.document.close();

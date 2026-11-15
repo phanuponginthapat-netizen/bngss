@@ -1,4 +1,5 @@
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { csvCell } from "@/lib/csvCell";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,7 +81,7 @@ export default function SubstituteReport() {
   const exportCsv = () => {
     const header = ["ชื่อผู้สอนแทน", "จำนวนคาบ", "ชั่วโมงสอนแทน", "จำนวนวัน", "มีหลักฐาน", "%หลักฐาน"];
     const lines = [header.join(",")].concat(
-      byTeacher.map((t) => [t.name, t.periods, t.hours, t.days, t.withProof, `${t.proofPct}%`].join(","))
+      byTeacher.map((t) => [t.name, t.periods, t.hours, t.days, t.withProof, `${t.proofPct}%`].map(csvCell).join(","))
     );
     const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);

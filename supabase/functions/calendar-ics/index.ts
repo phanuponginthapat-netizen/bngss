@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 
@@ -18,6 +19,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: [] });
+  if (__caller instanceof Response) return __caller;
 
   try {
     const supabase = makeAdmin();

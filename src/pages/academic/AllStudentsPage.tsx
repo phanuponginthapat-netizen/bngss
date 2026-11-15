@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -266,7 +267,7 @@ const AllStudentsPage = () => {
       s.classrooms?.grade_level || "", s.classrooms?.name || "", s.status,
       s.father_name || "", s.mother_name || "", s.guardian_name || "", s.guardian_phone || "",
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map(v => `"${v}"`).join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.map(csvCell).join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

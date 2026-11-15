@@ -56,7 +56,7 @@ FUNCTIONS=(
   face-scan-daily-report face-scan-summary fill-pdf-template games-auth
   games-leaderboard games-submit gchat-summary get-vapid-key
   import-teacher-schedule iot-fetch liff-submit-leave line-magic-link
-  line-quota line-webhook link-account lookup-email manage-users manifest
+  line-quota line-webhook link-account manage-users manifest
   mascot-advice mcp notify-fanout notify-google-chat notify-ict-overdue
   notify-line notify-retry parent-login parse-curriculum-pdf qr-login
   refresh-mascot-advice-weekly seed-test-users send-push send-push-broadcast

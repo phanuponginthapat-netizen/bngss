@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 // ElevenLabs TTS with graceful degradation.
 // Returns audio/mpeg on success, or JSON { fallback: true } so the client can
 // fall back to tts-th / browser speech synthesis without showing an error.
@@ -10,6 +11,9 @@ const DEFAULT_MODEL = "eleven_multilingual_v2";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: [] });
+  if (__caller instanceof Response) return __caller;
+
   const json = (b: unknown, status = 200) =>
     new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

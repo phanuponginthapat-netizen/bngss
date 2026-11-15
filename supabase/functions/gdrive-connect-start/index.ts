@@ -24,6 +24,10 @@ function allowedOrigins(): string[] {
     Deno.env.get("APP_URL"),
     Deno.env.get("PUBLIC_ORIGIN"),
     ...(Deno.env.get("ALLOWED_RETURN_ORIGINS") ?? "").split(","),
+    "https://bngss.online",
+    "https://www.bngss.online",
+    "https://bngss.lovable.app",
+    "https://id-preview--f656e919-7df7-479f-8f52-d6572399e1b5.lovable.app",
   ];
   const out: string[] = [];
   for (const v of raw) {
@@ -40,7 +44,6 @@ function isAllowedReturnUrl(value: string) {
     if (!/^https?:$/.test(url.protocol)) return false;
     const hostname = url.hostname.toLowerCase();
     if (hostname === "localhost" || hostname === "127.0.0.1") return true;
-    if (hostname.endsWith(".vercel.app") || hostname.endsWith(".pages.dev") || hostname.endsWith(".netlify.app")) return true; // โดเมนที่ใช้โฮสต์หน้าเว็บ (deploy เอง)
     return allowedOrigins().includes(url.origin);
   } catch {
     return false;

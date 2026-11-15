@@ -181,11 +181,21 @@ export async function handleLeaveAttachmentMessage(sb: any, token: string, rt: s
     const m = fn.match(/\.([a-zA-Z0-9]{1,8})$/);
     return m ? m[1].toLowerCase() : "bin";
   })();
+  // Leave attachments: images, video, PDF and office documents only, max 20 MB.
+  const LEAVE_ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "webp", "heic", "mp4", "pdf", "doc", "docx", "xls", "xlsx"]);
+  const mime = String(content.mime || "").split(";")[0].trim().toLowerCase();
+  const mimeOk = /^(image\/(jpeg|png|webp|heic)|video\/mp4|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.[a-z.]+|vnd\.ms-excel|octet-stream))$/.test(mime);
+  if (content.data.byteLength > 20 * 1024 * 1024) {
+    return deps.replyText(token, rt, `❌ ไฟล์ใหญ่เกิน 20MB กรุณาส่งไฟล์ที่เล็กลง หรือพิมพ์ "ข้าม"`);
+  }
+  if (!LEAVE_ALLOWED_EXT.has(ext) || !mimeOk) {
+    return deps.replyText(token, rt, `❌ รองรับเฉพาะรูป วิดีโอ PDF หรือไฟล์ Word/Excel หรือพิมพ์ "ข้าม"`);
+  }
   const userId = session.payload.userType === "student" ? session.payload.userId : (session.payload.personnelId || lineUserId);
   const path = `line/${userId}/${Date.now()}_${msg.id}.${ext}`;
 
   const { error: upErr } = await sb.storage.from("leave-attachments").upload(path, content.data, {
-    contentType: content.mime, upsert: false,
+    contentType: mime === "application/octet-stream" ? "application/octet-stream" : mime, upsert: false,
   });
   if (upErr) {
     console.error("upload leave attachment fail", upErr);

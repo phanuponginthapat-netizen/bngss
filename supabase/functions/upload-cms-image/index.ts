@@ -40,6 +40,8 @@ Deno.serve(async (req) => {
     const allowed = (roles || []).some((r: any) =>
       ["admin", "director", "teacher", "staff"].includes(String(r.role)));
     if (!allowed) return json({ error: "forbidden" }, 403);
+    // Only admins/directors may replace existing files; other staff can only add new files.
+    const canOverwrite = (roles || []).some((r: any) => ["admin", "director"].includes(String(r.role)));
 
     const body = await req.json();
     const bucket = String(body?.bucket || "");
@@ -54,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { error: upErr } = await admin.storage.from(bucket).upload(path, bytes, {
       contentType: String(body?.contentType || "application/octet-stream"),
-      upsert: body?.upsert !== false,
+      upsert: canOverwrite && body?.upsert !== false,
     });
     if (upErr) return json({ error: upErr.message }, 400);
 

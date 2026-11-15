@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,10 +25,7 @@ function toCSV(rows: Record<string, unknown>[], cols: string[]): string {
   const lines = rows.map((r) =>
     cols.map((c) => {
       const v = r[c];
-      const s = v == null ? "" : String(v);
-      return s.includes(",") || s.includes('"') || s.includes("\n")
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
+      return csvCell(v);
     }).join(",")
   );
   return [header, ...lines].join("\n");

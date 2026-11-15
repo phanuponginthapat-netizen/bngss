@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { fanout } from "../_shared/fanout.ts";
@@ -5,6 +6,9 @@ import { claimKioskNotification, releaseKioskNotification } from "../_shared/kio
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowCron: true });
+  if (__caller instanceof Response) return __caller;
+
   try {
     const admin = makeAdmin();
     const threshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,7 +107,7 @@ export default function AttendanceDashboardPage() {
         (r.notes || "").replace(/\n/g, " "),
       ]),
     ];
-    const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

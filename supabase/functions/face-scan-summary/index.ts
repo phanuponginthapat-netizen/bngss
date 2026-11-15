@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 // สรุปการสแกนหน้า → ส่งเข้า Google Chat (CardV2 แบบตาราง)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -56,6 +57,9 @@ function pad(s: string, n: number) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: STAFF_ROLES });
+  if (__caller instanceof Response) return __caller;
+
 
   try {
     const body = await req.json().catch(() => ({}));

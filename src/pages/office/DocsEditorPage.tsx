@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +84,7 @@ export default function DocsEditorPage() {
     const html = editorRef.current?.getHtml() ?? "";
     const win = window.open("", "_blank", "width=900,height=1200");
     if (!win) return;
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${fileName}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fileName)}</title>
       <style>
         @page { size: ${pageSize}; margin: 2.54cm; }
         body { font-family: Sarabun, 'TH Sarabun New', sans-serif; font-size: 14pt; color: #111; line-height: 1.6; }

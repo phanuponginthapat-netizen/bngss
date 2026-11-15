@@ -38,6 +38,18 @@ const mimeFromFilename = (name: string): string | null => {
   return ext ? map[ext] ?? null : null;
 };
 
+// Upload limits for captured chat files: bounded size and no executable/scriptable formats.
+export const VAULT_MAX_BYTES = 200 * 1024 * 1024;
+const VAULT_BLOCKED_EXT = new Set(["exe", "msi", "bat", "cmd", "com", "scr", "ps1", "vbs", "js", "jse", "wsf", "sh", "jar", "html", "htm", "svg", "xhtml", "hta", "dll", "app", "dmg"]);
+const VAULT_BLOCKED_MIME = /^(text\/html|image\/svg\+xml|application\/(x-msdownload|x-msdos-program|x-sh|javascript|x-javascript|xhtml\+xml|java-archive))/;
+export function vaultFileRejected(name: string, mime: string, size: number): string | null {
+  if (!Number.isFinite(size) || size <= 0) return "empty_file";
+  if (size > VAULT_MAX_BYTES) return "file_too_large";
+  const ext = (name.includes(".") ? name.split(".").pop() : "")!.toLowerCase();
+  if (VAULT_BLOCKED_EXT.has(ext) || VAULT_BLOCKED_MIME.test(mime.toLowerCase())) return "file_type_blocked";
+  return null;
+}
+
 function resolvedMime(messageType: string, filename: string, responseMime: string) {
   const clean = responseMime.split(";")[0].trim().toLowerCase();
   if (clean && clean !== "application/octet-stream") return clean;
@@ -189,7 +201,12 @@ export async function captureLineGroupEvent(
         ? `photo-${msg.id}.jpg`
         : `${msg.type}-${msg.id}.${extFromMime(content.mime)}`);
       const contentMime = resolvedMime(msg.type, origName, content.mime);
-      const ext = origName.includes(".") ? origName.split(".").pop() : extFromMime(contentMime);
+      const ext = (origName.includes(".") ? origName.split(".").pop()! : extFromMime(contentMime)).replace(/[^A-Za-z0-9]/g, "").slice(0, 10) || "bin";
+      const rejected = vaultFileRejected(origName, contentMime, content.data.byteLength);
+      if (rejected) {
+        await sb.from("line_vault_items").delete().eq("id", rowId);
+        return { captured: false, reason: rejected };
+      }
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, "0");

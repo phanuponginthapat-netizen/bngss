@@ -41,3 +41,6 @@ firebase-service-account.json
 !.env.example
 
 scripts/kiosk/facegate-agent/models/
+
+# Private signing keys must never be committed
+*.pem

@@ -205,7 +205,9 @@ export default function BrowserLogsPage() {
     if (loading || loadError) return;
     const header = ["timestamp_iso", "user_id", "user_name", "classroom", "action", "domain", "url", "reason"];
     const esc = (v: any) => {
-      const s = v == null ? "" : String(v);
+      let s = v == null ? "" : String(v);
+      // Neutralise spreadsheet formulas so exported cells can never execute in Excel/Sheets.
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
       return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const lines = [header.join(",")];

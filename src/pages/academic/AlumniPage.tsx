@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { csvCell } from "@/lib/csvCell";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -87,7 +88,7 @@ const AlumniPage = () => {
       s.graduation_level || "", s.graduation_year ? toBE(s.graduation_year) : "", s.graduation_gpa || "",
       s.auth_email || ""
     ]);
-    const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const csv = [headers, ...rows].map(r => r.map(csvCell).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
