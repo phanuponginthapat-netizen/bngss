@@ -68,9 +68,10 @@ export default function HomeworkReplies({
       attachments: merged,
     };
     const next = [...(replies || []), newReply];
-    const { error } = await supabase.from("task_assignments").update({ replies: next as any }).eq("id", taskId);
+    const { data: updated, error } = await supabase.from("task_assignments").update({ replies: next as any }).eq("id", taskId).select("id");
     setBusy(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (!updated || updated.length === 0) { toast.error("ส่งข้อความไม่สำเร็จ กรุณาลองใหม่"); return; }
     setText("");
     setPending([]);
     toast.success("ส่งแล้ว");
