@@ -51,11 +51,13 @@ Deno.serve(async (req) => {
 
     // fetchers — each keeps .limit for speed and to avoid large payloads
     const fetchAttendance = async () => {
-      const { data, count } = await admin
+      const { data, count, error } = await admin
         .from("face_scan_logs")
         .select("id, student_id, scan_date, scan_time", { count: "exact" })
         .eq("scan_date", today)
+        .order("scan_time", {ascending:false}).order("id")
         .limit(500);
+      if(error)throw error;
       return {
         date: today,
         total_today: count ?? data?.length ?? 0,

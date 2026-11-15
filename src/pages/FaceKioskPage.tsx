@@ -359,7 +359,9 @@ const FaceKioskPage = () => {
 
   // ---- โหลดสแกนล่าสุดจาก server ให้ทุกตู้เห็นเหมือนกัน (ทุก platform) ----
   useEffect(() => {
+    let disposed=false,busy=false,again=false;
     const loadRecentFromServer = async () => {
+      if(busy){again=true;return;}busy=true;
       try {
         const today = todayBangkok();
         const { data, error } = await supabase
@@ -367,9 +369,10 @@ const FaceKioskPage = () => {
           .select("id, student_id, scan_time, scan_type, confidence, captured_face_url, students!inner(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(grade_level, name))")
           .eq("scan_date", today)
           .order("scan_time", { ascending: false })
+          .order("id")
           .limit(10);
         if (error) throw error;
-        if (data) {
+        if (data && !disposed) {
           const mapped = await Promise.all((data as any[]).map(async r => ({
             studentId: r.student_id,
             studentCode: r.students.student_code || "-",
@@ -381,6 +384,7 @@ const FaceKioskPage = () => {
             confidence: r.confidence,
             scanType: r.scan_type,
           })));
+          if(disposed)return;
           const latest = data[0];
           const display = mapped[0];
           if (latest && display && latestCloudReceiptRef.current && latestCloudReceiptRef.current !== latest.id && Date.now()-Date.parse(latest.scan_time)<15000) {
@@ -392,14 +396,15 @@ const FaceKioskPage = () => {
           latestCloudReceiptRef.current=latest?.id || "empty";
           setRecent(mapped as any);
         }
-      } catch {}
+      } catch { console.error("อ่านผลสแกนล่าสุดไม่สำเร็จ"); }
+      finally{busy=false;if(again&&!disposed){again=false;void loadRecentFromServer();}}
     };
     loadRecentFromServer();
     window.addEventListener(SCAN_RECEIPT_EVENT,loadRecentFromServer);
     const timer = window.setInterval(loadRecentFromServer,30_000);
     window.addEventListener("online",loadRecentFromServer);
     window.addEventListener("focus",loadRecentFromServer);
-    return () => { window.clearInterval(timer);window.removeEventListener(SCAN_RECEIPT_EVENT,loadRecentFromServer);window.removeEventListener("online",loadRecentFromServer);window.removeEventListener("focus",loadRecentFromServer); };
+    return () => { disposed=true;window.clearInterval(timer);window.removeEventListener(SCAN_RECEIPT_EVENT,loadRecentFromServer);window.removeEventListener("online",loadRecentFromServer);window.removeEventListener("focus",loadRecentFromServer); };
   }, []);
 
   // ---- ปลดล็อกเสียง — Chromium kiosk บล็อก AudioContext จนกว่าจะมี gesture ครั้งแรก ----

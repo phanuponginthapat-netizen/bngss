@@ -419,6 +419,7 @@ async function loadBrand() {
   } catch (e) {}
 }
 let recentBusy = false, recentInitialized = false, latestReceipt = null, receiptRevision = '';
+let receiptConnectionError = '';
 async function loadRecent() {
   if (recentBusy) return;
   recentBusy = true;
@@ -433,7 +434,8 @@ async function loadRecent() {
     latestReceipt = item?.receipt_id || null;
     recentInitialized = true;
     if (revision !== receiptRevision) { receiptRevision = revision; loadStats(); }
-    if (data.realtime_error) say(data.realtime_error, 'bad');
+    if (data.realtime_error) {receiptConnectionError=data.realtime_error;say(receiptConnectionError, 'bad');}
+    else if(receiptConnectionError){receiptConnectionError='';say('พร้อมสแกน', 'ok');}
     if(data.voice_test_at && data.voice_test_at > lastVoiceTest){lastVoiceTest=data.voice_test_at; speak('ทดสอบเสียง สแกนสำเร็จ ยินดีต้อนรับ');}
     display = data.display || display;
     updateBroadcast(data.broadcast_media || []);
@@ -592,8 +594,8 @@ function clock() {
   const thaiOptions = { timeZone:'Asia/Bangkok', weekday:'long',day:'numeric',month:'long',year:'numeric' };
   $('saverClock').textContent = now.toLocaleTimeString('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'});
   $('saverDate').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn',thaiOptions);
-  $('clock').textContent = now.toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn', { hour: '2-digit', minute: '2-digit', second:'2-digit', hour12:false });
-  $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('clock').textContent = now.toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn', { timeZone:'Asia/Bangkok',hour: '2-digit', minute: '2-digit', second:'2-digit', hour12:false });
+  $('date').textContent = now.toLocaleDateString('th-TH-u-ca-buddhist-nu-latn', { timeZone:'Asia/Bangkok',weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 async function cancelPower(){await fetch('/power/command',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({command:'cancel'})});await loadPower();}
 async function loadPower(){try{const p=await (await fetch('/power/status')).json();const pending=p.pending;const rs=!!p.screen_off;if(rs!==remoteSaver){remoteSaver=rs;if(!rs)lastActivity=Date.now();applySaver();}$('powerWarning').style.display=pending?'flex':'none';if(pending)$('powerCountdown').textContent=(pending.action==='sleep'?'พักเครื่อง':'ปิดเครื่อง')+' ใน '+Math.max(0,Math.ceil(pending.at-Date.now()/1000))+' วินาที';}catch(e){}}

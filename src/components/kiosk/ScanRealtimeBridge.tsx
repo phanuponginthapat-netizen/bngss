@@ -11,6 +11,7 @@ export default function ScanRealtimeBridge() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
+    let authUserId: string | null | undefined;
     const refresh = () => {
       if (timer || disposed) return;
       timer = setTimeout(() => {
@@ -30,10 +31,12 @@ export default function ScanRealtimeBridge() {
           reconnect = setTimeout(() => { if (!disposed) setConnection(n=>n+1); },3000);
       });
     const visible = () => { if (document.visibilityState === "visible") refresh(); };
-    const {data:auth} = supabase.auth.onAuthStateChange((event)=> {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+    const {data:auth} = supabase.auth.onAuthStateChange((_event,session)=> {
+      const userId=session?.user.id||null;
+      if (authUserId !== undefined && userId !== authUserId) {
         refresh(); setConnection(n=>n+1);
       }
+      authUserId=userId;
     });
     window.addEventListener("online", refresh);
     window.addEventListener("offline-queue:synced",refresh);

@@ -637,7 +637,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     const regFace = await getRegisteredFaceImage(studentId, registeredFace);
     setRecent((r) => [{
       studentId, studentCode, name, classroom, confidence,
-      time: new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      time: capturedAt.toLocaleTimeString("en-GB", { timeZone:"Asia/Bangkok",hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
       capturedFace,
       registeredFace: regFace || undefined,
       entryMethod,

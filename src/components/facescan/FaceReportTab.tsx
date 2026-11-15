@@ -2,6 +2,7 @@ import { useQuery as useCalendarQuery } from "@tanstack/react-query";
 import { resolveDigestStatuses, markMissingAsAbsent } from "../../../supabase/functions/_shared/attendanceDigest";
 import { attendanceGender } from "../../../supabase/functions/_shared/publicAttendance";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
