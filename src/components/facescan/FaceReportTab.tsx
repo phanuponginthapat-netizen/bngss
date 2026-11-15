@@ -1,4 +1,6 @@
 import { useQuery as useCalendarQuery } from "@tanstack/react-query";
+import { resolveDigestStatuses, markMissingAsAbsent } from "../../../supabase/functions/_shared/attendanceDigest";
+import { attendanceGender } from "../../../supabase/functions/_shared/publicAttendance";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -385,7 +387,7 @@ const FaceReportTab = () => {
       const [settingRes, studentsRes, scanRows, attRows, leaveRows, eventsRes, cutoffRes] = await Promise.all([
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
         supabase.from("students").select("id, prefix, first_name, last_name, student_code, gender, classrooms!students_classroom_id_fkey(grade_level, name, reference_grade_level)").eq("status", "active"),
-        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time").eq("scan_type","entry").gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").order("id").range(f, t)),
+        fetchAll((f, t) => supabase.from("face_scan_logs").select("student_id, scan_date, scan_time, scan_type").in("scan_type",["entry","assembly"]).gte("scan_date", range.start).lte("scan_date", range.end).order("scan_date").order("id").range(f, t)),
         fetchAll((f, t) => supabase.from("attendance").select("student_id, attendance_date, status").is("subject_id", null).gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date").order("id").range(f, t)),
         fetchAll((f, t) => supabase.from("student_leaves").select("student_id, start_date, end_date, status").lte("start_date", range.end).gte("end_date", range.start).order("start_date").order("id").range(f, t)),
         supabase.from("academic_events").select("event_date, end_date, event_type").eq("event_type", "holiday").lte("event_date", range.end),
@@ -479,7 +481,7 @@ const FaceReportTab = () => {
         const grade = (s.classrooms?.reference_grade_level || s.classrooms?.grade_level || "-");
         const c = classMap.get(k) || { cls: k, grade, size: 0, sizeM: 0, sizeF: 0, present: 0, presentM: 0, presentF: 0, late: 0, lateM: 0, lateF: 0, leave: 0, absent: 0, absentM: 0, absentF: 0, cd: 0, pct: 0 };
         c.size++;
-        if (s.gender === "ชาย") c.sizeM++; else c.sizeF++;
+        if (attendanceGender(s.gender) === "male") c.sizeM++; else if (attendanceGender(s.gender) === "female") c.sizeF++;
         classMap.set(k, c);
       }
       // Accumulate per (date, student)
@@ -487,6 +489,8 @@ const FaceReportTab = () => {
       const cutoff = String(cutoffRes.data?.setting_value || lateThreshold);
       const currentTime = new Date().toLocaleTimeString("en-GB", {hour12:false,timeZone:"Asia/Bangkok"}).slice(0,5);
       for (const date of eff) {
+        const statuses = resolveDigestStatuses(attRows.filter(r=>r.attendance_date===date),scanRows.filter(r=>r.scan_date===date),lateThreshold);
+        markMissingAsAbsent(statuses,students.map(s=>s.id),date<todayStr?"23:59:59":currentTime,cutoff);
         const dayScan = scanIdx.get(date) || new Map<string, string>();
         const dayAtt = attIdx.get(date) || new Map<string, string>();
         for (const s of students) {
@@ -494,23 +498,15 @@ const FaceReportTab = () => {
           const c = classMap.get(k);
           if (!c) continue;
           c.cd++;
-          const isM = s.gender === "ชาย";
-          const t = dayScan.get(s.id);
-          const a = dayAtt.get(s.id);
-          const onLeave = leaveIdx.get(s.id)?.has(date);
-          let kind: "present" | "late" | "leave" | "absent" | "unrecorded";
-          if (t) {
-            kind = t > lateThreshold + ":00" ? "late" : "present";
-          } else if (a === "present") kind = "present";
-          else if (a === "late") kind = "late";
-          else if (a === "leave" || a === "sick" || onLeave) kind = "leave";
-          else if (a === "absent") kind = "absent";
-          else kind = (dayScan.size > 0 || dayAtt.size > 0) && (date < todayStr || currentTime >= cutoff) ? "absent" : "unrecorded";
-          if (kind === "present") { c.present++; if (isM) c.presentM++; else c.presentF++; }
-          else if (kind === "late") { c.late++; if (isM) c.lateM++; else c.lateF++; c.present++; if (isM) c.presentM++; else c.presentF++; }
+          const isM = attendanceGender(s.gender) === "male";
+          const isF = attendanceGender(s.gender) === "female";
+          const resolved = statuses.get(s.id) ?? "unrecorded";
+          const kind = resolved === "sick" ? "leave" : resolved === "unrecorded" && leaveIdx.get(s.id)?.has(date) ? "leave" : resolved;
+          if (kind === "present") { c.present++; if (isM) c.presentM++; else if (isF) c.presentF++; }
+          else if (kind === "late") { c.late++; if (isM) c.lateM++; else if (isF) c.lateF++; c.present++; if (isM) c.presentM++; else if (isF) c.presentF++; }
           else if (kind === "leave") c.leave++;
           else if (kind === "absent") {
-            c.absent++; if (isM) c.absentM++; else c.absentF++;
+            c.absent++; if (isM) c.absentM++; else if (isF) c.absentF++;
             const entry = absentMap.get(s.id) || {
               id: s.id,
               name: `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim(),

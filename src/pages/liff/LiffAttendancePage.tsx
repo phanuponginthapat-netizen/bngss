@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 import { todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -65,13 +67,23 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
     if (!classroomId) return;
     setBusy(true);
     try {
-      const cur = new Date();
-      const year = cur.getFullYear() + (cur.getMonth() >= 4 ? 0 : -1); // CE (DB convention)
-      const sem = cur.getMonth() >= 4 && cur.getMonth() <= 9 ? 1 : 2;
+      const {data: period,error: periodError} = await supabase.from("academic_periods").select("academic_year_be,semester").lte("start_date",today).gte("end_date",today).order("start_date",{ascending:false}).limit(1).maybeSingle();
+      if(periodError || !period) throw new Error("ไม่พบภาคเรียนของวันที่เช็คชื่อ กรุณาตรวจปฏิทินโรงเรียน");
+      const year = period.academic_year_be - 543, sem = period.semester;
+      const ids = students.map(s=>s.id);
+      const [saved, scans, thresholdRes] = await Promise.all([
+        fetchAllRows((a,b)=>supabase.from("attendance").select("student_id,status").eq("attendance_date",today).is("subject_id",null).in("student_id",ids).order("id").range(a,b)),
+        fetchAllRows((a,b)=>supabase.from("face_scan_logs").select("student_id,scan_time,scan_type").eq("scan_date",today).in("scan_type",["entry","assembly"]).in("student_id",ids).order("id").range(a,b)),
+        supabase.from("school_settings").select("setting_value").eq("setting_key","clock_late_threshold").maybeSingle(),
+      ]);
+      if(thresholdRes.error) throw thresholdRes.error;
+      const confirmed = resolveDigestStatuses(saved,scans,String(thresholdRes.data?.setting_value || "08:30"));
+      const savedIds = new Set(saved.map(r=>r.student_id));
       const { data: u } = await supabase.auth.getUser();
       // ไม่เขียนทับผลสแกนเข้าโรงเรียน (มา/สาย)
       const targets = students.filter((s) => {
-        const pre = prescanned[s.id];
+        if (savedIds.has(s.id)) return false;
+        const pre = confirmed.get(s.id);
         if (pre === "present" || pre === "late") return false;
         return true;
       });
@@ -90,16 +102,10 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
         recorded_by: u?.user?.id ?? null,
         notes: "liff",
       }));
-      // NULL subject_id can't be matched by ON CONFLICT in PostgREST upsert —
-      // clear rows only for students without a gate scan, then insert fresh.
-      const ids = targets.map((s) => s.id);
-      await supabase.from("attendance")
-        .delete()
-        .in("student_id", ids)
-        .eq("attendance_date", today)
-        .is("subject_id", null);
-      const { error } = await supabase.from("attendance").insert(rows);
-      if (error) throw error;
+      for (const row of rows) {
+        const {error} = await supabase.from("attendance").insert(row);
+        if(error && error.code !== "23505") throw error;
+      }
       toast.success("บันทึกเช็คชื่อแล้ว");
       setTimeout(() => (window as any).liff?.closeWindow?.(), 800);
     } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
