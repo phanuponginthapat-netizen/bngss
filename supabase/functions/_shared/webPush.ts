@@ -90,7 +90,7 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
     } as Parameters<typeof appServer.subscribe>[0]);
 
     const body = JSON.stringify({
-      title: payload.title,
+      title: payload.title.slice(0, 200),
       // Push services cap encrypted payloads at ~4KB (413 otherwise); long digests open in-app instead.
       body: (payload.body ?? "").length > 1500 ? `${(payload.body ?? "").slice(0, 1500)}…` : (payload.body ?? ""),
       url: payload.url ?? "/dashboard",
