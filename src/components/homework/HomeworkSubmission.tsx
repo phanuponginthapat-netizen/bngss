@@ -110,6 +110,7 @@ export function StudentSubmissionPanel({
   const [text, setText] = useState("");
   const [pending, setPending] = useState<Attachment[]>([]);
   const [busy, setBusy] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
 
   const submit = async (extraAttachments: Attachment[] = []) => {
     const merged = [...pending, ...extraAttachments];
@@ -261,7 +262,12 @@ export function StudentSubmissionPanel({
           <Pencil className="w-3.5 h-3.5 mr-1" />กระดานวาด
         </Button>
       </div>
-      <HomeworkEditor open={drawOpen} blank attachment={null} onClose={() => setDrawOpen(false)} onSave={handleEditedSave} />
+      <HomeworkEditor open={drawOpen} blank attachment={null} onClose={() => setDrawOpen(false)} onSave={async (blob, filename) => {
+        // ภาพวาดเปล่าแนบรอส่ง ไม่ส่งงานอัตโนมัติ
+        const att = await uploadHomeworkFile(new File([blob], filename, { type: "image/png" }), `submissions/${taskId}`);
+        setPending(p => [...p, { ...att, name: filename }]);
+        toast.success("แนบภาพวาดแล้ว กด ส่งงาน เมื่อพร้อม");
+      }} />
       <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำตอบ หรือบันทึกถึงครู..." className="text-sm" />
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <AttachmentUploader folder={`submissions/${taskId}`} value={pending} onChange={setPending} maxFiles={5} label="แนบไฟล์งาน" />
