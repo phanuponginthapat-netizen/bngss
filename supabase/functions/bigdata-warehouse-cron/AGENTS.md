@@ -1,0 +1,1 @@
+- Warehouse facts copy only complete source reads and original student-code term keys; privileged callers alone may run writes, and any failed destination returns failure rather than partial success.

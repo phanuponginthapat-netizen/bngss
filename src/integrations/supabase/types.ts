@@ -5950,6 +5950,111 @@ export type Database = {
         }
         Relationships: []
       }
+      fact_attendance: {
+        Row: {
+          entry_method: string | null
+          etl_at: string
+          id: string
+          scan_date: string
+          scan_time: string
+          scan_type: string | null
+          source: string
+          student_id: string | null
+        }
+        Insert: {
+          entry_method?: string | null
+          etl_at: string
+          id: string
+          scan_date: string
+          scan_time: string
+          scan_type?: string | null
+          source?: string
+          student_id?: string | null
+        }
+        Update: {
+          entry_method?: string | null
+          etl_at?: string
+          id?: string
+          scan_date?: string
+          scan_time?: string
+          scan_type?: string | null
+          source?: string
+          student_id?: string | null
+        }
+        Relationships: []
+      }
+      fact_finance: {
+        Row: {
+          amount: number | null
+          category: string | null
+          etl_at: string
+          id: string
+          source_id: string
+          source_table: string
+          transaction_date: string
+          type: string | null
+        }
+        Insert: {
+          amount?: number | null
+          category?: string | null
+          etl_at: string
+          id: string
+          source_id: string
+          source_table: string
+          transaction_date: string
+          type?: string | null
+        }
+        Update: {
+          amount?: number | null
+          category?: string | null
+          etl_at?: string
+          id?: string
+          source_id?: string
+          source_table?: string
+          transaction_date?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      fact_grades: {
+        Row: {
+          academic_year: number
+          etl_at: string
+          grade: string | null
+          grade_point: number | null
+          id: string
+          semester: number
+          source_updated_at: string | null
+          student_code: string
+          subject_id: string
+          total_score: number | null
+        }
+        Insert: {
+          academic_year: number
+          etl_at: string
+          grade?: string | null
+          grade_point?: number | null
+          id: string
+          semester: number
+          source_updated_at?: string | null
+          student_code: string
+          subject_id: string
+          total_score?: number | null
+        }
+        Update: {
+          academic_year?: number
+          etl_at?: string
+          grade?: string | null
+          grade_point?: number | null
+          id?: string
+          semester?: number
+          source_updated_at?: string | null
+          student_code?: string
+          subject_id?: string
+          total_score?: number | null
+        }
+        Relationships: []
+      }
       fiscal_years: {
         Row: {
           created_at: string
