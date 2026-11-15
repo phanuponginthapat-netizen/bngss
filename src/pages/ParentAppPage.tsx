@@ -107,6 +107,7 @@ type ChildBundle = {
   homework: HomeworkRow[];
   remediation: RemediationRow[];
   loading: boolean;
+  attendanceError?: string;
 };
 
 // ---------- Helpers ----------
@@ -348,6 +349,7 @@ export default function ParentAppPage() {
       incompletePromise,
     ]);
 
+    const attendanceError = faceRes.status === "rejected" || attRes.status === "rejected" || (faceRes.status === "fulfilled" && faceRes.value.error) || (attRes.status === "fulfilled" && attRes.value.error) ? "อ่านผลสแกน/เช็คชื่อไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const faceLogs = faceRes.status === "fulfilled" ? ((faceRes.value.data as unknown as FaceLog[]) ?? []) : [];
     const attendance = attRes.status === "fulfilled" ? ((attRes.value.data as unknown as AttendanceRow[]) ?? []) : [];
     const scores = scoresRes.status === "fulfilled" ? ((scoresRes.value.data as unknown as ScoreRow[]) ?? []) : [];
@@ -391,7 +393,7 @@ export default function ParentAppPage() {
       }
     }
 
-    return { faceLogs, attendance, scores, homework, remediation };
+    return { faceLogs, attendance, scores, homework, remediation, attendanceError };
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -434,7 +436,8 @@ export default function ParentAppPage() {
       results.forEach((r) => {
         if (r.status === "fulfilled") {
           const { childId, data } = r.value;
-          const child = kids.find((k) => k.id === childId)!;
+          const child = kids.find((k) => k.id === childId);
+          if (!child) return;
           next[childId] = { child, ...data, loading: false };
         }
       });
@@ -457,8 +460,28 @@ export default function ParentAppPage() {
   }, [userId, fetchChildren, fetchBundleForChild, L]);
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
+    // Initial child loading stays separate; the effect below reconciles scans.
   }, [loadAll]);
+
+  useEffect(() => {
+    const refreshScans = async () => {
+      for (const child of children) {
+        try {
+          const today = todayBangkok();
+          const [face, attendance] = await Promise.all([
+            supabase.from("face_scan_logs").select("id,scan_date,scan_time,scan_type,entry_method,created_at").eq("student_id", child.id).eq("scan_date",today).order("scan_time",{ascending:false}).limit(5),
+            supabase.from("attendance").select("id,attendance_date,status,notes").eq("student_id",child.id).eq("attendance_date",today).is("subject_id",null).order("id").limit(5),
+          ]);
+          if(face.error || attendance.error) throw new Error("อ่านผลสแกนไม่สำเร็จ");
+          setBundles(prev => prev[child.id] ? {...prev,[child.id]:{...prev[child.id],faceLogs:face.data as FaceLog[],attendance:attendance.data as AttendanceRow[],attendanceError:undefined}} : prev);
+        } catch { setBundles(prev => prev[child.id] ? {...prev,[child.id]:{...prev[child.id],attendanceError:"อ่านผลสแกนไม่สำเร็จ กรุณาลองใหม่"}} : prev); }
+      }
+    };
+    const timer = window.setInterval(refreshScans,30_000);
+    window.addEventListener("focus",refreshScans); window.addEventListener("online",refreshScans);
+    return () => {window.clearInterval(timer);window.removeEventListener("focus",refreshScans);window.removeEventListener("online",refreshScans);};
+  },[children]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -471,6 +494,7 @@ export default function ParentAppPage() {
     if (b.loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {L("กำลังโหลดการมาเรียน...", "Loading attendance...")}</div>;
     const today = todayBangkok();
     const hasFace = b.faceLogs.length > 0;
+    if (b.attendanceError) return <p role="alert" className="text-sm text-destructive">{b.attendanceError}</p>;
     const hasAtt = b.attendance.length > 0;
     if (!hasFace && !hasAtt) {
       return (
@@ -753,7 +777,7 @@ export default function ParentAppPage() {
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
             const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
             const attendanceToday = selBundle?.faceLogs?.length || selBundle?.attendance?.length ? (selBundle?.attendance?.[0]?.status || (selBundle?.faceLogs?.length ? "present" : "") || "present") : null;
-            const attendanceLabel = !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
+            const attendanceLabel = selBundle?.attendanceError ? L("อ่านไม่สำเร็จ", "Unavailable") : !selBundle ? "—" : !selBundle.loading && !attendanceToday ? L("ยังไม่เช็คชื่อ", "Not checked") : attendanceToday === "present" ? L("มาเรียน", "Present") : attendanceToday === "late" ? L("มาสาย", "Late") : attendanceToday === "absent" ? L("ขาด", "Absent") : attendanceToday || "—";
             return (
               <motion.div initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.08 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[0,1,2,3].map((idx) => {

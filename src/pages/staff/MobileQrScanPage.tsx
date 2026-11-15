@@ -18,7 +18,7 @@ import {
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  enqueueScan, flushQueue, countPending, installAutoSync,
+  enqueueScan, flushQueue, countPending, installAutoSync, uninstallAutoSync,
 } from "@/lib/offlineScanQueue";
 import { checkTodayScan, markScanned, methodLabel } from "@/lib/scanDedup";
 import {
@@ -101,6 +101,7 @@ export default function MobileQrScanPage() {
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => {
+      uninstallAutoSync();
       window.removeEventListener("online", on);
       window.removeEventListener("offline", off);
     };

@@ -61,13 +61,19 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const period: Period = body.period || "day";
     const ref = body.ref_date ? new Date(body.ref_date) : new Date();
-    const r = body.start && body.end
+    let r = body.start && body.end
       ? { start: body.start, end: body.end, label: body.label || `${body.start} - ${body.end}` }
       : getRange(period, ref);
     const broadcast = body.broadcast !== false;
 
     const sb = makeAdmin();
 
+    if(period === "term" && !(body.start && body.end)) {
+      const day = bkkDateISO(ref);
+      const {data: term,error} = await sb.from("academic_periods").select("start_date,end_date,semester,academic_year_be").lte("start_date",day).gte("end_date",day).order("start_date",{ascending:false}).limit(1).maybeSingle();
+      if(error || !term) throw new Error("Term calendar unavailable");
+      r = {start:term.start_date,end:term.end_date,label:`ภาคเรียน ${term.semester}/${term.academic_year_be}`};
+    }
     const {data: settingRows, error: settingsError} = await sb.from("school_settings").select("setting_key,setting_value").in("setting_key", ["clock_late_threshold", "clock_in_end"]);
     if(settingsError) throw settingsError;
     const settings = Object.fromEntries((settingRows ?? []).map(row=>[row.setting_key,row.setting_value]));
