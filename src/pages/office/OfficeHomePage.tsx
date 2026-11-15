@@ -24,16 +24,19 @@ export default function OfficeHomePage() {
   const load = async () => {
     setLoading(true);
     setError(null);
+    setFiles([]); setConnected(null);
     try {
       // Check connection first to avoid triggering a 428 error on the proxy.
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
       if (!user) { setConnected(false); setLoading(false); return; }
-      const { data: conn } = await supabase
+      const { data: conn, error: connectionError } = await supabase
         .from("app_user_connections")
         .select("id")
         .eq("user_id", user.id)
         .eq("connector_id", "google_drive")
         .maybeSingle();
+      if (connectionError) throw connectionError;
       if (!conn) { setConnected(false); setLoading(false); return; }
       setConnected(true);
       setFiles(await listRecentOfficeFiles(24));
@@ -102,7 +105,7 @@ export default function OfficeHomePage() {
           {!loading && connected && files.length === 0 && !error && (
             <div className="text-center py-8 text-muted-foreground text-sm">ยังไม่มีไฟล์ Office ใน Drive — สร้างใหม่ได้จากเมนูด้านบน</div>
           )}
-          {!loading && files.length > 0 && (
+          {!loading && !error && files.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {files.map(f => (
                 <Link
