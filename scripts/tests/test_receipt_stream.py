@@ -7,7 +7,8 @@ spec.loader.exec_module(module)
 
 class Response:
     def raise_for_status(self): pass
-    def iter_lines(self):
+    def iter_lines(self, chunk_size):
+        if chunk_size != 1: raise AssertionError("small receipt events must not wait for a buffer")
         return iter([b"event: ready", b"data: {}", b"event: heartbeat", b"event: receipt", b"data: {}"])
 
 class ReceiptStreamTests(unittest.TestCase):

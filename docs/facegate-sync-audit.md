@@ -31,6 +31,13 @@ Rule: the same captured scan must retain its identity, Bangkok date/time and ent
 
 ## Verification and limitations
 
+## Live receipts (1.13.3)
+
+- Device-authorized receipt-stream sends data-free SSE doorbells from committed student/staff receipts and attendance; receipt-state re-reads identity, original timestamp, freshly signed pictures and day-scoped duplicate keys. Keys are revalidated on stream rotation; no client gets service credentials or wider permissions.
+- Native screens read the local receipt cache every 500ms (not the Cloud every 500ms), display a fresh receipt from another kiosk without replaying speech or opening doors, and refresh shared screensaver statistics when receipt revision changes. Requests uses one-byte SSE chunks to avoid buffered event delays.
+- One app Realtime bridge refreshes attendance query caches and state-based scanner, parent and LINE views. The admin live page now lists the latest twelve committed student/staff receipts across kiosks; photos fail independently and timestamps display Bangkok time.
+- Verified authenticated live page with one existing receipt and successful readback/retry, desktop/mobile layout, simulated two-screen name/time equality, targeted tests and compiled 1.13.3 ZIP. No synthetic attendance records were written. Physical two-kiosk latency and Windows release/install remain pending; offline kiosks cannot display unconfirmed scans from another offline device.
+
 - 34 targeted Vitest and 18 Python tests passed; package compilation and ZIP module inspection passed; old native pending scans with unknown capture time stay queued for review instead of becoming today's scans.
 - Hosted attendance trigger definition re-read after migration; no settled rows updated.
 - Deployed kiosk-api, face-scan-daily-report and face-scan-summary.
