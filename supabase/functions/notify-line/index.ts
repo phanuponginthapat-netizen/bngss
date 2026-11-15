@@ -69,7 +69,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowCron: true });
   if (__caller instanceof Response) return __caller;
 
   try {
