@@ -103,6 +103,8 @@ jobs:
 
   # ตัวติดตั้ง Windows แบบไฟล์เดียว FaceGateSetup.exe (ไม่ต้องลง Python / ไม่มี .bat)
   build-facegate-windows:
+    # เผยแพร่ไฟล์ได้เฉพาะจาก main เท่านั้น — กันการกดรันจากสาขาเก่าแล้วได้ไฟล์รุ่นเก่า
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
