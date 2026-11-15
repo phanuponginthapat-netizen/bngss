@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import {
   Loader2, Type, ChevronLeft, ChevronRight, Save, Pencil, Eraser,
   Highlighter, Square, Circle as CircleIcon, ArrowRight, Undo2, Redo2,
-  RotateCw, PenLine, Stamp, MousePointer2, Mic, Video, StopCircle,
+  RotateCw, PenLine, Stamp, MousePointer2,
 } from "lucide-react";
 import {
   downloadHomeworkBlob, signedHomeworkUrl,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/homeworkStorage";
 import { toast } from "sonner";
 import OfficePreviewEditor from "./editors/OfficePreviewEditor";
+import MediaCaptureButtons from "./MediaCaptureButtons";
 
 interface Props {
   open: boolean;
@@ -54,28 +55,6 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
   const [color, setColor] = useState("#e11d48");
   const [size, setSize] = useState(3);
   const [signOpen, setSignOpen] = useState(false);
-  const [recAudio, setRecAudio] = useState<MediaRecorder|null>(null);
-  const [recVideo, setRecVideo] = useState<MediaRecorder|null>(null);
-  const [recSecs, setRecSecs] = useState(0);
-  const recTimerRef = useRef<number|null>(null);
-  const previewRef = useRef<HTMLVideoElement|null>(null);
-  const previewStreamRef = useRef<MediaStream|null>(null);
-  const startTimer = () => { setRecSecs(0); recTimerRef.current = window.setInterval(()=>setRecSecs(s=>s+1),1000); };
-  const stopTimer = () => { if(recTimerRef.current) clearInterval(recTimerRef.current); recTimerRef.current=null; };
-  const mmss = (s:number)=> `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  useEffect(() => {
-    if (recVideo && previewStreamRef.current && previewRef.current) {
-      previewRef.current.srcObject = previewStreamRef.current;
-      previewRef.current.play().catch(()=>{});
-    }
-  }, [recVideo]);
-  useEffect(() => {
-    return () => {
-      if (recTimerRef.current) clearInterval(recTimerRef.current);
-      try { previewStreamRef.current?.getTracks().forEach(t=>t.stop()); } catch {}
-    };
-  }, []);
-
   const pushHistory = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || skipHistoryRef.current) return;
@@ -373,31 +352,6 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
     catch (e: any) { toast.error(e?.message || "เปิดไม่สำเร็จ"); }
   };
 
-  const toggleAudio = async () => {
-    if (recAudio) { recAudio.stop(); setRecAudio(null); stopTimer(); return; }
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const r = new MediaRecorder(s);
-      const chunks: BlobPart[] = [];
-      r.ondataavailable = e=> chunks.push(e.data);
-      r.onstop = async ()=>{ const b=new Blob(chunks,{type:"audio/webm"}); s.getTracks().forEach(t=>t.stop()); await onSave(b, `audio_${Date.now()}.webm`); toast.success(`บันทึกเสียงแล้ว (${mmss(recSecs)})`); stopTimer(); };
-      r.start(); setRecAudio(r); startTimer(); toast("กำลังอัดเสียง... กดอีกครั้งเพื่อหยุด");
-    } catch(e:any){ toast.error(e?.message||"อัดเสียงไม่สำเร็จ"); stopTimer(); }
-  };
-  const toggleVideo = async () => {
-    if (recVideo) { recVideo.stop(); setRecVideo(null); stopTimer(); try{previewStreamRef.current?.getTracks().forEach(t=>t.stop());}catch{} previewStreamRef.current=null; if(previewRef.current) previewRef.current.srcObject=null; return; }
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio:true, video:true });
-      previewStreamRef.current = s;
-      requestAnimationFrame(()=>{ if(previewRef.current){ previewRef.current.srcObject=s; previewRef.current.play().catch(()=>{}); }});
-      const r = new MediaRecorder(s);
-      const chunks: BlobPart[] = [];
-      r.ondataavailable = e=> chunks.push(e.data);
-      r.onstop = async ()=>{ const b=new Blob(chunks,{type:"video/webm"}); s.getTracks().forEach(t=>t.stop()); previewStreamRef.current=null; if(previewRef.current) previewRef.current.srcObject=null; await onSave(b, `video_${Date.now()}.webm`); toast.success(`บันทึกวิดีโอแล้ว (${mmss(recSecs)})`); stopTimer(); };
-      r.start(); setRecVideo(r); startTimer(); toast("กำลังอัดวิดีโอ... กดอีกครั้งเพื่อหยุด");
-    } catch(e:any){ toast.error(e?.message||"อัดวิดีโอไม่สำเร็จ"); stopTimer(); }
-  };
-
   const placeSignature = (dataUrl: string) => {
     const canvas = fabricCanvasRef.current;
     const fabric = fabricNsRef.current;
@@ -417,7 +371,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-5xl">
+      <DialogContent className="sm:max-w-5xl flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="truncate">แก้ไข: {attachment?.name}</DialogTitle>
         </DialogHeader>
@@ -447,10 +401,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
           <Button size="sm" variant="outline" onClick={() => addStamp("สำเนา", "#0284c7")} className="h-8">สำเนา</Button>
           <Button size="sm" variant="outline" onClick={() => addStamp("อนุมัติ", "#16a34a")} className="h-8">อนุมัติ</Button>
           <div className="w-px h-6 bg-border mx-1" />
-          <div className="flex gap-1">
-            <Button size="sm" variant={recAudio?"destructive":"outline"} onClick={toggleAudio} disabled={Boolean(recVideo)} className="h-8" title="อัดเสียงพูด">{recAudio?<StopCircle className="w-4 h-4 mr-1"/>:<Mic className="w-4 h-4 mr-1"/>}{recAudio?"หยุด":"อัดเสียง"}</Button>
-            <Button size="sm" variant={recVideo?"destructive":"outline"} onClick={toggleVideo} disabled={Boolean(recAudio)} className="h-8" title="อัดคลิปวิดีโอ">{recVideo?<StopCircle className="w-4 h-4 mr-1"/>:<Video className="w-4 h-4 mr-1"/>}{recVideo?"หยุด":"วิดีโอ"}</Button>
-          </div>
+          <MediaCaptureButtons compact disabled={saving || loading} onCaptured={file => onSave(file, file.name)} />
 
           {isPdfMime(attachment?.mime) && pageCount > 1 && (
             <div className="flex items-center gap-1 ml-auto">
@@ -460,20 +411,7 @@ function CanvasImagePdfEditor({ open, attachment, onClose, onSave }: Props) {
             </div>
           )}
         </div>
-        {(recAudio || recVideo) && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2 sticky top-0 z-10 shadow-elevated" role="status" aria-live="polite">
-            <div className="flex items-center gap-2">
-              {recVideo ? <span className="w-3 h-3 rounded-full bg-destructive animate-pulse inline-block" /> : <Mic className="h-4 w-4 text-destructive animate-pulse" />}
-              <span className="text-sm font-semibold">{recVideo ? "กำลังอัดวีดีโอ..." : "กำลังอัดเสียง..."}</span>
-              <span className="ml-auto font-mono font-bold tabular-nums">{mmss(recSecs)}</span>
-            </div>
-            {!recVideo && <div className="flex items-center justify-center gap-1 py-2 text-destructive"><span className="w-2 h-2 rounded-full bg-destructive animate-ping"/><span className="text-xs">ไมค์กำลังบันทึก</span></div>}
-            {recVideo && <div className="rounded-md overflow-hidden bg-foreground aspect-video w-full max-h-48 mx-auto border-2 border-destructive/70"><video ref={previewRef} muted playsInline autoPlay className="w-full h-full object-cover" /></div>}
-            <Button type="button" size="sm" variant="destructive" className="w-full gap-2" onClick={recAudio ? toggleAudio : toggleVideo}><StopCircle className="w-4 h-4" /> หยุดและบันทึก</Button>
-          </div>
-        )}
-
-        <div className="overflow-auto max-h-[60vh] bg-muted/30 rounded">
+        <div className="overflow-auto min-h-0 flex-1 max-h-[60vh] bg-muted/30 rounded">
           {loading && <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
           <div className="flex justify-center p-3">
             <canvas ref={canvasElRef} className="border bg-white shadow-sm" />

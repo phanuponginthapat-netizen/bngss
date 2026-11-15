@@ -19,6 +19,7 @@ import { gradeField, type WorksheetField } from "@/lib/pdfWorksheet";
 import DOMPurify from "dompurify";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import AttachmentList from "./AttachmentList";
+import MediaCaptureButtons from "./MediaCaptureButtons";
 import { saveErrorMessage } from "@/lib/saveError";
 
 interface Props {
@@ -189,7 +190,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : (
-          <div className="flex-1 overflow-auto space-y-4 px-1">
+          <div className="flex-1 min-h-0 overflow-auto space-y-4 px-1">
             {isPdfMode ? (
               pdfSignedUrl ? (
                 <PdfWorksheetPlayer
@@ -261,8 +262,8 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
 
             {/* File attachments */}
             <div className="space-y-2 border-t pt-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold flex items-center gap-1"><Paperclip className="w-4 h-4" /> ไฟล์แนบ (รูป/PDF)</Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label className="text-sm font-semibold flex items-center gap-1"><Paperclip className="w-4 h-4" /> ไฟล์แนบ</Label>
                 {!readOnly && (
                   <label className="text-xs px-2 py-1 border rounded cursor-pointer hover:bg-muted">
                     เลือกไฟล์
@@ -270,6 +271,10 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                   </label>
                 )}
               </div>
+              {!readOnly && <MediaCaptureButtons disabled={saving || submitting} maxSizeMB={10} onCaptured={async file => {
+                const att = await uploadHomeworkFile(file, `rich-submissions/${assignmentId || "assignment"}`);
+                setAttachments(prev => [...prev, att]);
+              }} />}
               {attachments.length === 0 && <p className="text-xs text-muted-foreground">ยังไม่มีไฟล์</p>}
               {attachments.length > 0 && <AttachmentList attachments={attachments} dense />}
               {!readOnly && attachments.length > 0 && (
@@ -285,7 +290,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t pt-3 shrink-0">
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-3 shrink-0">
           {readOnly ? (
             <span className="text-sm text-muted-foreground self-center">{status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
           ) : (

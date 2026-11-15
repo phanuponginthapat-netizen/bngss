@@ -367,7 +367,7 @@ const HomeworkPage = () => {
         <div className="flex items-center gap-2 flex-wrap">
         {canCreate && (
           <Button variant="outline" onClick={() => { setRichEditingId(null); setRichOpen(true); }}>
-            <Sparkles className="w-4 h-4 mr-1" /> สร้างใบงาน Rich
+            <Sparkles className="w-4 h-4 mr-1" /> สร้างใบงาน / Liveworksheet
           </Button>
         )}
         {canCreate && (
@@ -375,7 +375,7 @@ const HomeworkPage = () => {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-1" /> สั่งการบ้าน</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
               <DialogHeader><DialogTitle>สั่งการบ้านใหม่</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -558,17 +558,17 @@ const HomeworkPage = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> ใบงาน Rich ({richList.length})
+              <Sparkles className="w-4 h-4 text-primary" /> ใบงาน / Liveworksheet ({richList.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {richList.map((a: any) => (
-              <div key={a.id} className="flex items-center justify-between gap-2 border rounded p-2">
+              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b py-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-sm truncate">{a.title}</div>
+                  <div className="font-medium text-sm break-words">{a.title}</div>
                   {a.due_date && <div className="text-xs text-muted-foreground">กำหนดส่ง: {new Date(a.due_date).toLocaleDateString("th-TH")}</div>}
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   {isStudent && !isParent && studentRow?.id && (
                     <Button size="sm" onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}>
                       <FileEdit className="w-3.5 h-3.5 mr-1" /> ทำใบงาน
@@ -580,7 +580,7 @@ const HomeworkPage = () => {
                         <ClipboardList className="w-3.5 h-3.5 mr-1" /> ตรวจ
                       </Button>
                       {(isAdmin || isDirector || a.created_by === userId) && (
-                        <Button size="sm" variant="ghost" onClick={() => { setRichEditingId(a.id); setRichOpen(true); }}>
+                        <Button size="sm" variant="ghost" title="แก้ไขใบงาน" aria-label="แก้ไขใบงาน" onClick={() => { setRichEditingId(a.id); setRichOpen(true); }}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       )}

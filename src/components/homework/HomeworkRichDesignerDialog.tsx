@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, FileText, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -304,19 +304,13 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   const body = (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
-        <h2 className="text-base sm:text-lg font-semibold">{editingId ? "แก้ไขใบงาน" : "สร้างใบงาน Rich"}</h2>
+        <h2 className="text-base sm:text-lg font-semibold">{editingId ? "แก้ไขใบงาน" : "สร้างใบงาน"}</h2>
         <div className="flex flex-wrap items-center gap-1">
-          <div className="flex rounded border overflow-hidden mr-1 sm:mr-2">
-            <button type="button" onClick={() => setMode("html")}
-              className={`px-2 sm:px-3 py-1 text-xs ${mode === "html" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
-              HTML
-            </button>
-            <button type="button" onClick={() => setMode("pdf")}
-              className={`px-2 sm:px-3 py-1 text-xs ${mode === "pdf" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
-              PDF Worksheet
-            </button>
+          <div className="flex items-center gap-1 rounded-md border p-1" role="group" aria-label="รูปแบบใบงาน">
+            <Button type="button" size="sm" variant={mode === "html" ? "secondary" : "ghost"} aria-pressed={mode === "html"} onClick={() => setMode("html")}><FileText className="h-4 w-4" />เอกสาร</Button>
+            <Button type="button" size="sm" variant={mode === "pdf" ? "secondary" : "ghost"} aria-pressed={mode === "pdf"} onClick={() => setMode("pdf")}><FileText className="h-4 w-4" />Liveworksheet</Button>
           </div>
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => setFullscreen(f => !f)}>
+          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" title={fullscreen ? "ย่อหน้าต่าง" : "เต็มหน้าจอ"} aria-label={fullscreen ? "ย่อหน้าต่าง" : "เต็มหน้าจอ"} onClick={() => setFullscreen(f => !f)}>
             {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>ปิด</Button>
