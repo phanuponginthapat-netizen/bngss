@@ -8,6 +8,12 @@ set -euo pipefail
 PRODUCT="$1"; TITLE="$2"; VERSION="$3"; shift 3
 TAG="${PRODUCT}-latest"
 
+# ใน CI ต้องรันจาก main เท่านั้น — กันการกด workflow_dispatch จากสาขาเก่าแล้วเผยแพร่ไฟล์รุ่นเก่า
+if [ -n "${GITHUB_REF:-}" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+  echo "::error::publish-release ต้องรันจาก main เท่านั้น (GITHUB_REF=$GITHUB_REF)"
+  exit 1
+fi
+
 # ลบ release เก่าของโปรแกรมนี้ทั้งหมด (tag ล่าสุดเดิม + tag แปะเวอร์ชันแบบเก่า)
 gh release list --limit 200 --json tagName -q '.[].tagName' | while read -r t; do
   case "$t" in
