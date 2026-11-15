@@ -1,7 +1,7 @@
 import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { readAllRows } from "../bigdata-warehouse-cron/readSources.ts";
+import { readAllRows } from "../_shared/readAllRows.ts";
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function toIcsDate(dateStr: string, allDay = true): string {

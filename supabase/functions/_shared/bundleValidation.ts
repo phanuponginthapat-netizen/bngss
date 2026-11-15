@@ -1,6 +1,6 @@
 export function allowedTables(input: unknown, spec: Record<string, string>): string[] {
   const tables = input === undefined ? Object.keys(spec) : input;
-  if (!Array.isArray(tables) || tables.some(t => typeof t !== 'string' || !Object.hasOwn(spec, t))) throw new Error('table outside allowed scope');
+  if (!Array.isArray(tables) || tables.some(t => typeof t !== 'string' || !Object.prototype.hasOwnProperty.call(spec, t))) throw new Error('table outside allowed scope');
   return [...new Set(tables)];
 }
 
