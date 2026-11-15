@@ -13,6 +13,7 @@ import { showLiveNotification } from "@/lib/liveNotification";
 import { savePushRegistration } from "@/lib/pushRegistration";
 
 let initialized = false;
+const LAST_TOKEN_KEY = "bngss_fcm_last_token";
 const PENDING_KEY = "pending_fcm_token";
 let pendingToken: string | null = (() => {
   try { return localStorage.getItem(PENDING_KEY); } catch { return null; }
@@ -51,6 +52,8 @@ async function saveDeviceToken(token: string): Promise<void> {
     });
     if (error) throw error;
     if (pendingToken === token) setPendingToken(null);
+    // Remember the device token so a later sign-in on this device re-binds it to the new account.
+    try { localStorage.setItem(LAST_TOKEN_KEY, token); } catch { /* storage unavailable */ }
   } catch (e) {
     console.warn("FCM device registration failed; retained for retry");
   }
@@ -58,7 +61,8 @@ async function saveDeviceToken(token: string): Promise<void> {
 
 /** หลัง login แล้ว ให้บันทึก token ที่ค้างไว้ตอนแอปเปิดก่อนล็อกอิน */
 export async function flushPendingFcmToken(): Promise<void> {
-  const t = pendingToken || (() => { try { return localStorage.getItem(PENDING_KEY); } catch { return null; } })();
+  const t = pendingToken
+    || (() => { try { return localStorage.getItem(PENDING_KEY) || localStorage.getItem(LAST_TOKEN_KEY); } catch { return null; } })();
   if (!t) return;
   await saveDeviceToken(t);
 }
