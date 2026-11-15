@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import EFormTemplateDesigner from "@/components/eform/EFormTemplateDesigner";
 import PdfWorksheetDesigner from "@/components/homework/PdfWorksheetDesigner";
-import type { WorksheetField } from "@/lib/pdfWorksheet";
+import { isWorksheetGradable, type WorksheetField } from "@/lib/pdfWorksheet";
 import type { EFormField } from "@/lib/eformTemplate";
 
 const EMPTY = `<h2 style="text-align:center;">ใบงาน</h2><p>คำสั่ง: ...</p>`;
@@ -38,6 +38,9 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
   const [worksheetFields, setWorksheetFields] = useState<WorksheetField[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryLoad, setRetryLoad] = useState(0);
 
   // มือถือ = fullscreen เสมอ กัน dialog เล็กจนใช้ไม่ได้; desktop ให้ผู้ใช้เลือก
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
@@ -169,56 +172,53 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
 
   useEffect(() => {
     if (!open) return;
-    if (!editingId) {
-      setTitle(""); setSubjectId(""); setClassroomId(""); setDueDate("");
-      setHtml(EMPTY); setFields([]);
-      setMode("html"); setPdfPath(null); setPdfSignedUrl(null); setPendingPdfFile(null); setWorksheetFields([]);
-      return;
-    }
+    let active = true;
+    setTitle(""); setSubjectId(""); setClassroomId(""); setDueDate("");
+    setHtml(EMPTY); setFields([]); setLoadError(null);
+    setMode("html"); setPdfPath(null); setPdfSignedUrl(null); setPendingPdfFile(null); setWorksheetFields([]);
+    if (!editingId) { setLoading(false); return; }
+    setLoading(true);
     (async () => {
-      const { data } = await supabase
-        .from("homework_assignments")
-        .select("*")
-        .eq("id", editingId)
-        .maybeSingle();
-      if (!data) return;
-      setTitle(data.title || "");
-      setSubjectId(data.subject_id || "");
-      setClassroomId(data.classroom_id || "");
-      setDueDate(data.due_date || "");
-      setHtml((data as any).content_html || EMPTY);
-      setFields(((data as any).answer_fields || []) as EFormField[]);
-      const pPath = (data as any).pdf_path as string | null;
-      const wFields = ((data as any).worksheet_fields || []) as WorksheetField[];
-      setPdfPath(pPath);
-      setWorksheetFields(wFields);
-      if (pPath) {
-        setMode("pdf");
-        const { data: signed } = await supabase.storage.from("homework-files").createSignedUrl(pPath, 3600);
-        if (signed?.signedUrl) setPdfSignedUrl(signed.signedUrl);
-      } else {
-        setMode("html");
-      }
+      try {
+        const { data, error } = await supabase.from("homework_assignments").select("*").eq("id", editingId).single();
+        if (error) throw error;
+        let signedUrl: string | null = null;
+        if (data.pdf_path) {
+          const { data: signed, error: signError } = await supabase.storage.from("homework-files").createSignedUrl(data.pdf_path, 3600);
+          if (signError || !signed?.signedUrl) throw signError || new Error("เปิด PDF ไม่สำเร็จ");
+          signedUrl = signed.signedUrl;
+        }
+        if (!active) return;
+        setTitle(data.title || ""); setSubjectId(data.subject_id || ""); setClassroomId(data.classroom_id || "");
+        setDueDate(data.due_date || ""); setHtml(data.content_html || EMPTY);
+        setFields((data.answer_fields || []) as unknown as EFormField[]);
+        setPdfPath(data.pdf_path); setPdfSignedUrl(signedUrl);
+        setWorksheetFields((data.worksheet_fields || []) as unknown as WorksheetField[]);
+        setMode(data.pdf_path ? "pdf" : "html");
+      } catch (error: any) {
+        if (active) setLoadError(error?.message || "อ่านใบงานไม่สำเร็จ");
+      } finally { if (active) setLoading(false); }
     })();
-  }, [open, editingId]);
+    return () => { active = false; };
+  }, [open, editingId, retryLoad]);
 
   const save = async () => {
+    if (loading || loadError || saving) return;
     if (!title.trim()) { toast.error("กรอกชื่อใบงาน"); return; }
     if (!classroomId) { toast.error("เลือกห้องเรียน"); return; }
     if (mode === "pdf" && !pdfPath && !pendingPdfFile) { toast.error("กรุณาอัปโหลด PDF ต้นแบบ"); return; }
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: prof } = await supabase.from("profiles").select("first_name,last_name,school_id").eq("id", user!.id).maybeSingle();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error("กรุณาเข้าสู่ระบบก่อนบันทึก");
+      const { data: prof, error: profileError } = await supabase.from("profiles").select("first_name,last_name,school_id").eq("id", user.id).single();
+      if (profileError) throw profileError;
       const assigned_by = `${prof?.first_name || ""} ${prof?.last_name || ""}`.trim() || "ครู";
 
       let finalPdfPath = pdfPath;
       if (mode === "pdf" && pendingPdfFile) {
-        // ลบไฟล์ PDF เก่าทิ้งก่อนอัปโหลดใหม่ กันค้างใน storage
-        if (pdfPath) {
-          try { await supabase.storage.from("homework-files").remove([pdfPath]); } catch { /* ignore */ }
-        }
-        const path = `worksheet-pdf/${user!.id}/${Date.now()}_${pendingPdfFile.name.replace(/[^\w.\-]+/g, "_")}`;
+        const path = `worksheet-pdf/${user.id}/${Date.now()}_${pendingPdfFile.name.replace(/[^\w.\-]+/g, "_")}`;
         const { error: upErr } = await supabase.storage.from("homework-files").upload(path, pendingPdfFile, {
           contentType: "application/pdf", upsert: false,
         });
@@ -229,8 +229,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       // นับเฉพาะ field ที่ auto-grade ได้ (มี correct) — กัน audio/draw ทำให้ % เพี้ยน
       const totalScore = mode === "pdf"
         ? worksheetFields.reduce((s, f) => {
-            const gradable = f.correct !== undefined && f.correct !== null && f.correct !== "";
-            return gradable ? s + (f.score ?? 0) : s;
+            return isWorksheetGradable(f) ? s + (f.score ?? 1) : s;
           }, 0)
         : null;
 
@@ -248,10 +247,10 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
         assigned_by,
         status: "active",
         school_id: prof?.school_id || null,
-        created_by: user!.id,
+        created_by: user.id,
       };
       if (editingId) {
-        const { error } = await supabase.from("homework_assignments").update(payload).eq("id", editingId);
+        const { error } = await supabase.from("homework_assignments").update(payload).eq("id", editingId).select("id").single();
         if (error) throw error;
         toast.success("บันทึกใบงานแล้ว");
       } else {
@@ -315,7 +314,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>ปิด</Button>
           {useFullscreen && (
-            <Button size="sm" onClick={save} disabled={saving}>
+            <Button size="sm" onClick={save} disabled={saving || loading || !!loadError}>
               {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} บันทึก
             </Button>
           )}
@@ -323,7 +322,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [touch-action:pan-y] md:overflow-hidden">
-        {mode === "html" ? (
+        {loading ? <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div> : loadError ? <div className="p-4 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={() => setRetryLoad(v => v + 1)}>ลองใหม่</Button></div> : mode === "html" ? (
           <EFormTemplateDesigner
             initialHtml={html}
             initialFields={fields}
@@ -337,7 +336,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
               <PdfWorksheetDesigner
                 initialPdfUrl={pdfSignedUrl}
                 initialFields={worksheetFields}
-                onPdfChange={(file) => { setPendingPdfFile(file); setPdfPath(null); }}
+                onPdfChange={setPendingPdfFile}
                 onFieldsChange={setWorksheetFields}
               />
             </div>
@@ -349,7 +348,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       {!useFullscreen && (
         <div className="flex justify-end gap-2 shrink-0 pb-[env(safe-area-inset-bottom)]">
           <Button variant="outline" onClick={() => onOpenChange(false)}>ยกเลิก</Button>
-          <Button onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving || loading || !!loadError}>
             {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} บันทึก
           </Button>
         </div>

@@ -15,7 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { EFormField } from "@/lib/eformTemplate";
 import { EFORM_PAGE_STYLE } from "@/lib/eformLayout";
 import PdfWorksheetPlayer from "@/components/homework/PdfWorksheetPlayer";
-import { gradeField, type WorksheetField } from "@/lib/pdfWorksheet";
+import { gradeField, isWorksheetGradable, type WorksheetField } from "@/lib/pdfWorksheet";
 import DOMPurify from "dompurify";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import AttachmentList from "./AttachmentList";
@@ -41,6 +41,9 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryLoad, setRetryLoad] = useState(0);
+  const [uploading, setUploading] = useState(false);
 
   const fields: EFormField[] = useMemo(() => (assignment?.answer_fields || []) as EFormField[], [assignment]);
   const worksheetFields: WorksheetField[] = useMemo(() => (assignment?.worksheet_fields || []) as WorksheetField[], [assignment]);
@@ -48,47 +51,37 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const [pdfSignedUrl, setPdfSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isPdfMode) { setPdfSignedUrl(null); return; }
+    if (!open) return;
+    let active = true;
+    setLoading(true); setLoadError(null); setAssignment(null); setPdfSignedUrl(null);
+    setAnswers({}); setAttachments([]); setSubmissionId(null); setStatus("draft");
     (async () => {
-      const { data } = await supabase.storage.from("homework-files").createSignedUrl(assignment.pdf_path, 3600);
-      if (data?.signedUrl) setPdfSignedUrl(data.signedUrl);
+      try {
+        if (!assignmentId || !studentId) throw new Error("ไม่พบบัญชีนักเรียนหรือใบงาน");
+        const { data: a, error: assignmentError } = await supabase.from("homework_assignments").select("*").eq("id", assignmentId).single();
+        if (assignmentError) throw assignmentError;
+        const { data: s, error: submissionError } = await supabase.from("homework_submissions" as any).select("*").eq("assignment_id", assignmentId).eq("student_id", studentId).maybeSingle();
+        if (submissionError) throw submissionError;
+        let url: string | null = null;
+        if (a.pdf_path) {
+          const { data: signed, error } = await supabase.storage.from("homework-files").createSignedUrl(a.pdf_path, 3600);
+          if (error || !signed?.signedUrl) throw error || new Error("เปิด PDF ไม่สำเร็จ");
+          url = signed.signedUrl;
+        }
+        if (!active) return;
+        setAssignment(a); setPdfSignedUrl(url);
+        setSubmissionId((s as any)?.id || null); setAnswers((s as any)?.answers || {});
+        setAttachments((s as any)?.attachments || []); setStatus((s as any)?.status || "draft");
+      } catch (error: any) { if (active) setLoadError(saveErrorMessage(error)); }
+      finally { if (active) setLoading(false); }
     })();
-  }, [isPdfMode, assignment?.pdf_path]);
-
-  useEffect(() => {
-    if (!open || !assignmentId || !studentId) return;
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      const { data: a } = await supabase.from("homework_assignments").select("*").eq("id", assignmentId).maybeSingle();
-      if (cancelled) return;
-      setAssignment(a);
-      const { data: s } = await supabase
-        .from("homework_submissions" as any)
-        .select("*")
-        .eq("assignment_id", assignmentId)
-        .eq("student_id", studentId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (s) {
-        setSubmissionId((s as any).id);
-        setAnswers(((s as any).answers || {}) as any);
-        setAttachments(((s as any).attachments || []) as AttachmentItem[]);
-        setStatus((s as any).status || "draft");
-      } else {
-        setSubmissionId(null);
-        setAnswers({});
-        setAttachments([]);
-        setStatus("draft");
-      }
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [open, assignmentId, studentId]);
+    return () => { active = false; };
+  }, [open, assignmentId, studentId, retryLoad]);
 
   const upsert = async (nextStatus: "draft" | "submitted") => {
-    if (!assignmentId || !studentId) return null;
-    const { data: student } = await supabase.from("students").select("school_id").eq("id", studentId).maybeSingle();
+    if (!assignmentId || !studentId || loading || loadError || !assignment) throw new Error("ยังอ่านใบงานไม่สำเร็จ กรุณาลองใหม่");
+    const { data: student, error: studentError } = await supabase.from("students").select("school_id").eq("id", studentId).single();
+    if (studentError) throw studentError;
     const payload: any = {
       assignment_id: assignmentId,
       student_id: studentId,
@@ -103,7 +96,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
       let total = 0;
       let hasGradable = false;
       for (const f of worksheetFields) {
-        if (f.correct === undefined || f.correct === null || f.correct === "") continue;
+        if (!isWorksheetGradable(f)) continue;
         hasGradable = true;
         const r = gradeField(f, answers[f.id]);
         results[f.id] = r;
@@ -116,7 +109,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
     }
 
     if (submissionId) {
-      const { error } = await supabase.from("homework_submissions" as any).update(payload).eq("id", submissionId);
+      const { error } = await supabase.from("homework_submissions" as any).update(payload).eq("id", submissionId).select("id").single();
       if (error) throw error;
       return submissionId;
     }
@@ -138,7 +131,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const submit = async () => {
     if (!isPdfMode) {
       for (const f of fields) {
-        if (f.required && !answers[f.key]) { toast.error(`กรอก "${f.label}" ก่อนส่ง`); return; }
+        if (f.required && (answers[f.key] === undefined || answers[f.key] === null || answers[f.key] === false || String(answers[f.key]).trim() === "")) { toast.error(`กรอก "${f.label}" ก่อนส่ง`); return; }
       }
     }
     setSubmitting(true);
@@ -163,18 +156,17 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const uploadFile = async (file: File) => {
     if (!studentId) return;
     if (file.size > 10 * 1024 * 1024) { toast.error("ไฟล์ต้องไม่เกิน 10MB"); return; }
+    setUploading(true);
     try {
       const att = await uploadHomeworkFile(file, `rich-submissions/${assignmentId || "assignment"}`);
       setAttachments((prev) => [...prev, att]);
     } catch (e: any) {
       toast.error(e?.message || "อัปโหลดไฟล์ไม่สำเร็จ");
-    }
+    } finally { setUploading(false); }
   };
 
   const removeAttachment = async (i: number) => {
-    const a = attachments[i];
-    const { error: rmErr } = await supabase.storage.from("homework-files").remove([a.path]);
-    if (rmErr) { toast.error("ลบไฟล์แนบไม่สำเร็จ ลองใหม่อีกครั้ง"); return; }
+    // Detach locally; a previously saved draft may still reference this file until the next confirmed save.
     setAttachments((prev) => prev.filter((_, idx) => idx !== i));
   };
 
@@ -189,6 +181,8 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
 
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        ) : loadError ? (
+          <div className="py-6 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={() => setRetryLoad(v => v + 1)}>ลองใหม่</Button></div>
         ) : (
           <div className="flex-1 min-h-0 overflow-auto space-y-4 px-1">
             {isPdfMode ? (
@@ -224,20 +218,20 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                       <div key={f.key} className="space-y-1">
                         <Label className="text-sm">{f.label}{f.required && <span className="text-destructive"> *</span>}</Label>
                         {f.type === "textarea" ? (
-                          <Textarea disabled={readOnly} value={answers[f.key] || ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} rows={3} />
+                          <Textarea disabled={readOnly} value={answers[f.key] ?? ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} rows={3} />
                         ) : f.type === "date" ? (
-                          <Input type="date" disabled={readOnly} value={answers[f.key] || ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
+                          <Input type="date" disabled={readOnly} value={answers[f.key] ?? ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
                         ) : f.type === "number" ? (
-                          <Input type="number" disabled={readOnly} value={answers[f.key] || ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
+                          <Input type="number" disabled={readOnly} value={answers[f.key] ?? ""} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
                         ) : f.type === "select" ? (
-                          <Select value={answers[f.key] || ""} onValueChange={(v) => setAnswers(a => ({ ...a, [f.key]: v }))} disabled={readOnly}>
+                          <Select value={answers[f.key] ?? ""} onValueChange={(v) => setAnswers(a => ({ ...a, [f.key]: v }))} disabled={readOnly}>
                             <SelectTrigger><SelectValue placeholder="เลือก" /></SelectTrigger>
                             <SelectContent>
                               {(f.options || []).map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         ) : f.type === "radio" ? (
-                          <RadioGroup value={answers[f.key] || ""} onValueChange={(v) => setAnswers(a => ({ ...a, [f.key]: v }))} disabled={readOnly}>
+                          <RadioGroup value={answers[f.key] ?? ""} onValueChange={(v) => setAnswers(a => ({ ...a, [f.key]: v }))} disabled={readOnly}>
                             {(f.options || []).map(o => (
                               <div key={o} className="flex items-center gap-2">
                                 <RadioGroupItem value={o} id={`${f.key}-${o}`} />
@@ -251,7 +245,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                             <span className="text-sm">{f.placeholder || "เลือก"}</span>
                           </div>
                         ) : (
-                          <Input disabled={readOnly} value={answers[f.key] || ""} placeholder={f.placeholder} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
+                          <Input disabled={readOnly} value={answers[f.key] ?? ""} placeholder={f.placeholder} onChange={(e) => setAnswers(a => ({ ...a, [f.key]: e.target.value }))} />
                         )}
                       </div>
                     ))}
@@ -267,13 +261,16 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                 {!readOnly && (
                   <label className="text-xs px-2 py-1 border rounded cursor-pointer hover:bg-muted">
                     เลือกไฟล์
-                    <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }} />
+                    <input type="file" disabled={saving || submitting || uploading} className="hidden" accept="image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }} />
                   </label>
                 )}
               </div>
-              {!readOnly && <MediaCaptureButtons disabled={saving || submitting} maxSizeMB={10} onCaptured={async file => {
-                const att = await uploadHomeworkFile(file, `rich-submissions/${assignmentId || "assignment"}`);
-                setAttachments(prev => [...prev, att]);
+              {!readOnly && <MediaCaptureButtons disabled={loading || !!loadError || saving || submitting || uploading} maxSizeMB={10} onCaptured={async file => {
+                setUploading(true);
+                try {
+                  const att = await uploadHomeworkFile(file, `rich-submissions/${assignmentId || "assignment"}`);
+                  setAttachments(prev => [...prev, att]);
+                } finally { setUploading(false); }
               }} />}
               {attachments.length === 0 && <p className="text-xs text-muted-foreground">ยังไม่มีไฟล์</p>}
               {attachments.length > 0 && <AttachmentList attachments={attachments} dense />}
@@ -295,10 +292,10 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
             <span className="text-sm text-muted-foreground self-center">{status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
           ) : (
             <>
-              <Button variant="outline" onClick={saveDraft} disabled={saving || submitting}>
+              <Button variant="outline" onClick={saveDraft} disabled={loading || !!loadError || saving || submitting || uploading}>
                 {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />} บันทึกร่าง
               </Button>
-              <Button onClick={submit} disabled={submitting || saving}>
+              <Button onClick={submit} disabled={loading || !!loadError || submitting || saving || uploading}>
                 {submitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />} ส่งงาน
               </Button>
             </>
