@@ -170,7 +170,6 @@ Deno.serve(async (req) => {
         displayLabel = `ผู้ปกครองของ ${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
         {
           // LINE registration via student_id is always the parent → parent's own account, never the student's.
-          // the parent's own account (created/linked if needed), never the student's.
           const ensured = await ensureParentAccount(sb, s);
           if (!("error" in ensured)) {
             await sb.from("profiles").update({ line_user_id }).eq("id", ensured.parentUserId).is("line_user_id", null);

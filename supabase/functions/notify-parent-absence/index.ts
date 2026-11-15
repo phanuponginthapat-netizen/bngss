@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
           body: `${student.student_name} — ${label} วันที่ ${attendance_date}`,
           type: "attendance_absent",
           severity: "warning",
-          url: "/dashboard/parent/attendance",
+          url: "/dashboard/student/attendance",
           read: false,
         });
       }
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         const payload = {
           title: "📋 แจ้งเตือนการขาดเรียน",
           body: `${name} — ${label} วันที่ ${attendance_date}`,
-          url: "/dashboard/parent/attendance",
+          url: "/dashboard/student/attendance",
           tag: "attendance-absent",
         };
 
