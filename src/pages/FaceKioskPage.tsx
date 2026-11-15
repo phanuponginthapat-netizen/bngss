@@ -652,11 +652,20 @@ const FaceKioskPage = () => {
     const load = async () => {
       const today = todayBangkok();
       dayKey = today;
-      const { data } = await supabase.from("face_scan_logs")
-        .select("student_id, scan_type").eq("scan_date", today);
+      const rows: { student_id: string; scan_type: string }[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await supabase.from("face_scan_logs")
+          .select("student_id, scan_type").eq("scan_date", today).order("id").range(from, from + 499);
+        if (error || !data) {
+          console.error("FaceGate scan state unavailable", error);
+          return; // Preserve last confirmed state instead of clearing it.
+        }
+        rows.push(...data);
+        if (data.length < 500) break;
+      }
       const entrySet = new Set<string>();
       const exitSet = new Set<string>();
-      for (const r of (data || []) as any[]) {
+      for (const r of rows) {
         if (!r.student_id) continue;
         if (r.scan_type === "exit") exitSet.add(r.student_id);
         else entrySet.add(r.student_id);
@@ -672,9 +681,9 @@ const FaceKioskPage = () => {
         clearScanDedupCache();
         cooldownRef.current.clear();
         justScannedRef.current.clear();
-        void load();
       }
-    }, 60_000);
+      void load(); // Reconcile other kiosks even when realtime was disconnected.
+    }, 30_000);
 
     // ซิงก์ข้ามเครื่อง: เครื่องอื่นสแกน (ใบหน้า/QR) → กันสแกนซ้ำที่เครื่องนี้ทันที
     const ch = supabase
@@ -925,7 +934,7 @@ const FaceKioskPage = () => {
     // อุณหภูมิจาก micro:bit (null เมื่อไม่ได้เชื่อมต่อ → ใช้กฎเดิมของระบบ)
     const scanTemp = gateRef.current.getLiveTemp();
     const attendancePayload = {
-      student_id: studentId, scan_date: todayBangkok(), scan_type: mode, confidence,
+      student_id: studentId, scan_date: todayBangkok(), scan_time: new Date(now).toISOString(), scan_type: mode, confidence,
       scanned_by: user?.id, device_label: `tablet-kiosk-${mode}`, entry_method: method,
       ...(quality?.geometryScore != null ? { geometry_score: quality.geometryScore } : {}),
       ...(quality?.engine ? { match_engine: quality.engine } : {}),

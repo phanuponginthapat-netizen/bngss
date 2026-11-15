@@ -4,6 +4,7 @@
 //                                   /content /recent /today-stats (หน้าจอสแกนดึง CMS/หลังบ้าน)
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { scanTimestamp } from "../_shared/scanTimestamp.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { evaluateSchoolScan, bangkokScanMinutes } from "../_shared/schoolScanPolicy.ts";
 import { kioskMediaUrl } from "../_shared/kioskMedia.ts";
@@ -353,6 +354,9 @@ Deno.serve(async (req) => {
 
     // ── บันทึกผลสแกน ─────────────────────────────────────────────────────
     if (route === "attendance") {
+      let capturedAt: Date;
+      try { capturedAt = scanTimestamp(body?.scanned_at); }
+      catch { return json({ error: "invalid_scan_time", message: "เวลาสแกนไม่ถูกต้อง กรุณาตรวจนาฬิกาเครื่อง" }, 400); }
       const personId = String(body?.student_id ?? "");
       const confidence = Number(body?.confidence ?? 0);
       const isQr = body?.method === "qr";
@@ -366,7 +370,7 @@ Deno.serve(async (req) => {
       }
 
       const requested = body?.direction === "out" ? "out" : body?.direction === "in" ? "in" : device.default_direction === "out" ? "out" : device.default_direction === "in" ? "in" : undefined;
-      const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(new Date()), requested);
+      const scanPolicy = evaluateSchoolScan(settings, bangkokScanMinutes(capturedAt), requested);
       const direction = scanPolicy.direction;
       if (!scanPolicy.allowed) return json({ result: "denied", message: scanPolicy.reason, speak: scanPolicy.reason, next_delay_seconds: 1 });
       const geometryScore = typeof body?.geometry_score === "number" ? body.geometry_score : null;
@@ -410,13 +414,15 @@ Deno.serve(async (req) => {
       // กันสแกนซ้ำ (ช่วงเวลาตั้งค่าได้)
       const cooldownMin = Number(settings.duplicate_cooldown_minutes) || 0;
       if (!isStaff && cooldownMin > 0) {
-        const since = new Date(Date.now() - cooldownMin * 60_000).toISOString();
+        const since = new Date(capturedAt.getTime() - cooldownMin * 60_000).toISOString();
         const { data: recent, error: recentError } = await db
           .from("face_scan_logs")
           .select("id, scan_time")
           .eq("student_id", personId)
           .eq("scan_type", direction === "out" ? "exit" : "entry")
+          .eq("scan_date", bkkDate(capturedAt))
           .gte("scan_time", since)
+          .lte("scan_time", capturedAt.toISOString())
           .limit(1);
         if (recentError) throw recentError;
         if ((recent as any[])?.length) {
@@ -437,11 +443,11 @@ Deno.serve(async (req) => {
         // บุคลากรยังไม่มีตารางลงเวลาเฉพาะ — บันทึกเป็นประวัติการผ่านประตูไว้ก่อน
         const { error } = await db.from("kiosk_agent_alerts").insert({
           device_id: device.device_id, device_name: device.name,
-          kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId,
+          kind: "staff_pass", snapshot_url: snapshotUrl, note: name, person_id: personId, created_at: capturedAt.toISOString(),
         });
         if (error) throw error;
       } else {
-        const now = new Date();
+        const now = capturedAt;
         const { error } = await db.from("face_scan_logs").insert({
           student_id: personId,
           scan_date: bkkDate(now),
