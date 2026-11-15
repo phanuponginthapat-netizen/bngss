@@ -24,6 +24,10 @@ function allowedOrigins(): string[] {
     Deno.env.get("APP_URL"),
     Deno.env.get("PUBLIC_ORIGIN"),
     ...(Deno.env.get("ALLOWED_RETURN_ORIGINS") ?? "").split(","),
+    "https://bngss.online",
+    "https://www.bngss.online",
+    "https://bngss.lovable.app",
+    "https://id-preview--f656e919-7df7-479f-8f52-d6572399e1b5.lovable.app",
   ];
   const out: string[] = [];
   for (const v of raw) {
