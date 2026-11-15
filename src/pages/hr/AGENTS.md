@@ -1,1 +1,2 @@
 - Staff attendance dashboards aggregate one status per active person per workday with explicit clock-in evidence; missing entries remain unrecorded, and percentages use the full roster-day denominator to avoid falsely complete attendance.
+- Leave pages gate lists and submission on all dependent reads and confirm affected rows for revoke/delete; read failures must not look like zero requests or successful writes.

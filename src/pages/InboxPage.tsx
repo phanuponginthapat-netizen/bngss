@@ -1,3 +1,6 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { requireWrittenRows } from "@/lib/confirmedWrite";
+import { saveErrorMessage } from "@/lib/saveError";
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -69,15 +72,13 @@ export default function InboxPage() {
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [];
-      const { data, error } = await supabase
+      return fetchAllRows((from, to) => supabase
         .from("inbox_items")
         .select("*")
         .eq("user_id", userId)
         .eq("is_archived", false)
         .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data || [];
+        .order("id").range(from, to));
     },
   });
 
@@ -86,14 +87,12 @@ export default function InboxPage() {
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [];
-      const { data, error } = await supabase
+      return fetchAllRows((from, to) => supabase
         .from("notifications")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data || [];
+        .order("id").range(from, to));
     },
   });
 
@@ -149,12 +148,15 @@ export default function InboxPage() {
   const markRead = useMutation({
     mutationFn: async (it: UnifiedItem) => {
       if (it.source === "inbox") {
-        const { error } = await supabase.from("inbox_items").update({ is_read: true }).eq("id", it.id);
-        if (error) throw error;
+        requireWrittenRows(await supabase.from("inbox_items").update({ is_read: true }).eq("id", it.id).eq("user_id", userId).select("id"));
       } else {
-        const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", it.id);
-        if (error) throw error;
+        requireWrittenRows(await supabase.from("notifications").update({ is_read: true }).eq("id", it.id).eq("user_id", userId).select("id"));
       }
+    },
+    onError: (error) => {
+      toast.error(saveErrorMessage(error));
+      void qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
+      void qc.invalidateQueries({ queryKey: ["notifications_all"] });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
@@ -171,6 +173,11 @@ export default function InboxPage() {
       const { error: inboxError } = await supabase.from("inbox_items").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
       if (inboxError) throw inboxError;
     },
+    onError: (error) => {
+      toast.error(saveErrorMessage(error));
+      void qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
+      void qc.invalidateQueries({ queryKey: ["notifications_all"] });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
       qc.invalidateQueries({ queryKey: ["notifications_all"] });
@@ -181,8 +188,12 @@ export default function InboxPage() {
   const remove = useMutation({
     mutationFn: async (it: UnifiedItem) => {
       const table = it.source === "inbox" ? "inbox_items" : "notifications";
-      const { error } = await supabase.from(table).delete().eq("id", it.id);
-      if (error) throw error;
+      requireWrittenRows(await supabase.from(table).delete().eq("id", it.id).eq("user_id", userId).select("id"));
+    },
+    onError: (error) => {
+      toast.error(saveErrorMessage(error));
+      void qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
+      void qc.invalidateQueries({ queryKey: ["notifications_all"] });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
@@ -208,7 +219,7 @@ export default function InboxPage() {
           </p>
         </div>
         {topTab === "messages" && unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()}>
+          <Button variant="outline" size="sm" disabled={markAllRead.isPending || e1 || e2 || isLoading} onClick={() => markAllRead.mutate()}>
             <CheckCheck className="w-4 h-4 mr-2" /> อ่านทั้งหมด
           </Button>
         )}
@@ -275,7 +286,9 @@ export default function InboxPage() {
               </Tabs>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {e1 || e2 ? (
+                <div className="text-center py-12 text-destructive">ยังยืนยันรายการข้อความทั้งหมดไม่ได้ กรุณาลองใหม่</div>
+              ) : isLoading ? (
                 <div className="text-center py-12 text-muted-foreground">กำลังโหลด...</div>
               ) : filtered.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
