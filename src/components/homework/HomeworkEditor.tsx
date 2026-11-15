@@ -179,7 +179,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     let shape: any = null;
     const onDown = (o: any) => {
       if (!["rect", "ellipse", "arrow", "text"].includes(tool)) return;
-      const p = canvas.getPointer(o.e);
+      const p = o.scenePoint ?? canvas.getScenePoint(o.e);
       start = p;
       if (tool === "text") {
         const t = new fabric.IText("พิมพ์ที่นี่", {
@@ -201,7 +201,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     };
     const onMove = (o: any) => {
       if (!shape || !start) return;
-      const p = canvas.getPointer(o.e);
+      const p = o.scenePoint ?? canvas.getScenePoint(o.e);
       if (tool === "rect") shape.set({ width: Math.abs(p.x - start.x), height: Math.abs(p.y - start.y), left: Math.min(p.x, start.x), top: Math.min(p.y, start.y) });
       else if (tool === "ellipse") shape.set({ rx: Math.abs(p.x - start.x) / 2, ry: Math.abs(p.y - start.y) / 2, left: Math.min(p.x, start.x), top: Math.min(p.y, start.y) });
       else if (tool === "arrow") shape.set({ x2: p.x, y2: p.y });
