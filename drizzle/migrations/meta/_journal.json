@@ -295,6 +295,13 @@
       "when": 1794547972970,
       "tag": "0041_single_notification_inbox_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794711428635,
+      "tag": "0042_facegate_capture_term_and_staff_receipts",
+      "breakpoints": true
     }
   ]
 }
