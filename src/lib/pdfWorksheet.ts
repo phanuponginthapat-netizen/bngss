@@ -53,7 +53,8 @@ export async function renderPdfToImages(
   } else {
     data = await fileOrUrl.arrayBuffer();
   }
-  const doc = await pdfjsLib.getDocument({ data }).promise;
+  const task = pdfjsLib.getDocument({ data });
+  const doc = await task.promise;
   const out: WorksheetPageImage[] = [];
   try {
   for (let i = 1; i <= doc.numPages; i++) {
@@ -77,7 +78,7 @@ export async function renderPdfToImages(
   }
   if (!out.length) throw new Error("PDF ไม่มีหน้าที่อ่านได้");
   return out;
-  } finally { await doc.destroy(); }
+  } finally { await task.destroy(); }
 }
 
 export function newField(
