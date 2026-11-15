@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import PageMetadata from "@/components/public/PageMetadata";
+import ScanRealtimeBridge from "@/components/kiosk/ScanRealtimeBridge";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -334,6 +335,7 @@ const App = () => {
   <ErrorBoundary label="AppRoot">
   <SkipToContent />
   <QueryClientProvider client={queryClient}>
+    <ScanRealtimeBridge />
     <HelmetProvider>
     <LanguageProvider>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

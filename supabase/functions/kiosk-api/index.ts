@@ -140,6 +140,47 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({} as any));
     const settings = await loadSettings(db);
 
+    // Device keys remain server-side authorization, never Realtime credentials.
+    // Stream contains no identity or photos; clients re-read through this API.
+    if (route === "receipt-stream") {
+      const encoder = new TextEncoder();
+      let channel: ReturnType<typeof db.channel> | undefined;
+      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      let expiry: ReturnType<typeof setTimeout> | undefined;
+      let closed = false;
+      let end: () => void = () => {};
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        if (heartbeat) clearInterval(heartbeat);
+        if (expiry) clearTimeout(expiry);
+        req.signal.removeEventListener("abort", end);
+        if (channel) void db.removeChannel(channel);
+      };
+      const stream = new ReadableStream({
+        start(controller) {
+          end = () => { cleanup(); try { controller.close(); } catch { /* disconnected */ } };
+          const emit = (event: string) => {
+            if (!closed) try { controller.enqueue(encoder.encode(`event: ${event}\ndata: {}\n\n`)); } catch { end(); }
+          };
+          channel = db.channel(`device-receipts-${crypto.randomUUID()}`)
+            .on("postgres_changes", {event:"*",schema:"public",table:"face_scan_logs"}, () => emit("receipt"))
+            .on("postgres_changes", {event:"*",schema:"public",table:"attendance"}, () => emit("receipt"))
+            .subscribe(status => {
+              if (status === "SUBSCRIBED") emit("ready");
+              else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") end();
+            });
+          heartbeat = setInterval(() => emit("heartbeat"), 15000);
+          // Rotate to revalidate active device keys and stay below worker lifetime.
+          expiry = setTimeout(end, 90000);
+          req.signal.addEventListener("abort", end, {once:true});
+          if (req.signal.aborted) end();
+        },
+        cancel() { cleanup(); },
+      });
+      return new Response(stream, {headers:{...cors,"Content-Type":"text/event-stream","Cache-Control":"no-store","X-Accel-Buffering":"no"}});
+    }
+
     if (route === "update-release") {
       if (body.platform !== "windows" && body.platform !== "linux") return json({ error: "invalid platform" }, 400);
       const windows = body.platform === "windows";
@@ -190,7 +231,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (route === "recent" || route === "today-stats") {
+    if (route === "recent" || route === "today-stats" || route === "receipt-state") {
       const today = bkkDate();
       if (route === "today-stats") {
         const startUtc = new Date(`${today}T00:00:00+07:00`).toISOString();
@@ -223,8 +264,8 @@ Deno.serve(async (req) => {
           visitor_url:'https://bngss.online/visit' });
       }
       const { data: logs, error: logsError } = await db.from("face_scan_logs")
-        .select("student_id, scan_time, scan_type, captured_face_url, students(prefix, first_name, last_name, photo_url, classrooms!students_classroom_id_fkey(name))")
-        .eq("scan_date", today).order("scan_time", { ascending: false }).limit(12);
+        .select("id, student_id, scan_time, scan_type, captured_face_url, device_label, students(prefix, first_name, last_name, student_code, photo_url, classrooms!students_classroom_id_fkey(name))")
+        .eq("scan_date", today).order("scan_time", { ascending: false }).order("id").limit(12);
       if (logsError) throw logsError;
       const ids = [...new Set((logs ?? []).map((l: any) => l.student_id).filter(Boolean))];
       const { data: faces, error: faceError } = ids.length
@@ -239,6 +280,7 @@ Deno.serve(async (req) => {
         }
       }
       const items = await Promise.all(((logs as any[]) ?? []).map(async (l) => ({
+        receipt_id: l.id, student_id: l.student_id, person_type: "student", student_code: l.students?.student_code || "", device_name: l.device_label,
         name: `${l.students?.prefix ?? ""}${l.students?.first_name ?? ""} ${l.students?.last_name ?? ""}`.trim() || "นักเรียน",
         detail: l.students?.classrooms?.name ?? "",
         scanned_at: l.scan_time,
@@ -246,6 +288,19 @@ Deno.serve(async (req) => {
         snapshot_url: await kioskMediaUrl(db, l.captured_face_url),
         avatar_url: await kioskMediaUrl(db, l.students?.photo_url) || avatars.get(l.student_id) || null,
       })));
+      const {data:staffLogs,error:staffError} = await db.from("kiosk_agent_alerts")
+        .select("id,person_id,note,created_at,snapshot_url,device_name")
+        .eq("kind","staff_pass").gte("created_at",`${today}T00:00:00+07:00`)
+        .lt("created_at",new Date(new Date(`${today}T00:00:00+07:00`).getTime()+86400000).toISOString())
+        .order("created_at",{ascending:false}).order("id").limit(12);
+      if (staffError) throw staffError;
+      const staffItems = await Promise.all((staffLogs??[]).map(async l => ({
+        receipt_id:l.id,student_id:l.person_id,person_type:"staff",student_code:"",device_name:l.device_name,
+        name:l.note||"บุคลากร",detail:"บุคลากร",scanned_at:l.created_at,direction:"in",avatar_url:null,
+        snapshot_url:await kioskMediaUrl(db,l.snapshot_url),
+      })));
+      const recentItems = [...items,...staffItems].sort((a,b)=>Date.parse(b.scanned_at)-Date.parse(a.scanned_at)||a.receipt_id.localeCompare(b.receipt_id)).slice(0,12);
+      const receiptRows = route === "receipt-state" ? await readDigestRows<{student_id:string;scan_type:string}>((a,b)=>db.from("face_scan_logs").select("student_id,scan_type").eq("scan_date",today).in("scan_type",["entry","assembly","exit"]).order("id").range(a,b)) : [];
       const media:any[]=[];
       for(let from=0;;from+=500){
         const {data,error}=await db.from("facegate_broadcast_media").select("id,title,storage_path,media_type,duration_seconds").eq("is_active",true).order("sort_order").order("id").range(from,from+499);
@@ -266,7 +321,9 @@ Deno.serve(async (req) => {
           news_enabled: Boolean((settings as any).news_text ?? (settings as any).kiosk_news),
           news_text: String((settings as any).news_text ?? (settings as any).kiosk_news ?? ""),
         },
-        items,
+        items: recentItems, scan_date: today,
+        scans: receiptRows.map(r=>({student_id:r.student_id,direction:r.scan_type==="exit"?"out":"in"})),
+        server_time: new Date().toISOString(),
       });
     }
 
