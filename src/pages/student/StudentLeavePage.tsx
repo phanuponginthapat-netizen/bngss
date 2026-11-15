@@ -45,7 +45,7 @@ const statusColors: Record<string, string> = {
 /* ─── Student-only Leave Form View ─── */
 const StudentLeaveForm = () => {
   const { lang } = useLanguage();
-  const { userId } = useUserRole();
+  const { userId, isParent } = useUserRole();
   const qc = useQueryClient();
   const [leaveType, setLeaveType] = useState("sick");
   const [startDate, setStartDate] = useState("");
