@@ -1,9 +1,11 @@
 // BigData Warehouse Cron — nightly ETL into fact_* tables
-// Sources: face_scan_logs -> fact_attendance, student_scores -> fact_grades, petty_cash/budget_transactions -> fact_finance
+// Sources: gate scan evidence, stored student-code scores and managed budget transactions
 // Runs nightly via pg_cron or manual admin trigger. Uses upsert for idempotency.
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { readAllRows } from "./readSources.ts";
+import { mapWarehouseFacts } from "./mapFacts.ts";
+import { authorizeCaller, ADMIN_ROLES } from "../_shared/callerAuth.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -24,24 +26,9 @@ function todayBangkokISO(): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Allow cron secret OR admin JWT (reuse simple check, keep code simple)
-  const cronSecret = Deno.env.get("CRON_SECRET");
-  const providedCron = req.headers.get("x-cron-secret");
-  let authorized = false;
-  if (cronSecret && providedCron && cronSecret === providedCron) authorized = true;
-
+  const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowCron: true });
+  if (caller instanceof Response) return caller;
   const admin = makeAdmin();
-
-  if (!authorized) {
-    const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const token = auth.replace("Bearer ", "").trim();
-    const { data: { user }, error } = await admin.auth.getUser(token);
-    if (error || !user) return json({ error: "Unauthorized" }, 401);
-    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id);
-    const ok = (roles ?? []).some((r: any) => r.role === "admin" || r.role === "director");
-    if (!ok) return json({ error: "Forbidden — admin/director or cron secret required" }, 403);
-  }
 
   try {
     const today = todayBangkokISO();
@@ -50,58 +37,20 @@ Deno.serve(async (req) => {
     const since = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
 
     // Deterministic paging; a failed source aborts before any fact writes.
-    const [faceRows, gradeRows, pettyRows, budgetRows] = await Promise.all([
-      readAllRows<any>((from, to) => admin.from("face_scan_logs").select("id, student_id, scan_date, scan_time, created_at").gte("scan_date", since).order("id").range(from, to)),
-      readAllRows<any>((from, to) => admin.from("student_scores").select("id, student_id, subject_id, total_score, grade, academic_year, semester, updated_at").gte("updated_at", since + "T00:00:00").order("id").range(from, to)),
-      readAllRows<any>((from, to) => admin.from("petty_cash").select("id, amount, type, date, description, created_at").gte("date", since).order("id").range(from, to)),
-      readAllRows<any>((from, to) => admin.from("budget_transactions").select("id, amount, transaction_type, category, transaction_date, created_at").gte("transaction_date", since).order("id").range(from, to)),
+    const [faceRows, gradeRows, budgetRows] = await Promise.all([
+      readAllRows<any>((from, to) => admin.from("face_scan_logs").select("id,student_id,scan_date,scan_time,scan_type,entry_method").gte("scan_date", since).order("id").range(from, to)),
+      readAllRows<any>((from, to) => admin.from("student_scores").select("id,student_code,subject_id,total_score,grade,grade_point,academic_year,semester,updated_at").gte("updated_at", since + "T00:00:00").order("id").range(from, to)),
+      readAllRows<any>((from, to) => admin.from("budget_transactions").select("id,amount,transaction_type,category,transaction_date").gte("transaction_date", since).order("id").range(from, to)),
     ]);
-
-    // face_scan_logs -> fact_attendance
-    const factAttendance = faceRows.map((r: any) => ({
-      id: r.id,
-      student_id: r.student_id,
-      scan_date: r.scan_date,
-      scan_time: r.scan_time,
-      source: "face_scan_logs",
-      etl_at: generated_at,
+    const facts = mapWarehouseFacts(faceRows, gradeRows, budgetRows, generated_at);
+    const factAttendance = facts.attendance;
+    const factGrades = facts.grades;
+    const factFinance = facts.finance;
+    // Check every destination even when the current window has no rows.
+    await Promise.all(["fact_attendance", "fact_grades", "fact_finance"].map(async table => {
+      const { error } = await admin.from(table).select("id").limit(1);
+      if (error) throw error;
     }));
-
-    // student_scores -> fact_grades
-    const factGrades = gradeRows.map((r: any) => ({
-      id: r.id,
-      student_id: r.student_id,
-      subject_id: r.subject_id,
-      total_score: r.total_score,
-      grade: r.grade,
-      academic_year: r.academic_year,
-      semester: r.semester,
-      source_updated_at: r.updated_at,
-      etl_at: generated_at,
-    }));
-
-    // petty_cash + budget_transactions -> fact_finance (unified)
-    const factFinancePetty = pettyRows.map((r: any) => ({
-      id: `petty_${r.id}`,
-      source_id: r.id,
-      source_table: "petty_cash",
-      amount: r.amount,
-      type: r.type,
-      category: r.description ?? null,
-      transaction_date: r.date,
-      etl_at: generated_at,
-    }));
-    const factFinanceBudget = budgetRows.map((r: any) => ({
-      id: `budget_${r.id}`,
-      source_id: r.id,
-      source_table: "budget_transactions",
-      amount: r.amount,
-      type: r.transaction_type,
-      category: r.category ?? null,
-      transaction_date: r.transaction_date,
-      etl_at: generated_at,
-    }));
-    const factFinance = [...factFinancePetty, ...factFinanceBudget];
 
     // Upsert with resilience — use Promise.allSettled so one missing table doesn't fail others
     async function upsertFact(table: string, rows: any[]) {
@@ -134,7 +83,6 @@ Deno.serve(async (req) => {
     const counts = {
       face_scan_logs: faceRows.length,
       student_scores: gradeRows.length,
-      petty_cash: pettyRows.length,
       budget_transactions: budgetRows.length,
     };
 
