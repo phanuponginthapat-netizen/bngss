@@ -1269,15 +1269,16 @@ async function handleSmartQuery(sb: any, token: string, rt: string, lineUserId: 
     // 1) เวลาเข้า-ออกโรงเรียน (face scan)
     if (/(เข้าเรียน|มาโรงเรียน|สแกน|เช็คอิน|เช็คเอาท์|check[\s-]?(in|out)).*(กี่โมง|เวลา|ตอนไหน|ตอนกี่)/i.test(t)
         || /(กี่โมง|เวลา|ตอนไหน).*(เข้า|มา|ออก|กลับ)/i.test(t)) {
-      const { data: scans } = await sb.from("face_scan_logs")
+      const { data: scans, error: scanError } = await sb.from("face_scan_logs")
         .select("scan_date, scan_time, scan_type")
         .eq("student_id", user.id)
         .gte("scan_date", fStr).lte("scan_date", tStr)
         .order("scan_time", { ascending: false }).limit(20);
+      if(scanError){await replyText(token,rt,"อ่านบันทึกเวลาเข้า-ออกไม่สำเร็จ กรุณาลองใหม่",qrParent);return true;}
       if (!scans?.length) { await replyText(token, rt, `📋 ไม่มีบันทึกเวลาเข้า-ออก ${label}`, qrParent); return true; }
       const items = scans.map((s: any) => {
         const tm = new Date(s.scan_time).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Bangkok" });
-        return `${s.scan_date} ${tm} ${s.scan_type === "in" ? "🟢เข้า" : "🔴ออก"}`;
+        return `${s.scan_date} ${tm} ${s.scan_type === "exit" ? "🔴ออก" : "🟢เข้า"}`;
       });
       await replyFlex(token, rt, "เวลาเข้า-ออก", buildListCard(`⏰ เวลาเข้า-ออก ${label}`, items, "#0984E3"), qrParent);
       return true;

@@ -73,7 +73,8 @@ serve(async (req) => {
     const count = async (table: string, col = "created_at", extra?: (q: any) => any) => {
       let q = supabase.from(table).select("*", { count: "exact", head: true }).gte(col, from).lt(col, to);
       if (extra) q = extra(q);
-      const { count: c } = await q;
+      const { count: c, error } = await q;
+      if(error)throw error;
       return c ?? 0;
     };
 
@@ -94,7 +95,7 @@ serve(async (req) => {
       count("attendance", "created_at", (q) => q.eq("status", "leave")),
       count("behavior_records", "created_at", (q) => q.eq("behavior_type", "positive")),
       count("behavior_records", "created_at", (q) => q.eq("behavior_type", "negative")),
-      count("face_scan_logs", "created_at"),
+      count("face_scan_logs", "scan_time"),
       count("documents"),
       count("eforms"),
       count("eforms", "created_at", (q) => q.eq("status", "completed")),

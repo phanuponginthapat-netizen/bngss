@@ -1459,7 +1459,7 @@ if not STANDALONE and not SATELLITE:
             result = {"items": [], "display": {"show_recent": True}}
             stream_error = stream_error or "กำลังเชื่อมต่อผลสแกนสด"
         result["realtime_error"] = stream_error
-        result["receipt_revision"] = [(r.get("receipt_id"), r.get("scanned_at")) for r in result.get("items", [])]
+        result["receipt_revision"] = {"server_time": result.get("server_time"), "items": [(r.get("receipt_id"), r.get("scanned_at")) for r in result.get("items", [])]}
         result["voice_test_at"] = state.get("voice_test_at")
         return result
 
