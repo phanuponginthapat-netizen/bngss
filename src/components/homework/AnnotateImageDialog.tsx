@@ -80,11 +80,11 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
     fc.selection = tool === "select";
   }, [tool, color, width, ready]);
 
-  const addShape = () => {
+  const addShape = (kind: "circle" | "rect") => {
     const fc = fcRef.current; if (!fc) return;
-    const common = { left: 80, top: 80, fill: "transparent", stroke: color, strokeWidth: width };
-    if (tool === "circle") fc.add(new Circle({ ...common, radius: 50 }));
-    else if (tool === "rect") fc.add(new Rect({ ...common, width: 120, height: 80 }));
+    const common = { originX: "left" as const, originY: "top" as const, left: 80, top: 80, fill: "transparent", stroke: color, strokeWidth: width };
+    if (kind === "circle") fc.add(new Circle({ ...common, radius: 50 }));
+    else fc.add(new Rect({ ...common, width: 120, height: 80 }));
     fc.setActiveObject(fc.getObjects().slice(-1)[0]);
     setTool("select");
   };
@@ -93,7 +93,7 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
     const fc = fcRef.current; if (!fc) return;
     if (!textValue.trim()) { toast.error("พิมพ์ข้อความก่อน"); return; }
     const t = new FabricText(textValue, {
-      left: 100, top: 100, fill: color, fontSize: 24, fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
+      originX: "left", originY: "top", left: 100, top: 100, fill: color, fontSize: 24, fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
     });
     fc.add(t); fc.setActiveObject(t);
     setTextValue(""); setTool("select");
@@ -134,8 +134,8 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
 
         <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-border bg-muted/30">
           <Button size="sm" variant={tool === "draw" ? "default" : "outline"} onClick={() => setTool("draw")}><Pencil className="w-3.5 h-3.5 mr-1" />วาด</Button>
-          <Button size="sm" variant={tool === "circle" ? "default" : "outline"} onClick={() => { setTool("circle"); setTimeout(addShape, 0); }}><CircleIcon className="w-3.5 h-3.5 mr-1" />วงกลม</Button>
-          <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => { setTool("rect"); setTimeout(addShape, 0); }}><Square className="w-3.5 h-3.5 mr-1" />สี่เหลี่ยม</Button>
+          <Button size="sm" variant={tool === "circle" ? "default" : "outline"} onClick={() => { addShape("circle"); }}><CircleIcon className="w-3.5 h-3.5 mr-1" />วงกลม</Button>
+          <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => { addShape("rect"); }}><Square className="w-3.5 h-3.5 mr-1" />สี่เหลี่ยม</Button>
           <Button size="sm" variant={tool === "select" ? "default" : "outline"} onClick={() => setTool("select")}>เลือก/ย้าย</Button>
           <div className="h-6 w-px bg-border" />
           {COLORS.map(c => (
