@@ -28,11 +28,20 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
   const [width, setWidth] = useState(3);
   const [textValue, setTextValue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(0);
 
   // Init canvas when dialog opens
   useEffect(() => {
-    if (!open || !canvasElRef.current) return;
-    const fc = new FabricCanvas(canvasElRef.current, {
+    if (!open) return;
+    // Dialog mount canvas หลัง effect รอบแรก — รอจนพร้อมแทนการไม่สร้างพื้นที่วาดเลย
+    let fc: FabricCanvas | null = null; let cancelled = false; let tries = 0;
+    const start = () => {
+      if (cancelled) return;
+      if (!canvasElRef.current) { if (tries++ < 80) setTimeout(start, 25); else toast.error("เปิดพื้นที่วาดไม่สำเร็จ"); return; }
+      fc = init(canvasElRef.current);
+    };
+    const init = (el: HTMLCanvasElement) => {
+    const fc = new FabricCanvas(el, {
       width: 800, height: 600, backgroundColor: "#f8fafc",
     });
     fcRef.current = fc;
@@ -50,7 +59,11 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       fc.renderAll();
     }).catch(() => toast.error("โหลดรูปไม่สำเร็จ (อาจติด CORS)"));
 
-    return () => { fc.dispose(); fcRef.current = null; };
+    setReady(v => v + 1);
+    return fc;
+    };
+    start();
+    return () => { cancelled = true; fc?.dispose(); fcRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -65,7 +78,7 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       fc.freeDrawingBrush = brush;
     }
     fc.selection = tool === "select";
-  }, [tool, color, width]);
+  }, [tool, color, width, ready]);
 
   const addShape = () => {
     const fc = fcRef.current; if (!fc) return;
