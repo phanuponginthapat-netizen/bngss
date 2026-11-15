@@ -15,6 +15,7 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 const LinkAccount = () => {
   const [code, setCode] = useState("");
   const [lineId, setLineId] = useState("");
+  const [verify, setVerify] = useState("");
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
@@ -39,12 +40,20 @@ const LinkAccount = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("link-account", {
-        body: { code: code.trim(), line_id: lineId.trim() || null },
+        body: { code: code.trim(), line_id: lineId.trim() || null, verify: verify.trim() || null },
       });
       if (error || !data?.success) {
         const msg = (data?.error || error?.message || "") as string;
         if (msg.includes("not_found")) {
           toast.error(lang === "th" ? "ไม่พบรหัสนี้ในระบบ" : "Code not found");
+        } else if (msg.includes("email_mismatch")) {
+          toast.error(lang === "th" ? "อีเมลนี้ไม่ตรงกับอีเมลบุคลากรที่โรงเรียนลงทะเบียนไว้ กรุณาติดต่อผู้ดูแลระบบ" : "This email does not match the staff email registered by the school");
+        } else if (msg.includes("verify_failed")) {
+          toast.error(lang === "th" ? "เลขบัตรประชาชน 4 ตัวท้ายไม่ถูกต้อง" : "Last 4 digits of national ID do not match");
+        } else if (msg.includes("needs_admin")) {
+          toast.error(lang === "th" ? "ไม่สามารถยืนยันตัวตนอัตโนมัติได้ กรุณาติดต่อผู้ดูแลระบบ" : "Cannot verify automatically, please contact an admin");
+        } else if (msg.includes("email_not_confirmed")) {
+          toast.error(lang === "th" ? "กรุณายืนยันอีเมลก่อนผูกบัญชี" : "Please confirm your email first");
         } else if (msg.includes("already_linked")) {
           toast.error(lang === "th" ? "รหัสนี้ถูกผูกกับบัญชีอื่นแล้ว" : "Code already linked to another account");
         } else {
@@ -112,6 +121,20 @@ const LinkAccount = () => {
                   autoFocus
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="verify" className="text-sm font-medium">
+                {lang === "th" ? "เลขบัตรประชาชน 4 ตัวท้าย (นักเรียน)" : "Last 4 digits of national ID (students)"}
+              </Label>
+              <Input
+                id="verify"
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder={lang === "th" ? "บุคลากรใช้อีเมลที่โรงเรียนลงทะเบียนไว้" : "Staff are verified by registered email"}
+                value={verify}
+                onChange={(e) => setVerify(e.target.value.replace(/\D/g, ""))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lineId" className="text-sm font-medium">
