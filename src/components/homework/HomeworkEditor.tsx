@@ -434,7 +434,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
         <div className="overflow-auto min-h-0 flex-1 max-h-[60vh] bg-muted/30 rounded">
           {loading && <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
           <div className="flex justify-center p-3">
-            <canvas ref={canvasElRef} className="border bg-white shadow-sm touch-none" />
+            <div className="border shadow-sm bg-card"><canvas ref={canvasElRef} className="touch-none" /></div>
           </div>
         </div>
 
