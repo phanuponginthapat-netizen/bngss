@@ -142,9 +142,10 @@ export function StudentSubmissionPanel({
         history: [...prevHistory, entry],
       },
     };
-    const { error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId);
+    const { data: updated, error } = await supabase.from("task_assignments").update({ submissions: next as any }).eq("id", taskId).select("id");
     setBusy(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (!updated || updated.length === 0) { toast.error("บันทึกการส่งงานไม่สำเร็จ กรุณาลองใหม่หรือแจ้งครู"); return; }
     setText(""); setPending([]);
     toast.success("ส่งงานเรียบร้อย");
     invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));

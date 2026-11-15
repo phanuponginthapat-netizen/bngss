@@ -337,6 +337,13 @@
       "when": 1794734232964,
       "tag": "0047_separate_school_and_lesson_attendance",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794741117551,
+      "tag": "0048_student_class_homework_submit",
+      "breakpoints": true
     }
   ]
 }
