@@ -45,7 +45,7 @@ export default function AnnotateImageDialog({ open, onOpenChange, imageUrl, init
       const h = (img.height || 0) * scale;
       fc.setDimensions({ width: w, height: h });
       img.scale(scale);
-      img.set({ selectable: false, evented: false });
+      img.set({ originX: "left", originY: "top", left: 0, top: 0, selectable: false, evented: false });
       fc.backgroundImage = img;
       fc.renderAll();
     }).catch(() => toast.error("โหลดรูปไม่สำเร็จ (อาจติด CORS)"));
