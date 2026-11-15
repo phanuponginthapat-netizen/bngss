@@ -1,0 +1,7 @@
+<!doctype html><html><body><div id="r"></div><script type="module">
+import React from "react"; import {createRoot} from "react-dom/client";
+import "/src/index.css";
+import HomeworkEditor from "/src/components/homework/HomeworkEditor.tsx";
+window.saved=null;
+createRoot(document.getElementById("r")).render(React.createElement(HomeworkEditor,{open:true,blank:true,attachment:null,onClose(){},onSave:async(b,n)=>{window.saved={size:b.size,name:n}}}));
+</script></body></html>
