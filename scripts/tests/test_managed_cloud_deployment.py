@@ -11,6 +11,16 @@ class ManagedCloudDeploymentTests(unittest.TestCase):
         self.assertNotIn('git push origin HEAD', source)
         self.assertIn('branches: [main]', source)
 
+    def test_release_workflows_publish_only_from_main(self):
+        guard = "if: github.ref == 'refs/heads/main'"
+        for name in ('build-facegate.yml', 'build-apk.yml', 'build-scanner-apk.yml',
+                     'build-ios.yml', 'deploy-vercel.yml', 'auto-deploy.yml'):
+            source = (ROOT / '.github/workflows' / name).read_text()
+            self.assertIn(guard, source, f'{name} must refuse manual runs from non-main branches')
+        script = (ROOT / 'scripts/ci/publish-release.sh').read_text()
+        self.assertIn('GITHUB_REF', script)
+        self.assertIn('refs/heads/main', script)
+
     def test_function_entrypoint_never_deploys_to_external_backend(self):
         source = (ROOT / '.github/workflows/deploy-edge-functions.yml').read_text()
         self.assertNotIn('supabase functions deploy', source)
