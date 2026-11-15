@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { corsHeadersWithCron as corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
+import { readDigestRows, resolveDigestStatuses, markMissingAsAbsent } from "../_shared/attendanceDigest.ts";
 import { notifyLine } from "../_shared/fanout.ts";
 
 // เกณฑ์เริ่มถือว่า "สาย" (เวลาท้องถิ่นไทย HH:MM)
@@ -37,57 +38,38 @@ serve(async (req) => {
 
     const sb = makeAdmin();
 
-    // โหลดเกณฑ์สายจาก school_settings ถ้ามี
-    const { data: setting } = await sb
-      .from("school_settings")
-      .select("setting_value")
-      .eq("setting_key", "face_scan_late_threshold")
-      .maybeSingle();
-    const threshold = (setting?.setting_value as string) || lateThreshold;
-
-    // 1) นักเรียน active ทั้งหมด
-    const { data: students, error: stuErr } = await sb
-      .from("students")
-      .select("id, prefix, first_name, last_name, classroom_id, classrooms!students_classroom_id_fkey(grade_level, room_number, name)")
-      .eq("status", "active");
-    if (stuErr) throw stuErr;
-
-    const totalStudents = students?.length || 0;
-
-    // 2) บันทึกการสแกนของวันนี้
-    const { data: logs, error: logErr } = await sb
-      .from("face_scan_logs")
-      .select("student_id, scan_time, match_engine, geometry_score")
-      .eq("scan_date", targetDate);
-    if (logErr) throw logErr;
-
-    // เก็บเวลาสแกนแรกของแต่ละนักเรียน
-    const firstScanByStudent = new Map<string, Date>();
-    for (const x of (logs || []) as any[]) {
-      const t = new Date(x.scan_time);
-      const prev = firstScanByStudent.get(x.student_id);
-      if (!prev || t < prev) firstScanByStudent.set(x.student_id, t);
-    }
+    const {data: settingRows, error: settingsError} = await sb.from("school_settings").select("setting_key,setting_value").in("setting_key", ["clock_late_threshold", "clock_in_end"]);
+    if(settingsError) throw settingsError;
+    const settings = Object.fromEntries((settingRows ?? []).map(row => [row.setting_key,row.setting_value]));
+    const threshold = settings.clock_late_threshold || lateThreshold;
+    const students = await readDigestRows<any>((a,b) => sb.from("students").select("id,prefix,first_name,last_name,classroom_id,classrooms!students_classroom_id_fkey(grade_level,room_number,name)").eq("status","active").order("id").range(a,b));
+    const totalStudents = students.length;
+    const [logs, attendance] = await Promise.all([
+      readDigestRows<any>((a,b)=>sb.from("face_scan_logs").select("student_id,scan_time,scan_type,match_engine,geometry_score").eq("scan_date", targetDate).in("scan_type",["entry","assembly"]).order("id").range(a,b)),
+      readDigestRows<any>((a,b)=>sb.from("attendance").select("student_id,status").is("subject_id",null).eq("attendance_date",targetDate).order("id").range(a,b)),
+    ]);
+    const statuses = resolveDigestStatuses(attendance,logs,threshold);
+    markMissingAsAbsent(statuses, students.map(s=>s.id), targetDate < bangkokTodayISO() ? "23:59:59" : new Date().toLocaleTimeString("en-GB",{timeZone:"Asia/Bangkok",hour12:false}), settings.clock_in_end || threshold);
 
     // 3) นับ มา / สาย / ขาด ต่อชั้นเรียน
-    let present = 0, late = 0, absent = 0;
+    let present = 0, late = 0, absent = 0, unrecorded = 0, leave = 0;
     const byClass = new Map<string, { present: number; late: number; absent: number; total: number }>();
 
     for (const s of (students || []) as any[]) {
       const clsName = s.classrooms?.name
         || `${s.classrooms?.grade_level || "-"}/${s.classrooms?.room_number || "-"}`;
       if (!byClass.has(clsName)) byClass.set(clsName, { present: 0, late: 0, absent: 0, total: 0 });
-      const row = byClass.get(clsName)!;
+      const row = byClass.get(clsName);
+      if (!row) throw new Error("Class summary unavailable");
       row.total += 1;
 
-      const scanTime = firstScanByStudent.get(s.id);
-      if (!scanTime) {
-        absent += 1; row.absent += 1;
-      } else {
-        present += 1; row.present += 1;
-        const hhmm = bangkokTimeHHMM(scanTime);
-        if (hhmm > threshold) { late += 1; row.late += 1; }
-      }
+      const status = statuses.get(s.id) ?? "unrecorded";
+      if (status === "present" || status === "late") {
+        present++; row.present++;
+        if (status === "late") {late++; row.late++;}
+      } else if (status === "absent") { absent++; row.absent++; }
+      else if (status === "leave" || status === "sick") leave++;
+      else unrecorded++;
     }
 
     const onTime = present - late;
@@ -108,7 +90,9 @@ serve(async (req) => {
       `✅ มาเรียน: ${present} คน (${pct}%)`,
       `   • ตรงเวลา: ${onTime} คน`,
       `   • สาย (หลัง ${threshold} น.): ${late} คน`,
-      `❌ ขาด/ไม่ได้สแกน: ${absent} คน`,
+      `❌ ขาด: ${absent} คน`,
+      `📝 ลา: ${leave} คน`,
+      `ยังไม่บันทึก: ${unrecorded} คน`,
     ];
     // คุณภาพการตรวจใบหน้า — สแกนด้วยตัวประมวลผลเนทีฟ (แม่นกว่า) กี่เปอร์เซ็นต์
     const scanRows = (logs || []) as any[];
@@ -161,7 +145,7 @@ serve(async (req) => {
         ok: true,
         date: targetDate,
         threshold,
-        stats: { total: totalStudents, present, on_time: onTime, late, absent, percent: pct },
+        stats: { total: totalStudents, present, on_time: onTime, late, absent, leave, unrecorded, percent: pct },
         top_absent_classes: topAbsent.map(([c, v]) => ({ classroom: c, absent: v.absent, total: v.total })),
         line: lineResult,
       }),

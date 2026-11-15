@@ -175,9 +175,9 @@ function showResult(d, captured) {
     : ['นักเรียน', student.class_room ? 'ชั้น ' + student.class_room : ''].filter(Boolean).join(' • ');
   $('profileClass').textContent = student.class_room || student.department || '—';
   $('profileId').textContent = student.student_code || '—';
-  $('scanTime').textContent = serverNow().toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
+  $('scanTime').textContent = (d.scanned_at ? new Date(d.scanned_at) : serverNow()).toLocaleTimeString('th-TH-u-ca-buddhist-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) + ' น.';
   $('resultBar').className = 'resultBar' + (ok ? '' : ' bad');
-  $('resultBar').textContent = ok ? (content.kiosk_success_label || 'บันทึกสำเร็จ') : d.message;
+  $('resultBar').textContent = ok ? (d.upload_status === 'pending' ? 'เก็บในเครื่องแล้ว • กำลังส่งเข้าระบบ' : (content.kiosk_success_label || 'บันทึกสำเร็จ')) : d.message;
   setTimeout(() => { $('profile').className = 'profile'; $('waiting').style.display = ''; }, 2000);
 }
 let audioReady = false, thaiVoice = null, browserVoiceOk = false;

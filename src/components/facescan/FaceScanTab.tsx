@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO } from "@/lib/dateBE";
+import { serverNow, serverTodayBangkok as todayBangkok, syncServerClock } from "@/lib/serverClock";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -239,7 +240,11 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
 
   // Today's distinct student count + recent history
   useEffect(() => {
-    (async () => {
+    let loading = false;
+    const load = async () => {
+      if (loading) return;
+      loading = true;
+      try {
       const today = todayBangkok();
       const data = await fetchAllRows((from, to) => supabase
         .from("face_scan_logs")
@@ -279,7 +284,15 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
         };
       }));
       setRecent(history);
-    })().catch(() => toast.error("อ่านยอดสแกนวันนี้ไม่สำเร็จ กรุณาเปิดหน้านี้ใหม่"));
+      } catch { toast.error("อ่านยอดสแกนวันนี้ไม่สำเร็จ กรุณาลองใหม่"); }
+      finally { loading = false; }
+    };
+    void syncServerClock().then(load);
+    const timer = window.setInterval(load, 30_000);
+    window.addEventListener("focus", load);
+    window.addEventListener("online", load);
+    window.addEventListener("offline-queue:synced", load);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", load); window.removeEventListener("online", load); window.removeEventListener("offline-queue:synced", load); };
   }, [isFiltered, homeroomClassroomIds]);
 
   // Load model — โหมด QR ไม่ต้องโหลดโมเดลใบหน้า (~28MB) → เปิดกล้องเร็ว + ประหยัดแบต
@@ -498,6 +511,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     registeredFace?: string | null,
     entryMethod: "face" | "qr" | "manual" = "face",
   ) => {
+    const capturedAt = serverNow();
     const now = Date.now();
     const mode = scanModeRef.current;
     const modeLabel = mode === "exit" ? "ออก" : "เข้า";
@@ -578,7 +592,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
       : `tablet-gate-${mode}`;
     const { data, error } = await supabase.from("face_scan_logs").insert({
       student_id: studentId,
-      scan_date: todayBangkok(),
+      scan_date: bkkDateISO(capturedAt),
+      scan_time: capturedAt.toISOString(),
       scan_type: mode,
       confidence,
       scanned_by: user?.id,
@@ -608,7 +623,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
     }
     justScannedRef.current.set(cdKey, now);
     justScannedRef.current.set(studentId, now);
-    markScanned(studentId, mode, entryMethod);
+    markScanned(studentId, mode, entryMethod, capturedAt.toISOString());
 
     playSuccessSound();
     if (voiceEnabled) speakText(`สแกน${modeLabel}สำเร็จ ${spokenName}`);

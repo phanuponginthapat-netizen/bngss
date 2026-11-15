@@ -73,6 +73,8 @@ from voice_prepare import VoicePreparation
 voice_preparation = VoicePreparation()
 import qr_reader
 from school_scan_policy import evaluate_school_scan
+from scan_outbox import ScanOutbox
+from scan_state import confirmed_scan_keys
 from scan_guide import face_inside, completed_result, NEXT_PERSON_SECONDS
 from face_engine import Face, FaceEngine
 from pydantic import BaseModel
@@ -112,7 +114,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.13.0"
+AGENT_VERSION = "1.13.2"
 
 
 def default_cache_dir() -> str:
@@ -256,6 +258,8 @@ state: dict[str, Any] = {
     "last_activity": time.time(),
     "power": {},
     "camera_ok": None,
+    "scan_date": None,
+    "confirmed_scans": set(),
 }
 lock = threading.Lock()
 outbox_lock = threading.Lock()
@@ -345,44 +349,36 @@ def cached_image(face_id: str) -> bytes | None:
 
 
 # --- Offline outbox --------------------------------------------------------
+scan_outbox = ScanOutbox(OUTBOX_FILE)
+
+
 def outbox_count() -> int:
-    with outbox_lock:
-        try:
-            with open(OUTBOX_FILE, encoding="utf-8") as fh:
-                return sum(1 for line in fh if line.strip())
-        except Exception:  # noqa: BLE001
-            return 0
+    return scan_outbox.count()
 
 
 def outbox_append(payload: dict) -> None:
-    with outbox_lock:
-        try:
-            with open(OUTBOX_FILE, "a", encoding="utf-8") as fh:
-                fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        except Exception as exc:  # noqa: BLE001
-            print(f"[agent] outbox write failed: {exc}")
+    scan_outbox.append(payload)
 
 
-# Fast queue: greet the student from local data at once and send the record in
-# the background, so the line never waits on the internet (target < 3 s/person).
 _recent_ok: dict[str, float] = {}
+outbox_wake = threading.Event()
 
 
 def _post_attendance_bg(payload: dict) -> None:
-    for attempt in range(2):
-        try:
-            res = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS, json=payload, timeout=15)
-            res.raise_for_status()
-            if res.json().get("result") not in ("ok", "duplicate"):
-                raise RuntimeError("Cloud did not confirm attendance")
-            _fails["count"] = 0
-            return
-        except Exception as exc:  # noqa: BLE001
-            last = exc
-            if attempt == 0:
-                time.sleep(0.6)
-    print(f"[agent] upload failed, queued offline: {last}")
-    outbox_append(payload)
+    # The payload is already durable; there is only one uploader for all scans.
+    outbox_wake.set()
+
+
+def queue_attendance(payload: dict) -> bool:
+    payload.setdefault("scanned_at", clock.now_tz(timezone.utc).isoformat())
+    try:
+        outbox_append(payload)
+    except Exception as exc:
+        scan_outbox.last_error = str(exc)
+        print(f"[agent] cannot persist scan: {exc}")
+        return False
+    outbox_wake.set()
+    return True
 
 
 def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dict | None = None) -> dict:
@@ -397,9 +393,10 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
         today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
         if person.get('valid_until') != today:
             return {'result':'denied','message':'ทะเบียนผู้มาติดต่อหมดอายุ','next_delay_seconds':2}
-        threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
+        if not queue_attendance(payload):
+            return {"result": "denied", "message": "เก็บผลสแกนไม่สำเร็จ กรุณาสแกนใหม่", "next_delay_seconds": 2}
         return {**(extra or {}), 'result': 'ok', 'student_id': sid, 'name': name, 'student': person,
-                'avatar_url': person.get('avatar_url'), 'message': f'ผู้มาติดต่อ {name} กรุณาแจ้งเจ้าหน้าที่',
+                'avatar_url': person.get('avatar_url'), 'upload_status': 'pending', 'scanned_at': payload['scanned_at'], 'message': f'ผู้มาติดต่อ {name} กรุณาแจ้งเจ้าหน้าที่',
                 'speak': f'บันทึกผู้มาติดต่อแล้ว {name}', 'next_delay_seconds': 2}
     try:
         rule = evaluate_school_scan(settings, payload.get("direction") or settings.get("device_default_direction"), clock.now_tz(timezone.utc))
@@ -408,21 +405,25 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
     if not rule["allowed"]:
         return {"result": "denied", "message": rule["reason"], "speak": rule["reason"], "next_delay_seconds": 1}
     payload["direction"] = rule["direction"]
-    duplicate_key = f"{sid}:{rule['direction']}"
+    today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
+    duplicate_key = f"{today}:{sid}:{rule['direction']}"
+    with lock:
+        confirmed = state.get("scan_date") == today and (sid, rule["direction"]) in state.get("confirmed_scans", set())
     is_staff = person.get("person_type") == "staff"
     cooldown_s = float(settings.get("duplicate_cooldown_minutes") or 0) * 60
     now = time.time()
     last = _recent_ok.get(duplicate_key)
-    if not is_staff and last is not None and cooldown_s > 0 and now - last < cooldown_s:
+    if not is_staff and (confirmed or (last is not None and cooldown_s > 0 and now - last < cooldown_s)):
         return {**(extra or {}), "result": "duplicate", "student_id": sid, "name": name,
                 "message": f"{name} บันทึกเวลาไปแล้ววันนี้",
                 "speak": f'{settings.get("voice_duplicate_text") or "บันทึกไปแล้ว"} {name}',
                 "next_delay_seconds": 1}
+    if not queue_attendance(payload):
+        return {"result": "denied", "message": "เก็บผลสแกนไม่สำเร็จ กรุณาสแกนใหม่", "next_delay_seconds": 2}
     _recent_ok[duplicate_key] = now
-    threading.Thread(target=_post_attendance_bg, args=(payload,), daemon=True).start()
     out = payload.get("direction") == "out"
     welcome = settings.get("voice_welcome_text") or "ยินดีต้อนรับ"
-    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name, "student": person, "avatar_url": person.get("avatar_url"), "direction": rule["direction"],
+    return door_react({**(extra or {}), "result": "ok", "student_id": sid, "name": name, "student": person, "avatar_url": person.get("avatar_url"), "direction": rule["direction"], "upload_status": "pending", "scanned_at": payload["scanned_at"],
                        "message": f"{name} บันทึกเวลาออกแล้ว" if out else f"{name} บันทึกเวลาเข้าเรียบร้อย",
                        "speak": f"เดินทางปลอดภัย {name}" if out else f"{welcome} {name}",
                        "next_delay_seconds": delay})
@@ -431,47 +432,22 @@ def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dic
 
 
 def outbox_flush() -> None:
-    with outbox_lock:
-        try:
-            with open(OUTBOX_FILE, encoding="utf-8") as fh:
-                lines = [line for line in fh if line.strip()]
-        except Exception:  # noqa: BLE001
-            return
-        if not lines:
-            return
-        remaining: list[str] = []
-        for line in lines:
-            try:
-                response = requests.post(
-                    f"{CLOUD_URL}/kiosk-api/attendance",
-                    headers=HEADERS,
-                    data=line.encode("utf-8"),
-                    timeout=20,
-                )
-                response.raise_for_status()
-                if response.json().get("result") not in ("ok", "duplicate"):
-                    raise RuntimeError("Cloud did not confirm queued attendance")
-            except Exception:  # noqa: BLE001
-                remaining.append(line)
-        try:
-            if remaining:
-                with open(f"{OUTBOX_FILE}.tmp", "w", encoding="utf-8") as fh:
-                    fh.writelines(remaining)
-                os.replace(f"{OUTBOX_FILE}.tmp", OUTBOX_FILE)
-            else:
-                os.remove(OUTBOX_FILE)
-        except Exception:  # noqa: BLE001
-            pass
+    def send(payload):
+        response = requests.post(f"{CLOUD_URL}/kiosk-api/attendance", headers=HEADERS,
+                                 json=payload, timeout=20)
+        response.raise_for_status()
+        return response.json()
+    scan_outbox.flush(send)
 
 
 def outbox_loop() -> None:
     while True:
+        outbox_wake.clear()
         try:
             outbox_flush()
-        except Exception:  # noqa: BLE001
-            pass
-        time.sleep(30)
-
+        except Exception as exc:
+            scan_outbox.last_error = str(exc)
+        outbox_wake.wait(30)
 
 
 def normalise(vec: np.ndarray) -> np.ndarray:
@@ -680,6 +656,8 @@ def sync_once() -> None:
         default_direction = (data.get("device") or {}).get("default_direction")
         state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
         state["last_sync"] = time.time()
+        state["scan_date"] = data.get("scan_date")
+        state["confirmed_scans"] = confirmed_scan_keys(data, clock.now_tz(timezone(timedelta(hours=7))).date().isoformat())
         door_cfg = door_config_from_settings(state["settings"])
         rebuild_matrix_locked()
         valid_ids = set(faces.keys())
@@ -1197,6 +1175,8 @@ def health():
         "stale": stale,
         "cached_images": cached_images,
         "pending_uploads": outbox_count(),
+        "upload_error": scan_outbox.last_error,
+        "last_uploaded_at": scan_outbox.last_uploaded_at,
         "cache_dir": CACHE_DIR,
         "engine_ready": _engine is not None,
         "presence_active": power.presence_active(),

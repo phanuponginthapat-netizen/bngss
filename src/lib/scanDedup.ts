@@ -1,5 +1,6 @@
+import { serverTodayBangkok, serverNow } from "@/lib/serverClock";
 import { supabase } from "@/integrations/supabase/client";
-import { todayBangkok } from "@/lib/dateBE";
+import { bkkDateISO } from "@/lib/dateBE";
 
 /**
  * ตรวจสอบร่วมกันระหว่าง "สแกนใบหน้า" และ "สแกน QR"
@@ -26,7 +27,7 @@ export const methodLabel = (m?: string | null) =>
 /** อ่านสถานะสแกนวันนี้ของนักเรียน (ร่วมกันทั้งใบหน้า + QR) */
 export async function checkTodayScan(studentId: string, force = false): Promise<TodayScanState> {
   if (!studentId) return EMPTY;
-  const today = todayBangkok();
+  const today = serverTodayBangkok();
   const hit = cache.get(studentId);
   if (!force && hit && hit.date === today && Date.now() - hit.at < TTL) return hit.state;
     const { data, error } = await supabase
@@ -52,18 +53,19 @@ export async function checkTodayScan(studentId: string, force = false): Promise<
 }
 
 /** บันทึกลง cache ทันทีหลังสแกนสำเร็จ เพื่อให้หน้าจออื่นในเครื่องเดียวกันเห็นผลทันที */
-export function markScanned(studentId: string, scanType: "entry" | "exit", method?: string | null) {
-  const today = todayBangkok();
+export function markScanned(studentId: string, scanType: "entry" | "exit", method?: string | null, capturedAt = serverNow().toISOString()) {
+  const today = serverTodayBangkok();
+  if (bkkDateISO(new Date(capturedAt)) !== today) return;
   const hit = cache.get(studentId);
   const state: TodayScanState = hit && hit.date === today ? { ...hit.state } : { entry: false, exit: false };
   if (scanType === "exit") {
     state.exit = true;
     state.exitMethod = method ?? state.exitMethod;
-    state.exitTime = new Date().toISOString();
+    state.exitTime = capturedAt;
   } else {
     state.entry = true;
     state.entryMethod = method ?? state.entryMethod;
-    state.entryTime = new Date().toISOString();
+    state.entryTime = capturedAt;
   }
   cache.set(studentId, { at: Date.now(), date: today, state });
 }

@@ -7,3 +7,5 @@
 - Visitor camera registrations validate ordered motion evidence and persist multiple ArcFace samples; database identity guards serialize duplicate checks, while client challenge metadata alone must never be described as certified liveness.
 
 - Public attendance gender subtotals partition the same resolved daily statuses using saved roster gender only; keep unknown gender in totals, never guess it from names.
+- Kiosk attendance retries use validated captured timestamps for school windows, duplicate checks and persisted scan dates; missing legacy timestamps alone use receipt time, preventing delayed uploads becoming current-day attendance.
+- Staff scan retries derive stable receipt IDs from device, identity, captured timestamp and direction; one lost response cannot create several pass records.

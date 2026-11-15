@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 import { todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
   const [classroomId, setClassroomId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [scanError,setScanError] = useState("");
   const today = todayBangkok();
 
   useEffect(() => {
@@ -46,10 +49,11 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       setStudents(studs ?? []);
       // ใช้ผลสแกนเข้าโรงเรียนเป็นค่าตั้งต้น (ไม่ใช่เช็คชื่อหน้าเสาธงใหม่)
       const ids = (studs ?? []).map((s) => s.id);
-      const { data: scanned } = ids.length
+      const { data: scanned, error: scanError } = ids.length
         ? await supabase.from("attendance").select("student_id,status")
             .eq("attendance_date", today).is("subject_id", null).in("student_id", ids)
-        : { data: [] as any[] };
+        : { data: [] as any[], error: null };
+      if(scanError) {setScanError("อ่านผลสแกนไม่สำเร็จ กรุณาลองใหม่");setLoading(false);return;}
       const scanMap: Record<string, Status> = {};
       (scanned ?? []).forEach((r: any) => { scanMap[r.student_id] = r.status; });
       setPrescanned(scanMap);
@@ -61,17 +65,49 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
   }, [lineUserId]);
 
 
+  useEffect(() => {
+    if (!students.length) return;
+    const refresh = async () => {
+      try {
+        const ids=students.map(s=>s.id);
+        const [attendance,scans,threshold] = await Promise.all([
+          fetchAllRows((a,b)=>supabase.from("attendance").select("student_id,status").eq("attendance_date",today).is("subject_id",null).in("student_id",ids).order("id").range(a,b)),
+          fetchAllRows((a,b)=>supabase.from("face_scan_logs").select("student_id,scan_time,scan_type").eq("scan_date",today).in("scan_type",["entry","assembly"]).in("student_id",ids).order("id").range(a,b)),
+          supabase.from("school_settings").select("setting_value").eq("setting_key","clock_late_threshold").maybeSingle(),
+        ]);
+        if(threshold.error)throw threshold.error;
+        const resolved=resolveDigestStatuses(attendance,scans,String(threshold.data?.setting_value||"08:30"));
+        const found:Record<string,Status>={};
+        for(const [id,status] of resolved) if(["present","late","absent","leave"].includes(status))found[id]=status as Status;
+        setPrescanned(found);setScanError("");
+        setMarks(prev=>{const next={...prev};for(const [id,status] of Object.entries(found))if(status==="present"||status==="late")next[id]=status;return next;});
+      }catch{setScanError("อ่านผลสแกนไม่สำเร็จ กรุณาลองใหม่");}
+    };
+    void refresh();const timer=window.setInterval(refresh,30_000);window.addEventListener("focus",refresh);
+    return ()=>{window.clearInterval(timer);window.removeEventListener("focus",refresh);};
+  },[students,today]);
+
   const save = async () => {
     if (!classroomId) return;
     setBusy(true);
     try {
-      const cur = new Date();
-      const year = cur.getFullYear() + (cur.getMonth() >= 4 ? 0 : -1); // CE (DB convention)
-      const sem = cur.getMonth() >= 4 && cur.getMonth() <= 9 ? 1 : 2;
+      const {data: period,error: periodError} = await supabase.from("academic_periods").select("academic_year_be,semester").lte("start_date",today).gte("end_date",today).order("start_date",{ascending:false}).limit(1).maybeSingle();
+      if(periodError || !period) throw new Error("ไม่พบภาคเรียนของวันที่เช็คชื่อ กรุณาตรวจปฏิทินโรงเรียน");
+      const year = period.academic_year_be - 543, sem = period.semester;
+      const ids = students.map(s=>s.id);
+      const [saved, scans, thresholdRes] = await Promise.all([
+        fetchAllRows((a,b)=>supabase.from("attendance").select("student_id,status").eq("attendance_date",today).is("subject_id",null).in("student_id",ids).order("id").range(a,b)),
+        fetchAllRows((a,b)=>supabase.from("face_scan_logs").select("student_id,scan_time,scan_type").eq("scan_date",today).in("scan_type",["entry","assembly"]).in("student_id",ids).order("id").range(a,b)),
+        supabase.from("school_settings").select("setting_value").eq("setting_key","clock_late_threshold").maybeSingle(),
+      ]);
+      if(thresholdRes.error) throw thresholdRes.error;
+      const confirmed = resolveDigestStatuses(saved,scans,String(thresholdRes.data?.setting_value || "08:30"));
+      const savedIds = new Set(saved.map(r=>r.student_id));
       const { data: u } = await supabase.auth.getUser();
       // ไม่เขียนทับผลสแกนเข้าโรงเรียน (มา/สาย)
       const targets = students.filter((s) => {
-        const pre = prescanned[s.id];
+        if (savedIds.has(s.id)) return false;
+        const pre = confirmed.get(s.id);
         if (pre === "present" || pre === "late") return false;
         return true;
       });
@@ -90,16 +126,10 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
         recorded_by: u?.user?.id ?? null,
         notes: "liff",
       }));
-      // NULL subject_id can't be matched by ON CONFLICT in PostgREST upsert —
-      // clear rows only for students without a gate scan, then insert fresh.
-      const ids = targets.map((s) => s.id);
-      await supabase.from("attendance")
-        .delete()
-        .in("student_id", ids)
-        .eq("attendance_date", today)
-        .is("subject_id", null);
-      const { error } = await supabase.from("attendance").insert(rows);
-      if (error) throw error;
+      for (const row of rows) {
+        const {error} = await supabase.from("attendance").insert(row);
+        if(error && error.code !== "23505") throw error;
+      }
       toast.success("บันทึกเช็คชื่อแล้ว");
       setTimeout(() => (window as any).liff?.closeWindow?.(), 800);
     } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
@@ -118,6 +148,7 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
 
   return (
     <div className="space-y-2 max-w-md mx-auto pb-24">
+      {scanError && <p role="alert" className="text-destructive">{scanError}</p>}
       {students.map((s) => {
         const locked = prescanned[s.id] === "present" || prescanned[s.id] === "late";
         return (
@@ -140,7 +171,7 @@ function CheckIn({ lineUserId }: { lineUserId: string }) {
       })}
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t">
-        <Button onClick={save} disabled={busy} className="w-full">
+        <Button onClick={save} disabled={busy || !!scanError} className="w-full">
           {busy ? "กำลังบันทึก..." : `บันทึกเช็คชื่อ ${today}`}
         </Button>
       </div>
