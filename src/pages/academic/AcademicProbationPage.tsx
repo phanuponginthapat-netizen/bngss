@@ -117,15 +117,15 @@ export default function AcademicProbationPage() {
   };
 
   const saveEdit = () => {
-    if (!editRec || !readState.isReady) return;
+    if (!editRec || !readState.ready) return;
     upsert.mutate({ student_id: editRec.student_id, academic_year: toCE(ay), semester: sem, gpax: editRec.gpax ?? 0, status: editForm.status, notes: editForm.notes });
   };
 
-  if (!readState.isReady) return (
+  if (!readState.ready) return (
     <div className="space-y-3 p-4" role="alert">
       <h1 className="text-xl font-bold">ติดตามผลการเรียน</h1>
-      <p>{readState.isError ? "อ่านข้อมูลผลการเรียนไม่สำเร็จ" : "กำลังโหลดข้อมูลผลการเรียน"}</p>
-      {readState.isError && <Button variant="outline" onClick={retry}>ลองใหม่</Button>}
+      <p>{readState.error ? "อ่านข้อมูลผลการเรียนไม่สำเร็จ" : "กำลังโหลดข้อมูลผลการเรียน"}</p>
+      {!!readState.error && <Button variant="outline" onClick={retry}>ลองใหม่</Button>}
     </div>
   );
 
@@ -185,7 +185,7 @@ export default function AcademicProbationPage() {
                 <TableHead className="w-[80px]">จัดการ</TableHead>
               </TableRow></TableHeader>
               <TableBody>
-                {readState.isLoading ? (
+                {readState.loading ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">กำลังโหลด...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">ไม่มีนักเรียนในเกณฑ์นี้</TableCell></TableRow>

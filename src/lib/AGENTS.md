@@ -15,3 +15,4 @@
 - Attendance uses subject_id NULL with period 0 for school days and explicit subject/period for lessons; seed and count lesson records only in their exact scope, never infer them from gate scans.
 - Installed native/PWA root entry waits for restored auth and replaces the root with dashboard only when signed in; preserve deep links and ordinary web entry to avoid losing task destinations.
 - Office source readers retain file identity on failure, block save/export until successful read or explicit local replacement, and ignore stale loads; share sourceReadState and SaveToDriveButton disabled gating to prevent saving blank or mismatched documents.
+- Probation results aggregate stored subject grade points once per real student using shared credit-weighted GPA, with complete term-scoped reads; never treat an individual subject grade as a student's GPA.
