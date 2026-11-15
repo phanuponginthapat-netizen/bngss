@@ -1,3 +1,6 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { academicReadState } from "@/lib/academicReadState";
+import { requireWrittenRows } from "@/lib/confirmedWrite";
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -68,20 +71,27 @@ const StaffLeavePage = () => {
 
 
   // Get current user's personnel record
-  const { data: myPersonnel } = useQuery({
+  const personnelLinkQuery = useQuery({
     queryKey: ["my-personnel-leave", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data: profile } = await supabase.from("profiles").select("employee_code, phone").eq("id", userId!).maybeSingle();
+      if (!userId) throw new Error("กรุณาเข้าสู่ระบบ");
+      const { data: profile, error: profileError } = await supabase.from("profiles").select("employee_code, phone").eq("id", userId).maybeSingle();
+      if (profileError) throw profileError;
       // Prefer the account link (user_id); fall back to employee code for older records.
-      const { data: linked } = await supabase.rpc("get_my_personnel" as any);
+      const { data: linked, error: linkedError } = await supabase.rpc("get_my_personnel" as any);
+      if (linkedError) throw linkedError;
       let data: any = Array.isArray(linked) ? linked[0] : linked;
       if (!data && profile?.employee_code) {
-        ({ data } = await supabase.from("personnel").select("*").eq("employee_code", profile.employee_code).maybeSingle());
+        const fallback = await supabase.from("personnel").select("*").eq("employee_code", profile.employee_code).maybeSingle();
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
       }
       return data ? { ...data, profile_phone: profile?.phone } : null;
     },
   });
+
+  const myPersonnel = personnelLinkQuery.data;
 
   // Auto-fill personnelId for non-admin users
   useEffect(() => {
@@ -93,13 +103,14 @@ const StaffLeavePage = () => {
     }
   }, [myPersonnel, canApprove]);
 
-  const { data: personnel = [] } = useQuery({
+  const personnelQuery = useQuery({
     queryKey: ["personnel"],
     queryFn: async () => {
-      const { data } = await supabase.from("personnel").select("*").eq("status", "active").order("first_name");
-      return data || [];
+      return fetchAllRows((from, to) => supabase.from("personnel").select("*").eq("status", "active").order("first_name").order("id").range(from, to));
     },
   });
+
+  const personnel = personnelQuery.data || [];
 
   // ---- Per-period substitute planning ----
   const applicantId = canApprove ? personnelId : myPersonnel?.id || "";
@@ -121,30 +132,32 @@ const StaffLeavePage = () => {
     return out;
   })();
 
-  const { data: mySchedule = [] } = useQuery({
+  const scheduleQuery = useQuery({
     queryKey: ["my-teaching-schedule", applicantFullName, currentAcademicYear, currentSemester],
     enabled: !!applicantFullName && termReady,
     queryFn: async () => {
-      const { data } = await supabase
+      return fetchAllRows((from, to) => supabase
         .from("schedules")
         .select("id, day_of_week, period, room, subject_name_raw, classroom_id, subject_id")
         .eq("teacher_name", applicantFullName)
         .eq("academic_year", currentAcademicYear - BE_OFFSET)
         .eq("semester", currentSemester)
-        .order("period");
-      return data || [];
+        .order("period").order("id").range(from, to));
     },
   });
 
-  const { data: classroomMap = {} } = useQuery({
+  const classroomQuery = useQuery({
     queryKey: ["classroom-names-leave"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("id, name");
+      const data = await fetchAllRows((from, to) => supabase.from("classrooms").select("id, name").order("id").range(from, to));
       const map: Record<string, string> = {};
       (data || []).forEach((c: any) => { map[c.id] = c.name; });
       return map;
     },
   });
+
+  const mySchedule = scheduleQuery.data || [];
+  const classroomMap = classroomQuery.data || {};
 
   // slots that need a substitute: one per (date, period) in the leave range
   const leaveSlots = leaveDates.flatMap((date) => {
@@ -165,20 +178,25 @@ const StaffLeavePage = () => {
 
 
 
-  const { data: records = [] } = useQuery({
+  const recordsQuery = useQuery({
     queryKey: ["staff_leaves", canApprove ? "all" : myPersonnel?.id],
     enabled: canApprove || !!myPersonnel?.id,
     queryFn: async () => {
-      let q = supabase.from("staff_leaves").select("*").order("created_at", { ascending: false });
-      // Teachers see only their own leaves
-      if (!canApprove && myPersonnel?.id) {
-        q = q.eq("personnel_id", myPersonnel.id);
-      }
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      return fetchAllRows((from, to) => {
+        let q = supabase.from("staff_leaves").select("*").order("created_at", { ascending: false }).order("id");
+        if (!canApprove && myPersonnel?.id) q = q.eq("personnel_id", myPersonnel.id);
+        return q.range(from, to);
+      });
     },
   });
+
+  const records = recordsQuery.data || [];
+  const readState = academicReadState([personnelLinkQuery, personnelQuery, scheduleQuery, classroomQuery, recordsQuery], !userId || !termReady);
+  const retryReads = () => {
+    for (const query of [personnelLinkQuery, personnelQuery, classroomQuery]) void query.refetch();
+    if (applicantFullName && termReady) void scheduleQuery.refetch();
+    if (canApprove || myPersonnel?.id) void recordsQuery.refetch();
+  };
 
   // If arriving from a notification with ?highlight=<id>, auto-switch to the tab
   // containing that record so the user actually sees the request.
@@ -214,7 +232,7 @@ const StaffLeavePage = () => {
   };
 
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (submitting || !readState.ready) return;
     const targetPersonnelId = canApprove ? personnelId : myPersonnel?.id;
     if (!targetPersonnelId || !startDate || !endDate || !reason) {
       toast.error(lang === "th" ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
@@ -230,7 +248,7 @@ const StaffLeavePage = () => {
       const person = personnel.find((p: any) => p.id === targetPersonnelId);
 
       // Client-side pre-check to prevent double-submit creating duplicate rows
-      const { data: existing } = await supabase
+      const { data: existing, error: duplicateReadError } = await supabase
         .from("staff_leaves")
         .select("id")
         .eq("personnel_id", targetPersonnelId)
@@ -239,6 +257,7 @@ const StaffLeavePage = () => {
         .eq("end_date", endDate)
         .in("status", ["pending", "approved"])
         .limit(1);
+      if (duplicateReadError) throw duplicateReadError;
       if (existing && existing.length > 0) {
         toast.error(lang === "th" ? "มีใบลาซ้ำในช่วงวันเดียวกันอยู่แล้ว" : "A leave for the same dates already exists");
         return;
@@ -297,6 +316,8 @@ const StaffLeavePage = () => {
       qc.invalidateQueries({ queryKey: ["staff_leaves"] });
       setOpen(false);
       resetForm();
+    } catch (error) {
+      toast.error(saveErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -425,8 +446,9 @@ const StaffLeavePage = () => {
   const handleDelete = async (id: string) => {
     const ok = await swal.confirm({ title: lang === "th" ? "ยืนยันการลบใบลา" : "Confirm delete leave", danger: true, confirmText: lang === "th" ? "ลบ" : "Delete" });
     if (!ok) return;
-    const { error } = await supabase.from("staff_leaves").delete().eq("id", id);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    try {
+      requireWrittenRows(await supabase.from("staff_leaves").delete().eq("id", id).select("id"));
+    } catch (error) { toast.error(saveErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
   };
 
@@ -437,10 +459,10 @@ const StaffLeavePage = () => {
     );
     if (reason === null) return;
     if (!String(reason).trim()) { swal.error(lang === "th" ? "กรุณาระบุเหตุผล" : "Reason required"); return; }
-    const { error } = await supabase.from("staff_leaves")
+    const result = await supabase.from("staff_leaves")
       .update({ revoked_at: new Date().toISOString(), revoked_by: userId, revoke_reason: String(reason).trim() } as any)
-      .eq("id", r.id);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+      .eq("id", r.id).select("id");
+    try { requireWrittenRows(result); } catch (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success(lang === "th" ? "บันทึกการมาปฏิบัติหน้าที่แล้ว ครูสอนแทนพ้นหน้าที่ในคาบที่เกี่ยวข้อง" : "Leave revoked");
     qc.invalidateQueries({ queryKey: ["staff_leaves"] });
     qc.invalidateQueries({ queryKey: ["staff_leaves_approved"] });
@@ -471,6 +493,12 @@ const StaffLeavePage = () => {
   const pendingRecords = records.filter((r: any) => r.status === "pending");
   const approvedRecords = records.filter((r: any) => r.status === "approved");
   const rejectedRecords = records.filter((r: any) => r.status === "rejected");
+
+  if (!readState.ready) return <div role={readState.error ? "alert" : "status"} className="space-y-3 p-6">
+    <h1 className="text-xl font-bold">{lang === "th" ? "ระบบลาออนไลน์" : "Staff Leave Management"}</h1>
+    <p>{readState.error ? (lang === "th" ? "อ่านข้อมูลการลาไม่สำเร็จ" : "Unable to load leave data") : (lang === "th" ? "กำลังโหลดข้อมูลการลา" : "Loading leave data")}</p>
+    {readState.error && <Button variant="outline" onClick={retryReads}>{lang === "th" ? "ลองใหม่" : "Retry"}</Button>}
+  </div>;
 
   return (
     <div className="space-y-6 pb-[calc(env(safe-area-inset-bottom)+8rem)] md:pb-0">
