@@ -110,39 +110,4 @@ export function newField(
   return base;
 }
 
-export function gradeField(
-  field: WorksheetField,
-  answer: any,
-): { correct: boolean; score: number } {
-  const maxScore = field.score ?? 1;
-  if (field.correct === undefined || field.correct === null || field.correct === "") {
-    return { correct: false, score: 0 };
-  }
-  const norm = (v: any) => {
-    if (typeof v !== "string") return v;
-    let s = v;
-    if (field.trim !== false) s = s.trim();
-    if (!field.caseSensitive) s = s.toLowerCase();
-    return s;
-  };
-  switch (field.type) {
-    case "text":
-    case "textarea": {
-      const expected = String(field.correct).split("|").map((s) => String(norm(s)));
-      const got = String(norm(answer ?? ""));
-      return expected.includes(got) ? { correct: true, score: maxScore } : { correct: false, score: 0 };
-    }
-    case "mc": {
-      return Number(answer) === Number(field.correct)
-        ? { correct: true, score: maxScore }
-        : { correct: false, score: 0 };
-    }
-    case "checkbox": {
-      return !!answer === !!field.correct
-        ? { correct: true, score: maxScore }
-        : { correct: false, score: 0 };
-    }
-    default:
-      return { correct: false, score: 0 };
-  }
-}
+export { gradeField, isWorksheetGradable } from "./worksheetGrading";
