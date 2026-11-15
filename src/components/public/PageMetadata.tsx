@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
 
@@ -29,6 +30,14 @@ export default function PageMetadata({ title, description, schema }: {
   schema?: Record<string, unknown>;
 }) {
   const { pathname } = useLocation();
+  useEffect(() => {
+    // Static fallbacks remain in HTML for non-JS crawlers, but Helmet owns
+    // the rendered head. Remove only unmanaged fallback tags after mounting.
+    const selectors = ['meta[name="description"]', 'meta[property="og:title"]', 'meta[property="og:description"]', 'meta[property="og:url"]', 'meta[property="og:type"]', 'meta[name="twitter:title"]', 'meta[name="twitter:description"]', 'script[type="application/ld+json"]'];
+    for (const selector of selectors) {
+      document.querySelectorAll(`${selector}:not([data-rh])`).forEach(node => node.remove());
+    }
+  }, [pathname]);
   const { data: settings } = useCmsSettingsBulk();
   const school = settings?.school_name || "โรงเรียนบ้านหนองเงือก";
   const page = title || PUBLIC_PAGE_TITLES[pathname] || settings?.app_name || "BNG Smart School";
