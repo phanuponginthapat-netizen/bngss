@@ -6,6 +6,7 @@ import { corsHeadersWithBootstrap as corsHeaders } from "../_shared/cors.ts";
 
 import { getAdminEmail } from "../_shared/appConfig.ts";
 import { rateLimit } from "../_shared/rateLimit.ts";
+import { authorizeCaller } from "../_shared/callerAuth.ts";
 
 function genPassword() {
   const buf = new Uint8Array(18);
@@ -19,6 +20,9 @@ function genPassword() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Creating or resetting the administrator account is restricted to backend operators (service key).
+  const caller = await authorizeCaller(req, corsHeaders, { roles: ["__internal_only__"] });
+  if (caller instanceof Response) return caller;
   const rl = await rateLimit(req, { name: "bootstrap-admin", limit: 3, windowMs: 60_000 });
   if (rl.blocked) return rl.response!;
 

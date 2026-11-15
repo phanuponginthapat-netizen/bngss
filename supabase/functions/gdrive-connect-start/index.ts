@@ -40,7 +40,6 @@ function isAllowedReturnUrl(value: string) {
     if (!/^https?:$/.test(url.protocol)) return false;
     const hostname = url.hostname.toLowerCase();
     if (hostname === "localhost" || hostname === "127.0.0.1") return true;
-    if (hostname.endsWith(".vercel.app") || hostname.endsWith(".pages.dev") || hostname.endsWith(".netlify.app")) return true; // โดเมนที่ใช้โฮสต์หน้าเว็บ (deploy เอง)
     return allowedOrigins().includes(url.origin);
   } catch {
     return false;

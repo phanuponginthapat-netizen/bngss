@@ -52,16 +52,6 @@ const Login = () => {
   }, [navigateEarly, postLoginTarget]);
 
 
-  // Auto-bootstrap initial admin on first run (idempotent server-side).
-  useEffect(() => {
-    if (sessionStorage.getItem("bootstrap_admin_checked")) return;
-    sessionStorage.setItem("bootstrap_admin_checked", "1");
-    supabase.functions.invoke("bootstrap-admin").then(({ data }) => {
-      if (data?.created) {
-        toast.success(`สร้างบัญชี admin เริ่มต้นแล้ว: ${data.email} / ${data.password}`, { duration: 15000 });
-      }
-    }).catch(() => {});
-  }, []);
 
 
 
