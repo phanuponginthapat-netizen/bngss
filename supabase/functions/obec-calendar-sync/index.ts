@@ -1,8 +1,12 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowCron: true });
+  if (__caller instanceof Response) return __caller;
+
   try {
     const admin = makeAdmin();
     // URL ปฏิทิน สพฐ. เก็บใน app_settings key: obec_calendar_url (ICS)

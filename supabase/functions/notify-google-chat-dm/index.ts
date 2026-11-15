@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 // Personal Google Chat DM notifications (Google Workspace only) — the LINE OA equivalent.
 // Resolves each user's Workspace email (profiles.google_email, else auth email) and sends
 // a cardsV2 message into the 1:1 DM space.
@@ -109,6 +110,9 @@ function buildCard(opts: {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+  if (__caller instanceof Response) return __caller;
+
 
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
