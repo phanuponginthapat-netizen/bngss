@@ -31,7 +31,7 @@ Rule: the same captured scan must retain its identity, Bangkok date/time and ent
 
 ## Verification and limitations
 
-- 34 targeted Vitest and 17 Python tests passed; package compilation and ZIP module inspection passed.
+- 34 targeted Vitest and 18 Python tests passed; package compilation and ZIP module inspection passed; old native pending scans with unknown capture time stay queued for review instead of becoming today's scans.
 - Hosted attendance trigger definition re-read after migration; no settled rows updated.
 - Deployed kiosk-api, face-scan-daily-report and face-scan-summary.
 - Public daily aggregate reads successfully from Cloud.
