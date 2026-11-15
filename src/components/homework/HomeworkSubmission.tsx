@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import HomeworkToolsBar from "./HomeworkToolsBar";
 import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -253,6 +254,7 @@ export function StudentSubmissionPanel({
         </div>
       )}
 
+      <HomeworkToolsBar compact title="สร้างงานด้วย" />
       <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำตอบ หรือบันทึกถึงครู..." className="text-sm" />
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <AttachmentUploader folder={`submissions/${taskId}`} value={pending} onChange={setPending} maxFiles={5} label="แนบไฟล์งาน" />

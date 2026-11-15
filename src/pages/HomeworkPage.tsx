@@ -20,6 +20,7 @@ import AttachmentList from "@/components/homework/AttachmentList";
 import HomeworkRichDesignerDialog from "@/components/homework/HomeworkRichDesignerDialog";
 import HomeworkAnswerDialog from "@/components/homework/HomeworkAnswerDialog";
 import HomeworkSubmissionsDialog from "@/components/homework/HomeworkSubmissionsDialog";
+import HomeworkToolsBar from "@/components/homework/HomeworkToolsBar";
 import { Sparkles, FileEdit, ClipboardList } from "lucide-react";
 
 import { StudentSubmissionPanel, TeacherGradingPanel, type SubmissionsMap } from "@/components/homework/HomeworkSubmission";
@@ -435,6 +436,8 @@ const HomeworkPage = () => {
         )}
         </div>
       </div>
+
+      <Card className="border-border/60"><CardContent className="p-3"><HomeworkToolsBar title="เครื่องมือในระบบ" /></CardContent></Card>
 
       {isLoading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
 
