@@ -146,17 +146,13 @@ Deno.serve(async (req) => {
     if (!authUserId) return respond({ error: "not_found" }, 404);
 
 
-    // QR บนบัตรเป็นเพียงตัวระบุ → ต้องยืนยันวันเกิดของเจ้าของบัญชีก่อนออก session
-    if (!dob || typeof dob !== "string") return respond({ error: "dob_required" }, 401);
-    if (!normalizeDob(dob)) return respond({ error: "invalid_dob_format" }, 400);
-    const { data: stuDob } = await admin.from("students").select("date_of_birth").eq("auth_user_id", authUserId).maybeSingle();
-    let storedDob: string | null = stuDob?.date_of_birth ?? null;
-    if (!storedDob) {
-      const { data: profDob } = await admin.from("profiles").select("date_of_birth").eq("id", authUserId).maybeSingle();
-      storedDob = profDob?.date_of_birth ?? null;
+    // School decision: scanning the card QR signs in directly (young students, elderly parents).
+    // If a date of birth is supplied it must still match.
+    if (dob && typeof dob === "string") {
+      const { data: stuDob } = await admin.from("students").select("date_of_birth").eq("auth_user_id", authUserId).maybeSingle();
+      const storedDob = stuDob?.date_of_birth ?? null;
+      if (storedDob && normalizeDob(dob) && !dobMatches(storedDob, dob)) return respond({ error: "dob_mismatch" }, 401);
     }
-    if (!storedDob) return respond({ error: "dob_unavailable" }, 409);
-    if (!dobMatches(storedDob, dob)) return respond({ error: "dob_mismatch" }, 401);
 
     // ดึง email แล้วออก magic link → แลกเป็น session
     const { data: au } = await admin.auth.admin.getUserById(authUserId);
