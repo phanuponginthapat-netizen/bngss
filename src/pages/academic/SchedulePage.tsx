@@ -477,7 +477,8 @@ const SchedulePage = () => {
       const gaps = periods.slice(0, -1).map(p => ({ p, end: map.get(p)?.end, start: map.get(p + 1)?.start })).filter(g => g.end && g.start && g.start > g.end);
       if (gaps.length === 1) lunch = { start: gaps[0].end ?? '', end: gaps[0].start ?? '' };
     }
-    return { map, lunch: lunch as { start: string; end: string } | null };
+    const lunchPosition = (isStudent || isParent) && lunch ? periods.find(p => map.get(p)?.end === lunch?.start && map.get(p + 1)?.start === lunch?.end) ?? lunchAfterPeriod : lunchAfterPeriod;
+    return { map, lunchPosition, lunch: lunch as { start: string; end: string } | null };
   }, [periodsPerDay, lunchAfterPeriod, scheduleTimes, filtered, isStudent, isParent]);
 
 
@@ -954,7 +955,7 @@ const SchedulePage = () => {
               <tbody>
                 {periods.map((p) => (
                   <Fragment key={`period-${p}`}>
-                    {p - 1 === lunchAfterPeriod && (
+                    {p - 1 === periodTimes.lunchPosition && (
                       <tr key={`lunch-${p}`}>
                         <td
                           colSpan={days.length + 1}

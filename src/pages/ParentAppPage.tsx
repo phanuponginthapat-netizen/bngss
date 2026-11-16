@@ -310,7 +310,7 @@ export default function ParentAppPage() {
           .eq("academic_year", calendar.currentAcademicYear - 543).eq("semester", 1)
           .order("updated_at", { ascending: false })
           .order("id").limit(1000)
-      : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null });
+      : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null; error: null });
 
     // upcoming homework — try task_assignments by classroom_id + due_date >= today, limit 5
     // also fallback to homework_assignments

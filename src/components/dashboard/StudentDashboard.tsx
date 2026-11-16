@@ -162,10 +162,9 @@ const StudentDashboard = () => {
         .select("id, grade_point, total_score, grade, updated_at, subjects(credits)")
         .eq("student_code", data?.student?.student_code ?? "")
         .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
-        .not("grade_point", "is", null)
         .order("updated_at", { ascending: false }).order('id').range(from, to));
-      const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
-      const avg = calculateGPA(rows.map(r => ({ gradePoint: r.grade_point == null ? null : Number(r.grade_point), credits: Number(r.subjects?.credits ?? 0) })));
+      const pts = rows.map(r => r.grade_point ?? (/^[0-4](\.5)?$/.test(r.grade ?? "") ? Number(r.grade) : null)).filter((n): n is number => n != null && Number.isFinite(n));
+      const avg = calculateGPA(rows.map(r => ({ gradePoint: r.grade_point ?? (/^[0-4](\.5)?$/.test(r.grade ?? "") ? Number(r.grade) : null), credits: Number(r.subjects?.credits ?? 0) })));
       const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
       const recent = (rows || []).slice(0, 5);
       return { gpa: pts.length ? avg.toFixed(2) : "—", count: pts.length, spark, recent, avgNum: avg };
