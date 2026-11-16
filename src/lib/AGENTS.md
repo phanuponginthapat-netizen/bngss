@@ -21,3 +21,4 @@
 - Family school-attendance views query only null-subject period-zero rows; timetable headers prefer stored period times so school-day records and configured estimates never masquerade as lesson evidence.
 - Face synchronization resolves private portraits with fresh authenticated URLs; database portrait-change triggers invalidate enrolled and pending student faces across card and profile writers, while attendance evidence remains intact.
 - Family portrait controls are hidden and database guards reject family-only profile/card portrait changes; existing staff authorization and unrelated profile edits remain unchanged.
+- Web enrollment shows actual ArcFace alignment points, rejects mixed/low-quality samples and stores every sample as a durable private image path before replacing descriptors, so kiosks receive complete reference sets without erasing old enrollment on failed preparation.

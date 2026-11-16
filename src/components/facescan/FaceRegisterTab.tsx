@@ -22,6 +22,11 @@ import { computeFaceTexture } from "@/lib/faceTexture";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 import { loadFaceSyncImage } from '@/lib/faceSyncImage';
 import { saveErrorMessage } from "@/lib/saveError";
+import FaceSamplePreview, { type FacePoint } from './FaceSamplePreview';
+import { fivePointsFromLandmarks68 } from '@/lib/arcface';
+import { faceSampleError, MAX_ENROLLMENT_PHOTOS, MAX_ENROLLMENT_FILE_BYTES } from '@/lib/faceEnrollment';
+import { detectEnrollmentFace } from '@/lib/detectEnrollmentFace';
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 
 
@@ -46,7 +51,7 @@ const FaceRegisterTab = () => {
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState("");
-  const [shots, setShots] = useState<Array<{ canvas: HTMLCanvasElement; desc: Float32Array; texture?: number[] | null; source: "camera" | "upload"; quality: QualityReport }>>([]);
+  const [shots, setShots] = useState<Array<{ points: FacePoint[]; canvas: HTMLCanvasElement; desc: Float32Array; texture?: number[] | null; source: "camera" | "upload"; quality: QualityReport }>>([]);
   const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -181,62 +186,71 @@ const FaceRegisterTab = () => {
   };
 
   const captureShot = async () => {
-    if (!videoRef.current || !modelReady) return;
+    if (!videoRef.current || !modelReady || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS) return;
     setBusy(true);
     try {
-      const det = await detectFaceWithLandmarks(videoRef.current);
+      const det = await detectEnrollmentFace(videoRef.current);
       if (!det) { setLastQuality(null); toast.error("ไม่พบใบหน้าในภาพ"); return; }
       const q = assessFaceQuality(videoRef.current, det, "register");
       setLastQuality(q);
-      if (!q.ok && !canApproveDirectly) {
+      if (!q.ok) {
         toast.error("คุณภาพภาพไม่ผ่านมาตรฐาน", { description: q.reasons[0] });
         return;
       }
-      if (!q.ok) {
-        toast.warning(`คุณภาพ ${q.score}/100 (บันทึกได้แต่แนะนำให้ถ่ายใหม่)`, { description: q.reasons[0] });
-      }
+      const sampleError = faceSampleError(det.descriptor, shots.map(s=>s.desc));
+      if (sampleError || !det.descriptor) { toast.error(sampleError || 'อ่านใบหน้าไม่สำเร็จ'); return; }
       const canvas = document.createElement("canvas");
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
-      setShots((s) => [...s, { canvas, desc: det.descriptor, texture: computeFaceTexture(videoRef.current!, det.landmarks), source: "camera", quality: q }]);
-    } finally { setBusy(false); }
+      const descriptor = det.descriptor;
+      const texture = computeFaceTexture(videoRef.current, det.landmarks);
+      setShots((s) => [...s, { points: fivePointsFromLandmarks68(det.landmarks), canvas, desc: descriptor, texture, source: "camera", quality: q }]);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'ถ่ายใบหน้าไม่สำเร็จ'); } finally { setBusy(false); }
   };
 
   const handleUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !modelReady) return;
+    if (!files || files.length === 0 || !modelReady || !studentId) return;
+    if (shots.length + files.length > MAX_ENROLLMENT_PHOTOS) { toast.error('เก็บได้สูงสุด 5 รูปต่อครั้ง'); return; }
     setBusy(true);
     let ok = 0, fail = 0, lowQ = 0;
     const lowQReasons: string[] = [];
+    const added: typeof shots = [];
     try {
       for (const file of Array.from(files)) {
         try {
+          if (!['image/jpeg','image/png'].includes(file.type) || file.size > MAX_ENROLLMENT_FILE_BYTES) throw new Error('รองรับ JPG/PNG ไม่เกิน 6 MB');
           const url = URL.createObjectURL(file);
-          const img = await loadImageFromUrl(url);
-          const det = await detectFaceWithLandmarks(img);
-          URL.revokeObjectURL(url);
+          let img: HTMLImageElement;
+          try { img = await loadImageFromUrl(url); } finally { URL.revokeObjectURL(url); }
+          const det = await detectEnrollmentFace(img);
           if (!det) { fail++; continue; }
           const q = assessFaceQuality(img, det, "register");
-          if (!q.ok && !canApproveDirectly) {
+          setLastQuality(q);
+          if (!q.ok) {
             lowQ++;
             if (lowQReasons.length < 2) lowQReasons.push(`${file.name}: ${q.reasons[0]}`);
             continue;
           }
+          setLastQuality(q);
+          const sampleError = faceSampleError(det.descriptor, [...shots,...added].map(s=>s.desc));
+          if (sampleError || !det.descriptor) throw new Error(sampleError || 'อ่าน ArcFace ไม่สำเร็จ');
           const canvas = document.createElement("canvas");
           canvas.width = img.naturalWidth;
           canvas.height = img.naturalHeight;
           canvas.getContext("2d")?.drawImage(img, 0, 0);
-          setShots((s) => [...s, { canvas, desc: det.descriptor, texture: computeFaceTexture(img, det.landmarks), source: "upload", quality: q }]);
+          added.push({ points: fivePointsFromLandmarks68(det.landmarks), canvas, desc: det.descriptor, texture: computeFaceTexture(img, det.landmarks), source: "upload", quality: q });
           ok++;
-        } catch { fail++; }
+        } catch (error) { fail++; if (lowQReasons.length < 3) lowQReasons.push(file.name+': '+(error instanceof Error ? error.message : 'อ่านไฟล์ไม่สำเร็จ')); }
       }
+      setShots(current=>[...current,...added]);
       const parts = [];
       if (ok) parts.push(`เพิ่ม ${ok} รูป`);
-      if (fail) parts.push(`ไม่พบใบหน้า ${fail} รูป`);
+      if (fail) parts.push(`ใช้รูปไม่ได้ ${fail} รูป`);
       if (lowQ) parts.push(`คุณภาพต่ำ ${lowQ} รูป`);
-      if (ok > 0) toast.success(parts.join(" • "), lowQ ? { description: lowQReasons.join("\n") } : undefined);
+      if (ok > 0) toast.success(parts.join(" • "), lowQReasons.length ? { description: lowQReasons.join("\n") } : undefined);
       else if (lowQ > 0) toast.error("รูปคุณภาพไม่ผ่าน", { description: lowQReasons.join("\n") });
-      else if (fail > 0) toast.error(`ไม่พบใบหน้าในไฟล์ที่อัปโหลด (${fail} รูป)`);
+      else if (fail > 0) toast.error(`ใช้รูปไม่ได้ (${fail} รูป)`, { description: lowQReasons.join("\n") });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -327,26 +341,29 @@ const FaceRegisterTab = () => {
 
       await assertNotDuplicate(studentId);
 
-      const { data: prev } = await supabase.from("student_face_descriptors")
+      const { data: prev, error: previousError } = await supabase.from("student_face_descriptors")
         .select("id").eq("student_id", studentId);
+      if (previousError) throw previousError;
       const previous_count = prev?.length ?? 0;
 
-      if (isRereg) {
-        await supabase.from("student_face_descriptors").delete().eq("student_id", studentId);
-      }
+      const photo_urls = await uploadShotsToStorage(studentId);
       const startIdx = isRereg ? 0 : previous_count;
       const rows = shots.map((s, i) => ({
         student_id: studentId, sample_index: startIdx + i,
         descriptor: Array.from(s.desc), captured_by: user?.id, source: s.source,
         quality_score: s.quality?.score ?? null,
         metrics: (s.quality as any) ?? null,
-        face_image: canvasToFaceThumb(s.canvas) || null,
+        face_image: photo_urls[i],
+        created_at: new Date().toISOString(),
         texture: s.texture ?? null,
       }));
       const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
       if (error) throw error;
 
-      const photo_urls = await uploadShotsToStorage(studentId).catch(() => [] as string[]);
+      if (isRereg) {
+        const { error: cleanupError } = await supabase.from("student_face_descriptors").delete().eq("student_id", studentId).gte("sample_index", rows.length);
+        if (cleanupError) throw cleanupError;
+      }
       await supabase.from("face_registration_history").insert({
         student_id: studentId,
         action: isRereg ? "direct_replace" : "direct_add",
@@ -375,6 +392,113 @@ const FaceRegisterTab = () => {
 
   return (
     <div className="space-y-4">
+      {/* Manual capture (optional) */}
+      <section className="space-y-3 border-b pb-6">
+          <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้านักเรียน</h3>
+
+          <Input disabled={busy} placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Select value={studentId} onValueChange={(id)=>{setStudentId(id);setShots([]);setLastQuality(null);setReason("");}}>
+            <SelectTrigger disabled={busy}><SelectValue placeholder="1. เลือกนักเรียน" /></SelectTrigger>
+            <SelectContent>
+              {filtered.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.prefix}{s.first_name} {s.last_name} ({s.student_code})
+                  {registeredIds.has(s.id) && <Badge variant="secondary" className="ml-2 text-xs">มีแล้ว</Badge>}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {studentId && registeredIds.has(studentId) && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium">เหตุผลการลงทะเบียนใหม่ <span className="text-destructive">*</span></label>
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="เช่น ตัดผมสั้น / ใส่แว่นใหม่ / รูปเดิมไม่ชัด / โตขึ้นมาก..."
+                rows={2}
+              />
+            </div>
+          )}
+
+          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video max-w-xl">
+            <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
+            <FaceGuideOverlay videoRef={videoRef} active={streaming && modelReady} showLandmarks topLabel="วางใบหน้าให้อยู่ในวงรี" />
+            {!streaming && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground"><Camera className="w-12 h-12" /></div>}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
+            <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {!streaming ? (
+              <Button onClick={() => startCamera()} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
+
+            ) : (
+              <>
+                <Button onClick={captureShot} disabled={busy || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS} size="sm">
+                  <Camera className="w-4 h-4 mr-2" />ถ่าย
+                </Button>
+                <Button onClick={stopCamera} variant="outline" size="sm">ปิดกล้อง</Button>
+              </>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <Button onClick={() => fileRef.current?.click()} disabled={!modelReady || busy || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS} size="sm" variant="default">
+              <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปนักเรียน (หลายรูป)
+            </Button>
+            {shots.length > 0 && (
+              <Button disabled={busy} onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
+            )}
+          </div>
+
+          {lastQuality && (
+            <div className={`rounded-lg border p-3 text-xs ${lastQuality.ok ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/30"}`}>
+              <div className="flex items-center justify-between font-semibold">
+                <span>คุณภาพภาพล่าสุด</span>
+                <span>{lastQuality.score}/100 {lastQuality.ok ? "✓ ผ่าน" : "⚠ ต้องแก้"}</span>
+              </div>
+              {lastQuality.reasons.length > 0 && (
+                <ul className="mt-1 list-disc pl-4 space-y-0.5 text-muted-foreground">
+                  {lastQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              )}
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                ชัด {Math.round(lastQuality.metrics.sharpness)} • แสง {Math.round(lastQuality.metrics.brightness)} • หน้า {Math.round(lastQuality.metrics.faceSize)}px • yaw {lastQuality.metrics.yaw.toFixed(2)} • pitch {lastQuality.metrics.pitch.toFixed(2)}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-sm"><span className="font-medium">รูปใบหน้า {shots.length}/5</span><Badge variant="outline">ArcFace · 512 มิติ</Badge></div>
+          {shots.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {shots.map((s,i)=><FaceSamplePreview key={i} image={s.canvas.toDataURL('image/jpeg',.85)} width={s.canvas.width} height={s.canvas.height} points={s.points} score={s.quality.score} index={i} onRemove={()=>{if(!busy)setShots(current=>current.filter((_,j)=>j!==i));}}/>) }
+          </div>}
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={submitRequest}
+              disabled={busy || shots.length === 0 || !studentId}
+              variant={canApproveDirectly ? "outline" : "default"}
+              className={canApproveDirectly ? "" : "flex-1 gradient-primary"}
+            >
+              <Send className="w-4 h-4 mr-2" />ส่งคำขออนุมัติ ({shots.length})
+            </Button>
+            {canApproveDirectly && (
+              <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} className="flex-1 gradient-primary">
+                <ShieldCheck className="w-4 h-4 mr-2" />บันทึกใบหน้าให้ FaceGate
+              </Button>
+            )}
+          </div>
+      </section>
+
       {/* Auto-sync hero card */}
       <Card className="gradient-primary text-primary-foreground border-0">
         <CardContent className="p-5 space-y-4">
@@ -475,7 +599,7 @@ const FaceRegisterTab = () => {
             <div className="flex gap-2 overflow-x-auto pb-2">
               {pending.slice(0, 20).map((s: any) => (
                 <div key={s.id} className="flex-shrink-0 w-20 text-center">
-                  <img src={s.photo_url} alt="" className="w-20 h-20 rounded-lg object-cover border" />
+                  <div className="w-20 h-20 overflow-hidden rounded-lg border"><IdCardPhoto url={s.photo_url} name={s.first_name} /></div>
                   <p className="text-xs mt-1 truncate">{s.first_name}</p>
                 </div>
               ))}
@@ -495,132 +619,6 @@ const FaceRegisterTab = () => {
         </Card>
       )}
 
-      {/* Manual capture (optional) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้า (ถ่าย / อัปโหลด)</h3>
-          <p className="text-xs text-muted-foreground">
-            เพิ่มภาพได้ทั้งจากกล้องและการอัปโหลด — รองรับ JPG/PNG หลายไฟล์พร้อมกัน
-            {!canApproveDirectly && " • คำขอจะถูกส่งให้แอดมินอนุมัติก่อนเริ่มใช้งาน"}
-          </p>
-          <Input placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={studentId} onValueChange={setStudentId}>
-            <SelectTrigger><SelectValue placeholder="-- เลือกนักเรียน --" /></SelectTrigger>
-            <SelectContent>
-              {filtered.map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.prefix}{s.first_name} {s.last_name} ({s.student_code})
-                  {registeredIds.has(s.id) && <Badge variant="secondary" className="ml-2 text-xs">มีแล้ว</Badge>}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {studentId && registeredIds.has(studentId) && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium">เหตุผลการลงทะเบียนใหม่ <span className="text-destructive">*</span></label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="เช่น ตัดผมสั้น / ใส่แว่นใหม่ / รูปเดิมไม่ชัด / โตขึ้นมาก..."
-                rows={2}
-              />
-            </div>
-          )}
-
-          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-            <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
-            <FaceGuideOverlay videoRef={videoRef} active={streaming && modelReady} topLabel="วางใบหน้าให้อยู่ในวงรี" />
-            {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
-            <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            {!streaming ? (
-              <Button onClick={() => startCamera()} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
-
-            ) : (
-              <>
-                <Button onClick={captureShot} disabled={busy} size="sm" className="gradient-primary">
-                  <Camera className="w-4 h-4 mr-2" />ถ่าย
-                </Button>
-                <Button onClick={stopCamera} variant="outline" size="sm">ปิดกล้อง</Button>
-              </>
-            )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => handleUpload(e.target.files)}
-            />
-            <Button onClick={() => fileRef.current?.click()} disabled={!modelReady || busy} size="sm" variant="outline">
-              <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปภาพ
-            </Button>
-            {shots.length > 0 && (
-              <Button onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
-            )}
-          </div>
-
-          {lastQuality && (
-            <div className={`rounded-lg border p-3 text-xs ${lastQuality.ok ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/30"}`}>
-              <div className="flex items-center justify-between font-semibold">
-                <span>คุณภาพภาพล่าสุด</span>
-                <span>{lastQuality.score}/100 {lastQuality.ok ? "✓ ผ่าน" : "⚠ ต้องแก้"}</span>
-              </div>
-              {lastQuality.reasons.length > 0 && (
-                <ul className="mt-1 list-disc pl-4 space-y-0.5 text-muted-foreground">
-                  {lastQuality.reasons.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              )}
-              <div className="mt-1 text-[10px] text-muted-foreground">
-                ชัด {Math.round(lastQuality.metrics.sharpness)} • แสง {Math.round(lastQuality.metrics.brightness)} • หน้า {Math.round(lastQuality.metrics.faceSize)}px • yaw {lastQuality.metrics.yaw.toFixed(2)} • pitch {lastQuality.metrics.pitch.toFixed(2)}
-              </div>
-            </div>
-          )}
-
-          <p className="text-[11px] text-muted-foreground">
-            💡 เพื่อความแม่นยำระดับธนาคาร แนะนำเก็บอย่างน้อย <b>3 มุม</b> (หน้าตรง / เอียงซ้ายเล็กน้อย / เอียงขวาเล็กน้อย) ภายใต้แสงเดียวกับจุดสแกนจริง
-          </p>
-
-          {shots.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {shots.map((s, i) => (
-                <div key={i} className="relative">
-                  <img src={s.canvas.toDataURL()} alt={`ภาพถ่ายลงทะเบียนใบหน้า ${i + 1}`} className="rounded border w-full aspect-square object-cover" />
-                  <Badge variant="secondary" className="absolute top-1 right-1 text-[10px] px-1 py-0">
-                    {s.source === "camera" ? "📷" : "📁"}
-                  </Badge>
-                  <Badge variant={s.quality.ok ? "default" : "secondary"} className="absolute bottom-1 left-1 text-[10px] px-1 py-0">
-                    {s.quality.score}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={submitRequest}
-              disabled={busy || shots.length === 0 || !studentId}
-              variant={canApproveDirectly ? "outline" : "default"}
-              className={canApproveDirectly ? "" : "flex-1 gradient-primary"}
-            >
-              <Send className="w-4 h-4 mr-2" />ส่งคำขออนุมัติ ({shots.length})
-            </Button>
-            {canApproveDirectly && (
-              <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} className="flex-1 gradient-primary">
-                <ShieldCheck className="w-4 h-4 mr-2" />บันทึกทันที (แอดมิน)
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { detectFaceBox } from "@/lib/faceApi";
 import { faceGuideStatus } from "@/lib/faceGuide";
+import { fivePointsFromLandmarks68 } from '@/lib/arcface';
 
 /**
  * Overlay นำทางระยะใบหน้า (Face Guide)
@@ -23,9 +24,10 @@ interface FaceGuideOverlayProps {
   fit?: "contain" | "cover";
   /** กล้องหน้าถูก mirror ด้วย CSS (scaleX(-1)) → ต้องพลิกกรอบใบหน้าจริง */
   mirror?: boolean;
+  showLandmarks?: boolean;
 }
 
-export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32, topLabel, fontSize = 14, fit = "contain", mirror = false }: FaceGuideOverlayProps) {
+export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32, topLabel, fontSize = 14, fit = "contain", mirror = false, showLandmarks = false }: FaceGuideOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
   const lastDetectRef = useRef(0);
@@ -101,6 +103,18 @@ export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32,
           ctx.arc(box.x + box.width / 2, box.y + box.height / 2, 3 * unitG, 0, Math.PI * 2);
           ctx.fillStyle = status.color;
           ctx.fill();
+          if (showLandmarks) {
+            const lm = (typeof det.landmarks.forSize === 'function' ? det.landmarks.forSize(vw, vh) : det.landmarks) as typeof det.landmarks;
+            const points = fivePointsFromLandmarks68(lm);
+            ctx.strokeStyle = getComputedStyle(cv).color;
+            ctx.fillStyle = getComputedStyle(cv).color;
+            for (const [x, y] of points) {
+              const px = mirrorRef.current ? cw - (x * scale + offX) : x * scale + offX;
+              const py = y * scale + offY;
+              ctx.beginPath(); ctx.arc(px, py, 5 * unitG, 0, Math.PI * 2); ctx.fill();
+              ctx.beginPath(); ctx.arc(px, py, 9 * unitG, 0, Math.PI * 2); ctx.stroke();
+            }
+          }
           ctx.restore();
         }
       }
@@ -148,12 +162,12 @@ export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32,
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [active, videoRef, targetRatio, topLabel, fontSize]);
+  }, [active, videoRef, targetRatio, topLabel, fontSize, showLandmarks]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none"
+      className="absolute inset-0 w-full h-full pointer-events-none text-primary"
     />
   );
 }
