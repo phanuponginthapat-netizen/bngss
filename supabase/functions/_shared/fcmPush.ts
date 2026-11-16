@@ -62,7 +62,7 @@ async function getAccessToken(): Promise<string | null> {
   accessTokenPromise = (async () => {
     try {
       const raw = await getSecret("FCM_SERVICE_ACCOUNT_JSON");
-      if (!raw) return null;
+      if (!raw) { accessTokenExpiresAt = 0; return null; }
       const sa = JSON.parse(raw);
       cachedProjectId = sa.project_id;
       const now = Math.floor(Date.now() / 1000);

@@ -38,21 +38,6 @@ async function replyMessage(token: string, replyToken: string, text: string) {
   } catch (e) { console.error("replyMessage", e); }
 }
 
-async function getConfiguredVaultToken(sb: any) {
-  const envToken = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
-  if (envToken) return envToken;
-
-  const { data, error } = await sb
-    .from("app_secrets")
-    .select("value")
-    .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
-    .maybeSingle();
-
-  if (error) console.error("LINE Vault token lookup failed", error.message);
-  const savedToken = String(data?.value ?? "").trim();
-  return savedToken || null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -61,7 +46,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const token = await getConfiguredVaultToken(sb);
+    const token = await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
 
     if (req.method !== "POST") return new Response(null, { status: 405, headers: corsHeaders });
     const raw = await req.text();
@@ -71,8 +56,9 @@ Deno.serve(async (req) => {
     if (body?.__ping) {
       const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
       if (caller instanceof Response) return caller;
-      return new Response(JSON.stringify({ ok: true, token_configured: !!token }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const signatureSecret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
+      return new Response(JSON.stringify({ ok: true, token_configured: !!token, signature_configured: !!signatureSecret }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -204,7 +190,7 @@ Deno.serve(async (req) => {
   } catch (e: any) {
     console.error("line-vault-webhook fatal", e);
     return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
