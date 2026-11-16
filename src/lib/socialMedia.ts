@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { resolveStorageUrl } from "./storageUrl";
 
 // Keep durable object paths in records; renew temporary URLs only when reading.
 export function storageMediaPath(value: string, bucket: string): string | null {
@@ -20,10 +20,7 @@ export function storageMediaPath(value: string, bucket: string): string | null {
 export async function resolveSocialMedia(value: string, bucket: "portfolio" | "wall-media") {
   const path = storageMediaPath(value, bucket);
   if (!path) return value;
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-  if (error) throw error;
-  if (!data?.signedUrl) throw new Error("ไม่สามารถเปิดไฟล์แนบได้");
-  return data.signedUrl;
+  return resolveStorageUrl(bucket, path);
 }
 
 export function validSocialLink(value: string) {

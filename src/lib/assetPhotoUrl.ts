@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { resolveStorageUrl } from "./storageUrl";
 
 const BUCKET = "asset-photos";
 // 10 years; long enough that stored URLs effectively never expire for this lifecycle.
@@ -37,10 +38,7 @@ export async function resolveAssetPhotoUrl(url: string | null | undefined): Prom
   if (!url) return null;
   const path = extractAssetPath(url);
   if (!path) return url;
-  // If it's already a signed URL with a token, just use it.
-  if (url.includes("/object/sign/") && url.includes("token=")) return url;
-  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LONG_EXPIRY_SEC);
-  return data?.signedUrl || url;
+  return resolveStorageUrl(BUCKET, path);
 }
 
 /** React hook: resolve a stored asset-photos URL to a usable signed URL. */
@@ -48,9 +46,10 @@ export function useAssetPhotoUrl(url: string | null | undefined): string | null 
   const [resolved, setResolved] = useState<string | null>(url || null);
   useEffect(() => {
     let alive = true;
+    setResolved(null);
     resolveAssetPhotoUrl(url).then((r) => {
       if (alive) setResolved(r);
-    });
+    }).catch(() => { if (alive) setResolved(null); });
     return () => {
       alive = false;
     };

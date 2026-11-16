@@ -1,12 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeStorageKey } from "@/lib/uploadFallback";
-import { getPrivateColdStorageUrl } from "@/lib/coldStorage";
+import { resolveStorageUrl } from "@/lib/storageUrl";
 import { useEffect, useState } from "react";
 
 export const AR_BUCKET = "ar-media";
 const STORAGE_PREFIX = "storage:";
-const SIGN_SECONDS = 60 * 60 * 24 * 365; // 1 ปี
-const cache = new Map<string, string>();
 
 /** ค่าที่เก็บในฐานข้อมูลสำหรับไฟล์ที่อัปโหลดเข้าคลังของโรงเรียน */
 export const toStorageRef = (path: string) => `${STORAGE_PREFIX}${path}`;
@@ -19,15 +17,7 @@ export const storagePathOf = (value: string) => value.slice(STORAGE_PREFIX.lengt
 /** แปลงค่าที่เก็บไว้ให้เป็น URL ที่เปิดดูได้จริง (ลิงก์ภายนอกคืนค่าเดิม) */
 export const resolveArUrl = async (value?: string | null): Promise<string> => {
   if (!value) return "";
-  if (!isStorageRef(value)) return value;
-  const cached = cache.get(value);
-  if (cached) return cached;
-  const path = storagePathOf(value);
-  const { data } = await supabase.storage.from(AR_BUCKET).createSignedUrl(path, SIGN_SECONDS);
-  // ไฟล์ที่ถูกย้ายไปเก็บที่ Google Drive แล้ว → สตรีมผ่าน cold storage
-  const url = data?.signedUrl || await getPrivateColdStorageUrl(AR_BUCKET, path);
-  if (url) cache.set(value, url);
-  return url;
+  return resolveStorageUrl(AR_BUCKET, isStorageRef(value) ? storagePathOf(value) : value);
 };
 
 
@@ -37,8 +27,8 @@ export const useArUrl = (value?: string | null) => {
   useEffect(() => {
     let alive = true;
     if (!value) { setUrl(""); return; }
-    if (!isStorageRef(value)) { setUrl(value); return; }
-    resolveArUrl(value).then((u) => { if (alive) setUrl(u); });
+    setUrl("");
+    resolveArUrl(value).then((u) => { if (alive) setUrl(u); }).catch(() => { if (alive) setUrl(""); });
     return () => { alive = false; };
   }, [value]);
   return url;

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resolveStorageUrl } from "./storageUrl";
 
 export const LEAVE_BUCKET = "leave-attachments";
 
@@ -24,13 +25,6 @@ export async function uploadLeaveAttachment(file: File, _ownerHint?: string): Pr
 /** Open a leave attachment by generating a temporary signed URL. */
 export async function openLeaveAttachment(pathOrUrl: string) {
   if (!pathOrUrl) return;
-  if (pathOrUrl.startsWith("http")) {
-    window.open(pathOrUrl, "_blank");
-    return;
-  }
-  const { data, error } = await supabase.storage
-    .from(LEAVE_BUCKET)
-    .createSignedUrl(pathOrUrl, 60 * 10);
-  if (error || !data?.signedUrl) throw error || new Error("Cannot create signed URL");
-  window.open(data.signedUrl, "_blank");
+  const url = await resolveStorageUrl(LEAVE_BUCKET, pathOrUrl);
+  window.open(url, "_blank", "noopener,noreferrer");
 }
