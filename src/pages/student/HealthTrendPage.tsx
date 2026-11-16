@@ -60,7 +60,9 @@ export default function HealthTrendPage() {
         .eq("status", "active");
 
       const term = q.trim();
-      if (term) {
+      // Parents must not search other students — RLS already scopes rows,
+      // but never even send a name/code search from a parent session.
+      if (term && !isParent) {
         query = query.or(
           `first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_code.ilike.%${term}%`,
         );
@@ -75,7 +77,7 @@ export default function HealthTrendPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [q, isParent]);
 
   const scoped = useMemo(() => {
     if (isParent) return students.filter((s) => childIds.includes(s.id));
@@ -90,6 +92,11 @@ export default function HealthTrendPage() {
       return true;
     });
   }, [scoped, gradeFilter, classroomFilter]);
+
+  // Parents see only their own children — auto-select the first child, no search needed.
+  useEffect(() => {
+    if (isParent && !selected && scoped.length > 0) setSelected(scoped[0]);
+  }, [isParent, selected, scoped]);
 
   const grades = useMemo(() => {
     const set = new Set<string>();
@@ -160,32 +167,36 @@ export default function HealthTrendPage() {
             <CardTitle>เลือกนักเรียน</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="h-4 w-4 absolute top-3 left-2 text-muted-foreground" />
-                <Input className="pl-8" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => setQ(e.target.value)} />
-              </div>
-              <Button variant="outline" size="icon" onClick={() => setScannerOpen(true)} title="สแกน QR / บาร์โค้ด">
-                <ScanLine className="h-4 w-4" />
-              </Button>
-            </div>
+            {!isParent && (
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="h-4 w-4 absolute top-3 left-2 text-muted-foreground" />
+                    <Input className="pl-8" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => setQ(e.target.value)} />
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => setScannerOpen(true)} title="สแกน QR / บาร์โค้ด">
+                    <ScanLine className="h-4 w-4" />
+                  </Button>
+                </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
-                <SelectTrigger><SelectValue placeholder="ระดับชั้น" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทุกระดับชั้น</SelectItem>
-                  {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-                <SelectTrigger><SelectValue placeholder="ห้องเรียน" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทุกห้อง</SelectItem>
-                  {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
+                    <SelectTrigger><SelectValue placeholder="ระดับชั้น" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+                      {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                    <SelectTrigger><SelectValue placeholder="ห้องเรียน" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ทุกห้อง</SelectItem>
+                      {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div className="text-xs text-muted-foreground">พบ {filtered.length} คน</div>
 
@@ -219,7 +230,7 @@ export default function HealthTrendPage() {
       </div>
 
       <BarcodeScanner
-        open={scannerOpen}
+        open={scannerOpen && !isParent}
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         title="สแกน QR / บาร์โค้ดนักเรียน"

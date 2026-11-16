@@ -68,6 +68,7 @@ export function AttendanceHistoryTab({
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
+        {!readOnly && <>
         <Select value={gradeFilter} onValueChange={setGradeFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder={lang === "th" ? "ระดับชั้น" : "Grade"} /></SelectTrigger>
           <SelectContent>
@@ -84,6 +85,7 @@ export function AttendanceHistoryTab({
             ))}
           </SelectContent>
         </Select>
+        </>}
       </div>
 
       <Card>

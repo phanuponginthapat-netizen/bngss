@@ -24,12 +24,14 @@ interface Props {
   setClassroomFilter: (v: string) => void;
   gradeOptions: string[];
   records: any[];
+  /** Parents: hide student-scope filters — they only ever see their own children. */
+  hideFilters?: boolean;
 }
 
 export function AttendanceReportTab({
   students, classrooms, filteredClassrooms,
   gradeFilter, setGradeFilter, classroomFilter, setClassroomFilter,
-  gradeOptions, records,
+  gradeOptions, records, hideFilters = false,
 }: Props) {
   const { lang } = useLanguage();
   const [startDate, setStartDate] = useState(() => {
@@ -123,28 +125,32 @@ export function AttendanceReportTab({
       <Card>
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <Label>{lang === "th" ? "ระดับชั้น" : "Grade"}</Label>
-              <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
-                  {gradeOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{lang === "th" ? "ห้องเรียน" : "Room"}</Label>
-              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
-                  {filteredClassrooms.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!hideFilters && (
+              <>
+                <div>
+                  <Label>{lang === "th" ? "ระดับชั้น" : "Grade"}</Label>
+                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
+                      {gradeOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{lang === "th" ? "ห้องเรียน" : "Room"}</Label>
+                  <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
+                      {filteredClassrooms.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div>
               <Label>{lang === "th" ? "ตั้งแต่" : "From"}</Label>
               <BEDatePicker value={startDate} onChange={(v) => setStartDate(v)} />
