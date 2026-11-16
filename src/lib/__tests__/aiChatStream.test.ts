@@ -24,6 +24,18 @@ describe("shared chat completion", () => {
   it("surfaces terminal quota failure", async () => {
     await expect(readChatStream(new Response('data: {"type":"error","message":"ครบ30ข้อความ"}\n\n'), () => {})).rejects.toThrow("ครบ30ข้อความ");
   });
+  it("finishes on done without waiting for the server connection to close", async () => {
+    const stream = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('data: {"type":"done","reply":"ตอบแล้ว","historySaved":true}\n\n'));
+    } });
+    expect((await readChatStream(new Response(stream), () => {})).reply).toBe('ตอบแล้ว');
+  });
+  it("clears terminal failure without waiting for connection closure", async () => {
+    const stream = new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('data: {"type":"error","message":"ตอบไม่สำเร็จ"}\n\n'));
+    } });
+    await expect(readChatStream(new Response(stream), () => {})).rejects.toThrow('ตอบไม่สำเร็จ');
+  });
   it.each(["admin","director","teacher","student","parent","alumni","observer"])("keeps %s general chat available", role => {
     expect(answerMode("สวัสดี",role)).toBe("general");
   });

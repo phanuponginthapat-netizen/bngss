@@ -367,6 +367,8 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
       messages: synthMessages,
       temperature: 0.3,
       max_tokens: opts.max_tokens,
+      functionName: opts.functionName,
+      userId: opts.userId,
     });
     return { content: merged.content, provider: `council:${synth}`, model: merged.model, panel: results };
   } catch {

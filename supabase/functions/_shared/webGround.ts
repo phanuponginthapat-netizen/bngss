@@ -23,7 +23,7 @@ export function shouldGround(text: string): boolean {
 }
 
 /** เรียก Gemini พร้อม Google Search tool — คืน text + sources */
-export async function groundWithGemini(query: string, opts?: { lang?: "th" | "en" }): Promise<GroundedFacts> {
+export async function groundWithGemini(query: string, opts?: { lang?: "th" | "en"; signal?: AbortSignal }): Promise<GroundedFacts> {
   const key = await getSecret(secretKeys.gemini);
   if (!key) return { text: "", sources: [] };
   const lang = opts?.lang === "en" ? "English" : "Thai";
@@ -37,6 +37,7 @@ export async function groundWithGemini(query: string, opts?: { lang?: "th" | "en
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${key}`;
     const r = await fetch(url, {
       method: "POST",
+      signal: opts?.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
