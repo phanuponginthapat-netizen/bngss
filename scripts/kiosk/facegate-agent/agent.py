@@ -680,6 +680,7 @@ def sync_once() -> None:
         valid_ids = set(faces.keys())
 
     save_cache()
+    write_json_atomic(os.path.join(os.path.dirname(FACES_FILE), 'face-memory.json'), local_memory)
     # Store every changed enrollment crop outside the live scan path.
     for item in changed:
         image = item.get('reference_image')
@@ -1880,7 +1881,15 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
 
     # Two people scoring almost the same means the frame is not good enough to
     # tell them apart — ask for another scan instead of guessing.
-    if best_score - runner_up < 0.08 and runner_up > 0:
+    with lock:
+        original = enrollment_anchors(state['faces'])
+    # Adaptive samples must never override ambiguous original enrollment.
+    from face_memory import cosine
+    anchored_scores = {sid: max((cosine(query.tolist(), v) for v in a['vectors']), default=-1.)
+                       for sid, a in original.items()}
+    own_anchor = anchored_scores.get(student_id, -1.)
+    other_anchor = max((v for sid, v in anchored_scores.items() if sid != student_id), default=-1.)
+    if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or own_anchor-other_anchor < .08:
         return {
             "result": "denied",
             "message": "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียนแทน",
