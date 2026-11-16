@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       if (caller instanceof Response) return caller;
       const signatureSecret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
       return new Response(JSON.stringify({ ok: true, token_configured: !!token, signature_configured: !!signatureSecret }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     if (!token) {
       console.error("LINE_VAULT_CHANNEL_ACCESS_TOKEN not set");
       return new Response(JSON.stringify({ error: "LINE Vault OA token not configured", token_configured: false }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
