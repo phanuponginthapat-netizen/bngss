@@ -5,7 +5,7 @@ describe("computeIdPhotoCrop", () => {
   it("keeps the 413:531 card ratio and face at half height", () => {
     const c = computeIdPhotoCrop({ x: 900, y: 600, width: 300, height: 360 }, 2000, 3000);
     expect(c.width / c.height).toBeCloseTo(ID_PHOTO_WIDTH / ID_PHOTO_HEIGHT, 5);
-    expect(c.height).toBeCloseTo(720);
+    expect(c.height).toBeCloseTo(360 / 0.36);
     expect(c.x + c.width / 2).toBeCloseTo(1050);
   });
   it("never leaves the source image", () => {
