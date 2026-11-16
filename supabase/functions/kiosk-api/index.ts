@@ -337,7 +337,7 @@ Deno.serve(async (req) => {
         ...(typeof body?.camera_ok === "boolean" ? { camera_ok: body.camera_ok } : {}),
         ...(typeof body?.door_ok === "boolean" ? { door_ok: body.door_ok } : {}),
         ...(typeof body?.health_note === "string" ? { health_note: body.health_note.slice(0, 300) } : {}),
-        ...(body?.voice_progress&&typeof body.voice_progress==='object'?{meta:{...(device.meta??{}),voice_progress:body.voice_progress}}:{}),
+        ...((body?.voice_progress&&typeof body.voice_progress==='object')||(body?.face_sync&&typeof body.face_sync==='object')?{meta:{...(device.meta??{}),...(body?.voice_progress&&typeof body.voice_progress==='object'?{voice_progress:body.voice_progress}:{}),...(body?.face_sync&&typeof body.face_sync==='object'?{face_sync:{faces_loaded:Number(body.face_sync.faces_loaded)||0,people_loaded:Number(body.face_sync.people_loaded)||0,last_sync_at:typeof body.face_sync.last_sync_at==='string'?body.face_sync.last_sync_at.slice(0,40):null,last_error:typeof body.face_sync.last_error==='string'?body.face_sync.last_error.slice(0,200):null,reported_at:new Date().toISOString()}}:{})}}:{}),
       }).eq("id", device.id);
       if(heartbeatError)throw heartbeatError;
 
