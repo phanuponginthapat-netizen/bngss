@@ -45,8 +45,18 @@ const BehaviorPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const studentData = useStudentData();
-  const { isParent } = useUserRole();
+  const { isParent, isStudent, userId } = useUserRole();
+  const isFamily = isParent || isStudent;
   const { childIds } = useParentChildren();
+  const { data: selfStudent } = useQuery({
+    queryKey: ["behavior-self-student", userId],
+    enabled: isStudent && !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("students").select("id").eq("auth_user_id", userId ?? "").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
   const [semester, setSemester] = useState(0);
@@ -65,14 +75,15 @@ const BehaviorPage = () => {
   const [filterTopic, setFilterTopic] = useState("all");
   const [scanOpen, setScanOpen] = useState(false);
 
-  // Scope: parent → only their children; teachers → homeroom students; admin/director → all
+  // Scope: parent → only their children; student → only themselves; teachers → homeroom students; admin/director → all
   const scopedStudentIds = useMemo(() => {
     if (isParent) return childIds;
+    if (isStudent) return selfStudent ? [selfStudent.id] : [];
     if (!studentData.homeroomClassroomIds) return null;
     return studentData.students
       .filter((s: any) => studentData.homeroomClassroomIds!.includes(s.classroom_id))
       .map((s: any) => s.id);
-  }, [isParent, childIds, studentData.homeroomClassroomIds, studentData.students]);
+  }, [isParent, isStudent, selfStudent, childIds, studentData.homeroomClassroomIds, studentData.students]);
 
   const { data: records = [], error: recordsError, refetch } = useQuery({
     queryKey: ["behavior_records", academicYear, scopedStudentIds?.join(",") || "all"],
@@ -91,7 +102,7 @@ const BehaviorPage = () => {
 
   // Roster view: one row per filtered student + their behavior records
   const rosterRows = useMemo(() => {
-    return (studentData.filteredStudents as any[]).filter(s => !isParent || childIds.includes(s.id)).map((s: any) => {
+    return (studentData.filteredStudents as any[]).filter(s => !isFamily || (isParent ? childIds.includes(s.id) : s.id === selfStudent?.id)).map((s: any) => {
       let studentRecs = (records as any[]).filter((r) => r.student_id === s.id);
       if (filterTopic !== "all") {
         studentRecs = studentRecs.filter((r) => r.description?.includes(topicLabelMap[filterTopic] || filterTopic));
@@ -101,7 +112,7 @@ const BehaviorPage = () => {
       const net = studentRecs.reduce((sum, r) => sum + (r.behavior_type === "positive" ? (r.points || 0) : -(r.points || 0)), 0);
       return { student: s, latest: studentRecs[0] || null, count: studentRecs.length, pos, neg, net };
     });
-  }, [records, studentData.filteredStudents, filterTopic, isParent, childIds]);
+  }, [records, studentData.filteredStudents, filterTopic, isFamily, isParent, childIds, selfStudent]);
 
   // Stats (aggregate across all records in scope)
   const stats = useMemo(() => {
