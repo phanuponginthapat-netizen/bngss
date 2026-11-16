@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, expect, it, vi } from 'vitest';
 const { from, update, eq, select } = vi.hoisted(() => ({ from:vi.fn(), update:vi.fn(), eq:vi.fn(), select:vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({supabase:{from}}));
