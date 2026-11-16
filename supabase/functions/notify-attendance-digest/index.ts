@@ -8,6 +8,7 @@ import { requireCronOrAdmin } from "../_shared/requireCron.ts";
 import { markMissingAsAbsent, readDigestRows, resolveDigestStatuses } from "../_shared/attendanceDigest.ts";
 import { deliverTeacherDigest, teacherDigestDue } from "../_shared/teacherAttendanceDigest.ts";
 import { fanout } from "../_shared/fanout.ts";
+import { getSecret } from "../_shared/getSecret.ts";
 
 const cors = corsHeadersWithCronAndMethods;
 
@@ -28,10 +29,7 @@ function shortThDate(d: string): string {
 }
 
 async function getVaultToken(sb: any): Promise<string | null> {
-  const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
-  if (env) return env;
-  const { data } = await sb.from("app_secrets").select("value").eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN").maybeSingle();
-  return (data?.value as string) || null;
+  return getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
 }
 
 function buildChartConfig(

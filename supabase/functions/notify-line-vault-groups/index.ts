@@ -6,13 +6,10 @@ import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { pushMessage } from "../_shared/lineApi.ts";
 import { buildInfoCard, BRAND } from "../_shared/lineFlex.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
+import { getSecret } from "../_shared/getSecret.ts";
 
 async function getVaultToken(sb: any): Promise<string | null> {
-  const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
-  if (env) return env;
-  const { data } = await sb.from("app_secrets")
-    .select("value").eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN").maybeSingle();
-  return (data?.value as string) || null;
+  return getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
 }
 
 const CATEGORY_COLUMN: Record<string, string> = {

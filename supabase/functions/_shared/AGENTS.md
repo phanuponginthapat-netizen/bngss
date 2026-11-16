@@ -14,3 +14,4 @@
 - Shared school reference data RLS uses public.is_school_member(auth.uid()) so open sign-ups cannot read school records.
 
 - Validate upload size/type/path before privileged writes; verify LINE webhook HMAC on raw bytes, and constrain bundle tables and fields with server-owned allowlists to prevent untrusted payloads choosing authority.
+- Resolve Vault credentials through getSecret so saved Cloud settings override stale environments on every receive/send/recovery path; LINE quota reads must validate both provider reads and reject incomplete usage instead of reporting zero success.

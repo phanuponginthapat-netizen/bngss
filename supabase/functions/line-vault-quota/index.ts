@@ -4,25 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { requireCronOrAdmin } from "../_shared/requireCron.ts";
-
-const LINE_BASE = "https://api.line.me/v2/bot/message";
-
-async function getVaultToken(sb: any): Promise<string | null> {
-  const env = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
-  if (env) return env;
-  const { data } = await sb.from("app_secrets").select("value").eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN").maybeSingle();
-  return (data?.value as string) || null;
-}
-
-async function lineGet(path: string, token: string): Promise<{ status: number; json: any }> {
-  const res = await fetch(`${LINE_BASE}/${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const txt = await res.text().catch(() => "");
-  let json: any = null;
-  try { json = JSON.parse(txt); } catch { /* ignore */ }
-  return { status: res.status, json };
-}
+import { getSecret } from "../_shared/getSecret.ts";
+import { readLineQuota } from "../_shared/lineQuota.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -30,27 +13,14 @@ serve(async (req) => {
     const denied = await requireCronOrAdmin(req, corsHeaders);
     if (denied) return denied;
 
-    const sb = makeAdmin();
-    const token = await getVaultToken(sb);
+    const token = await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
     if (!token) {
       return new Response(JSON.stringify({ ok: false, error: "LINE_VAULT_CHANNEL_ACCESS_TOKEN not set" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const [quota, consumption] = await Promise.all([
-      lineGet("quota", token),
-      lineGet("quota/consumption", token),
-    ]);
-
-    if (quota.status === 401 || consumption.status === 401) {
-      return new Response(JSON.stringify({ ok: false, error: "invalid_token", quota: quota.json, consumption: consumption.json }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const q = quota.json ?? {};
-    const c = consumption.json ?? {};
+    const { quota: q, consumption: c } = await readLineQuota(token);
     const limit = typeof q.value === "number" ? q.value : null;
     const used = typeof c.totalUsage === "number" ? c.totalUsage : null;
     const quotaType = typeof q.type === "string" ? q.type : null;
