@@ -119,9 +119,25 @@ let display = { mirror: true, rotate: 0, voice_enabled: true, next_delay_seconds
 let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
 function openAdmin() {
+  openNativeAdmin(); return;
   if (window.pywebview && window.pywebview.api && window.pywebview.api.open_admin) {
     window.pywebview.api.open_admin();
   } else { location.href = '/admin'; }
+}
+let nativeAdminOpen = false;
+function openNativeAdmin() {
+  if (nativeAdminOpen) return;
+  nativeAdminOpen = true;
+  wake();
+  const panel = document.createElement('iframe');
+  panel.id = 'nativeAdminPanel'; panel.src = '/admin'; panel.title = 'จัดการใบหน้า FaceGate';
+  Object.assign(panel.style, {position:'fixed', inset:'0', width:'100%', height:'100%', border:'0', zIndex:'200'});
+  document.body.append(panel);
+}
+function closeNativeAdmin() {
+  document.getElementById('nativeAdminPanel')?.remove();
+  nativeAdminOpen = false;
+  wake();
 }
 window.addEventListener('keydown', (event) => {
   if (event.key === 'F9') { event.preventDefault(); openAdmin(); }
@@ -371,7 +387,7 @@ function visibleGuide() {
 }
 
 async function tick() {
-  if (busy || Date.now() < pausedUntil) return;
+  if (nativeAdminOpen || busy || Date.now() < pausedUntil) return;
   let image = frame(); if (!image) return;
   const guide = visibleGuide(); if (!guide) return;
   busy = true;

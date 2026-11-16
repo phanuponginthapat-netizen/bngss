@@ -115,7 +115,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.13.4"
+AGENT_VERSION = "1.14.0"
 
 
 def default_cache_dir() -> str:
@@ -1392,7 +1392,31 @@ if not STANDALONE and not SATELLITE:
 
     @app.get("/admin")
     def admin_screen_cloud():
-        return _CRedirect("https://bngss.online/dashboard/admin/facegate")
+        from native_admin_ui import ADMIN_HTML
+        return _CHTML(ADMIN_HTML, headers={"Cache-Control": "no-store"})
+
+    from native_admin import create_router
+
+    def enrollment_frame(image):
+        raw = (image or "").split(",", 1)[-1]
+        try:
+            arr = decode_image(base64.b64decode(raw))
+        except Exception:
+            arr = None
+        if arr is None:
+            raise ValueError("ไม่พบภาพกล้อง")
+        return arr
+
+    def enrollment_embed(image):
+        return web_faces_payload(enrollment_frame(image), want_crop=True)
+
+    def enrollment_card(image):
+        text = qr_reader.read_qr(enrollment_frame(image))
+        with lock:
+            people = {pid: p for pid, p in state["students"].items() if p.get("person_type") == "student"}
+        return qr_reader.match_card(text, qr_reader.build_code_index(people))
+
+    app.include_router(create_router(CLOUD_URL, enrollment_embed, enrollment_card, sync_once))
 
     @app.post("/local/kiosk-api/tts")
     async def cloud_voice(request: Request):
@@ -2015,9 +2039,11 @@ if __name__ == "__main__":
                     time.sleep(0.5)
             class KioskWindowApi:
                 def open_admin(self):
-                    import webbrowser
-                    target = f"http://127.0.0.1:{PORT}/admin" if STANDALONE else "https://bngss.online/dashboard/admin/facegate"
-                    webbrowser.open(target)
+                    if STANDALONE:
+                        import webbrowser
+                        webbrowser.open(f"http://127.0.0.1:{PORT}/admin")
+                    elif webview.windows:
+                        webview.windows[0].evaluate_js("openNativeAdmin()")
                     return True
 
             webview.create_window(
