@@ -296,6 +296,8 @@ def rebuild_matrix_locked() -> None:
             owners.append(face["student_id"])
             geoms.append(face.get("geometry") or None)
     anchors = enrollment_anchors(state['faces'])
+    state['anchor_matrix'] = np.vstack(rows) if rows else np.zeros((0, 512), dtype=np.float32)
+    state['anchor_owners'] = list(owners)
     cleaned = prune_memory(local_memory, anchors)
     local_memory.clear()
     local_memory.update(cleaned)
@@ -1734,6 +1736,8 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
         matrix = state["matrix"]
         owners = list(state["owners"])
         geoms = list(state["geoms"])
+        anchor_matrix = state.get('anchor_matrix', matrix)
+        anchor_owners = list(state.get('anchor_owners', owners))
         settings = dict(state["settings"])
 
     threshold = float(settings.get("match_threshold") or 0.45)
@@ -1881,12 +1885,10 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
 
     # Two people scoring almost the same means the frame is not good enough to
     # tell them apart — ask for another scan instead of guessing.
-    with lock:
-        original = enrollment_anchors(state['faces'])
     # Adaptive samples must never override ambiguous original enrollment.
-    from face_memory import cosine
-    anchored_scores = {sid: max((cosine(query.tolist(), v) for v in a['vectors']), default=-1.)
-                       for sid, a in original.items()}
+    anchored_scores = {}
+    for sid, score in zip(anchor_owners, anchor_matrix @ query):
+        anchored_scores[sid] = max(anchored_scores.get(sid, -1.), float(score))
     own_anchor = anchored_scores.get(student_id, -1.)
     other_anchor = max((v for sid, v in anchored_scores.items() if sid != student_id), default=-1.)
     if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or own_anchor-other_anchor < .08:
