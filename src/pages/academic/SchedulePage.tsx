@@ -23,6 +23,7 @@ import type { ActivityLock } from "@/lib/autoScheduler";
 import { buildPeriodSlots } from "@/lib/periodSchedule";
 import { saveErrorMessage } from "@/lib/saveError";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { savedPeriodTime } from '@/lib/savedScheduleTime';
 
 const days = [
   { th: "จันทร์", en: "Mon", val: 1 },
@@ -467,8 +468,17 @@ const SchedulePage = () => {
       if (s.kind === "period") map.set(s.period, { start: s.start, end: s.end });
       else lunch = { start: s.start, end: s.end };
     });
+    if (isStudent || isParent) {
+      for (const p of periods) {
+        const saved = savedPeriodTime(filtered, p);
+        if (saved) map.set(p, saved);
+        else if (filtered.some(r => r.period === p)) map.delete(p);
+      }
+      const gaps = periods.slice(0, -1).map(p => ({ p, end: map.get(p)?.end, start: map.get(p + 1)?.start })).filter(g => g.end && g.start && g.start > g.end);
+      if (gaps.length === 1) lunch = { start: gaps[0].end ?? '', end: gaps[0].start ?? '' };
+    }
     return { map, lunch: lunch as { start: string; end: string } | null };
-  }, [periodsPerDay, lunchAfterPeriod, scheduleTimes]);
+  }, [periodsPerDay, lunchAfterPeriod, scheduleTimes, filtered, isStudent, isParent]);
 
 
   /**

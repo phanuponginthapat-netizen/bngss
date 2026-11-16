@@ -147,6 +147,7 @@ const BehaviorPage = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (isParent) return;
     const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบบันทึกพฤติกรรมนี้หรือไม่", danger: true });
     if (!ok) return;
     const { error } = await supabase.from("behavior_records").delete().eq("id", id);
@@ -283,10 +284,10 @@ const BehaviorPage = () => {
           </DialogContent>
         </Dialog>
         )}
-        <Button variant="outline" onClick={() => setScanOpen(true)} className="gap-1">
+        {!isParent && <Button variant="outline" onClick={() => setScanOpen(true)} className="gap-1">
           <ScanLine className="w-4 h-4" />
           {lang === "th" ? "สแกน QR นักเรียน" : "Scan QR"}
-        </Button>
+        </Button>}
       </div>
 
       {/* Stats */}
@@ -360,7 +361,7 @@ const BehaviorPage = () => {
                   {r ? r.description : (lang === "th" ? "ยังไม่มีบันทึก" : "No records")}
                 </TableCell>
                 <TableCell className="text-center">{count}</TableCell>
-                <TableCell>{r && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}</TableCell>
+                <TableCell>{r && !isParent && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}</TableCell>
               </TableRow>
             ))}
             {rosterRows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
