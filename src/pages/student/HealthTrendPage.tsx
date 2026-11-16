@@ -20,6 +20,7 @@ interface Student {
   classroom_id: string | null;
   gender: string | null;
   date_of_birth: string | null;
+  auth_user_id: string | null;
   classrooms?: { name: string; grade_level: string | null } | null;
 }
 
