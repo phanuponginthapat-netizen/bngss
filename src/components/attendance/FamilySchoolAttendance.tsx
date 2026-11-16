@@ -5,6 +5,7 @@ import { useParentChildren } from '@/hooks/useParentChildren';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAcademicYear } from '@/hooks/useAcademicYear';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { resolveKioskMediaUrl } from '@/lib/kioskMediaUrl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 export default function FamilySchoolAttendance({ academicYear, semester }: { academicYear: number; semester: number }) {
