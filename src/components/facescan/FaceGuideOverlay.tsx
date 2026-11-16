@@ -104,7 +104,7 @@ export default function FaceGuideOverlay({ videoRef, active, targetRatio = 0.32,
           ctx.fillStyle = status.color;
           ctx.fill();
           if (showLandmarks) {
-            const lm = typeof det.landmarks.forSize === 'function' ? det.landmarks.forSize(vw, vh) : det.landmarks;
+            const lm = (typeof det.landmarks.forSize === 'function' ? det.landmarks.forSize(vw, vh) : det.landmarks) as typeof det.landmarks;
             const points = fivePointsFromLandmarks68(lm);
             ctx.strokeStyle = getComputedStyle(cv).color;
             ctx.fillStyle = getComputedStyle(cv).color;

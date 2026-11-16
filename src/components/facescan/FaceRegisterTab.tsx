@@ -393,8 +393,7 @@ const FaceRegisterTab = () => {
   return (
     <div className="space-y-4">
       {/* Manual capture (optional) */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
+      <section className="space-y-3 border-b pb-6">
           <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้านักเรียน</h3>
 
           <Input disabled={busy} placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -498,8 +497,7 @@ const FaceRegisterTab = () => {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+      </section>
 
       {/* Auto-sync hero card */}
       <Card className="gradient-primary text-primary-foreground border-0">
