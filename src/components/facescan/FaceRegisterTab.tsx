@@ -25,6 +25,7 @@ import { saveErrorMessage } from "@/lib/saveError";
 import FaceSamplePreview, { type FacePoint } from './FaceSamplePreview';
 import { fivePointsFromLandmarks68 } from '@/lib/arcface';
 import { faceSampleError, MAX_ENROLLMENT_PHOTOS, MAX_ENROLLMENT_FILE_BYTES } from '@/lib/faceEnrollment';
+import { detectEnrollmentFace } from '@/lib/detectEnrollmentFace';
 import { IdCardPhoto } from '@/components/IdCardPhoto';
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 
@@ -188,7 +189,7 @@ const FaceRegisterTab = () => {
     if (!videoRef.current || !modelReady || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS) return;
     setBusy(true);
     try {
-      const det = await detectFaceWithLandmarks(videoRef.current);
+      const det = await detectEnrollmentFace(videoRef.current);
       if (!det) { setLastQuality(null); toast.error("ไม่พบใบหน้าในภาพ"); return; }
       const q = assessFaceQuality(videoRef.current, det, "register");
       setLastQuality(q);
@@ -205,7 +206,7 @@ const FaceRegisterTab = () => {
       const descriptor = det.descriptor;
       const texture = computeFaceTexture(videoRef.current, det.landmarks);
       setShots((s) => [...s, { points: fivePointsFromLandmarks68(det.landmarks), canvas, desc: descriptor, texture, source: "camera", quality: q }]);
-    } finally { setBusy(false); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'ถ่ายใบหน้าไม่สำเร็จ'); } finally { setBusy(false); }
   };
 
   const handleUpload = async (files: FileList | null) => {
@@ -222,9 +223,10 @@ const FaceRegisterTab = () => {
           const url = URL.createObjectURL(file);
           let img: HTMLImageElement;
           try { img = await loadImageFromUrl(url); } finally { URL.revokeObjectURL(url); }
-          const det = await detectFaceWithLandmarks(img);
+          const det = await detectEnrollmentFace(img);
           if (!det) { fail++; continue; }
           const q = assessFaceQuality(img, det, "register");
+          setLastQuality(q);
           if (!q.ok) {
             lowQ++;
             if (lowQReasons.length < 2) lowQReasons.push(`${file.name}: ${q.reasons[0]}`);
@@ -244,9 +246,9 @@ const FaceRegisterTab = () => {
       setShots(current=>[...current,...added]);
       const parts = [];
       if (ok) parts.push(`เพิ่ม ${ok} รูป`);
-      if (fail) parts.push(`ไม่พบใบหน้า ${fail} รูป`);
+      if (fail) parts.push(`ใช้รูปไม่ได้ ${fail} รูป`);
       if (lowQ) parts.push(`คุณภาพต่ำ ${lowQ} รูป`);
-      if (ok > 0) toast.success(parts.join(" • "), lowQ ? { description: lowQReasons.join("\n") } : undefined);
+      if (ok > 0) toast.success(parts.join(" • "), lowQReasons.length ? { description: lowQReasons.join("\n") } : undefined);
       else if (lowQ > 0) toast.error("รูปคุณภาพไม่ผ่าน", { description: lowQReasons.join("\n") });
       else if (fail > 0) toast.error(`ใช้รูปไม่ได้ (${fail} รูป)`, { description: lowQReasons.join("\n") });
     } finally {
@@ -395,9 +397,9 @@ const FaceRegisterTab = () => {
         <CardContent className="p-4 space-y-3">
           <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้านักเรียน</h3>
 
-          <Input placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input disabled={busy} placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <Select value={studentId} onValueChange={(id)=>{setStudentId(id);setShots([]);setLastQuality(null);setReason("");}}>
-            <SelectTrigger><SelectValue placeholder="1. เลือกนักเรียน" /></SelectTrigger>
+            <SelectTrigger disabled={busy}><SelectValue placeholder="1. เลือกนักเรียน" /></SelectTrigger>
             <SelectContent>
               {filtered.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>
@@ -420,10 +422,10 @@ const FaceRegisterTab = () => {
             </div>
           )}
 
-          <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video max-w-xl">
             <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
             <FaceGuideOverlay videoRef={videoRef} active={streaming && modelReady} showLandmarks topLabel="วางใบหน้าให้อยู่ในวงรี" />
-            {!streaming && <div className="absolute inset-0 flex items-center justify-center text-white/60"><Camera className="w-12 h-12" /></div>}
+            {!streaming && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground"><Camera className="w-12 h-12" /></div>}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -455,7 +457,7 @@ const FaceRegisterTab = () => {
               <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปนักเรียน (หลายรูป)
             </Button>
             {shots.length > 0 && (
-              <Button onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
+              <Button disabled={busy} onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
             )}
           </div>
 
@@ -478,7 +480,7 @@ const FaceRegisterTab = () => {
 
           <div className="flex items-center justify-between text-sm"><span className="font-medium">รูปใบหน้า {shots.length}/5</span><Badge variant="outline">ArcFace · 512 มิติ</Badge></div>
           {shots.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {shots.map((s,i)=><FaceSamplePreview key={i} image={s.canvas.toDataURL('image/jpeg',.85)} width={s.canvas.width} height={s.canvas.height} points={s.points} score={s.quality.score} index={i} onRemove={()=>setShots(current=>current.filter((_,j)=>j!==i))}/>) }
+            {shots.map((s,i)=><FaceSamplePreview key={i} image={s.canvas.toDataURL('image/jpeg',.85)} width={s.canvas.width} height={s.canvas.height} points={s.points} score={s.quality.score} index={i} onRemove={()=>{if(!busy)setShots(current=>current.filter((_,j)=>j!==i));}}/>) }
           </div>}
 
           <div className="flex flex-col sm:flex-row gap-2">
