@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
+import { loadFaceModels, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, type QualityReport } from "@/lib/faceApi";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
