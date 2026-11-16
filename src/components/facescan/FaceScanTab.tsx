@@ -83,7 +83,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
   const MIN_CONFIDENCE = BANK_GRADE.MIN_CONFIDENCE;
   const MIN_LANDMARK_SANITY = 0.55;
   const voiceEnabled = voiceSetting !== "false";
-  const { isAdmin, isDirector } = useUserRole();
+  const { isAdmin, isDirector, isParent } = useUserRole();
   const { homeroomClassroomIds, isFiltered } = useHomeroomClassrooms();
   const canConfirm = isAdmin || isDirector;
   const [confirming, setConfirming] = useState(false);
@@ -1169,7 +1169,8 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
             )}
           </div>
 
-          {/* บันทึกด้วยรหัสนักเรียน — สำรองตอนสแกนหน้า/QR ไม่ติด */}
+          {/* บันทึกด้วยรหัสนักเรียน — สำรองตอนสแกนหน้า/QR ไม่ติด (เฉพาะครู/บุคลากร ผู้ปกครองห้ามกรอกรหัสนักเรียนคนอื่น) */}
+          {!isParent && (
           <div className="p-3 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 space-y-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Keyboard className="w-4 h-4 text-primary" />
