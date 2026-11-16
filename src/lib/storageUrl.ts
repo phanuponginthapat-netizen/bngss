@@ -52,13 +52,14 @@ export async function createStorageSignedUrl(
   const hit = signedCache.get(key);
   if (hit && hit.exp > Date.now()) return hit.url;
 
-  const { data } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
   if (data?.signedUrl) {
     signedCache.set(key, { url: data.signedUrl, exp: Date.now() + (expiresInSeconds - 60) * 1000 });
     return data.signedUrl;
   }
-  // ไม่พบไฟล์ / ถูก offload → ลองสตรีมจาก cold storage
-  return getPrivateColdStorageUrl(bucket, path);
+  // A missing Cloud file is not evidence of a Drive copy.
+  if (await isOffloaded(bucket, path)) return getPrivateColdStorageUrl(bucket, path);
+  throw error || new Error("ไม่พบไฟล์ต้นฉบับหรือสำเนาใน Drive กรุณาอัปโหลดไฟล์ใหม่");
 }
 
 /**
@@ -88,25 +89,15 @@ export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Prom
   return createStorageSignedUrl(bucket, path);
 }
 
-/** แคชรายชื่อไฟล์ที่ถูกย้ายไป Drive ต่อบัคเก็ต (5 นาที) */
-const offloadedCache = new Map<string, { paths: Set<string>; exp: number }>();
-
 async function isOffloaded(bucket: string, path: string): Promise<boolean> {
-  const { data: auth } = await supabase.auth.getSession();
-  const key = `${getBackendConfig().url}:${auth.session?.user.id || 'signed-out'}:${bucket}`;
-  const hit = offloadedCache.get(key);
-  if (hit && hit.exp > Date.now()) return hit.paths.has(path);
-  try {
-    const { data, error } = await (supabase as any)
-      .from("cold_storage_registry")
-      .select("file_path")
-      .eq("bucket_name", bucket);
-    if (error) throw error;
-    const paths = new Set<string>((data ?? []).map((r: any) => r.file_path));
-    offloadedCache.set(key, { paths, exp: Date.now() + 5 * 60_000 });
-    return paths.has(path);
-  } catch {
-    return false;
-  }
+  // Exact, current lookup avoids truncated bucket lists and stale archive entries.
+  const { data, error } = await supabase
+    .from("cold_storage_registry")
+    .select("drive_file_id")
+    .eq("bucket_name", bucket)
+    .eq("file_path", path)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data?.drive_file_id);
 }
 
