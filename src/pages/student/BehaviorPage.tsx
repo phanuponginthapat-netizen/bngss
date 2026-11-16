@@ -336,6 +336,7 @@ const BehaviorPage = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card><CardContent className="p-0">
         <Table>
