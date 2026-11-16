@@ -356,7 +356,7 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
     try {
       const { shouldGround, groundWithGemini } = await import("../_shared/webGround.ts");
       if (shouldGround(lastUser) && !hasImageInMessages) {
-        const facts = await groundWithGemini(lastUser, { lang: hasThai ? "th" : "en" });
+        const facts = await groundWithGemini(lastUser, { lang: hasThai ? "th" : "en", signal: AbortSignal.timeout(8000) });
         if (facts.text) {
           const srcBlock = facts.sources.length
             ? `\nแหล่งอ้างอิง:\n${facts.sources.map((u, i) => `[${i + 1}] ${u}`).join("\n")}`
@@ -382,7 +382,7 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
           const ctx = await buildSchoolContext(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, address);
           if (ctx) parts.push(ctx);
         }
-        if (wantWeather || isGreeting) {
+        if (wantWeather) {
           const geo = await geocodeAddress(address.split(" ").slice(-3).join(" ") || "ป่าซาง ลำพูน");
           if (geo) {
             const w = await getWeatherAndAir(geo.lat, geo.lon);
@@ -451,6 +451,7 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
           max_tokens: 1500,
           vision: hasImageInMessages,
           functionName: "ai-chat-council",
+          userId: identifier,
         })
         : await aiCall({
           messages: [
@@ -461,12 +462,13 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
           max_tokens: 1500,
           vision: hasImageInMessages,
           functionName: "ai-chat",
+          userId: identifier,
         });
 
     // Show the completed text before optional illustration and durable history work.
     onReply?.(String(result.content || ""));
     // ---- Auto-generate illustrative image for student homework (concept, not answer) ----
-    if (strictNoAnswer) {
+    if (strictNoAnswer && body.stream !== true) {
       try {
         const promptGen = await aiCall({
           messages: [
@@ -605,12 +607,12 @@ Deno.serve(async (req) => {
   if (body?.stream !== true || body?.mode && body.mode !== "chat") return handleChat(req);
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
-    async start(controller) {
+    start(controller) {
       const emit = (payload: unknown) => {
         try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)); } catch { /* disconnected */ }
       };
       const heartbeat = setInterval(() => emit({ type: "pending" }), 10000);
-      try {
+      const work = async () => { try {
         const response = await handleChat(req, text => emit({ type: "delta", text }));
         const result = await response.json();
         if (!response.ok) emit({ type: "error", message: result.error || "AI ไม่สามารถตอบได้" });
@@ -621,6 +623,8 @@ Deno.serve(async (req) => {
         clearInterval(heartbeat);
         try { controller.close(); } catch { /* disconnected */ }
       }
+      };
+      EdgeRuntime.waitUntil(work());
     },
   });
   return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });

@@ -17,7 +17,7 @@ export async function readChatStream(response: Response, onText: (text: string) 
   } });
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   try {
-    for (;;) { const chunk = await reader.read(); if (chunk.done) break; parser.feed(chunk.value); }
+    for (;;) { const chunk = await reader.read(); if (chunk.done) break; parser.feed(chunk.value); if (result || failure) break; }
   } finally { await reader.cancel().catch(() => {}); }
   if (failure) throw new Error(failure);
   if (!result) throw new Error("การเชื่อมต่อขาดระหว่างตอบ กรุณาตรวจข้อความก่อนลองใหม่");
@@ -29,6 +29,7 @@ export async function streamAiChat(messages: unknown[], onText: (text: string) =
   if (error || !data.session) throw new Error("กรุณาเข้าสู่ระบบใหม่");
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+    signal: AbortSignal.timeout(120000),
     body: JSON.stringify({ messages, stream: true }),
   });
   return readChatStream(response, onText);
