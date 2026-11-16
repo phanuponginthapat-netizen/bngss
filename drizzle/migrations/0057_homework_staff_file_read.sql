@@ -1,0 +1,1 @@
+CREATE POLICY "homework files read staff" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'homework-files' AND public._staff_check(auth.uid()));
