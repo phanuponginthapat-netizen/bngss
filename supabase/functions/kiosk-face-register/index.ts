@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/cors.ts";
 import { authorizeKioskFace } from "../_shared/kioskFaceAuth.ts";
+import { arcFaceDuplicate } from "../_shared/nativeFaceDuplicate.ts";
 const corsHeaders = buildCorsHeaders(["x-device-key"]);
 
 const RATE_WINDOW_MS = 60_000;
@@ -92,6 +93,17 @@ Deno.serve(async (req) => {
     if (!target) return respond({ error: "not_found" }, 404);
     if (target.status !== "active") return respond({ error: "inactive" }, 403);
     studentCode = target.student_code;
+
+    // The legacy RPC checks only 128-dimensional embeddings; check ArcFace separately.
+    let duplicateReadComplete = false;
+    for (let from = 0; from < 100000; from += 500) {
+      const { data, error } = await admin.from("student_face_descriptors")
+        .select("student_id,descriptor").neq("student_id", sid).order("id").range(from, from + 499);
+      if (error || !data) return respond({ error: "duplicate_check_failed" }, 503);
+      if (arcFaceDuplicate(descriptors, data, sid)) return respond({ error: "duplicate" }, 409);
+      if (data.length < 500) { duplicateReadComplete = true; break; }
+    }
+    if (!duplicateReadComplete) return respond({ error: "duplicate_check_failed" }, 503);
 
     // กันใบหน้าซ้ำกับคนอื่น (check_face_duplicate)
     try {
