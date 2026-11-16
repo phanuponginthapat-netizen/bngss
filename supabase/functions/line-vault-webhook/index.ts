@@ -75,6 +75,8 @@ Deno.serve(async (req) => {
             const test = await fetch("https://api.line.me/v2/bot/channel/webhook/test", { method: "POST", headers, body: JSON.stringify({ endpoint }) });
             const result = await test.json().catch(() => ({}));
             provider.webhook_test_success = test.ok && result.success === true;
+            provider.webhook_test_status = result.statusCode ?? test.status;
+            provider.webhook_test_reason = result.reason ?? null;
           }
         } else provider = { checked: true, accepted: false, provider_status: response.status };
       }
