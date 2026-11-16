@@ -122,9 +122,11 @@ function openAdmin() {
   openNativeAdmin();
 }
 let nativeAdminOpen = false;
+function enrollmentRotation() { return Number(display.rotate) || 0; }
 function openNativeAdmin() {
   if (nativeAdminOpen) return;
   nativeAdminOpen = true;
+  pausedUntil = Date.now() + 2000;
   wake();
   const panel = document.createElement('iframe');
   panel.id = 'nativeAdminPanel'; panel.src = '/admin'; panel.title = 'จัดการใบหน้า FaceGate';
