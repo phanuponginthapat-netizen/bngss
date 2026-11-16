@@ -774,7 +774,10 @@ export default function AiChatBubble() {
           : isRateLimit
             ? "ระบบ AI ถูกเรียกถี่เกินไป กรุณารอสักครู่แล้วลองใหม่นะคะ 🙏"
             : `ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งนะคะ 🙏${msg ? `\n\n_รายละเอียด: ${msg.slice(0, 200)}_` : ""}`;
-      setMessages([...nextDisplay, { role: "assistant", content: friendly }]);
+      setMessages(current => {
+        const partial = current[nextDisplay.length];
+        return [...nextDisplay, { role: "assistant", content: partial?.role === "assistant" ? `${partial.content}\n\n${friendly}` : friendly }];
+      });
     } finally {
       setBusy(false);
     }

@@ -278,8 +278,6 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         vision: opts.vision,
         functionName: opts.functionName,
         userId: opts.userId,
-        functionName: opts.functionName,
-        userId: opts.userId,
       });
       return { content: r.content, provider: `pool:${p}`, model: r.model };
     } catch (e: any) {
@@ -340,6 +338,8 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
         max_tokens: opts.max_tokens,
         json: false,
         vision: opts.vision,
+        functionName: opts.functionName,
+        userId: opts.userId,
       });
       return { provider: `pool:${p}`, model: r.model, content: r.content, ok: true as const };
     } catch (e: any) {
