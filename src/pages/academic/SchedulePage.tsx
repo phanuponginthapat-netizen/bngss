@@ -481,6 +481,13 @@ const SchedulePage = () => {
     return { map, lunchPosition, lunch: lunch as { start: string; end: string } | null };
   }, [periodsPerDay, lunchAfterPeriod, scheduleTimes, filtered, isStudent, isParent]);
 
+  // ผู้ที่ไม่ได้แก้ไขตาราง: ตัดคาบว่างท้ายวันออก (ไม่มีวิชาในวันใดเลย)
+  const displayPeriods = useMemo(() => {
+    if (isAdmin) return periods;
+    const last = filtered.reduce((m, r) => Math.max(m, Number(r.period) || 0), 0);
+    return last > 0 ? periods.filter(p => p <= last) : periods;
+  }, [isAdmin, periods, filtered]);
+
 
   /**
    * สร้างตารางกริดจริง: แต่ละช่อง (วัน,คาบ) เก็บรายการที่ "เริ่ม" ที่ช่องนั้น
@@ -953,7 +960,7 @@ const SchedulePage = () => {
                 </tr>
               </thead>
               <tbody>
-                {periods.map((p) => (
+                {displayPeriods.map((p) => (
                   <Fragment key={`period-${p}`}>
                     {p - 1 === periodTimes.lunchPosition && (
                       <tr key={`lunch-${p}`}>
