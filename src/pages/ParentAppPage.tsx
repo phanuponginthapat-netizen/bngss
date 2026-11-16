@@ -563,6 +563,7 @@ export default function ParentAppPage() {
   };
 
   const renderScores = (b: ChildBundle) => {
+    if (b.scoresError) return <p role="alert" className="text-destructive">{b.scoresError}</p>;
     if (b.loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {L("กำลังโหลดคะแนน...", "Loading grades...")}</div>;
     if (b.scores.length === 0) {
       return (
