@@ -49,7 +49,9 @@ export default function FamilySchoolAttendance({ academicYear, semester }: { aca
         for (const log of logs ?? []) {
           const key = `${log.student_id}:${log.scan_date}`;
           if (scans.has(key)) continue;
-          scans.set(key, { time: String(log.scan_time).slice(0, 5), photo: await resolveKioskMediaUrl(log.captured_face_url) });
+          const t = new Date(log.scan_time);
+          const time = Number.isNaN(t.getTime()) ? '' : t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' });
+          scans.set(key, { time, photo: await resolveKioskMediaUrl(log.captured_face_url) });
         }
       }
       return rows.map(r => ({ ...r, scan: scans.get(`${r.student_id}:${r.attendance_date}`) ?? null }));
