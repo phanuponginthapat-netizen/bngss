@@ -394,9 +394,9 @@ export default function LineVaultPage() {
   const [semFilter, setSemFilter] = useState<string>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
 
-  async function load() {
+  async function load(background = false) {
     const version = ++loadVersion.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     setLoadError(null);
     try {
       const all: Item[] = [];
@@ -423,7 +423,19 @@ export default function LineVaultPage() {
     }
   }
 
-  useEffect(() => { load();   }, [isAdmin]);
+  useEffect(() => {
+    void load();
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      ++loadVersion.current;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [isAdmin]);
 
   const yearOptions = useMemo(() => {
     const s = new Set<number>();
