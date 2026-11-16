@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { expect, it } from 'vitest';
 import { canChangeOwnPortrait } from '../profilePortraitPolicy';
 it('students cannot change their portrait', () => { expect(canChangeOwnPortrait('student')).toBe(false); });
