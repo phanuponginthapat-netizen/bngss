@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
 
     const events: any[] = body?.events || [];
     if (events.length > 0) {
-      console.log("LINE Vault webhook events", events.map((e: any) => `${e?.type}:${e?.source?.type || "unknown"}`).join(","));
+      console.log("LINE Vault webhook events", events.map((e: any) => `${e?.type}:${e?.source?.type || "unknown"}:${e?.message?.type || "none"}`).join(","));
     }
 
     // Per-group aggregation of this webhook batch so we send ONE friendly summary reply
@@ -144,7 +144,11 @@ Deno.serve(async (req) => {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
         });
-        if (!result?.captured) continue;
+        if (!result?.captured) {
+          console.warn("LINE Vault capture skipped", event.message?.type, result?.reason || "unknown");
+          continue;
+        }
+        console.info("LINE Vault capture saved", event.message?.type);
 
         const groupId = event.source.groupId || event.source.roomId;
         if (!groupId) continue;

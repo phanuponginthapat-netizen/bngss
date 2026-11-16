@@ -394,9 +394,9 @@ export default function LineVaultPage() {
   const [semFilter, setSemFilter] = useState<string>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
 
-  async function load() {
+  async function load(background = false) {
     const version = ++loadVersion.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     setLoadError(null);
     try {
       const all: Item[] = [];
@@ -423,7 +423,19 @@ export default function LineVaultPage() {
     }
   }
 
-  useEffect(() => { load();   }, [isAdmin]);
+  useEffect(() => {
+    void load();
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      ++loadVersion.current;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [isAdmin]);
 
   const yearOptions = useMemo(() => {
     const s = new Set<number>();
@@ -530,7 +542,7 @@ export default function LineVaultPage() {
           <p className="text-sm text-muted-foreground">เก็บรูปภาพ ไฟล์ และโน้ตจากกลุ่ม LINE OA อัตโนมัติ — ไม่หมดอายุ</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />รีเฟรช</Button>
+          <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="h-4 w-4 mr-1" />รีเฟรช</Button>
           {isAdmin && <ManualUploadDialog onDone={load} />}
         </div>
       </div>
@@ -552,7 +564,7 @@ export default function LineVaultPage() {
 
       {loadError ? <div role="alert" className="border border-destructive rounded p-4 space-y-3">
         <p className="text-destructive">โหลดคลังไฟล์ไม่สำเร็จ: {loadError}</p>
-        <Button variant="outline" onClick={load}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
+        <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
       </div> : <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="all">ทั้งหมด <Badge variant="secondary" className="ml-2">{items.length}</Badge></TabsTrigger>
