@@ -30,3 +30,4 @@
 - Storage URL fallback requires an exact current registry row with a Drive ID; propagate read errors and never infer an archive from failed signing, preventing spurious cold-storage 404s without concealing missing originals.
 - Private homework Storage reads preserve owner access and use the existing server-side staff check for grading; never equate owner-filtered 404s with deleted files or make the bucket public.
 - AR, asset, leave, social and task media use the shared authenticated storage resolver; task attachment reads require the exact assigned recipient, sender folder and saved path, while failed previews preserve their original item positions.
+- ID card uploads pass through idPhotoCrop (largest-face crop at card ratio + gentle auto-levels) and reject photos without a face, so printed cards never receive unframed or wrong images.
