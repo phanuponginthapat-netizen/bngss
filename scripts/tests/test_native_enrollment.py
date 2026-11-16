@@ -23,3 +23,25 @@ class NativeEnrollmentTests(unittest.TestCase):
         self.assertIsNotNone(quality_error([sample]))
 
 if __name__=='__main__':unittest.main()
+
+class NativeTransportTests(unittest.TestCase):
+    def setUp(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from native_admin import create_router
+        app=FastAPI()
+        app.include_router(create_router('https://example.test/functions/v1',lambda _:[],lambda _:None,lambda:None))
+        self.client=TestClient(app,client=('127.0.0.1',12345))
+    def test_session_required_for_capture(self):
+        self.assertEqual(self.client.post('/native-admin/action',json={'action':'capture'}).status_code,401)
+    def test_cross_origin_rejected(self):
+        self.assertEqual(self.client.post('/native-admin/action',headers={'Origin':'https://foreign.test'},json={'action':'login'}).status_code,403)
+    def test_device_key_cannot_manage(self):
+        self.assertEqual(self.client.post('/native-admin/action',headers={'x-device-key':'device'},json={'action':'save'}).status_code,401)
+    def test_denied_cloud_login_has_no_session(self):
+        from unittest.mock import patch
+        with patch('native_admin.requests.post') as post:
+            post.return_value.ok=False
+            result=self.client.post('/native-admin/action',json={'action':'login','email':'test','password':'test'})
+        self.assertEqual(result.status_code,400)
+        self.assertNotIn('session',result.json())
