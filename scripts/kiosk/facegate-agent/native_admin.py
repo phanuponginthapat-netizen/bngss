@@ -14,7 +14,7 @@ from native_admin_ui import ADMIN_HTML
 PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsa3l4dmhubmZmYmxlcndlZGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzNjY5MTIsImV4cCI6MjA5OTk0MjkxMn0.bQqqX3veJ_pGr9fSa0a-bKIS-w7UmR569a2xDZQ6Cx4'
 
 
-def create_router(cloud_url, embed, read_card, sync):
+def create_router(cloud_url, embed, read_card, sync, device_key='', settings_read=None, settings_write=None, power_control=None, diagnostics=None):
     router = APIRouter()
     sessions = {}
     guard = threading.Lock()
@@ -26,6 +26,8 @@ def create_router(cloud_url, embed, read_card, sync):
         headers = {'apikey': PUBLIC_KEY, 'content-type': 'application/json'}
         if token:
             headers['Authorization'] = 'Bearer ' + token
+        elif device_key:
+            headers['x-device-key'] = device_key
         url = cloud_url.rsplit('/functions/v1', 1)[0] + path if path.startswith('/auth/') else cloud_url + '/' + path
         r = requests.post(url, headers=headers, json=payload, timeout=30)
         if not r.ok:
@@ -46,6 +48,19 @@ def create_router(cloud_url, embed, read_card, sync):
             return response({'error':'origin_not_allowed'},403)
         kind = body.get('action')
         try:
+            if kind == 'open':
+                if not device_key:
+                    return response({'error':'ยังไม่ได้ตั้งรหัสอุปกรณ์ของโรงเรียน'},401)
+                roster = cloud('kiosk-native-admin', {'action':'roster'})
+                sid = secrets.token_urlsafe(32)
+                with guard:
+                    now = time.time()
+                    for expired in [k for k,v in sessions.items() if v['expires'] <= now]:
+                        sessions.pop(expired, None)
+                    sessions[sid] = {'token':None, 'expires':now+3600, 'students':roster['students'],
+                        'student':None, 'samples':[], 'lock':threading.Lock()}
+                return response({'session':sid,'students':roster['students'],
+                    'settings':settings_read() if settings_read else {}})
             if kind == 'login':
                 login = cloud('/auth/v1/token?grant_type=password', {
                     'email':str(body.get('email',''))[:254], 'password':str(body.get('password',''))[:512]})
@@ -64,12 +79,35 @@ def create_router(cloud_url, embed, read_card, sync):
             with guard:
                 session = sessions.get(str(body.get('session','')))
             if not session or session['expires'] <= time.time():
-                return response({'error':'หมดเวลาจัดการ กรุณาเข้าสู่ระบบใหม่'},401)
+                return response({'error':'หมดเวลาจัดการ กรุณาปิดและเปิดหน้าจัดการใหม่'},401)
             with session['lock']:
                 if kind == 'logout':
                     with guard:
                         sessions.pop(str(body.get('session','')),None)
                     return response({'ok':True})
+                if kind == 'settings':
+                    if not settings_read:
+                        raise ValueError('ไม่พบระบบตั้งค่า')
+                    return response({'settings':settings_read()})
+                if kind == 'settings_save':
+                    if not settings_write:
+                        raise ValueError('ไม่พบระบบตั้งค่า')
+                    return response({'settings':settings_write(body.get('settings'))})
+                if kind == 'power':
+                    if not power_control:
+                        raise ValueError('ไม่พบระบบจัดการเครื่อง')
+                    return response(power_control(body.get('command')))
+                if kind == 'diagnostics':
+                    return response(diagnostics() if diagnostics else {})
+                if kind == 'code':
+                    code = str(body.get('code',''))
+                    if not code.isascii() or not code.isdigit() or len(code)>20:
+                        raise ValueError('กรอกรหัสนักเรียนเป็นตัวเลข')
+                    student = next((s for s in session['students'] if s['student_code']==code),None)
+                    if not student:
+                        raise ValueError('ไม่พบรหัสนักเรียน')
+                    session['student'],session['samples'] = student,[]
+                    return response({'student':student})
                 if kind == 'select':
                     student = next((s for s in session['students'] if s['id'] == body.get('student_id')),None)
                     if not student:
