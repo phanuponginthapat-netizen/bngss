@@ -56,6 +56,7 @@ const FaceRegisterTab = () => {
   const [reason, setReason] = useState("");
   const [shots, setShots] = useState<Array<{ points: FacePoint[]; canvas: HTMLCanvasElement; desc: Float32Array; texture?: number[] | null; source: "camera" | "upload"; quality: QualityReport }>>([]);
   const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
+  const [uploadFailures, setUploadFailures] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { loadFaceModels().then(() => setModelReady(true)); }, []);
@@ -214,6 +215,7 @@ const FaceRegisterTab = () => {
     if (shots.length + files.length > MAX_ENROLLMENT_PHOTOS) { toast.error('เก็บได้สูงสุด 5 รูปต่อครั้ง'); return; }
     setBusy(true);
     let ok = 0, fail = 0, lowQ = 0;
+    setUploadFailures([]);
     const lowQReasons: string[] = [];
     const added: typeof shots = [];
     try {
@@ -224,12 +226,12 @@ const FaceRegisterTab = () => {
           let img: HTMLImageElement;
           try { img = await loadImageFromUrl(url); } finally { URL.revokeObjectURL(url); }
           const det = await detectEnrollmentFace(img);
-          if (!det) { fail++; continue; }
+          if (!det) { fail++; lowQReasons.push(`${file.name}: ไม่พบใบหน้า กรุณาใช้รูปหน้าตรงหรือหันเล็กน้อย`); continue; }
           const q = assessFaceQuality(img, det, "register");
           setLastQuality(q);
           if (!q.ok) {
             lowQ++;
-            if (lowQReasons.length < 2) lowQReasons.push(`${file.name}: ${q.reasons[0]}`);
+            lowQReasons.push(`${file.name}: ${q.reasons.join(' • ')}`);
             continue;
           }
           setLastQuality(q);
@@ -241,8 +243,9 @@ const FaceRegisterTab = () => {
           canvas.getContext("2d")?.drawImage(img, 0, 0);
           added.push({ points: fivePointsFromLandmarks68(det.landmarks), canvas, desc: det.descriptor, texture: computeFaceTexture(img, det.landmarks), source: "upload", quality: q });
           ok++;
-        } catch (error) { fail++; if (lowQReasons.length < 3) lowQReasons.push(file.name+': '+(error instanceof Error ? error.message : 'อ่านไฟล์ไม่สำเร็จ')); }
+        } catch (error) { fail++; lowQReasons.push(file.name+': '+(error instanceof Error ? error.message : 'อ่านไฟล์ไม่สำเร็จ')); }
       }
+      setUploadFailures(lowQReasons);
       setShots(current=>[...current,...added]);
       const parts = [];
       if (ok) parts.push(`เพิ่ม ${ok} รูป`);
@@ -374,7 +377,7 @@ const FaceRegisterTab = () => {
             </Select>
             <Input aria-label="ค้นหานักเรียน" disabled={busy} placeholder="ค้นหาชื่อ/รหัสนักเรียน" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <Select value={studentId} onValueChange={(id)=>{setStudentId(id);setShots([]);setLastQuality(null);setReason("");}}>
+          <Select value={studentId} onValueChange={(id)=>{setStudentId(id);setShots([]);setLastQuality(null);setUploadFailures([]);setReason("");}}>
             <SelectTrigger aria-label="เลือกนักเรียน" disabled={busy}><SelectValue placeholder={`เลือกนักเรียน (${filtered.length} คน)`} /></SelectTrigger>
             <SelectContent>
               {filtered.map((s: any) => (
@@ -434,6 +437,11 @@ const FaceRegisterTab = () => {
               <Button disabled={busy} onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
             )}
           </div>
+
+          {uploadFailures.length > 0 && <div role="status" className="border border-destructive rounded-lg p-3 text-sm space-y-2">
+            <p className="font-medium">รูปที่ยังใช้ลงทะเบียนไม่ได้ ({uploadFailures.length})</p>
+            <ul className="space-y-2 text-muted-foreground break-words">{uploadFailures.map((failure,index)=><li key={index}>{failure}</li>)}</ul>
+          </div>}
 
           {lastQuality && (
             <div className={`rounded-lg border p-3 text-xs ${lastQuality.ok ? "bg-emerald-500/5 border-emerald-500/30" : "bg-amber-500/5 border-amber-500/30"}`}>

@@ -1065,7 +1065,7 @@ export function assessFaceQuality(
   if (ear < BANK_GRADE.MIN_EAR) reasons.push(`ตาปิด/หรี่ (EAR ${ear.toFixed(2)}) — ลืมตามองกล้อง`);
   if (brightness < BANK_GRADE.BRIGHTNESS_MIN) reasons.push(`แสงมืดเกินไป (${Math.round(brightness)}) — หาที่สว่างขึ้น`);
   if (brightness > BANK_GRADE.BRIGHTNESS_MAX) reasons.push(`แสงจ้า/ย้อนแสง (${Math.round(brightness)}) — หลีกหน้าต่าง/ไฟ`);
-  if (landmarkSanity < 0.5) reasons.push("โครงสร้างใบหน้าผิดสัดส่วน (สงสัยไม่ใช่ใบหน้ามนุษย์) — ลองใหม่");
+  if (landmarkSanity < 0.5) reasons.push("อ่านจุดตา จมูก หรือปากไม่ครบ — ใช้รูปหน้าตรงหรือหันเล็กน้อยให้เห็นตาทั้งสองข้าง");
 
   const sub = [
     Math.min(1, sharpness / (minSharp * 1.8)),
