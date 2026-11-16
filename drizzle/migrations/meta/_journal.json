@@ -372,6 +372,13 @@
       "when": 1794804805021,
       "tag": "0052_family_view_scan_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1794808656543,
+      "tag": "0053_invalidate_student_faces_on_portrait_change",
+      "breakpoints": true
     }
   ]
 }
