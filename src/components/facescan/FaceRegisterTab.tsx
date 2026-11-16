@@ -339,26 +339,29 @@ const FaceRegisterTab = () => {
 
       await assertNotDuplicate(studentId);
 
-      const { data: prev } = await supabase.from("student_face_descriptors")
+      const { data: prev, error: previousError } = await supabase.from("student_face_descriptors")
         .select("id").eq("student_id", studentId);
+      if (previousError) throw previousError;
       const previous_count = prev?.length ?? 0;
 
-      if (isRereg) {
-        await supabase.from("student_face_descriptors").delete().eq("student_id", studentId);
-      }
+      const photo_urls = await uploadShotsToStorage(studentId);
       const startIdx = isRereg ? 0 : previous_count;
       const rows = shots.map((s, i) => ({
         student_id: studentId, sample_index: startIdx + i,
         descriptor: Array.from(s.desc), captured_by: user?.id, source: s.source,
         quality_score: s.quality?.score ?? null,
         metrics: (s.quality as any) ?? null,
-        face_image: canvasToFaceThumb(s.canvas) || null,
+        face_image: photo_urls[i],
+        created_at: new Date().toISOString(),
         texture: s.texture ?? null,
       }));
       const { error } = await supabase.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
       if (error) throw error;
 
-      const photo_urls = await uploadShotsToStorage(studentId).catch(() => [] as string[]);
+      if (isRereg) {
+        const { error: cleanupError } = await supabase.from("student_face_descriptors").delete().eq("student_id", studentId).gte("sample_index", rows.length);
+        if (cleanupError) throw cleanupError;
+      }
       await supabase.from("face_registration_history").insert({
         student_id: studentId,
         action: isRereg ? "direct_replace" : "direct_add",
