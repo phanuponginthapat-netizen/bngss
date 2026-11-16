@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { canChangeOwnPortrait } from '@/lib/profilePortraitPolicy';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -85,6 +86,7 @@ const POSITIONS = [
 
 const ProfilePage = () => {
   const { role, userId } = useUserRole();
+  const canChangePortrait = canChangeOwnPortrait(role);
   const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -456,6 +458,7 @@ const ProfilePage = () => {
   const [uploadingImg, setUploadingImg] = useState<"avatar" | "cover" | null>(null);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canChangePortrait || !userId) { e.target.value = ''; return; }
     const file = e.target.files?.[0];
     if (!file || !profile || uploadingImg) return;
     setUploadingImg("avatar");
@@ -463,7 +466,7 @@ const ProfilePage = () => {
       const urls = await uploadImagePair(file, "avatar");
       if (!urls) return;
       // avatar_url = thumb (ใช้ในทุก list/nav), avatar_full_url = full (ใช้ในหน้าโปรไฟล์)
-      const { error } = await supabase.from("profiles").update({ avatar_url: urls.thumb, avatar_full_url: urls.full } as any).eq("id", userId!);
+      const { error } = await supabase.from("profiles").update({ avatar_url: urls.thumb, avatar_full_url: urls.full } as any).eq("id", userId);
       if (error) { toast.error(saveErrorMessage(error, "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ")); return; }
       setProfile({ ...profile, avatar_url: urls.thumb, avatar_full_url: urls.full } as any);
       toast.success("อัปโหลดรูปโปรไฟล์สำเร็จ");
@@ -646,10 +649,11 @@ const ProfilePage = () => {
                   </div>
                 )}
               </div>
-              <button onClick={() => avatarInputRef.current?.click()} className="absolute bottom-1 right-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-2 shadow-lg transition-colors opacity-0 group-hover:opacity-100">
+              {canChangePortrait && <><Button type="button" size="icon" aria-label="เปลี่ยนรูปโปรไฟล์" onClick={() => avatarInputRef.current?.click()} className="absolute bottom-1 right-1 rounded-full shadow-lg transition-colors opacity-0 group-hover:opacity-100">
                 <Camera className="w-4 h-4" />
-              </button>
+              </Button>
               <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              </>}
             </div>
             <div className="flex-1 pb-1">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{fullName}</h1>

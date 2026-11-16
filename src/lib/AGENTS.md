@@ -20,3 +20,4 @@
 - Family score views use explicit student-code/year/semester queries and a dedicated read-only grade destination; grade defaults never change timetable terms, preventing denied staff links and mixed historical results.
 - Family school-attendance views query only null-subject period-zero rows; timetable headers prefer stored period times so school-day records and configured estimates never masquerade as lesson evidence.
 - Face synchronization resolves private portraits with fresh authenticated URLs; database portrait-change triggers invalidate enrolled and pending student faces across card and profile writers, while attendance evidence remains intact.
+- Family portrait controls are hidden and database guards reject family-only profile/card portrait changes; existing staff authorization and unrelated profile edits remain unchanged.
