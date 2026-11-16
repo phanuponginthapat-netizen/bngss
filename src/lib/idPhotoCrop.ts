@@ -4,25 +4,53 @@ export const ID_PHOTO_HEIGHT = 531;
 
 export type Box = { x: number; y: number; width: number; height: number };
 
+/** สัดส่วนใบหน้า (คิ้ว-คาง) เทียบกับความสูงรูปบัตร ที่วัดจากต้วอย่างบัตรจริงของโรงเรียน */
+export const ID_FACE_HEIGHT_RATIO = 0.43;
+/** ตำแหน่งจุดกลางใบหน้าเทียบกับขอบบนรูปบัตร ที่วัดจากต้วอย่างบัตรจริงของโรงเรียน */
+export const ID_FACE_CENTER_Y_RATIO = 0.515;
+
 /**
- * คำนวณกรอบตัดรูปหน้าตรงแบบรูปติดบัตร: กรอบใบหน้า (คิ้ว-คาง) กินราว 33% ของความสูง
- * จุดกลางใบหน้าอยู่ราว 53% จากขอบบน จากขอบบน (เผื่อผม/หน้าผากด้านบน และไหล่ด้านล่าง)
+ * คำนวณกรอบตัดรูปหน้าตรงแบบรูปติดบัตร: กรอบใบหน้า (คิ้ว-คาง) กินราว 43% ของความสูง
+ * จุดกลางใบหน้าอยู่ราว 51.5% จากขอบบน (เผื่อผม/หน้าผากด้านบน และไหล่ด้านล่าง)
  * กรอบไม่เกินขอบรูปต้นฉบับ และคงสัดส่วน 413:531 เสมอ
  */
 export function computeIdPhotoCrop(face: Box, imgW: number, imgH: number): Box {
   const ratio = ID_PHOTO_WIDTH / ID_PHOTO_HEIGHT;
-  // กรอบตรวจจับครอบแค่คิ้วถึงคาง จึงให้กินราว 33% เพื่อเห็นผมทั้งหัวและบ่า
-  let h = face.height / 0.33;
+  // ใช้สัดส่วนที่วัดจากบัตรจริง เพื่อให่ใบหน้าใหญ่เท่าต้วอย่าง
+  let h = face.height / ID_FACE_HEIGHT_RATIO;
   let w = h * ratio;
   if (w > imgW) { w = imgW; h = w / ratio; }
   if (h > imgH) { h = imgH; w = h * ratio; }
   const cx = face.x + face.width / 2;
   const cy = face.y + face.height / 2;
   let x = cx - w / 2;
-  let y = cy - h * 0.53;
+  let y = cy - h * ID_FACE_CENTER_Y_RATIO;
   x = Math.min(Math.max(0, x), imgW - w);
   y = Math.min(Math.max(0, y), imgH - h);
   return { x, y, width: w, height: h };
+}
+
+/**
+ * สร้างกรอบใบหน้าจากจุด landmark (68 จุด) ให่ได่ "คิ้วถึงคาง" ตามจริง
+ * กรอบของตัวตรวจจับ (SSD) รวมหน้าผากด้วย จึงสูงกว่าคิ้ว-คางราว 15-20%
+ * ถ้าใช้กรอบนั้ันใบหน้าบนบัตรจะเลกกว่าต้วอย่าง จึงต้องใช้ landmark เป็นหลัก
+ * คืน fallback (กรอบตัวตรวจจับ) เมือจุด landmark ไม่ครบหรือไม่สมบูรณ์
+ */
+export function faceBoxFromLandmarks(
+  positions: Array<{ x: number; y: number }> | undefined,
+  fallback: Box,
+): Box {
+  if (!positions || positions.length < 68) return fallback;
+  const browTop = Math.min(...positions.slice(18, 28).map((p) => p.y));
+  const chin = positions[8].y;
+  const contour = positions.slice(0, 17);
+  const left = Math.min(...contour.map((p) => p.x));
+  const right = Math.max(...contour.map((p) => p.x));
+  const height = chin - browTop;
+  const cx = (left + right) / 2;
+  if (!Number.isFinite(height) || height <= 0 || !Number.isFinite(cx)) return fallback;
+  // ความกวางไม่สำคัญตอการตัด (ใช้แค่จุดกลาง) จึงกำหนดให่เทา่กบั ความสูง
+  return { x: cx - height / 2, y: browTop, width: height, height };
 }
 
 /** ปรับแสง/คอนทราสต์อัตโนมัติแบบนุ่มนวล (ตัด 1% หัวท้ายของความสว่าง) */
@@ -62,10 +90,21 @@ export async function makeIdCardPhoto(file: File): Promise<File> {
   const faceapi = await import("@vladmandic/face-api");
   const { loadFaceModels, detectorOptionsHQ } = await import("./faceApi");
   await loadFaceModels();
-  const faces = await faceapi.detectAllFaces(img, detectorOptionsHQ(608, 0.5));
+  const faces = await faceapi
+    .detectAllFaces(img, detectorOptionsHQ(608, 0.5))
+    .withFaceLandmarks();
   if (faces.length === 0) throw new Error("ไม่พบใบหน้าในรูป กรุณาใช้รูปหน้าตรงที่ชัดเจน");
   // เลือกใบหน้าใหญ่สุด (คนที่อยู่หน้าสุด) ถ้ามีคนอื่นติดมาด้านหลัง
-  const face = faces.map(f => f.box).sort((a, b) => b.width * b.height - a.width * a.height)[0];
+  const best = faces.sort(
+    (a: any, b: any) =>
+      (b.detection.box.width * b.detection.box.height) -
+      (a.detection.box.width * a.detection.box.height),
+  )[0] as any;
+  const fallback = best.detection.box as Box;
+  const face = faceBoxFromLandmarks(
+    (best.landmarks?.positions ?? []).map((p: any) => ({ x: p.x, y: p.y })),
+    fallback,
+  );
   const crop = computeIdPhotoCrop(face, img.naturalWidth, img.naturalHeight);
   const canvas = document.createElement("canvas");
   canvas.width = ID_PHOTO_WIDTH; canvas.height = ID_PHOTO_HEIGHT;
