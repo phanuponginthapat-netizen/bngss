@@ -81,6 +81,15 @@ export default function MembersPage() {
     <Button variant="outline" onClick={() => refetch()}>ลองใหม่</Button>
   </div>;
 
+  // Parents must not browse or search the school member directory.
+  if (role === "parent") return (
+    <div className="p-6 max-w-xl mx-auto">
+      <Card><CardContent className="py-12 text-center text-muted-foreground">
+        หน้านี้สำหรับครูและบุคลากรเท่านั้น
+      </CardContent></Card>
+    </div>
+  );
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
       <div className="flex items-center gap-3">

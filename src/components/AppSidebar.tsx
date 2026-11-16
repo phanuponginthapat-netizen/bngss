@@ -100,7 +100,6 @@ export function AppSidebar() {
       tone: "general",
       items: [
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar") },
-        { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members") },
       ],
     },
     {

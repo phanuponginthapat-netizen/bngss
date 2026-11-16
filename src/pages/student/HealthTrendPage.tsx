@@ -230,7 +230,7 @@ export default function HealthTrendPage() {
       </div>
 
       <BarcodeScanner
-        open={scannerOpen}
+        open={scannerOpen && !isParent}
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         title="สแกน QR / บาร์โค้ดนักเรียน"
