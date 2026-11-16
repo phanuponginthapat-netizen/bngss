@@ -389,6 +389,7 @@ Deno.serve(async (req) => {
           embedding: f.descriptor,
           geometry: (f.metrics && typeof f.metrics === "object" ? f.metrics.geometry ?? null : null),
           version: version(f),
+          reference_image: f.face_image ? await kioskMediaUrl(db, f.face_image) : null,
         }));
       const liveIds = new Set(rows.map((f) => f.id));
       const removed = incremental ? Object.keys(known).filter((id) => !liveIds.has(id)) : [];
