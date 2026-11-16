@@ -23,6 +23,7 @@ import { compressImage } from "@/lib/imageCompress";
 import { gradeRank } from "@/lib/gradeOrder";
 import { saveErrorMessage } from "@/lib/saveError";
 import { waitForIdCardImages } from "@/lib/idCardImages";
+import { makeIdCardPhoto } from "@/lib/idPhotoCrop";
 
 type ClassroomForCard = {
   id: string;
@@ -169,7 +170,9 @@ function CardTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error("ไม่พบผู้ใช้งานที่ล็อกอินอยู่");
 
-      const compressed = await compressImage(file, { maxWidth: 1024, maxSizeKB: 150 });
+      // ตัดหน้าตรงและปรับแสงเป็นรูปติดบัตร 413×531 ก่อนบันทึก
+      const idPhoto = await makeIdCardPhoto(file);
+      const compressed = await compressImage(idPhoto, { maxWidth: 413, maxSizeKB: 150 });
       const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
       const fileName = `${user.id}/student-${student.id}/avatar_${Date.now()}_${safeName}`;
       const result = await uploadPublicFileWithFallback("profile-images", fileName, compressed, { upsert: true });
@@ -531,7 +534,7 @@ function CardTab() {
 
       {students.length > 0 && (
         <>
-          <p className="text-sm text-muted-foreground">ตัวอย่าง — กดปุ่ม "อัปโหลดรูป" เพื่อใส่รูปลงบัตรและตั้งเป็นรูปโปรไฟล์ของนักเรียนทันที</p>
+          <p className="text-sm text-muted-foreground">ตัวอย่าง — กดปุ่ม "อัปโหลดรูป" ระบบจะตัดหน้าตรงและปรับแสงเป็นรูปติดบัตรให้อัตโนมัติ แล้วใส่ลงบัตรและตั้งเป็นรูปโปรไฟล์ของนักเรียนทันที</p>
           <div className="flex flex-wrap gap-4">
             {students.map((s) => {
               const hasPhoto = !!(s.avatar_url || s.photo_url);
@@ -554,7 +557,7 @@ function CardTab() {
                     />
                     <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition">
                       {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                      {isUploading ? "กำลังอัปโหลด..." : hasPhoto ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+                      {isUploading ? "กำลังตัดรูปติดบัตร..." : hasPhoto ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
                     </span>
                   </label>
                 </div>
