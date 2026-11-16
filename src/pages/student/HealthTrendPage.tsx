@@ -171,7 +171,7 @@ export default function HealthTrendPage() {
             <CardTitle>เลือกนักเรียน</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!isParent && (
+            {!isFamily && (
               <>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -234,7 +234,7 @@ export default function HealthTrendPage() {
       </div>
 
       <BarcodeScanner
-        open={scannerOpen && !isParent}
+        open={scannerOpen && !isFamily}
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         title="สแกน QR / บาร์โค้ดนักเรียน"
