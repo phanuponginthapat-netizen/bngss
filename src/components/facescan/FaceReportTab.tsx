@@ -3,6 +3,7 @@ import { resolveDigestStatuses, markMissingAsAbsent } from "../../../supabase/fu
 import { attendanceGender } from "../../../supabase/functions/_shared/publicAttendance";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 import { useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1360,11 +1361,11 @@ const FaceReportTab = () => {
                     <td className="p-2">
                       <div className="flex items-center justify-center gap-1">
                         <div className="w-9 h-9 rounded-md overflow-hidden bg-muted border">
-                          {r.students.photo_url ? <img src={r.students.photo_url} alt="ลงทะเบียน" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">-</div>}
+                          {r.students.photo_url ? <IdCardPhoto url={r.students.photo_url} name="ลงทะเบียน" /> : <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">-</div>}
                         </div>
                         <span className="text-muted-foreground text-xs">⇄</span>
                         <div className="w-9 h-9 rounded-md overflow-hidden bg-muted border border-emerald-500/40">
-                          {r.captured_face_url ? <img src={r.captured_face_url} alt="ที่ตรวจพบ" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">-</div>}
+                          {r.captured_face_url ? <IdCardPhoto url={r.captured_face_url} bucket="face-scans" name="ที่ตรวจพบ" /> : <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">-</div>}
                         </div>
                       </div>
                     </td>
