@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Any
 import sys
+from native_settings import Settings as NativeSettings
 
 # Windows installer (FaceGateSetup.exe): settings live in a config file instead of a .bat launcher.
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -130,6 +131,7 @@ IMAGE_DIR = os.path.join(CACHE_DIR, "images")
 FACES_FILE = os.path.join(CACHE_DIR, "faces.json")
 STUDENTS_FILE = os.path.join(CACHE_DIR, "students.json")
 SETTINGS_FILE = os.path.join(CACHE_DIR, "settings.json")
+native_settings = NativeSettings(os.path.join(CACHE_DIR, "machine-settings.json"))
 OUTBOX_FILE = os.path.join(CACHE_DIR, "outbox.jsonl")
 
 os.makedirs(IMAGE_DIR, exist_ok=True)
@@ -316,7 +318,7 @@ def load_cache() -> None:
     with lock:
         state["faces"] = {k: v for k, v in faces.items() if isinstance(v, dict)}
         state["students"] = {s["id"]: s for s in students if isinstance(s, dict)}
-        state["settings"] = settings
+        state["settings"] = native_settings.merge(settings)
         rebuild_matrix_locked()
     print(f"[agent] loaded {len(faces)} cached faces from {CACHE_DIR}")
 
@@ -655,7 +657,7 @@ def sync_once() -> None:
             faces.pop(face_id, None)
         state["faces"] = faces
         state["students"] = {s["id"]: {**s, "valid_until": datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).date().isoformat() if s.get("person_type")=="visitor" else None} for s in data.get("students", [])}
-        state["settings"] = data.get("settings") or {}
+        state["settings"] = native_settings.merge(data.get("settings") or {})
         default_direction = (data.get("device") or {}).get("default_direction")
         state["settings"]["device_default_direction"] = default_direction if default_direction in ("in", "out") else None
         state["last_sync"] = time.time()
@@ -901,7 +903,9 @@ def power_once() -> None:
         ok = power.apply(str(command), 60)
         report_command(data, ok, scheduled=command in ('shutdown', 'sleep'))
 
-    enforce_power_plan(data)
+    with lock:
+        saved_settings = dict(state.get('settings') or {})
+    enforce_power_plan(offline_power_plan(saved_settings, clock.now_tz(timezone(timedelta(hours=7)))))
     power.tick()
 
 
@@ -1416,7 +1420,27 @@ if not STANDALONE and not SATELLITE:
             people = {pid: p for pid, p in state["students"].items() if p.get("person_type") == "student"}
         return qr_reader.match_card(text, qr_reader.build_code_index(people))
 
-    app.include_router(create_router(CLOUD_URL, enrollment_embed, enrollment_card, sync_once))
+    def machine_settings_read():
+        with lock:return native_settings.read(state.get('settings') or {})
+    def machine_settings_write(values):
+        with lock:
+            result = native_settings.save(values, state.get('settings') or {})
+            state['settings'] = native_settings.merge(state.get('settings') or {})
+        save_cache()
+        return result
+    def machine_power(command):
+        if command not in ('screen_on','screen_off','sleep','shutdown','cancel'):
+            raise ValueError('คำสั่งไม่ถูกต้อง')
+        ok = power.apply(command,60)
+        return {'ok':ok,'scheduled':ok and command in ('sleep','shutdown'), 'power':power.status()}
+    def machine_diagnostics():
+        with lock:
+            return {'version':AGENT_VERSION,'last_sync':state.get('last_sync'),
+                'students':sum(p.get('person_type')=='student' for p in state['students'].values()),
+                'face_samples':len(state['faces']),'power':power.status()}
+    app.include_router(create_router(CLOUD_URL, enrollment_embed, enrollment_card, sync_once,
+        device_key=DEVICE_KEY,settings_read=machine_settings_read,settings_write=machine_settings_write,
+        power_control=machine_power,diagnostics=machine_diagnostics))
 
     @app.post("/local/kiosk-api/tts")
     async def cloud_voice(request: Request):
@@ -1485,6 +1509,10 @@ if not STANDALONE and not SATELLITE:
         result["realtime_error"] = stream_error
         result["receipt_revision"] = {"server_time": result.get("server_time"), "items": [(r.get("receipt_id"), r.get("scanned_at")) for r in result.get("items", [])]}
         result["voice_test_at"] = state.get("voice_test_at")
+        with lock:
+            local = native_settings.read(state.get('settings') or {})
+        result['display'] = {**(result.get('display') or {}), 'mirror':local['kiosk_mirror'],
+            'rotate':local['kiosk_camera_rotate'],'voice_enabled':local['voice_enabled']}
         return result
 
     @app.get("/local/kiosk-api/today-stats")
