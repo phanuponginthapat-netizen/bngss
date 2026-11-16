@@ -318,20 +318,20 @@ const BehaviorPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder={lang === "th" ? "ค้นหาจากรหัสหรือชื่อ..." : "Search..."} value={studentData.search} onChange={e => studentData.setSearch(e.target.value)} className="pl-9" />
             </div>
-            <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
+            {!isParent && <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
               <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder={lang === "th" ? "ระดับชั้น" : "Grade"} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
                 {studentData.gradeOptions.map((g: string) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
-            </Select>
-            <Select value={studentData.classroomFilter} onValueChange={studentData.setClassroomFilter}>
+            </Select>}
+            {!isParent && <Select value={studentData.classroomFilter} onValueChange={studentData.setClassroomFilter}>
               <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder={lang === "th" ? "ห้องเรียน" : "Classroom"} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
                 {studentData.filteredClassrooms.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.grade_level} - {c.name}</SelectItem>)}
               </SelectContent>
-            </Select>
+            </Select>}
           </div>
         </CardContent>
       </Card>
