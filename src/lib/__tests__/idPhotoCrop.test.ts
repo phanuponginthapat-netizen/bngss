@@ -40,9 +40,10 @@ describe("computeIdPhotoCrop", () => {
     expect(box.height).toBe(100);
     expect(box.x + box.width / 2).toBe(150);
     // ตัดแล้วใบหน้าต้องกิน 35% ของความสูงรูปบัตร เท่าตัวอย่าง
-    const crop = computeIdPhotoCrop(box, 2000, 3000);
+    // Move the measured box away from the source edge so clamping does not override centring.
+    const crop = computeIdPhotoCrop({ ...box, y: box.y + 500 }, 2000, 3000);
     expect(box.height / crop.height).toBeCloseTo(ID_FACE_HEIGHT_RATIO, 5);
-    expect((150 - crop.y) / crop.height).toBeCloseTo(ID_FACE_CENTER_Y_RATIO, 5);
+    expect((650 - crop.y) / crop.height).toBeCloseTo(ID_FACE_CENTER_Y_RATIO, 5);
   });
 
   it("falls back to the detector box when landmarks are missing or unusable", () => {
