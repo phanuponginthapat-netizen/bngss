@@ -38,6 +38,8 @@ export default function HealthTrendPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const { homeroomClassroomIds, isFiltered, hasHomeroom, teacherFullName } = useHomeroomClassrooms();
   const { isParent, childIds } = useParentChildren();
+  const { isStudent, userId } = useUserRole();
+  const isFamily = isParent || isStudent;
 
   // โหลดรายการห้องเรียนสำหรับตัวกรอง
   useEffect(() => {
