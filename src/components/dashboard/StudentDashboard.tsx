@@ -40,12 +40,12 @@ const MyRadarWidget = lazy(() => import("./MyRadarWidget"));
 
 const StudentDashboard = () => {
   const { lang } = useLanguage();
-  const { userId, isParent } = useUserRole();
+  const { userId, isParent, isStudent } = useUserRole();
   const navigate = useNavigate();
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
   const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
   const currentBE = currentAcademicYear;
-  const gradeSemester = familyGradeSemester(isParent, currentSemester);
+  const gradeSemester = familyGradeSemester(isParent || isStudent, currentSemester);
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 

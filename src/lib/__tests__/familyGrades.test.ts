@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { expect, it } from 'vitest';
 import { familyGradeSemester, linkedChild } from '../familyGrades';
-it('parents start at semester 1 during semester 2 without changing student defaults', () => {
+it('parents and students start at semester 1 during semester 2 while staff keep the current term', () => {
   expect(familyGradeSemester(true, 2)).toBe(1);
+  expect(familyGradeSemester(true, 1)).toBe(1);
   expect(familyGradeSemester(false, 2)).toBe(2);
 });
 it('selected children must belong to the linked roster', () => {

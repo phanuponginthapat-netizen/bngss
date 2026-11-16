@@ -44,8 +44,8 @@ interface Props {
 export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
   const { currentAcademicYear: yearBE, currentSemester: schoolSemester, isReady, error: calendarError } = useAcademicYear();
   const currentAcademicYear = yearBE - BE_OFFSET;
-  const { userId, isParent } = useUserRole();
-  const currentSemester = familyGradeSemester(isParent, schoolSemester);
+  const { userId, isParent, isStudent } = useUserRole();
+  const currentSemester = familyGradeSemester(isParent || isStudent, schoolSemester);
 
   const { data: resolvedStudentCode, error: identityError } = useQuery({
     queryKey: ["my-radar-student-code", userId],
