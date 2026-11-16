@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Send } from "lucide-react";
+import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
@@ -28,12 +28,13 @@ import { faceSampleError, MAX_ENROLLMENT_PHOTOS, MAX_ENROLLMENT_FILE_BYTES } fro
 import { detectEnrollmentFace } from '@/lib/detectEnrollmentFace';
 import { IdCardPhoto } from '@/components/IdCardPhoto';
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
+import { canSaveFaceRegistration } from '@/lib/faceRegistrationPolicy';
 
 
 const FaceRegisterTab = () => {
   const qc = useQueryClient();
-  const { isAdmin, isDirector } = useUserRole();
-  const canApproveDirectly = isAdmin || isDirector;
+  const { role, readOnly } = useUserRole();
+  const canSaveDirectly = canSaveFaceRegistration(role, readOnly);
   const [modelReady, setModelReady] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, ok: 0, fail: 0 });
@@ -297,46 +298,13 @@ const FaceRegisterTab = () => {
     }
   };
 
-  const submitRequest = async () => {
-    if (!studentId || shots.length === 0) { toast.error("เลือกนักเรียนและเพิ่มอย่างน้อย 1 ภาพ"); return; }
+  const saveDirectly = async () => {
+    if (!studentId || shots.length === 0) return;
+    if (!canSaveDirectly) { toast.error("บัญชีนี้ไม่มีสิทธิ์ลงทะเบียนใบหน้า"); return; }
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
-      const isRereg = registeredIds.has(studentId);
-      if (isRereg && !reason.trim()) {
-        toast.error("กรุณาระบุเหตุผลการลงทะเบียนใหม่ (เช่น ตัดผม / ใส่แว่น / โตขึ้น)");
-        setBusy(false);
-        return;
-      }
-
-      await assertNotDuplicate(studentId);
-
-      const photo_urls = await uploadShotsToStorage(studentId);
-      const descriptors = shots.map((s) => Array.from(s.desc));
-
-      const { error } = await supabase.from("face_registration_requests").insert({
-        student_id: studentId,
-        requested_by: user.id,
-        request_type: isRereg ? "reregister" : "initial",
-        reason: reason.trim() || null,
-        photo_urls,
-        descriptors,
-        status: "pending",
-      });
-      if (error) throw error;
-      toast.success("ส่งคำขออนุมัติให้แอดมินแล้ว");
-      setShots([]); setReason("");
-      qc.invalidateQueries({ queryKey: ["face-pending-requests"] });
-    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setBusy(false); }
-  };
-
-  const saveDirectly = async () => {
-    if (!studentId || shots.length === 0) return;
-    if (!canApproveDirectly) { toast.error("เฉพาะแอดมิน/ผู้อำนวยการเท่านั้น"); return; }
-    setBusy(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
       const isRereg = registeredIds.has(studentId);
 
       await assertNotDuplicate(studentId);
@@ -364,7 +332,7 @@ const FaceRegisterTab = () => {
         const { error: cleanupError } = await supabase.from("student_face_descriptors").delete().eq("student_id", studentId).gte("sample_index", rows.length);
         if (cleanupError) throw cleanupError;
       }
-      await supabase.from("face_registration_history").insert({
+      const { error: historyError } = await supabase.from("face_registration_history").insert({
         student_id: studentId,
         action: isRereg ? "direct_replace" : "direct_add",
         previous_count,
@@ -374,6 +342,7 @@ const FaceRegisterTab = () => {
         notes: isRereg ? "บันทึกใหม่ทั้งหมด (แทนที่ของเดิม)" : "เพิ่มภาพใบหน้าตรง",
         performed_by: user?.id,
       });
+      if (historyError) throw new Error("บันทึกใบหน้าแล้ว แต่บันทึกประวัติไม่สำเร็จ: " + historyError.message);
 
       clearRegisteredFaceCache(studentId);
       toast.success(`บันทึก ${shots.length} ภาพสำเร็จ`);
@@ -411,7 +380,7 @@ const FaceRegisterTab = () => {
 
           {studentId && registeredIds.has(studentId) && (
             <div className="space-y-1">
-              <label className="text-xs font-medium">เหตุผลการลงทะเบียนใหม่ <span className="text-destructive">*</span></label>
+              <label className="text-xs font-medium">เหตุผลการลงทะเบียนใหม่ (ถ้ามี)</label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -483,17 +452,9 @@ const FaceRegisterTab = () => {
           </div>}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={submitRequest}
-              disabled={busy || shots.length === 0 || !studentId}
-              variant={canApproveDirectly ? "outline" : "default"}
-              className={canApproveDirectly ? "" : "flex-1 gradient-primary"}
-            >
-              <Send className="w-4 h-4 mr-2" />ส่งคำขออนุมัติ ({shots.length})
-            </Button>
-            {canApproveDirectly && (
+            {canSaveDirectly && (
               <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} className="flex-1 gradient-primary">
-                <ShieldCheck className="w-4 h-4 mr-2" />บันทึกใบหน้าให้ FaceGate
+                <ShieldCheck className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : `บันทึกใบหน้าให้ FaceGate (${shots.length})`}
               </Button>
             )}
           </div>
