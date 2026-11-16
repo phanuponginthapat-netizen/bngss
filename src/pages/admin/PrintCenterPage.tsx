@@ -190,7 +190,21 @@ function CardTab() {
         if (profErr) throw profErr;
       }
 
-      toast.success(`อัปโหลดรูปสำเร็จ — ตั้งเป็นรูปโปรไฟล์ของ ${student.first_name} แล้ว`);
+      // 3) ซิงค์ใบหน้าจากรูปใหม่ทันที เหมือนตอนใส่รูปครั้งแรก — ถ้าอ่านใบหน้าไม่ได้ รูปยังอยู่ แจ้งให้ไปซิงค์ในหน้าลงทะเบียน
+      let faceSynced = false;
+      try {
+        await syncStudentFaceFromFile(student.id, idPhoto, user.id);
+        faceSynced = true;
+        ["face-registered-ids", "face-known", "face-db", "students-list-face-register"].forEach(k => qc.invalidateQueries({ queryKey: [k] }));
+      } catch (faceErr) {
+        console.warn("face sync after card photo upload failed", faceErr);
+      }
+
+      if (faceSynced) {
+        toast.success(`อัปโหลดรูปและซิงค์ใบหน้าของ ${student.first_name} แล้ว — สแกนเข้าโรงเรียนได้ทันที`);
+      } else {
+        toast.warning(`อัปโหลดรูปของ ${student.first_name} แล้ว แต่อ่านใบหน้าจากรูปไม่ได้ — กรุณากดซิงค์ในหน้าลงทะเบียนใบหน้าอีกครั้ง`);
+      }
       qc.invalidateQueries({ queryKey: ["students_for_cards"] });
       qc.invalidateQueries({ queryKey: ["search_students_for_cards"] });
       qc.invalidateQueries({ queryKey: ["cart_class_students"] });
