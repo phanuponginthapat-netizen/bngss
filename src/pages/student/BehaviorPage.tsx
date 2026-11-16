@@ -24,6 +24,7 @@ import { notify } from "@/lib/notify";
 import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 // หัวข้อพฤติกรรมตามมาตรฐาน สพฐ.
 const OBEC_BEHAVIOR_TOPICS = [
@@ -73,23 +74,24 @@ const BehaviorPage = () => {
       .map((s: any) => s.id);
   }, [isParent, childIds, studentData.homeroomClassroomIds, studentData.students]);
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], error: recordsError, refetch } = useQuery({
     queryKey: ["behavior_records", academicYear, scopedStudentIds?.join(",") || "all"],
     enabled: scopedStudentIds === null || scopedStudentIds.length >= 0,
     queryFn: async () => {
-      let q = supabase.from("behavior_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false }).limit(5000);
+      return fetchAllRows<any>((from, to) => {
+      let q = supabase.from("behavior_records").select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level))").order("created_at", { ascending: false }).order('id').range(from, to);
       if (scopedStudentIds) {
-        if (scopedStudentIds.length === 0) return [];
+        if (scopedStudentIds.length === 0) return Promise.resolve({ data: [], error: null });
         q = q.in("student_id", scopedStudentIds);
       }
-      const { data } = await q;
-      return data || [];
+      return q;
+      });
     },
   });
 
   // Roster view: one row per filtered student + their behavior records
   const rosterRows = useMemo(() => {
-    return (studentData.filteredStudents as any[]).map((s: any) => {
+    return (studentData.filteredStudents as any[]).filter(s => !isParent || childIds.includes(s.id)).map((s: any) => {
       let studentRecs = (records as any[]).filter((r) => r.student_id === s.id);
       if (filterTopic !== "all") {
         studentRecs = studentRecs.filter((r) => r.description?.includes(topicLabelMap[filterTopic] || filterTopic));
@@ -99,7 +101,7 @@ const BehaviorPage = () => {
       const net = studentRecs.reduce((sum, r) => sum + (r.behavior_type === "positive" ? (r.points || 0) : -(r.points || 0)), 0);
       return { student: s, latest: studentRecs[0] || null, count: studentRecs.length, pos, neg, net };
     });
-  }, [records, studentData.filteredStudents, filterTopic]);
+  }, [records, studentData.filteredStudents, filterTopic, isParent, childIds]);
 
   // Stats (aggregate across all records in scope)
   const stats = useMemo(() => {
@@ -173,6 +175,7 @@ const BehaviorPage = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {(recordsError || studentData.error) && <div role="alert" className="text-destructive">อ่านข้อมูลพฤติกรรมไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-responsive-title font-bold text-foreground">{lang === "th" ? "ระบบความประพฤตินักเรียน" : "Behavior Records"}</h1>

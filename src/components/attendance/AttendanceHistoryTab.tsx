@@ -35,12 +35,13 @@ interface Props {
   classroomFilter: string;
   setClassroomFilter: (v: string) => void;
   gradeOptions: string[];
+  readOnly?: boolean;
 }
 
 export function AttendanceHistoryTab({
   records, students, filteredClassrooms,
   gradeFilter, setGradeFilter, classroomFilter, setClassroomFilter,
-  gradeOptions,
+  gradeOptions, readOnly = false,
 }: Props) {
   const { lang } = useLanguage();
   const qc = useQueryClient();
@@ -58,6 +59,7 @@ export function AttendanceHistoryTab({
   }, [records, gradeFilter, classroomFilter, students]);
 
   const handleDelete = async (id: string) => {
+    if (readOnly) return;
     await supabase.from("attendance").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["attendance"] });
     toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
@@ -126,9 +128,9 @@ export function AttendanceHistoryTab({
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.notes}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                    {!readOnly && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    </Button>}
                   </TableCell>
                 </TableRow>
               ))}

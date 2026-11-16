@@ -23,27 +23,29 @@ export function useStudentData(options?: {
   const { homeroomClassroomIds, isFiltered, teacherFullName } = useHomeroomClassrooms();
 
   // ─── Shared queries with stable keys ───
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
+  const { data: students = [], isLoading: studentsLoading, error: studentsError } = useQuery({
     queryKey: ["active-students-with-class"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("students")
         .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
         .eq("status", "active")
         .order("student_code");
+      if (error) throw error;
       return data || [];
     },
     staleTime: 30_000,
   });
 
-  const { data: classrooms = [], isLoading: classroomsLoading } = useQuery({
+  const { data: classrooms = [], isLoading: classroomsLoading, error: classroomsError } = useQuery({
     queryKey: ["all-classrooms"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("classrooms")
         .select("*")
         .order("grade_level")
         .order("name");
+      if (error) throw error;
       return data || [];
     },
     staleTime: 30_000,
@@ -133,6 +135,7 @@ export function useStudentData(options?: {
     classrooms,
     availableClassrooms,
     isLoading: studentsLoading || classroomsLoading,
+    error: studentsError || classroomsError,
 
     // Filter state
     search,
