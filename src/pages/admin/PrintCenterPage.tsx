@@ -24,6 +24,7 @@ import { gradeRank } from "@/lib/gradeOrder";
 import { saveErrorMessage } from "@/lib/saveError";
 import { waitForIdCardImages } from "@/lib/idCardImages";
 import { makeIdCardPhoto } from "@/lib/idPhotoCrop";
+import { syncStudentFaceFromFile } from "@/lib/faceSync";
 import swal from "@/lib/swal";
 
 type ClassroomForCard = {
@@ -221,7 +222,7 @@ function CardTab() {
   const handlePhotoDelete = async (student: StudentForCard) => {
     const ok = await swal.confirm({
       title: `ลบรูปของ ${student.first_name}?`,
-      text: "รูปจะถูกนำออกจากบัตร รูปโปรไฟล์ และใบหน้าที่ลงทะเบียนสแกนไว้ (ประวัติการมาโรงเรียนยังอยู่ครบ) ต้องลงทะเบียนใบหน้าใหม่หลังใส่รูปใหม่",
+      text: "รูปจะถูกนำออกจากบัตร รูปโปรไฟล์ และใบหน้าที่ลงทะเบียนสแกนไว้ (ประวัติการมาโรงเรียนยังอยู่ครบ) เมื่อใส่รูปใหม่ ระบบจะซิงค์ใบหน้าให้ใหม่อัตโนมัติ",
       confirmText: "ลบรูป",
       danger: true,
     });
