@@ -27,6 +27,9 @@ import {
   Heart,
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { calculateGPA } from "@/lib/gradeUtils";
 import { parentAttendanceStatus } from "@/lib/parentAttendance";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,6 +146,7 @@ function gradeColor(grade: string | null) {
 
 export default function ParentAppPage() {
   const { lang } = useLanguage();
+  const calendar = useAcademicYear();
   const L = useCallback((th: string, en: string) => (lang === "th" ? th : en), [lang]);
 
   const [children, setChildren] = useState<Child[]>([]);
@@ -301,10 +305,11 @@ export default function ParentAppPage() {
     const scoresPromise = child.student_code
       ? supabase
           .from("student_scores")
-          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th)")
+          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th, credits)")
           .eq("student_code", child.student_code)
+          .eq("academic_year", calendar.currentAcademicYear - 543).eq("semester", 1)
           .order("updated_at", { ascending: false })
-          .limit(5)
+          .order("id").limit(1000)
       : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null });
 
     // upcoming homework — try task_assignments by classroom_id + due_date >= today, limit 5
@@ -403,9 +408,10 @@ export default function ParentAppPage() {
     }
 
     return { faceLogs, attendance, scores, homework, remediation, attendanceError };
-  }, []);
+  }, [calendar.currentAcademicYear]);
 
   const loadAll = useCallback(async () => {
+    if (!calendar.isReady) return;
     if (!userId) {
       setLoadingChildren(false);
       return;
@@ -466,7 +472,7 @@ export default function ParentAppPage() {
       setLoadingChildren(false);
       setRefreshing(false);
     }
-  }, [userId, fetchChildren, fetchBundleForChild, L]);
+  }, [userId, fetchChildren, fetchBundleForChild, L, calendar.isReady]);
 
   useEffect(() => {
     void loadAll();
@@ -575,7 +581,7 @@ export default function ParentAppPage() {
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{s.subjects?.name_th || s.subjects?.code || L("วิชา", "Subject")} · {s.subjects?.code || s.subject_id?.slice(0, 6) || "-"}</div>
                 <div className="text-xs text-muted-foreground">
-                  {s.academic_year ? `${L("ปี", "Year")} ${s.academic_year}` : ""} {s.semester ? `· ${L("เทอม", "Sem")} ${s.semester}` : ""} · {L("คะแนนรวม", "Total")} {s.total_score ?? "-"}
+                  {s.academic_year ? `${L("ปี", "Year")} ${s.academic_year < 2400 ? s.academic_year + 543 : s.academic_year}` : ""} {s.semester ? `· ${L("เทอม", "Sem")} ${s.semester}` : ""} · {L("คะแนนรวม", "Total")} {s.total_score ?? "-"}
                 </div>
               </div>
               <Badge className={gradeColor(s.grade)} variant="outline">{s.grade ?? "-"}</Badge>
@@ -785,7 +791,7 @@ export default function ParentAppPage() {
             const selChild = children.find(c => c.id === selId);
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
-            const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
+            const avgGpa = selBundle?.scores?.some(s => s.grade_point != null) ? calculateGPA(selBundle.scores.map((s: any) => ({ gradePoint: s.grade_point == null ? null : Number(s.grade_point), credits: Number(s.subjects?.credits ?? 0) }))).toFixed(2) : "—";
             let attendanceToday:string|null=null;
             let statusUnavailable=!!selBundle?.attendanceError||!lateThreshold;
             if(selBundle&&lateThreshold)try{attendanceToday=parentAttendanceStatus(selChild.id,selBundle.attendance,selBundle.faceLogs,lateThreshold);}catch{statusUnavailable=true;}
