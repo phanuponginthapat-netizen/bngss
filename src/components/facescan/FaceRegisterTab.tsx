@@ -29,6 +29,7 @@ import { detectEnrollmentFace } from '@/lib/detectEnrollmentFace';
 import { IdCardPhoto } from '@/components/IdCardPhoto';
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 import { canSaveFaceRegistration } from '@/lib/faceRegistrationPolicy';
+import { filterFaceRegistrationStudents } from '@/lib/faceRegistrationFilter';
 
 
 const FaceRegisterTab = () => {
@@ -51,6 +52,7 @@ const FaceRegisterTab = () => {
 
   const [studentId, setStudentId] = useState("");
   const [search, setSearch] = useState("");
+  const [grade, setGrade] = useState('all');
   const [reason, setReason] = useState("");
   const [shots, setShots] = useState<Array<{ points: FacePoint[]; canvas: HTMLCanvasElement; desc: Float32Array; texture?: number[] | null; source: "camera" | "upload"; quality: QualityReport }>>([]);
   const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
@@ -157,11 +159,8 @@ const FaceRegisterTab = () => {
   }, [modelReady, students.length, pending.length]);
 
   // ====== Manual capture ======
-  const filtered = students.filter((s: any) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    return [s.first_name, s.last_name, s.student_code].some((v) => String(v || "").toLowerCase().includes(q));
-  }).slice(0, 100);
+  const grades = [...new Set(students.map(s => s.classrooms?.grade_level).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, 'th', { numeric: true }));
+  const filtered = filterFaceRegistrationStudents(students, search, grade);
 
   const startCamera = async (deviceId?: string) => {
     try {
@@ -365,16 +364,27 @@ const FaceRegisterTab = () => {
       <section className="space-y-3 border-b pb-6">
           <h3 className="font-semibold flex items-center gap-2"><Camera className="w-4 h-4" />ลงทะเบียนใบหน้านักเรียน</h3>
 
-          <Input disabled={busy} placeholder="ค้นหาชื่อ/รหัส..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="grid gap-2 sm:grid-cols-[12rem_1fr]">
+            <Select value={grade} onValueChange={setGrade} disabled={busy}>
+              <SelectTrigger aria-label="ระดับชั้น"><SelectValue placeholder="ทุกระดับชั้น" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+                {grades.map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input aria-label="ค้นหานักเรียน" disabled={busy} placeholder="ค้นหาชื่อ/รหัสนักเรียน" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
           <Select value={studentId} onValueChange={(id)=>{setStudentId(id);setShots([]);setLastQuality(null);setReason("");}}>
-            <SelectTrigger disabled={busy}><SelectValue placeholder="1. เลือกนักเรียน" /></SelectTrigger>
+            <SelectTrigger aria-label="เลือกนักเรียน" disabled={busy}><SelectValue placeholder={`เลือกนักเรียน (${filtered.length} คน)`} /></SelectTrigger>
             <SelectContent>
               {filtered.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.prefix}{s.first_name} {s.last_name} ({s.student_code})
+                  <span className="ml-2 text-muted-foreground">{s.classrooms?.grade_level}</span>
                   {registeredIds.has(s.id) && <Badge variant="secondary" className="ml-2 text-xs">มีแล้ว</Badge>}
                 </SelectItem>
               ))}
+              {filtered.length === 0 && <div className="p-3 text-sm text-muted-foreground">ไม่พบนักเรียน</div>}
             </SelectContent>
           </Select>
 
@@ -390,22 +400,29 @@ const FaceRegisterTab = () => {
             </div>
           )}
 
-          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video max-w-xl">
+          <div className="flex gap-2 flex-wrap items-center">
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png" multiple className="hidden" onChange={(e) => handleUpload(e.target.files)} />
+            <Button onClick={() => fileRef.current?.click()} disabled={!modelReady || busy || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS}>
+              <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปนักเรียน (หลายรูป)
+            </Button>
+            {!streaming && <Button onClick={() => startCamera()} disabled={!modelReady || busy || !studentId} variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>}
+            {canSaveDirectly && <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} variant="outline"><ShieldCheck className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : `บันทึกทันที (${shots.length})`}</Button>}
+            {!modelReady && <span role="status" className="text-xs text-muted-foreground">กำลังเตรียมตรวจใบหน้า...</span>}
+          </div>
+
+          <div className={`relative bg-muted rounded-lg overflow-hidden aspect-video max-w-xl ${streaming ? '' : 'hidden'}`}>
             <video ref={videoRef} className="w-full h-full object-contain" muted playsInline />
             <FaceGuideOverlay videoRef={videoRef} active={streaming && modelReady} showLandmarks topLabel="วางใบหน้าให้อยู่ในวงรี" />
             {!streaming && <div className="absolute inset-0 flex items-center justify-center text-muted-foreground"><Camera className="w-12 h-12" /></div>}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className={`items-center gap-2 flex-wrap ${streaming ? 'flex' : 'hidden'}`}>
             <CameraSourcePicker value={camDeviceId} onChange={pickCamera} refreshKey={camTick} className="flex-1 min-w-[10rem]" />
             <CameraFocusLockToggle getStream={() => videoRef.current?.srcObject as MediaStream | null} active={streaming} />
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            {!streaming ? (
-              <Button onClick={() => startCamera()} disabled={!modelReady} size="sm" variant="outline"><Camera className="w-4 h-4 mr-2" />เปิดกล้อง</Button>
-
-            ) : (
+            {streaming && (
               <>
                 <Button onClick={captureShot} disabled={busy || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS} size="sm">
                   <Camera className="w-4 h-4 mr-2" />ถ่าย
@@ -413,17 +430,6 @@ const FaceRegisterTab = () => {
                 <Button onClick={stopCamera} variant="outline" size="sm">ปิดกล้อง</Button>
               </>
             )}
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              className="hidden"
-              onChange={(e) => handleUpload(e.target.files)}
-            />
-            <Button onClick={() => fileRef.current?.click()} disabled={!modelReady || busy || !studentId || shots.length >= MAX_ENROLLMENT_PHOTOS} size="sm" variant="default">
-              <Upload className="w-4 h-4 mr-2" />อัปโหลดรูปนักเรียน (หลายรูป)
-            </Button>
             {shots.length > 0 && (
               <Button disabled={busy} onClick={() => setShots([])} variant="ghost" size="sm"><RefreshCw className="w-4 h-4 mr-2" />ล้าง ({shots.length})</Button>
             )}
@@ -451,13 +457,6 @@ const FaceRegisterTab = () => {
             {shots.map((s,i)=><FaceSamplePreview key={i} image={s.canvas.toDataURL('image/jpeg',.85)} width={s.canvas.width} height={s.canvas.height} points={s.points} score={s.quality.score} index={i} onRemove={()=>{if(!busy)setShots(current=>current.filter((_,j)=>j!==i));}}/>) }
           </div>}
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            {canSaveDirectly && (
-              <Button onClick={saveDirectly} disabled={busy || shots.length === 0 || !studentId} className="flex-1 gradient-primary">
-                <ShieldCheck className="w-4 h-4 mr-2" />{busy ? "กำลังบันทึก..." : `บันทึกใบหน้าให้ FaceGate (${shots.length})`}
-              </Button>
-            )}
-          </div>
       </section>
 
       {/* Auto-sync hero card */}
