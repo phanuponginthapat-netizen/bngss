@@ -481,7 +481,7 @@ const App = () => {
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
                 <Route path="student/grades" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FamilyGradesPage /></ProtectedRoute>} />
                 <Route path="student/attendance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs","academic"]} bypassRoles={["parent","student"]}><AttendancePage /></DepartmentRoute></ProtectedRoute>} />
-                <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FaceScanPage /></ProtectedRoute>} />
+                <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceScanPage /></ProtectedRoute>} />
                 {/* ลงทะเบียนใบหน้าของตนเอง — ทุกบัญชีที่ล็อกอินเข้าถึงได้ (ข้อมูลของตัวเองเท่านั้น) */}
                 <Route path="student/my-face" element={<ProtectedRoute><MyFaceEnrollPage /></ProtectedRoute>} />
                 <Route path="staff/mobile-qr-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><MobileQrScanPage /></ProtectedRoute>} />
