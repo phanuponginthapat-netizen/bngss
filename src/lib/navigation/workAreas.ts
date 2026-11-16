@@ -20,7 +20,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     { title: L("ทำเนียบสมาชิก", "Members"), url: "/dashboard/members", icon: Users, desc: L("ค้นหาสมาชิกและดูผลงาน", "Browse members & portfolios") },
     { title: L("บันทึกเวลาปฏิบัติงาน", "Time Clock"), url: "/dashboard/hr/time-clock", icon: Clock, roles: ["admin", "director", "teacher"], desc: L("บันทึกเวลาเข้า-ออกงาน", "Staff check-in / check-out") },
     { title: L("รายงานปฏิบัติหน้าที่", "Daily Work Reports"), url: "/dashboard/hr/daily-work-log", icon: ClipboardList, roles: ["admin", "director", "teacher"], desc: L("ขอบเขตงานส่วนตัวและรายงานรายเดือน", "Private scopes and monthly work reports") },
-    { title: L("เช็คชื่อนักเรียน", "Student Check-in"), url: "/dashboard/student/face-scan", icon: ScanFace, roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อด้วยใบหน้า/QR แจ้ง LINE ผู้ปกครอง", "Face/QR check-in + LINE notify") },
+    { title: L("สแกนนักเรียนเข้าโรงเรียน", "Student Gate Scan"), url: "/dashboard/student/face-scan", icon: ScanFace, roles: ["admin", "director", "teacher"], desc: L("เช็คชื่อด้วยใบหน้า/QR แจ้ง LINE ผู้ปกครอง", "Face/QR check-in + LINE notify") },
     { title: L("ลงทะเบียนใบหน้าบุคลากร", "Staff Face Enrollment"), url: "/dashboard/student/face-scan?tab=staff", icon: ScanFace, roles: ["admin", "director", "teacher"], desc: L("ลงทะเบียนใบหน้าครูและบุคลากรเพื่อทดสอบ/สแกนเข้าโรงเรียน", "Enroll staff faces for test/check-in") },
     { title: L("ลงทะเบียนใบหน้าของฉัน", "My Face Enrollment"), url: "/dashboard/student/my-face", icon: ScanFace, roles: ["student"], desc: L("ลงทะเบียนใบหน้าเพื่อสแกนเข้าโรงเรียน", "Enroll your face for check-in") },
     // ── ทางลัดใช้บ่อย (ดึงออกจากฝ่าย เพื่อความเร็ว) ──
@@ -29,7 +29,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     { title: L("กระดานโน้ต (Padlet)", "Padlet Boards"), url: "/dashboard/padlet", icon: StickyNote, roles: ["admin", "director", "teacher", "student"], desc: L("แขวนใบงาน · แปะโน้ตในคาบเรียน", "Hang tasks · post sticky notes") },
     { title: L("การลาของนักเรียน", "Student Leave"), url: "/dashboard/student/leave", icon: FileText, roles: ["admin", "director", "teacher", "student"], desc: L("ยื่นและอนุมัติใบลานักเรียน", "Student leave requests") },
     { title: L("การลาของครู/บุคลากร", "Staff Leave"), url: "/dashboard/hr/leave", icon: FileText, roles: ["admin", "director", "teacher"], desc: L("ยื่นและอนุมัติใบลาของครูและบุคลากร", "Staff leave requests") },
-    { title: L("บันทึกการมาเรียน", "Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, roles: ["admin", "director", "teacher"], desc: L("สแกนเข้าโรงเรียนและเช็คชื่อรายคาบ", "Gate scan & per-period") },
+    { title: L("เช็คชื่อนักเรียนรายคาบ", "Per-period Attendance"), url: "/dashboard/student/attendance", icon: ClipboardList, roles: ["admin", "director", "teacher"], desc: L("บันทึกการเข้าเรียนรายคาบ", "Per-period check-in") },
     { title: L("บันทึกพฤติกรรม", "Behavior"), url: "/dashboard/student/behavior", icon: Shield, roles: ["admin", "director", "teacher"], desc: L("บันทึกคะแนนความประพฤติ", "Conduct points") },
     // Game Hub hidden — backend deleted (quota)
     // { title: L("ศูนย์เกมการเรียนรู้", "Game Hub"), url: "/dashboard/hub/games", icon: Gamepad2, roles: ["admin", "director", "teacher", "student"], desc: L("คลังเกม · จัดการเกม · API Keys", "Store · Manage · API keys") },
