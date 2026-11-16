@@ -29,13 +29,31 @@ export default function FamilySchoolAttendance({ academicYear, semester }: { aca
   const query = useQuery({
     queryKey: ['family-school-attendance', peopleIds.join(','), academicYear, semester, date],
     enabled: !peopleLoading && calendar.isReady && peopleIds.length > 0,
-    queryFn: () => fetchAllRows((from, to) => {
-      let q = supabase.from('attendance').select('id,student_id,attendance_date,status,notes').in('student_id', peopleIds)
-        .is('subject_id', null).eq('period', 0).eq('academic_year', academicYear - 543).order('attendance_date', { ascending: false }).order('id').range(from, to);
-      if (semester > 0) q = q.eq('semester', semester);
-      if (date) q = q.eq('attendance_date', date);
-      return q;
-    }),
+    queryFn: async () => {
+      const rows = await fetchAllRows((from, to) => {
+        let q = supabase.from('attendance').select('id,student_id,attendance_date,status,notes').in('student_id', peopleIds)
+          .is('subject_id', null).eq('period', 0).eq('academic_year', academicYear - 543).order('attendance_date', { ascending: false }).order('id').range(from, to);
+        if (semester > 0) q = q.eq('semester', semester);
+        if (date) q = q.eq('attendance_date', date);
+        return q;
+      });
+      // ดึงหลักฐานการสแกน (เวลา + รูป) ของวันที่มีบันทึก เลือกการสแกนเข้าครั้งแรกของแต่ละคนในแต่ละวัน
+      const dates = [...new Set(rows.map(r => r.attendance_date))];
+      const scans = new Map<string, { time: string; photo: string | null }>();
+      if (dates.length > 0) {
+        const { data: logs, error: scanError } = await supabase.from('face_scan_logs')
+          .select('student_id,scan_date,scan_time,captured_face_url')
+          .in('student_id', peopleIds).in('scan_date', dates).eq('scan_type', 'entry')
+          .order('scan_time').limit(1000);
+        if (scanError) throw scanError;
+        for (const log of logs ?? []) {
+          const key = `${log.student_id}:${log.scan_date}`;
+          if (scans.has(key)) continue;
+          scans.set(key, { time: String(log.scan_time).slice(0, 5), photo: await resolveKioskMediaUrl(log.captured_face_url) });
+        }
+      }
+      return rows.map(r => ({ ...r, scan: scans.get(`${r.student_id}:${r.attendance_date}`) ?? null }));
+    },
   });
   const labels: Record<string, string> = { present: 'มาโรงเรียน', absent: 'ขาด', late: 'สาย', leave: 'ลา', sick: 'ป่วย' };
   return <section className="space-y-4"><Input type="date" aria-label="วันที่มาโรงเรียน" className="w-full sm:w-52" value={date} onChange={e => setDate(e.target.value)} />
