@@ -59,7 +59,7 @@ export default function HealthTrendPage() {
     const t = setTimeout(async () => {
       let query = supabase
         .from("students")
-        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
         .eq("status", "active");
 
       const term = q.trim();
@@ -129,7 +129,7 @@ export default function HealthTrendPage() {
         // ดึงตัวเต็มพร้อม classroom
         const { data } = await supabase
           .from("students")
-          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
           .eq("id", resolved.id)
           .maybeSingle();
         if (data) setSelected(data as any);
