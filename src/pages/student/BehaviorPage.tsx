@@ -310,7 +310,8 @@ const BehaviorPage = () => {
         </CardContent></Card>
       </div>
 
-      {/* Filter */}
+      {/* Filter — parents see only their own children, no search/filter */}
+      {!isParent && (
       <Card className="border-dashed">
         <CardContent className="pt-4 pb-3">
           <div className="flex flex-col sm:flex-row gap-2">
