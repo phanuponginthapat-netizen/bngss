@@ -85,6 +85,7 @@ export function AttendanceHistoryTab({
             ))}
           </SelectContent>
         </Select>
+        </>}
       </div>
 
       <Card>

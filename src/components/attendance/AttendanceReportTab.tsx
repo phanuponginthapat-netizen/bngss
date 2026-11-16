@@ -29,7 +29,7 @@ interface Props {
 export function AttendanceReportTab({
   students, classrooms, filteredClassrooms,
   gradeFilter, setGradeFilter, classroomFilter, setClassroomFilter,
-  gradeOptions, records,
+  gradeOptions, records, hideFilters = false,
 }: Props) {
   const { lang } = useLanguage();
   const [startDate, setStartDate] = useState(() => {
