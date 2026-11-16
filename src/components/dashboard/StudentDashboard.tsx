@@ -2,6 +2,7 @@ import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { familyGradeSemester } from "@/lib/familyGrades";
 import { requireSuccessfulReads } from "@/lib/dataReliability";
 import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
@@ -43,6 +44,7 @@ const StudentDashboard = () => {
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
   const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
   const currentBE = currentAcademicYear;
+  const gradeSemester = familyGradeSemester(isParent, currentSemester);
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 
@@ -151,16 +153,18 @@ const StudentDashboard = () => {
 
   // ── Enhanced student KPIs: GPA, upcoming exams, recent grades, sparkline trends ──
   const { data: gpaData } = useQuery({
-    queryKey: ["student_gpa", data?.student?.student_code],
-    enabled: !!data?.student?.student_code,
+    queryKey: ["student_gpa", data?.student?.student_code, currentAcademicYear, gradeSemester],
+    enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("student_scores")
         .select("grade_point, total_score, grade, updated_at")
-        .eq("student_code", data!.student!.student_code)
+        .eq("student_code", data?.student?.student_code ?? "")
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
         .not("grade_point", "is", null)
         .order("updated_at", { ascending: false })
         .limit(20);
+      if (error) throw error;
       const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
       const avg = pts.length ? (pts.reduce((a, b) => a + b, 0) / pts.length) : 0;
       const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
@@ -195,15 +199,17 @@ const StudentDashboard = () => {
   });
 
   const { data: recentGrades } = useQuery({
-    queryKey: ["student_recent_grades", data?.student?.student_code],
-    enabled: !!data?.student?.student_code,
+    queryKey: ["student_recent_grades", data?.student?.student_code, currentAcademicYear, gradeSemester],
+    enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("student_scores")
         .select("id, grade, total_score, grade_point, subjects(name_th, code)")
-        .eq("student_code", data!.student!.student_code)
+        .eq("student_code", data?.student?.student_code ?? "")
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
         .order("updated_at", { ascending: false })
         .limit(5);
+      if (error) throw error;
       return rows || [];
     },
   });
@@ -243,7 +249,7 @@ const StudentDashboard = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 opacity-80" />
-                  <span className="text-xs font-medium opacity-80 tracking-wide uppercase">{L("นักเรียน", "Student")}</span>
+                  <span className="text-xs font-medium opacity-80 tracking-wide uppercase">{isParent ? L("ผู้ปกครอง", "Parent") : L("นักเรียน", "Student")}</span>
                 </div>
                 <h1 className="text-2xl font-bold mb-1 truncate">{greeting}{displayName ? `, ${displayName}` : ""} 👋</h1>
                 <p className="text-sm opacity-90 truncate">
@@ -342,7 +348,7 @@ const StudentDashboard = () => {
             >
               {/* GPA */}
               <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
-                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <Card onClick={() => navigate("/dashboard/student/grades")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
                   <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -458,7 +464,7 @@ const StudentDashboard = () => {
 
               {/* Recent Grades */}
               <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
-                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <Card onClick={() => navigate("/dashboard/student/grades")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
                   <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -551,7 +557,7 @@ const StudentDashboard = () => {
       {/* คะแนนของฉัน — กราฟใยแมงมุม 8 กลุ่มสาระ */}
       {data?.student && (
         <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
-          <MyRadarWidget />
+          <MyRadarWidget studentCode={data.student.student_code} />
         </Suspense>
       )}
 
