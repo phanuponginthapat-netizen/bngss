@@ -1226,17 +1226,19 @@ function VaultSettings() {
     setChecking(true);
     try {
       // Primary source of truth: the app_secrets row itself
-      const { data: row } = await supabase
+      const { data: row, error: tokenError } = await supabase
         .from("app_secrets" as any)
-        .select("value")
+        .select("key")
         .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
         .maybeSingle();
-      const dbHasToken = !!(row as any)?.value && String((row as any).value).trim().length > 0;
+      if (tokenError) throw tokenError;
+      const dbHasToken = !!row;
       const { data: signatureRow, error: signatureError } = await supabase.from("app_secrets").select("key").eq("key", "LINE_VAULT_CHANNEL_SECRET").maybeSingle();
       if (signatureError) throw signatureError;
 
       // Best-effort: also ping the webhook to see if env is already synced
       let envHasToken = false;
+      let envHasSignature = false;
       let webhookOk = true;
       let errMsg: string | undefined;
       try {
@@ -1244,6 +1246,7 @@ function VaultSettings() {
           body: { __ping: true },
         });
         envHasToken = !!(data as any)?.token_configured;
+        envHasSignature = !!(data as any)?.signature_configured;
         webhookOk = !error;
         errMsg = error?.message;
       } catch (e: any) {
@@ -1257,7 +1260,7 @@ function VaultSettings() {
       ]);
       setStatus({
         token: dbHasToken || envHasToken,
-        signature: !!signatureRow,
+        signature: !!signatureRow || envHasSignature,
         webhook_ok: webhookOk,
         error: errMsg,
         groups: groups || 0,
