@@ -1,8 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { imageStorageSource } from './imageStorageSource';
+import { getBackendConfig } from './runtimeConfig';
 
 const BUCKET = "profile-images";
-const LONG_EXPIRY_SEC = 60 * 60 * 24 * 365 * 10;
+const LONG_EXPIRY_SEC = 3600;
 
 // In-memory cache — avoids re-signing the same avatar on every render/mount.
 const cache = new Map<string, string>();
@@ -19,31 +21,33 @@ export function extractProfileImagePath(url: string | null | undefined): string 
 export async function resolveProfileImageUrl(url: string | null | undefined, forceRefresh = false): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith("data:") || url.startsWith("blob:")) return url;
-  const path = extractProfileImagePath(url);
-  if (!path) return url;
-  // Already a live signed URL
-  if (!forceRefresh && url.includes("/object/sign/") && url.includes("token=")) return url;
-  const cached = !forceRefresh && (cache.get(path) || readStored(path));
-  if (cached) { cache.set(path, cached); return cached; }
-  const pending = inflight.get(path);
+  const source = imageStorageSource(url);
+  if (!source) return url;
+  const { path, bucket } = source;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const key = `${getBackendConfig().url}:${sessionData.session?.user.id || 'signed-out'}:${bucket}/${path}`;
+  const cached = !forceRefresh && readStored(key);
+  if (cached) return cached;
+  const pending = inflight.get(key);
   if (pending) return pending;
   const p = (async () => {
-    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LONG_EXPIRY_SEC);
-    const signed = data?.signedUrl || url;
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, LONG_EXPIRY_SEC);
+    if (error) throw error;
+    if (!data?.signedUrl) throw new Error('อ่านลิงก์รูปไม่สำเร็จ');
+    const signed = data.signedUrl;
     if (data?.signedUrl) {
-      cache.set(path, signed);
-      writeStored(path, data.signedUrl);
+      writeStored(key, data.signedUrl);
     }
     return signed;
-  })().finally(() => inflight.delete(path));
-  inflight.set(path, p);
+  })().finally(() => inflight.delete(key));
+  inflight.set(key, p);
   return p;
 }
 
 // Concurrent mounts share one request; signed URLs persist for a week across reloads.
 const inflight = new Map<string, Promise<string>>();
 const STORE_KEY = "profile-img-signed:";
-const STORE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const STORE_TTL_MS = 50 * 60 * 1000;
 function readStored(path: string): string | null {
   try {
     const raw = localStorage.getItem(STORE_KEY + path);
@@ -60,13 +64,14 @@ export function useProfileImageUrl(url: string | null | undefined): string | nul
   const [resolved, setResolved] = useState<string | null>(() => {
     if (!url) return null;
     const path = extractProfileImagePath(url);
-    return (path && (cache.get(path) || readStored(path))) || (url.includes("token=") ? url : null);
+    return imageStorageSource(url) ? null : url;
   });
   useEffect(() => {
     let alive = true;
+    setResolved(null);
     resolveProfileImageUrl(url).then((r) => {
       if (alive) setResolved(r);
-    });
+    }).catch(() => { if (alive) setResolved(null); });
     return () => { alive = false; };
   }, [url]);
   return resolved;

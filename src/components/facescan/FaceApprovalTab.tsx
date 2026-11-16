@@ -12,6 +12,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { urlToFaceThumb, urlToFaceTexture } from "@/lib/faceThumb";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
 import { saveErrorMessage } from "@/lib/saveError";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
+import { resolveStorageUrl } from '@/lib/storageUrl';
 
 interface RequestRow {
   id: string;
@@ -45,21 +47,15 @@ interface HistoryRow {
 const signedUrlCache = new Map<string, string>();
 const getSignedUrl = async (path: string): Promise<string> => {
   if (!path) return "";
-  if (signedUrlCache.has(path)) return signedUrlCache.get(path)!;
-  const { data } = await supabase.storage.from("face-photos").createSignedUrl(path, 3600);
-  const url = data?.signedUrl || "";
-  if (url) signedUrlCache.set(path, url);
-  return url;
+  return resolveStorageUrl('face-photos', path);
 };
 
 const PhotoStrip = ({ paths }: { paths: string[] }) => {
-  const [urls, setUrls] = useState<string[]>([]);
-  useEffect(() => { Promise.all(paths.map(getSignedUrl)).then(setUrls); }, [paths]);
   if (paths.length === 0) return null;
   return (
     <div className="flex gap-2 overflow-x-auto pb-1">
       {paths.map((p, i) => (
-        <img key={i} src={urls[i] || ""} alt="" className="w-20 h-20 object-cover rounded border flex-shrink-0 bg-muted" />
+        <div key={p} className="w-20 h-20 rounded border shrink-0 overflow-hidden"><IdCardPhoto url={p} bucket="face-photos" name={`รูปใบหน้า ${i+1}`} /></div>
       ))}
     </div>
   );
