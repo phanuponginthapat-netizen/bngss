@@ -379,6 +379,13 @@
       "when": 1794808656543,
       "tag": "0053_invalidate_student_faces_on_portrait_change",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794808706338,
+      "tag": "0054_preserve_required_pending_face_fields",
+      "breakpoints": true
     }
   ]
 }
