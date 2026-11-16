@@ -60,7 +60,9 @@ export default function HealthTrendPage() {
         .eq("status", "active");
 
       const term = q.trim();
-      if (term) {
+      // Parents must not search other students — RLS already scopes rows,
+      // but never even send a name/code search from a parent session.
+      if (term && !isParent) {
         query = query.or(
           `first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_code.ilike.%${term}%`,
         );

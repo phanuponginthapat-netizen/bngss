@@ -22,6 +22,8 @@ const FaceScanPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "qr";
   const [tab, setTab] = useState(initialTab);
+  // Parents only get the QR/face tabs — force back if a deep link points elsewhere.
+  if (isParent && tab !== "qr" && tab !== "face") setTab("qr");
   const handleTabChange = (v: string) => {
     setTab(v);
     setSearchParams(v === "qr" ? {} : { tab: v }, { replace: true });
