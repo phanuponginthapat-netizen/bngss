@@ -281,6 +281,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       });
       return { content: r.content, provider: `pool:${p}`, model: r.model };
     } catch (e: any) {
+      if (String(e?.message || "").includes("AI ใช้เวลาตอบนานเกินไป")) throw e;
       errors.push(`pool:${p}: ${e?.message || e}`);
       continue;
     }

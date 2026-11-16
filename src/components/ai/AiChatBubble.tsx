@@ -16,7 +16,6 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
-import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
 import { streamImage } from "@/lib/streamImage";
 import { loadAiChatHistory } from "@/lib/aiChatHistory";
@@ -1056,7 +1055,7 @@ export default function AiChatBubble() {
               {busy && (
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-2xl px-3 py-2 text-sm flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" /> กำลังคิด...
+                    <Loader2 className="w-3 h-3 animate-spin" /> {messages[messages.length - 1]?.role === "assistant" ? "กำลังบันทึกคำตอบ..." : "กำลังคิด..."}
                   </div>
                 </div>
               )}
