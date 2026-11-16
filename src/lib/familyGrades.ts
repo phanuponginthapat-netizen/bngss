@@ -1,0 +1,2 @@
+export function familyGradeSemester(isParent: boolean, currentSemester: number) { return isParent ? 1 : currentSemester; }
+export function linkedChild<T extends { id: string }>(children: T[], selectedId?: string | null): T | null { return children.find(child => child.id === selectedId) ?? children[0] ?? null; }

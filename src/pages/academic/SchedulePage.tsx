@@ -46,7 +46,7 @@ const SchedulePage = () => {
   const { isAdmin: _rawAdmin, isDirector, isTeacher, isStudent, isParent, userId } = useUserRole();
   const isAdmin = _rawAdmin || isDirector;
   const qc = useQueryClient();
-  const { currentSemester, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
+  const { currentSemester, currentAcademicYear, isLoading: calendarLoading, isReady: calendarReady, error: calendarError } = useAcademicYear();
   const scheduleYear = currentAcademicYear - 543;
   const semesterChosen = useRef(false);
   const [viewMode, setViewMode] = useState<"classroom" | "mySchedule">(isTeacher ? "mySchedule" : "classroom");
@@ -143,10 +143,12 @@ const SchedulePage = () => {
 
 
 
-  const [filterSemester, setFilterSemester] = useState<number>(currentSemester);
+  const [chosenSemester, setChosenSemester] = useState<number | null>(null);
+  const filterSemester = chosenSemester ?? currentSemester;
+  const setFilterSemester = setChosenSemester;
   useEffect(() => {
-    if (!calendarLoading && !semesterChosen.current) setFilterSemester(currentSemester);
-  }, [calendarLoading, currentSemester]);
+    if (calendarReady && !semesterChosen.current) setFilterSemester(null);
+  }, [calendarReady, currentSemester]);
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
