@@ -24,6 +24,7 @@ import { gradeRank } from "@/lib/gradeOrder";
 import { saveErrorMessage } from "@/lib/saveError";
 import { waitForIdCardImages } from "@/lib/idCardImages";
 import { makeIdCardPhoto } from "@/lib/idPhotoCrop";
+import swal from "@/lib/swal";
 
 type ClassroomForCard = {
   id: string;
@@ -195,6 +196,36 @@ function CardTab() {
       qc.invalidateQueries({ queryKey: ["cart_class_students"] });
       qc.invalidateQueries({ queryKey: ["cart_search_students"] });
       setCartStudents(current => current.map(item => item.id === student.id ? { ...item, photo_url: url, avatar_url: url } : item));
+    } catch (e: any) {
+      console.error(e);
+      toast.error(saveErrorMessage(e));
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handlePhotoDelete = async (student: StudentForCard) => {
+    const ok = await swal.confirm({
+      title: `ลบรูปของ ${student.first_name}?`,
+      text: "รูปจะถูกนำออกจากบัตร รูปโปรไฟล์ และใบหน้าที่ลงทะเบียนสแกนไว้ (ประวัติการมาโรงเรียนยังอยู่ครบ) ต้องลงทะเบียนใบหน้าใหม่หลังใส่รูปใหม่",
+      confirmText: "ลบรูป",
+      danger: true,
+    });
+    if (!ok) return;
+    setUploadingId(student.id);
+    try {
+      // ล้างรูปบัตร — ระบบจะลบใบหน้าที่ลงทะเบียนและคำขอที่รออนุมัติให้อัตโนมัติ
+      const { error: stuErr } = await supabase.from("students").update({ photo_url: null }).eq("id", student.id);
+      if (stuErr) throw stuErr;
+      if (student.student_code) {
+        const { error: profErr } = await supabase.from("profiles").update({ avatar_url: null, avatar_full_url: null }).eq("student_code", student.student_code);
+        if (profErr) throw profErr;
+      }
+      const { error: faceErr } = await supabase.from("student_face_descriptors").delete().eq("student_id", student.id);
+      if (faceErr) throw faceErr;
+      toast.success(`ลบรูปของ ${student.first_name} แล้ว`);
+      ["students_for_cards", "search_students_for_cards", "cart_class_students", "cart_search_students"].forEach(k => qc.invalidateQueries({ queryKey: [k] }));
+      setCartStudents(current => current.map(item => item.id === student.id ? { ...item, photo_url: null, avatar_url: null } : item));
     } catch (e: any) {
       console.error(e);
       toast.error(saveErrorMessage(e));
@@ -560,6 +591,16 @@ function CardTab() {
                       {isUploading ? "กำลังตัดรูปติดบัตร..." : hasPhoto ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
                     </span>
                   </label>
+                  {hasPhoto && (
+                    <button
+                      type="button"
+                      disabled={isUploading}
+                      onClick={() => handlePhotoDelete(s)}
+                      className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-destructive transition disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3 h-3" /> ลบรูป
+                    </button>
+                  )}
                 </div>
               );
             })}
