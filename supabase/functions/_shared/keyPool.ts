@@ -243,6 +243,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
       try {
         const r = await fetch(cfg.url, {
           method: "POST",
+          signal: opts.functionName?.startsWith("ai-chat") ? AbortSignal.timeout(45000) : undefined,
           headers: cfg.buildHeaders(k.api_key),
           body: JSON.stringify(cfg.buildBody(model, opts.messages, opts)),
         });
@@ -273,6 +274,9 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
         await logPool(model, true, started, data?.usage);
         return { content, provider, model, keyLabel: k.label || "key" };
       } catch (e: any) {
+        if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+          throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
+        }
         errors.push(`${k.label || k.id.slice(0, 8)}/${model}: ${e?.message || e}`);
         await logPool(model, false, started, undefined, "provider connection failed");
         continue;

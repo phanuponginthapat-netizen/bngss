@@ -16,10 +16,10 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAiBotSettings } from "@/hooks/useAiBotSettings";
 import { swal } from "@/lib/swal";
 import { subscribeToPush, getCurrentPushStatus, isPwaCapable, isInIframe, isPreviewHost } from "@/lib/pushSubscribe";
-import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
 import { streamImage } from "@/lib/streamImage";
 import { loadAiChatHistory } from "@/lib/aiChatHistory";
+import { streamAiChat } from "@/lib/aiChatStream";
 
 const AI_IMAGE_PREFIX = "ai-image://";
 const signedCache = new Map<string, string>();
@@ -753,21 +753,15 @@ export default function AiChatBubble() {
       return;
     }
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: { messages: nextSend },
+      const data = await streamAiChat(nextSend, reply => {
+        setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       });
-      if (error) throw error;
       const reply = (data as any)?.reply || (data as any)?.error || "ขอโทษค่ะ ตอบไม่ได้";
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       if (data?.historySaved === false) swal.error("สร้างคำตอบแล้ว แต่ยังบันทึกแชทไม่สำเร็จ กรุณาคัดลอกหรือบันทึกร่างเก็บไว้ก่อนปิดหน้า");
       speak(reply);
     } catch (e: any) {
-      // ลอง AI ฟรีในเครื่องก่อน (ไม่ต้องใช้ API)
-      try {
-        const prompt = nextSend.map(m=> `${m.role}: ${m.content}`).join("\n");
-        const free = await askFreeAI(prompt);
-        if (free) { setMessages([...nextDisplay, { role: "assistant", content: free + "\n\n_(ตอบด้วย AI ฟรีในเครื่อง)_" }]); speak(free); return; }
-      } catch {}
+      // Do not start a second inference after an ambiguous failure.
       const msg = String(e?.message || e?.context?.error || "");
       // จำแนกชนิด error ให้แม่นยำ — "เครดิตหมด" ใช้เฉพาะกรณีโควต้าจริงๆ เท่านั้น
       const isDailyQuota = /ครบ\s*\d+\s*ข้อความ|daily limit|quota.*exceed/i.test(msg);
@@ -780,7 +774,10 @@ export default function AiChatBubble() {
           : isRateLimit
             ? "ระบบ AI ถูกเรียกถี่เกินไป กรุณารอสักครู่แล้วลองใหม่นะคะ 🙏"
             : `ขออภัยค่ะ เกิดข้อขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้งนะคะ 🙏${msg ? `\n\n_รายละเอียด: ${msg.slice(0, 200)}_` : ""}`;
-      setMessages([...nextDisplay, { role: "assistant", content: friendly }]);
+      setMessages(current => {
+        const partial = current[nextDisplay.length];
+        return [...nextDisplay, { role: "assistant", content: partial?.role === "assistant" ? `${partial.content}\n\n${friendly}` : friendly }];
+      });
     } finally {
       setBusy(false);
     }
@@ -1061,7 +1058,7 @@ export default function AiChatBubble() {
               {busy && (
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-2xl px-3 py-2 text-sm flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" /> กำลังคิด...
+                    <Loader2 className="w-3 h-3 animate-spin" /> {messages[messages.length - 1]?.role === "assistant" ? "กำลังบันทึกคำตอบ..." : "กำลังคิด..."}
                   </div>
                 </div>
               )}
