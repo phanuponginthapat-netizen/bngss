@@ -3,6 +3,7 @@ import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { familyGradeSemester } from "@/lib/familyGrades";
+import { calculateGPA } from '@/lib/gradeUtils';
 import { requireSuccessfulReads } from "@/lib/dataReliability";
 import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
@@ -156,17 +157,15 @@ const StudentDashboard = () => {
     queryKey: ["student_gpa", data?.student?.student_code, currentAcademicYear, gradeSemester],
     enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
-      const { data: rows, error } = await supabase
+      const rows = await fetchAllRows((from, to) => supabase
         .from("student_scores")
-        .select("grade_point, total_score, grade, updated_at")
+        .select("id, grade_point, total_score, grade, updated_at, subjects(credits)")
         .eq("student_code", data?.student?.student_code ?? "")
         .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
         .not("grade_point", "is", null)
-        .order("updated_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
+        .order("updated_at", { ascending: false }).order('id').range(from, to));
       const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
-      const avg = pts.length ? (pts.reduce((a, b) => a + b, 0) / pts.length) : 0;
+      const avg = calculateGPA(rows.map(r => ({ gradePoint: r.grade_point == null ? null : Number(r.grade_point), credits: Number(r.subjects?.credits ?? 0) })));
       const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
       const recent = (rows || []).slice(0, 5);
       return { gpa: pts.length ? avg.toFixed(2) : "—", count: pts.length, spark, recent, avgNum: avg };

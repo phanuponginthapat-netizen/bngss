@@ -6,16 +6,17 @@ import { useAcademicYear } from '@/hooks/useAcademicYear';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-export default function FamilySchoolAttendance() {
+export default function FamilySchoolAttendance({ academicYear, semester }: { academicYear: number; semester: number }) {
   const family = useParentChildren();
   const calendar = useAcademicYear();
   const [date, setDate] = useState('');
   const query = useQuery({
-    queryKey: ['family-school-attendance', family.childIds.join(','), calendar.currentAcademicYear, date],
+    queryKey: ['family-school-attendance', family.childIds.join(','), academicYear, semester, date],
     enabled: !family.isLoading && calendar.isReady && family.childIds.length > 0,
     queryFn: () => fetchAllRows((from, to) => {
       let q = supabase.from('attendance').select('id,student_id,attendance_date,status,notes').in('student_id', family.childIds)
-        .is('subject_id', null).eq('period', 0).eq('academic_year', calendar.currentAcademicYear - 543).order('attendance_date', { ascending: false }).order('id').range(from, to);
+        .is('subject_id', null).eq('period', 0).eq('academic_year', academicYear - 543).order('attendance_date', { ascending: false }).order('id').range(from, to);
+      if (semester > 0) q = q.eq('semester', semester);
       if (date) q = q.eq('attendance_date', date);
       return q;
     }),

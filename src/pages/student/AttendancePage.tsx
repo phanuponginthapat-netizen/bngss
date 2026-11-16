@@ -152,7 +152,7 @@ const AttendancePage = () => {
             {isParent ? 'ประวัติรายคาบ' : lang === "th" ? "ประวัติ" : "History"}
           </TabsTrigger>
         </TabsList>
-        {isParent && <TabsContent value="school"><FamilySchoolAttendance /></TabsContent>}
+        {isParent && <TabsContent value="school"><FamilySchoolAttendance academicYear={academicYear} semester={semester} /></TabsContent>}
 
         {canCheckSubject && (
           <TabsContent value="subject">
