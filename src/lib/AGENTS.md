@@ -31,3 +31,4 @@
 - Private homework Storage reads preserve owner access and use the existing server-side staff check for grading; never equate owner-filtered 404s with deleted files or make the bucket public.
 - AR, asset, leave, social and task media use the shared authenticated storage resolver; task attachment reads require the exact assigned recipient, sender folder and saved path, while failed previews preserve their original item positions.
 - ID card uploads pass through idPhotoCrop (largest-face crop at card ratio + gentle auto-levels) and reject photos without a face, so printed cards never receive unframed or wrong images.
+- ID card framing anchors on face-api landmarks (brow-to-chin = 43% of card height, face centre 51.5% from the top) measured from the school's real card sample, never on the SSD detection box, which includes the forehead and shrinks the printed face; fall back to the detector box only when landmarks are unusable.
