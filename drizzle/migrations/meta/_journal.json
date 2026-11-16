@@ -365,6 +365,13 @@
       "when": 1794796163747,
       "tag": "0051_face_scan_notify_linked_parents",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1794804805021,
+      "tag": "0052_family_view_scan_photos",
+      "breakpoints": true
     }
   ]
 }
