@@ -4,22 +4,27 @@ export const ID_PHOTO_HEIGHT = 531;
 
 export type Box = { x: number; y: number; width: number; height: number };
 
+/** สัดส่วนใบหน้า (คิ้ว-คาง) เทียบกับความสูงรูปบัตร ที่วัดจากต้วอย่างบัตรจริงของโรงเรียน */
+export const ID_FACE_HEIGHT_RATIO = 0.43;
+/** ตำแหน่งจุดกลางใบหน้าเทียบกับขอบบนรูปบัตร ที่วัดจากต้วอย่างบัตรจริงของโรงเรียน */
+export const ID_FACE_CENTER_Y_RATIO = 0.515;
+
 /**
- * คำนวณกรอบตัดรูปหน้าตรงแบบรูปติดบัตร: กรอบใบหน้า (คิ้ว-คาง) กินราว 33% ของความสูง
- * จุดกลางใบหน้าอยู่ราว 53% จากขอบบน จากขอบบน (เผื่อผม/หน้าผากด้านบน และไหล่ด้านล่าง)
+ * คำนวณกรอบตัดรูปหน้าตรงแบบรูปติดบัตร: กรอบใบหน้า (คิ้ว-คาง) กินราว 43% ของความสูง
+ * จุดกลางใบหน้าอยู่ราว 51.5% จากขอบบน (เผื่อผม/หน้าผากด้านบน และไหล่ด้านล่าง)
  * กรอบไม่เกินขอบรูปต้นฉบับ และคงสัดส่วน 413:531 เสมอ
  */
 export function computeIdPhotoCrop(face: Box, imgW: number, imgH: number): Box {
   const ratio = ID_PHOTO_WIDTH / ID_PHOTO_HEIGHT;
-  // กรอบตรวจจับครอบแค่คิ้วถึงคาง จึงให้กินราว 33% เพื่อเห็นผมทั้งหัวและบ่า
-  let h = face.height / 0.33;
+  // กรอบตรวจจับครอบแค่คิ้วถึงคาง จึงใช้สัดส่วนที่วัดจากบัตรจริง เพื่อให่ใบหน้าใหญ่เท่าต้วอย่าง
+  let h = face.height / ID_FACE_HEIGHT_RATIO;
   let w = h * ratio;
   if (w > imgW) { w = imgW; h = w / ratio; }
   if (h > imgH) { h = imgH; w = h * ratio; }
   const cx = face.x + face.width / 2;
   const cy = face.y + face.height / 2;
   let x = cx - w / 2;
-  let y = cy - h * 0.53;
+  let y = cy - h * ID_FACE_CENTER_Y_RATIO;
   x = Math.min(Math.max(0, x), imgW - w);
   y = Math.min(Math.max(0, y), imgH - h);
   return { x, y, width: w, height: h };
