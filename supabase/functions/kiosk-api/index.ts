@@ -381,16 +381,16 @@ Deno.serve(async (req) => {
       ].filter((f) => people.some(p=>p.id===f.owner)&&validFaceEmbedding(f.descriptor));
 
       const version = (f: any) => String(f.created_at ?? "");
-      const embeddings = rows
+      const embeddings = await Promise.all(rows
         .filter((f) => !incremental || known[f.id] !== version(f))
-        .map((f) => ({
+        .map(async (f) => ({
           id: f.id,
           student_id: f.owner,
           embedding: f.descriptor,
           geometry: (f.metrics && typeof f.metrics === "object" ? f.metrics.geometry ?? null : null),
           version: version(f),
           reference_image: f.face_image ? await kioskMediaUrl(db, f.face_image) : null,
-        }));
+        })));
       const liveIds = new Set(rows.map((f) => f.id));
       const removed = incremental ? Object.keys(known).filter((id) => !liveIds.has(id)) : [];
 
