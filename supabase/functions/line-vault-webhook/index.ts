@@ -53,11 +53,35 @@ Deno.serve(async (req) => {
     const body = JSON.parse(raw);
 
     // Health-check ping from admin UI
-    if (body?.__ping) {
+    if (body?.__ping || body?.__repair_webhook) {
       const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
       if (caller instanceof Response) return caller;
       const signatureSecret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
-      return new Response(JSON.stringify({ ok: true, token_configured: !!token, signature_configured: !!signatureSecret }), {
+      let provider: Record<string, unknown> = { checked: false };
+      if (token) {
+        const endpoint = `${Deno.env.get("SUPABASE_URL")}/functions/v1/line-vault-webhook`;
+        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        if (body?.__repair_webhook) {
+          const repair = await fetch("https://api.line.me/v2/bot/channel/webhook/endpoint", {
+            method: "PUT", headers, body: JSON.stringify({ endpoint }),
+          });
+          if (!repair.ok) return new Response(JSON.stringify({ ok: false, error: "LINE rejected webhook configuration", provider_status: repair.status }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const response = await fetch("https://api.line.me/v2/bot/channel/webhook/endpoint", { headers });
+        if (response.ok) {
+          const configured = await response.json();
+          provider = { checked: true, accepted: true, webhook_active: configured.active === true, webhook_matches: configured.endpoint === endpoint };
+          if (body?.__repair_webhook) {
+            const test = await fetch("https://api.line.me/v2/bot/channel/webhook/test", { method: "POST", headers, body: JSON.stringify({ endpoint }) });
+            const result = await test.json().catch(() => ({}));
+            provider.webhook_test_success = test.ok && result.success === true;
+            provider.webhook_test_status = result.statusCode ?? test.status;
+            provider.webhook_test_reason = result.reason ?? null;
+            provider.webhook_test_detail = result.detail ?? null;
+          }
+        } else provider = { checked: true, accepted: false, provider_status: response.status };
+      }
+      return new Response(JSON.stringify({ ok: true, token_configured: !!token, signature_configured: !!signatureSecret, provider }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
