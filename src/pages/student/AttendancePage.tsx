@@ -17,6 +17,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { Button } from '@/components/ui/button';
 import FamilySchoolAttendance from '@/components/attendance/FamilySchoolAttendance';
+import { lessonReadStudentIds } from '@/lib/lessonAttendance';
+import { effectiveGrade } from '@/lib/classroomGrade';
+import { sortGrades } from '@/lib/gradeOrder';
 
 const toDbAcademicYear = (year: number) => {
   if (!year || year <= 0) return undefined;
@@ -25,7 +28,7 @@ const toDbAcademicYear = (year: number) => {
 
 const AttendancePage = () => {
   const { lang } = useLanguage();
-  const sd = useStudentData();
+  const sd = useStudentData({ skipAutoFilter: true });
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const { isAdmin, isDirector, isTeacher, isParent, isStudent, userId } = useUserRole();
   const isFamily = isParent || isStudent;
@@ -65,16 +68,11 @@ const AttendancePage = () => {
   });
 
   const scopedStudentIds = useMemo(() => {
-    if (isParent) return childIds;
-    if (isStudent) return selfStudent ? [selfStudent.id] : [];
-    if (!sd.homeroomClassroomIds) return null;
-    return sd.students
-      .filter((s: any) => sd.homeroomClassroomIds!.includes(s.classroom_id))
-      .map((s: any) => s.id);
-  }, [isParent, isStudent, selfStudent, childIds, sd.homeroomClassroomIds, sd.students]);
+    return lessonReadStudentIds(isParent, isStudent, childIds, selfStudent?.id);
+  }, [isParent, isStudent, selfStudent, childIds]);
 
   const { data: records = [], error: recordsError, refetch } = useQuery({
-    queryKey: ["attendance", academicYear, semester, scopedStudentIds?.join(",") || "all"],
+    queryKey: ["attendance", "lesson-records", userId, academicYear, semester, scopedStudentIds],
     queryFn: async () => {
       const dbAcademicYear = toDbAcademicYear(academicYear);
       if (scopedStudentIds && scopedStudentIds.length === 0) return [];
@@ -82,11 +80,12 @@ const AttendancePage = () => {
       // ดึงทั้งหมดแบบแบ่งหน้า เพื่อให้การนับ ขาด/ลา ครบจริง (ไม่ตัดที่ 2000 แถว)
       const PAGE = 1000;
       const all: any[] = [];
-      for (let from = 0; from < 50_000; from += PAGE) {
+      for (let from = 0; ; from += PAGE) {
         let query = supabase
           .from("attendance")
           .select("*, students(student_code, prefix, first_name, last_name, classrooms!students_classroom_id_fkey(name, grade_level)), subjects(id, name_th, code)")
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
           // หน้านี้คือเช็คชื่อรายคาบวิชาเท่านั้น — ไม่รวมการสแกนหน้าเข้าโรงเรียน (ไม่มีวิชา)
           .not("subject_id", "is", null)
           .range(from, from + PAGE - 1);
@@ -108,12 +107,12 @@ const AttendancePage = () => {
   const sharedProps = {
     students: isParent ? sd.students.filter(s => childIds.includes(s.id)) : isStudent ? sd.students.filter(s => s.id === selfStudent?.id) : sd.students,
     classrooms: isParent ? sd.classrooms.filter(c => children.some(k => k.classroom_id === c.id)) : isStudent ? sd.classrooms.filter(c => c.id === selfStudent?.classroom_id) : sd.classrooms,
-    filteredClassrooms: isParent ? sd.filteredClassrooms.filter(c => children.some(k => k.classroom_id === c.id)) : isStudent ? sd.filteredClassrooms.filter(c => c.id === selfStudent?.classroom_id) : sd.filteredClassrooms,
+    filteredClassrooms: (sd.gradeFilter === 'all' ? sd.classrooms : sd.classrooms.filter(c => effectiveGrade(c) === sd.gradeFilter)).filter(c => isParent ? children.some(k => k.classroom_id === c.id) : isStudent ? c.id === selfStudent?.classroom_id : true),
     gradeFilter: sd.gradeFilter,
     setGradeFilter: sd.setGradeFilter,
     classroomFilter: sd.classroomFilter,
     setClassroomFilter: sd.setClassroomFilter,
-    gradeOptions: sd.gradeOptions,
+    gradeOptions: sortGrades([...new Set(sd.classrooms.map(c => effectiveGrade(c)).filter(Boolean))]),
   };
 
   return (
