@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { authorizeCaller, ADMIN_ROLES } from "../_shared/callerAuth.ts";
+import { authorizeKioskFace } from "../_shared/kioskFaceAuth.ts";
 
 // Native management remains a Cloud client, never an independent school database.
 Deno.serve(async (req) => {
@@ -8,8 +9,6 @@ Deno.serve(async (req) => {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowService: false });
-  if (caller instanceof Response) return caller;
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
     const body = await req.json();
@@ -17,6 +16,12 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return json({ error: "configuration_unavailable" }, 503);
     const db = createClient(url, key);
+    if (req.headers.has("x-device-key")) {
+      if (!(await authorizeKioskFace(req, db))) return json({ error: "unauthorized_device" }, 401);
+    } else {
+      const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES, allowService: false });
+      if (caller instanceof Response) return caller;
+    }
     const students = [];
     for (let from = 0; from < 100000; from += 500) {
       const { data, error } = await db.from("students")
