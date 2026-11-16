@@ -23,6 +23,7 @@ import type { ActivityLock } from "@/lib/autoScheduler";
 import { buildPeriodSlots } from "@/lib/periodSchedule";
 import { saveErrorMessage } from "@/lib/saveError";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { savedPeriodTime } from '@/lib/savedScheduleTime';
 
 const days = [
   { th: "จันทร์", en: "Mon", val: 1 },
@@ -46,7 +47,7 @@ const SchedulePage = () => {
   const { isAdmin: _rawAdmin, isDirector, isTeacher, isStudent, isParent, userId } = useUserRole();
   const isAdmin = _rawAdmin || isDirector;
   const qc = useQueryClient();
-  const { currentSemester, currentAcademicYear, isLoading: calendarLoading, error: calendarError } = useAcademicYear();
+  const { currentSemester, currentAcademicYear, isLoading: calendarLoading, isReady: calendarReady, error: calendarError } = useAcademicYear();
   const scheduleYear = currentAcademicYear - 543;
   const semesterChosen = useRef(false);
   const [viewMode, setViewMode] = useState<"classroom" | "mySchedule">(isTeacher ? "mySchedule" : "classroom");
@@ -143,10 +144,12 @@ const SchedulePage = () => {
 
 
 
-  const [filterSemester, setFilterSemester] = useState<number>(currentSemester);
+  const [chosenSemester, setChosenSemester] = useState<number | null>(null);
+  const filterSemester = chosenSemester ?? currentSemester;
+  const setFilterSemester = setChosenSemester;
   useEffect(() => {
-    if (!calendarLoading && !semesterChosen.current) setFilterSemester(currentSemester);
-  }, [calendarLoading, currentSemester]);
+    if (calendarReady && !semesterChosen.current) setFilterSemester(null);
+  }, [calendarReady, currentSemester]);
   const [cellDialog, setCellDialog] = useState<{ day: number; period: number } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -465,8 +468,18 @@ const SchedulePage = () => {
       if (s.kind === "period") map.set(s.period, { start: s.start, end: s.end });
       else lunch = { start: s.start, end: s.end };
     });
-    return { map, lunch: lunch as { start: string; end: string } | null };
-  }, [periodsPerDay, lunchAfterPeriod, scheduleTimes]);
+    if (isStudent || isParent) {
+      for (const p of periods) {
+        const saved = savedPeriodTime(filtered, p);
+        if (saved) map.set(p, saved);
+        else if (filtered.some(r => r.period === p)) map.delete(p);
+      }
+      const gaps = periods.slice(0, -1).map(p => ({ p, end: map.get(p)?.end, start: map.get(p + 1)?.start })).filter(g => g.end && g.start && g.start > g.end);
+      if (gaps.length === 1) lunch = { start: gaps[0].end ?? '', end: gaps[0].start ?? '' };
+    }
+    const lunchPosition = (isStudent || isParent) && lunch ? periods.find(p => map.get(p)?.end === lunch?.start && map.get(p + 1)?.start === lunch?.end) ?? lunchAfterPeriod : lunchAfterPeriod;
+    return { map, lunchPosition, lunch: lunch as { start: string; end: string } | null };
+  }, [periodsPerDay, lunchAfterPeriod, scheduleTimes, filtered, isStudent, isParent]);
 
 
   /**
@@ -942,7 +955,7 @@ const SchedulePage = () => {
               <tbody>
                 {periods.map((p) => (
                   <Fragment key={`period-${p}`}>
-                    {p - 1 === lunchAfterPeriod && (
+                    {p - 1 === periodTimes.lunchPosition && (
                       <tr key={`lunch-${p}`}>
                         <td
                           colSpan={days.length + 1}

@@ -70,6 +70,7 @@ const InstallPage = lazy(() => import("./pages/InstallPage"));
 const VisitorCheckinPage = lazy(() => import("./pages/VisitorCheckinPage"));
 const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 const ParentAppPage = lazy(() => import("./pages/ParentAppPage"));
+const FamilyGradesPage = lazy(() => import("./pages/student/FamilyGradesPage"));
 
 // Academic
 const SchedulePage = lazy(() => import("./pages/academic/SchedulePage"));
@@ -478,6 +479,7 @@ const App = () => {
 
                 {/* Student Affairs */}
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
+                <Route path="student/grades" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FamilyGradesPage /></ProtectedRoute>} />
                 <Route path="student/attendance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs","academic"]} bypassRoles={["parent","student"]}><AttendancePage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FaceScanPage /></ProtectedRoute>} />
                 {/* ลงทะเบียนใบหน้าของตนเอง — ทุกบัญชีที่ล็อกอินเข้าถึงได้ (ข้อมูลของตัวเองเท่านั้น) */}

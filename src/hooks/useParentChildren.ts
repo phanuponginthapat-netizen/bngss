@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 export type ParentChild = {
   id: string;
@@ -25,27 +26,28 @@ export function useParentChildren() {
     enabled: !!userId && isParent,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<ParentChild[]> => {
+      if (!userId) return [];
       const cols = "id,student_code,prefix,first_name,last_name,classroom_id";
 
-      const { data: linked, error } = await supabase
+      const linked = await fetchAllRows<ParentChild>((from, to) => supabase
         .from("students")
         .select(cols)
-        .or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`);
-
-      if (error) throw error;
+        .or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`).order("student_code").order("id").range(from, to));
       if (linked && linked.length > 0) return linked as ParentChild[];
 
       // Legacy fallback: profile carries the child's student_code
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("student_code")
-        .eq("id", userId!)
+        .eq("id", userId)
         .maybeSingle();
+      if (profileError) throw profileError;
 
       const code = profile?.student_code?.trim();
       if (!code) return [];
 
-      const { data } = await supabase.from("students").select(cols).eq("student_code", code);
+      const { data, error } = await supabase.from("students").select(cols).eq("student_code", code);
+      if (error) throw error;
       return (data ?? []) as ParentChild[];
     },
   });
@@ -57,6 +59,8 @@ export function useParentChildren() {
     isParent,
     children,
     childIds,
+    error: q.error,
+    refetch: q.refetch,
     isLoading: roleLoading || (isParent && q.isLoading),
   };
 }

@@ -14,6 +14,7 @@ import { TrendingUp, TrendingDown, Trophy, AlertTriangle, BarChart3 } from "luci
 import { SUBJECT_GROUPS, type SubjectGroup } from "@/lib/obecStandards";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { familyGradeSemester } from "@/lib/familyGrades";
 
 /**
  * MyRadarWidget — กราฟใยแมงมุมคะแนนของ "นักเรียน/ลูก" คนนี้ แยกตาม 8 กลุ่มสาระ
@@ -41,22 +42,23 @@ interface Props {
 }
 
 export default function MyRadarWidget({ studentCode: propStudentCode }: Props) {
-  const { currentAcademicYear: yearBE, currentSemester, isReady, error: calendarError } = useAcademicYear();
+  const { currentAcademicYear: yearBE, currentSemester: schoolSemester, isReady, error: calendarError } = useAcademicYear();
   const currentAcademicYear = yearBE - BE_OFFSET;
-  const { userId } = useUserRole();
+  const { userId, isParent } = useUserRole();
+  const currentSemester = familyGradeSemester(isParent, schoolSemester);
 
   const { data: resolvedStudentCode, error: identityError } = useQuery({
     queryKey: ["my-radar-student-code", userId],
     enabled: !propStudentCode && !!userId,
     queryFn: async () => {
-      if (!userId) return undefined;
+      if (!userId) return null;
       const { data, error } = await supabase
         .from("students")
         .select("student_code")
         .eq("auth_user_id", userId)
         .maybeSingle();
       if (error) throw error;
-      return data?.student_code as string | undefined;
+      return data?.student_code ?? null;
     },
   });
   const studentCode = propStudentCode || resolvedStudentCode;

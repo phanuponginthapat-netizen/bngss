@@ -15,6 +15,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useParentChildren } from "@/hooks/useParentChildren";
 import { Card, CardContent } from "@/components/ui/card";
 import { BE_OFFSET } from "@/lib/dateBE";
+import { Button } from '@/components/ui/button';
+import FamilySchoolAttendance from '@/components/attendance/FamilySchoolAttendance';
 
 const toDbAcademicYear = (year: number) => {
   if (!year || year <= 0) return undefined;
@@ -26,10 +28,13 @@ const AttendancePage = () => {
   const sd = useStudentData();
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const { isAdmin, isDirector, isTeacher, isParent } = useUserRole();
-  const { childIds } = useParentChildren();
+  const { childIds, children, error: childrenError, isLoading: childrenLoading } = useParentChildren();
+  useEffect(() => {
+    if (isParent && children[0]?.classroom_id && sd.classroomFilter === 'all') sd.setClassroomFilter(children[0].classroom_id);
+  }, [isParent, children, sd.classroomFilter]);
   const canSeeAll = isAdmin || isDirector;
   const canCheckSubject = !isParent && (canSeeAll || isTeacher);
-  const defaultTab = isParent ? "report" : (canCheckSubject ? "subject" : "dashboard");
+  const defaultTab = isParent ? "school" : (canCheckSubject ? "subject" : "dashboard");
 
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
@@ -56,7 +61,7 @@ const AttendancePage = () => {
       .map((s: any) => s.id);
   }, [isParent, childIds, sd.homeroomClassroomIds, sd.students]);
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], error: recordsError, refetch } = useQuery({
     queryKey: ["attendance", academicYear, semester, scopedStudentIds?.join(",") || "all"],
     queryFn: async () => {
       const dbAcademicYear = toDbAcademicYear(academicYear);
@@ -85,13 +90,13 @@ const AttendancePage = () => {
       }
       return all;
     },
-    enabled: academicYear > 0,
+    enabled: academicYear > 0 && (!isParent || !childrenLoading),
   });
 
   const sharedProps = {
-    students: sd.students,
-    classrooms: sd.classrooms,
-    filteredClassrooms: sd.filteredClassrooms,
+    students: isParent ? sd.students.filter(s => childIds.includes(s.id)) : sd.students,
+    classrooms: isParent ? sd.classrooms.filter(c => children.some(k => k.classroom_id === c.id)) : sd.classrooms,
+    filteredClassrooms: isParent ? sd.filteredClassrooms.filter(c => children.some(k => k.classroom_id === c.id)) : sd.filteredClassrooms,
     gradeFilter: sd.gradeFilter,
     setGradeFilter: sd.setGradeFilter,
     classroomFilter: sd.classroomFilter,
@@ -101,16 +106,17 @@ const AttendancePage = () => {
 
   return (
     <div className="space-y-6">
+      {(recordsError || childrenError) && <div role="alert" className="text-destructive">อ่านข้อมูลการเข้าเรียนไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {lang === "th" ? "เช็คชื่อนักเรียน (รายคาบวิชา)" : "Student Attendance (Per Period)"}
+            {isParent ? 'การมาเรียนของลูก' : lang === "th" ? "เช็คชื่อนักเรียน (รายคาบวิชา)" : "Student Attendance (Per Period)"}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          {!isParent && <p className="text-sm text-muted-foreground">
             {lang === "th"
               ? "ครูประจำวิชาเช็คชื่อรายคาบ — แสกน QR หรือติ๊กสถานะด้วยตนเอง"
               : "Subject teachers check per-period — scan QR or tick status manually"}
-          </p>
+          </p>}
         </div>
         {academicYear > 0 && (
           <AcademicYearFilter
@@ -125,7 +131,8 @@ const AttendancePage = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          {isParent && <TabsTrigger value="school">มาโรงเรียน</TabsTrigger>}
           {canCheckSubject && (
             <TabsTrigger value="subject">
               <BookOpen className="w-4 h-4 mr-1" />
@@ -138,13 +145,14 @@ const AttendancePage = () => {
           </TabsTrigger>
           <TabsTrigger value="report">
             <BarChart3 className="w-4 h-4 mr-1" />
-            {lang === "th" ? "รายงาน" : "Report"}
+            {isParent ? 'รายงานรายคาบ' : lang === "th" ? "รายงาน" : "Report"}
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="w-4 h-4 mr-1" />
-            {lang === "th" ? "ประวัติ" : "History"}
+            {isParent ? 'ประวัติรายคาบ' : lang === "th" ? "ประวัติ" : "History"}
           </TabsTrigger>
         </TabsList>
+        {isParent && <TabsContent value="school"><FamilySchoolAttendance academicYear={academicYear} semester={semester} /></TabsContent>}
 
         {canCheckSubject && (
           <TabsContent value="subject">
@@ -166,7 +174,7 @@ const AttendancePage = () => {
         </TabsContent>
 
         <TabsContent value="history">
-          <AttendanceHistoryTab {...sharedProps} records={records} />
+          <AttendanceHistoryTab {...sharedProps} records={records} readOnly={isParent} />
         </TabsContent>
       </Tabs>
 

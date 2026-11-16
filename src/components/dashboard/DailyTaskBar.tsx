@@ -18,6 +18,7 @@ export default function DailyTaskBar() {
   const { isModuleEnabled } = useModuleToggles();
   const [moreOpen, setMoreOpen] = useState(false);
   const items = role === "parent" ? [
+    { title: "ผลการเรียน", url: "/dashboard/student/grades", icon: BookOpenCheck },
     { title: "การมาเรียนของลูก", url: "/dashboard/student/attendance", icon: ClipboardList },
     { title: "การบ้าน", url: "/dashboard/homework", icon: BookOpenCheck },
     { title: "ตารางเรียน", url: "/dashboard/academic/schedule", icon: Calendar },

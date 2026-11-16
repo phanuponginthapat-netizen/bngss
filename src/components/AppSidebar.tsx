@@ -84,6 +84,7 @@ export function AppSidebar() {
       tone: "student",
       items: [
         { to: "/dashboard/student/attendance", icon: ClipboardList, label: L("การมาเรียน", "Attendance") },
+        { to: "/dashboard/student/grades", icon: BookOpenCheck, label: L("ผลการเรียน", "Grades") },
         { to: "/dashboard/student/behavior", icon: Shield, label: L("พฤติกรรม", "Behavior") },
         { to: "/dashboard/student/leave", icon: FileText, label: L("ยื่นใบลา", "Leave") },
         { to: "/dashboard/student/health-trend", icon: Heart, label: L("สุขภาพ", "Health") },
