@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { readChatStream } from "../aiChatStream";
 import { answerMode } from "../../../supabase/functions/ai-chat/promptPolicy";
 
@@ -12,7 +13,7 @@ describe("shared chat completion", () => {
       finish = () => { controller.enqueue(encoder.encode('data: {"type":"done","reply":"คำตอบ","historySaved":true}\n\n')); controller.close(); };
     } });
     const received: string[] = [];
-    const pending = readChatStream(new Response(stream), text => { received.push(text); finish?.(); });
+    const pending = readChatStream(new Response(stream), text => { received.push(text); if (received.length === 1) finish?.(); });
     expect((await pending).historySaved).toBe(true);
     expect(received[0]).toBe("คำตอบ");
   });

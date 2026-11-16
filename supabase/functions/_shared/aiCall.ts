@@ -196,7 +196,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         const r = await fetch(p.base_url, {
           method: "POST",
-          signal: AbortSignal.timeout(45000),
+          signal: opts.functionName?.startsWith("ai-chat") ? AbortSignal.timeout(45000) : undefined,
           headers,
           body: JSON.stringify(body),
         });
@@ -276,6 +276,8 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
         max_tokens: opts.max_tokens,
         json: opts.json,
         vision: opts.vision,
+        functionName: opts.functionName,
+        userId: opts.userId,
         functionName: opts.functionName,
         userId: opts.userId,
       });

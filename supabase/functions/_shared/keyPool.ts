@@ -243,7 +243,7 @@ export async function callWithPool(provider: PoolProvider, opts: PoolCallOpts): 
       try {
         const r = await fetch(cfg.url, {
           method: "POST",
-          signal: AbortSignal.timeout(45000),
+          signal: opts.functionName?.startsWith("ai-chat") ? AbortSignal.timeout(45000) : undefined,
           headers: cfg.buildHeaders(k.api_key),
           body: JSON.stringify(cfg.buildBody(model, opts.messages, opts)),
         });
