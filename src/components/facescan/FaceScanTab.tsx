@@ -1198,6 +1198,7 @@ const FaceScanTab = ({ mode = "face" }: FaceScanTabProps) => {
               ระบบจะบันทึกชื่อครูผู้บันทึก ({scannerName || "—"}) ติดไปกับรายการเสมอ
             </p>
           </div>
+          )}
         </CardContent>
       </Card>
 
