@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
-import { fetchAllRows } from "@/lib/fetchAllRows";
 import { calculateGPA } from "@/lib/gradeUtils";
 import { parentAttendanceStatus } from "@/lib/parentAttendance";
 import { motion } from "framer-motion";
@@ -112,6 +111,7 @@ type ChildBundle = {
   remediation: RemediationRow[];
   loading: boolean;
   attendanceError?: string;
+  scoresError?: string;
 };
 
 // ---------- Helpers ----------
@@ -366,6 +366,7 @@ export default function ParentAppPage() {
     const attendanceError = faceRes.status === "rejected" || attRes.status === "rejected" || (faceRes.status === "fulfilled" && faceRes.value.error) || (attRes.status === "fulfilled" && attRes.value.error) ? "อ่านผลสแกน/เช็คชื่อไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const faceLogs = faceRes.status === "fulfilled" ? ((faceRes.value.data as unknown as FaceLog[]) ?? []) : [];
     const attendance = attRes.status === "fulfilled" ? ((attRes.value.data as unknown as AttendanceRow[]) ?? []) : [];
+    const scoresError = scoresRes.status === "rejected" || (scoresRes.status === "fulfilled" && scoresRes.value.error) ? "อ่านคะแนนไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const scores = scoresRes.status === "fulfilled" ? ((scoresRes.value.data as unknown as ScoreRow[]) ?? []) : [];
     let homework: HomeworkRow[] = [];
     if (hwAssignRes.status === "fulfilled" && hwAssignRes.value.data && (hwAssignRes.value.data as unknown[]).length > 0) {
@@ -407,7 +408,7 @@ export default function ParentAppPage() {
       }
     }
 
-    return { faceLogs, attendance, scores, homework, remediation, attendanceError };
+    return { faceLogs, attendance, scores, homework, remediation, attendanceError, scoresError };
   }, [calendar.currentAcademicYear]);
 
   const loadAll = useCallback(async () => {
@@ -791,7 +792,7 @@ export default function ParentAppPage() {
             const selChild = children.find(c => c.id === selId);
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
-            const avgGpa = selBundle?.scores?.some(s => s.grade_point != null) ? calculateGPA(selBundle.scores.map((s: any) => ({ gradePoint: s.grade_point == null ? null : Number(s.grade_point), credits: Number(s.subjects?.credits ?? 0) }))).toFixed(2) : "—";
+            const avgGpa = !selBundle?.scoresError && selBundle?.scores?.some(s => s.grade_point != null) ? calculateGPA(selBundle.scores.map((s: any) => ({ gradePoint: s.grade_point == null ? null : Number(s.grade_point), credits: Number(s.subjects?.credits ?? 0) }))).toFixed(2) : "—";
             let attendanceToday:string|null=null;
             let statusUnavailable=!!selBundle?.attendanceError||!lateThreshold;
             if(selBundle&&lateThreshold)try{attendanceToday=parentAttendanceStatus(selChild.id,selBundle.attendance,selBundle.faceLogs,lateThreshold);}catch{statusUnavailable=true;}
