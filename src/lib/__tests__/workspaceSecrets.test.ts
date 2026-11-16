@@ -5,7 +5,9 @@ vi.mock('https://esm.sh/@supabase/supabase-js@2.49.1', () => ({
   createClient: () => ({ rpc: async () => ({ data: state.saved, error: null }),
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }),
 }));
-import { getSecret, invalidateSecretCache } from '../../../supabase/functions/_shared/getSecret';
+// Server-only URL imports and Deno globals are mocked above, not part of the web compilation.
+const serverModule = '../../../supabase/functions/_shared/getSecret';
+const { getSecret, invalidateSecretCache } = await import(/* @vite-ignore */ serverModule);
 
 describe('workspace secret precedence', () => {
   beforeEach(() => {
