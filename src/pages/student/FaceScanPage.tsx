@@ -14,16 +14,17 @@ import StaffFaceTab from "@/components/facescan/StaffFaceTab";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const FaceScanPage = () => {
-  const { isAdmin, isDirector, isTeacher, isObserver, isParent } = useUserRole();
+  const { isAdmin, isDirector, isTeacher, isObserver, isParent, isStudent } = useUserRole();
+  const isFamily = isParent || isStudent;
   const canManage = isAdmin || isDirector;
-  // Parents must not browse school-wide scan reports or register/search other people.
-  const canSeeReport = (isAdmin || isDirector || isTeacher || isObserver) && !isParent;
-  const canRegister = !isParent;
+  // Parents and students must not browse school-wide scan reports or register/search other people.
+  const canSeeReport = (isAdmin || isDirector || isTeacher || isObserver) && !isFamily;
+  const canRegister = !isFamily;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "qr";
   const [tab, setTab] = useState(initialTab);
-  // Parents only get the QR/face tabs — force back if a deep link points elsewhere.
-  if (isParent && tab !== "qr" && tab !== "face") setTab("qr");
+  // Parents and students only get the QR/face tabs — force back if a deep link points elsewhere.
+  if (isFamily && tab !== "qr" && tab !== "face") setTab("qr");
   const handleTabChange = (v: string) => {
     setTab(v);
     setSearchParams(v === "qr" ? {} : { tab: v }, { replace: true });

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Activity, Search, Info, ScanLine } from "lucide-react";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 import { useParentChildren } from "@/hooks/useParentChildren";
+import { useUserRole } from "@/hooks/useUserRole";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { toast } from "sonner";
 
@@ -19,6 +20,7 @@ interface Student {
   classroom_id: string | null;
   gender: string | null;
   date_of_birth: string | null;
+  auth_user_id: string | null;
   classrooms?: { name: string; grade_level: string | null } | null;
 }
 
@@ -38,6 +40,8 @@ export default function HealthTrendPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const { homeroomClassroomIds, isFiltered, hasHomeroom, teacherFullName } = useHomeroomClassrooms();
   const { isParent, childIds } = useParentChildren();
+  const { isStudent, userId } = useUserRole();
+  const isFamily = isParent || isStudent;
 
   // โหลดรายการห้องเรียนสำหรับตัวกรอง
   useEffect(() => {
@@ -56,13 +60,13 @@ export default function HealthTrendPage() {
     const t = setTimeout(async () => {
       let query = supabase
         .from("students")
-        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
         .eq("status", "active");
 
       const term = q.trim();
-      // Parents must not search other students — RLS already scopes rows,
-      // but never even send a name/code search from a parent session.
-      if (term && !isParent) {
+      // Parents/students must not search other students — RLS already scopes rows,
+      // but never even send a name/code search from a family session.
+      if (term && !isFamily) {
         query = query.or(
           `first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_code.ilike.%${term}%`,
         );
@@ -77,13 +81,14 @@ export default function HealthTrendPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, isParent]);
+  }, [q, isFamily]);
 
   const scoped = useMemo(() => {
     if (isParent) return students.filter((s) => childIds.includes(s.id));
+    if (isStudent) return students.filter((s) => s.auth_user_id === userId);
     if (!isFiltered || !homeroomClassroomIds) return students;
     return students.filter((s) => s.classroom_id && homeroomClassroomIds.includes(s.classroom_id));
-  }, [students, isFiltered, homeroomClassroomIds, isParent, childIds]);
+  }, [students, isFiltered, homeroomClassroomIds, isParent, isStudent, userId, childIds]);
 
   const filtered = useMemo(() => {
     return scoped.filter((s) => {
@@ -93,10 +98,10 @@ export default function HealthTrendPage() {
     });
   }, [scoped, gradeFilter, classroomFilter]);
 
-  // Parents see only their own children — auto-select the first child, no search needed.
+  // Parents see only their own children; students see only themselves — auto-select, no search needed.
   useEffect(() => {
-    if (isParent && !selected && scoped.length > 0) setSelected(scoped[0]);
-  }, [isParent, selected, scoped]);
+    if (isFamily && !selected && scoped.length > 0) setSelected(scoped[0]);
+  }, [isFamily, selected, scoped]);
 
   const grades = useMemo(() => {
     const set = new Set<string>();
@@ -125,7 +130,7 @@ export default function HealthTrendPage() {
         // ดึงตัวเต็มพร้อม classroom
         const { data } = await supabase
           .from("students")
-          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
           .eq("id", resolved.id)
           .maybeSingle();
         if (data) setSelected(data as any);
@@ -167,7 +172,7 @@ export default function HealthTrendPage() {
             <CardTitle>เลือกนักเรียน</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!isParent && (
+            {!isFamily && (
               <>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -230,7 +235,7 @@ export default function HealthTrendPage() {
       </div>
 
       <BarcodeScanner
-        open={scannerOpen && !isParent}
+        open={scannerOpen && !isFamily}
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         title="สแกน QR / บาร์โค้ดนักเรียน"

@@ -489,7 +489,7 @@ const App = () => {
 
                 <Route path="student/leave" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><StudentLeavePage /></ProtectedRoute>} />
                 <Route path="student/screening" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs"]}><ScreeningPage /></DepartmentRoute></ProtectedRoute>} />
-                <Route path="student/health-trend" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "parent"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent"]}><HealthTrendPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="student/health-trend" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "parent", "student"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent", "student"]}><HealthTrendPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/homeroom" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs","academic"]}><HomeroomPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/sdq" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs"]}><SDQPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/home-visit" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><HomeVisitPage /></ProtectedRoute>} />

@@ -45,8 +45,18 @@ const BehaviorPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
   const studentData = useStudentData();
-  const { isParent } = useUserRole();
+  const { isParent, isStudent, userId } = useUserRole();
+  const isFamily = isParent || isStudent;
   const { childIds } = useParentChildren();
+  const { data: selfStudent } = useQuery({
+    queryKey: ["behavior-self-student", userId],
+    enabled: isStudent && !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("students").select("id").eq("auth_user_id", userId ?? "").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   const { currentAcademicYear, currentSemester, academicYearOptions } = useAcademicYear();
   const [academicYear, setAcademicYear] = useState(0);
   const [semester, setSemester] = useState(0);
@@ -65,14 +75,15 @@ const BehaviorPage = () => {
   const [filterTopic, setFilterTopic] = useState("all");
   const [scanOpen, setScanOpen] = useState(false);
 
-  // Scope: parent → only their children; teachers → homeroom students; admin/director → all
+  // Scope: parent → only their children; student → only themselves; teachers → homeroom students; admin/director → all
   const scopedStudentIds = useMemo(() => {
     if (isParent) return childIds;
+    if (isStudent) return selfStudent ? [selfStudent.id] : [];
     if (!studentData.homeroomClassroomIds) return null;
     return studentData.students
       .filter((s: any) => studentData.homeroomClassroomIds!.includes(s.classroom_id))
       .map((s: any) => s.id);
-  }, [isParent, childIds, studentData.homeroomClassroomIds, studentData.students]);
+  }, [isParent, isStudent, selfStudent, childIds, studentData.homeroomClassroomIds, studentData.students]);
 
   const { data: records = [], error: recordsError, refetch } = useQuery({
     queryKey: ["behavior_records", academicYear, scopedStudentIds?.join(",") || "all"],
@@ -91,7 +102,7 @@ const BehaviorPage = () => {
 
   // Roster view: one row per filtered student + their behavior records
   const rosterRows = useMemo(() => {
-    return (studentData.filteredStudents as any[]).filter(s => !isParent || childIds.includes(s.id)).map((s: any) => {
+    return (studentData.filteredStudents as any[]).filter(s => !isFamily || (isParent ? childIds.includes(s.id) : s.id === selfStudent?.id)).map((s: any) => {
       let studentRecs = (records as any[]).filter((r) => r.student_id === s.id);
       if (filterTopic !== "all") {
         studentRecs = studentRecs.filter((r) => r.description?.includes(topicLabelMap[filterTopic] || filterTopic));
@@ -101,7 +112,7 @@ const BehaviorPage = () => {
       const net = studentRecs.reduce((sum, r) => sum + (r.behavior_type === "positive" ? (r.points || 0) : -(r.points || 0)), 0);
       return { student: s, latest: studentRecs[0] || null, count: studentRecs.length, pos, neg, net };
     });
-  }, [records, studentData.filteredStudents, filterTopic, isParent, childIds]);
+  }, [records, studentData.filteredStudents, filterTopic, isFamily, isParent, childIds, selfStudent]);
 
   // Stats (aggregate across all records in scope)
   const stats = useMemo(() => {
@@ -147,7 +158,7 @@ const BehaviorPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (isParent) return;
+    if (isFamily) return;
     const ok = await swal.confirm({ title: "ยืนยันการลบ?", text: "ต้องการลบบันทึกพฤติกรรมนี้หรือไม่", danger: true });
     if (!ok) return;
     const { error } = await supabase.from("behavior_records").delete().eq("id", id);
@@ -187,7 +198,7 @@ const BehaviorPage = () => {
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        {!isParent && (
+        {!isFamily && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" />{lang === "th" ? "บันทึกพฤติกรรม" : "Record"}</Button></DialogTrigger>
           <DialogContent className="sm:max-w-lg">
@@ -284,7 +295,7 @@ const BehaviorPage = () => {
           </DialogContent>
         </Dialog>
         )}
-        {!isParent && <Button variant="outline" onClick={() => setScanOpen(true)} className="gap-1">
+        {!isFamily && <Button variant="outline" onClick={() => setScanOpen(true)} className="gap-1">
           <ScanLine className="w-4 h-4" />
           {lang === "th" ? "สแกน QR นักเรียน" : "Scan QR"}
         </Button>}
@@ -310,8 +321,8 @@ const BehaviorPage = () => {
         </CardContent></Card>
       </div>
 
-      {/* Filter — parents see only their own children, no search/filter */}
-      {!isParent && (
+      {/* Filter — parents/students see only their own records, no search/filter */}
+      {!isFamily && (
       <Card className="border-dashed">
         <CardContent className="pt-4 pb-3">
           <div className="flex flex-col sm:flex-row gap-2">
@@ -319,14 +330,14 @@ const BehaviorPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder={lang === "th" ? "ค้นหาจากรหัสหรือชื่อ..." : "Search..."} value={studentData.search} onChange={e => studentData.setSearch(e.target.value)} className="pl-9" />
             </div>
-            {!isParent && <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
+            {!isFamily && <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
               <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder={lang === "th" ? "ระดับชั้น" : "Grade"} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
                 {studentData.gradeOptions.map((g: string) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>}
-            {!isParent && <Select value={studentData.classroomFilter} onValueChange={studentData.setClassroomFilter}>
+            {!isFamily && <Select value={studentData.classroomFilter} onValueChange={studentData.setClassroomFilter}>
               <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder={lang === "th" ? "ห้องเรียน" : "Classroom"} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
@@ -363,7 +374,7 @@ const BehaviorPage = () => {
                   {r ? r.description : (lang === "th" ? "ยังไม่มีบันทึก" : "No records")}
                 </TableCell>
                 <TableCell className="text-center">{count}</TableCell>
-                <TableCell>{r && !isParent && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}</TableCell>
+                <TableCell>{r && !isFamily && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>}</TableCell>
               </TableRow>
             ))}
             {rosterRows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{lang === "th" ? "ไม่มีข้อมูล" : "No data"}</TableCell></TableRow>}
