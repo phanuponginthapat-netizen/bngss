@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Activity, Search, Info, ScanLine } from "lucide-react";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 import { useParentChildren } from "@/hooks/useParentChildren";
+import { useUserRole } from "@/hooks/useUserRole";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { toast } from "sonner";
 
@@ -62,9 +63,9 @@ export default function HealthTrendPage() {
         .eq("status", "active");
 
       const term = q.trim();
-      // Parents must not search other students — RLS already scopes rows,
-      // but never even send a name/code search from a parent session.
-      if (term && !isParent) {
+      // Parents/students must not search other students — RLS already scopes rows,
+      // but never even send a name/code search from a family session.
+      if (term && !isFamily) {
         query = query.or(
           `first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_code.ilike.%${term}%`,
         );
@@ -79,13 +80,14 @@ export default function HealthTrendPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, isParent]);
+  }, [q, isFamily]);
 
   const scoped = useMemo(() => {
     if (isParent) return students.filter((s) => childIds.includes(s.id));
+    if (isStudent) return students.filter((s) => s.auth_user_id === userId);
     if (!isFiltered || !homeroomClassroomIds) return students;
     return students.filter((s) => s.classroom_id && homeroomClassroomIds.includes(s.classroom_id));
-  }, [students, isFiltered, homeroomClassroomIds, isParent, childIds]);
+  }, [students, isFiltered, homeroomClassroomIds, isParent, isStudent, userId, childIds]);
 
   const filtered = useMemo(() => {
     return scoped.filter((s) => {
@@ -95,10 +97,10 @@ export default function HealthTrendPage() {
     });
   }, [scoped, gradeFilter, classroomFilter]);
 
-  // Parents see only their own children — auto-select the first child, no search needed.
+  // Parents see only their own children; students see only themselves — auto-select, no search needed.
   useEffect(() => {
-    if (isParent && !selected && scoped.length > 0) setSelected(scoped[0]);
-  }, [isParent, selected, scoped]);
+    if (isFamily && !selected && scoped.length > 0) setSelected(scoped[0]);
+  }, [isFamily, selected, scoped]);
 
   const grades = useMemo(() => {
     const set = new Set<string>();
