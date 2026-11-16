@@ -16,7 +16,9 @@ import { useUserRole } from "@/hooks/useUserRole";
 const FaceScanPage = () => {
   const { isAdmin, isDirector, isTeacher, isObserver, isParent } = useUserRole();
   const canManage = isAdmin || isDirector;
-  const canSeeReport = isAdmin || isDirector || isTeacher || isObserver || isParent;
+  // Parents must not browse school-wide scan reports or register/search other people.
+  const canSeeReport = (isAdmin || isDirector || isTeacher || isObserver) && !isParent;
+  const canRegister = !isParent;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "qr";
   const [tab, setTab] = useState(initialTab);
@@ -51,8 +53,8 @@ const FaceScanPage = () => {
             <TabsTrigger value="face" className="gap-2 whitespace-nowrap">
               <ScanFace className="w-4 h-4" /><span>สแกนใบหน้า</span>
             </TabsTrigger>
-            <TabsTrigger value="register" className="gap-2 whitespace-nowrap"><UserPlus className="w-4 h-4" /><span>ลงทะเบียน</span></TabsTrigger>
-            <TabsTrigger value="staff" className="gap-2 whitespace-nowrap"><Briefcase className="w-4 h-4" /><span>บุคลากร</span></TabsTrigger>
+            {canRegister && <TabsTrigger value="register" className="gap-2 whitespace-nowrap"><UserPlus className="w-4 h-4" /><span>ลงทะเบียน</span></TabsTrigger>}
+            {canRegister && <TabsTrigger value="staff" className="gap-2 whitespace-nowrap"><Briefcase className="w-4 h-4" /><span>บุคลากร</span></TabsTrigger>}
             {canManage && <TabsTrigger value="approval" className="gap-2 whitespace-nowrap"><ShieldCheck className="w-4 h-4" /><span>อนุมัติ</span></TabsTrigger>}
             {canManage && <TabsTrigger value="database" className="gap-2 whitespace-nowrap"><Database className="w-4 h-4" /><span>ฐานข้อมูล</span></TabsTrigger>}
             {canSeeReport && <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>}
@@ -96,8 +98,8 @@ const FaceScanPage = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="register" className="mt-4"><FaceRegisterTab /></TabsContent>
-        <TabsContent value="staff" className="mt-4"><StaffFaceTab /></TabsContent>
+        {canRegister && <TabsContent value="register" className="mt-4"><FaceRegisterTab /></TabsContent>}
+        {canRegister && <TabsContent value="staff" className="mt-4"><StaffFaceTab /></TabsContent>}
         {canManage && <TabsContent value="approval" className="mt-4"><FaceApprovalTab /></TabsContent>}
         {canManage && <TabsContent value="database" className="mt-4"><FaceDatabaseTab /></TabsContent>}
         {canSeeReport && <TabsContent value="report" className="mt-4"><FaceReportTab /></TabsContent>}
