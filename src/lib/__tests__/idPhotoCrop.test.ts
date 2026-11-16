@@ -12,11 +12,11 @@ describe("computeIdPhotoCrop", () => {
   it("keeps the 413:531 card ratio and the face as large as the school card sample", () => {
     const c = computeIdPhotoCrop({ x: 900, y: 600, width: 300, height: 360 }, 2000, 3000);
     expect(c.width / c.height).toBeCloseTo(ID_PHOTO_WIDTH / ID_PHOTO_HEIGHT, 5);
-    // ใบหน้า (คิ้ว-คาง) ต้องกินราว 43% ของความสูงรูปบัตร ตามต้วอย่างที่วัดจากบัตรจริง
-    expect(ID_FACE_HEIGHT_RATIO).toBe(0.43);
+    // รูปตัวอย่างทั้งสองวัดคิ้วถึงคางได้ 34–36% ของความสูง
+    expect(ID_FACE_HEIGHT_RATIO).toBe(0.35);
     expect(360 / c.height).toBeCloseTo(ID_FACE_HEIGHT_RATIO, 5);
-    // จุดกลางใบหน้าต้องอยู่ราว 51.5% จากขอบบน ไม่ใช่ 53% แบบเดิม
-    expect(ID_FACE_CENTER_Y_RATIO).toBe(0.515);
+    // จุดกลางใบหน้าของรูปตัวอย่างทั้งสองอยู่ประมาณ 54.5% จากขอบบน
+    expect(ID_FACE_CENTER_Y_RATIO).toBe(0.545);
     expect((780 - c.y) / c.height).toBeCloseTo(ID_FACE_CENTER_Y_RATIO, 5);
     expect(c.x + c.width / 2).toBeCloseTo(1050);
   });
@@ -39,10 +39,11 @@ describe("computeIdPhotoCrop", () => {
     expect(box.y).toBe(100);
     expect(box.height).toBe(100);
     expect(box.x + box.width / 2).toBe(150);
-    // ตัดแล้วใบหน้าต้องกิน 43% ของความสูงรูปบัตร เท่าต้วอย่าง
-    const crop = computeIdPhotoCrop(box, 2000, 3000);
+    // ตัดแล้วใบหน้าต้องกิน 35% ของความสูงรูปบัตร เท่าตัวอย่าง
+    // Move the measured box away from the source edge so clamping does not override centring.
+    const crop = computeIdPhotoCrop({ ...box, y: box.y + 500 }, 2000, 3000);
     expect(box.height / crop.height).toBeCloseTo(ID_FACE_HEIGHT_RATIO, 5);
-    expect((150 - crop.y) / crop.height).toBeCloseTo(ID_FACE_CENTER_Y_RATIO, 5);
+    expect((650 - crop.y) / crop.height).toBeCloseTo(ID_FACE_CENTER_Y_RATIO, 5);
   });
 
   it("falls back to the detector box when landmarks are missing or unusable", () => {
