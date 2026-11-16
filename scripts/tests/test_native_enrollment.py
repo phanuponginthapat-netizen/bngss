@@ -69,6 +69,14 @@ class DeviceEnrollmentTests(unittest.TestCase):
         self.assertNotIn('Authorization',self.post.call_args.kwargs['headers'])
     def test_qr_selects_without_login(self):
         self.assertEqual(self.action('card',image='frame').json()['student']['id'],'student')
+    def test_upload_five_samples_and_reject_sixth(self):
+        self.action('code',code='01234')
+        for count in range(1,6):
+            self.assertEqual(self.action('upload',image='frame').json()['count'],count)
+        self.assertEqual(self.action('upload',image='frame').status_code,400)
+        self.post.return_value.json.return_value={'success':True,'count':5}
+        self.assertEqual(self.action('save').json()['count'],5)
+        self.assertEqual(len(self.post.call_args.kwargs['json']['face_images']),5)
     def test_three_samples_required_and_failed_save_retains_them(self):
         self.action('code',code='01234')
         self.assertEqual(self.action('save').status_code,400)

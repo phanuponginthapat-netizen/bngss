@@ -24,6 +24,8 @@ import time
 from typing import Any
 import sys
 from native_settings import Settings as NativeSettings
+from face_memory import enrollment_anchors, learn as learn_face, prune as prune_memory
+local_memory = {}
 
 # Windows installer (FaceGateSetup.exe): settings live in a config file instead of a .bat launcher.
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -116,7 +118,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.14.0"
+AGENT_VERSION = "1.14.1"
 
 
 def default_cache_dir() -> str:
@@ -293,6 +295,17 @@ def rebuild_matrix_locked() -> None:
             rows.append(normalise(vec))
             owners.append(face["student_id"])
             geoms.append(face.get("geometry") or None)
+    anchors = enrollment_anchors(state['faces'])
+    state['anchor_matrix'] = np.vstack(rows) if rows else np.zeros((0, 512), dtype=np.float32)
+    state['anchor_owners'] = list(owners)
+    cleaned = prune_memory(local_memory, anchors)
+    local_memory.clear()
+    local_memory.update(cleaned)
+    for sid, samples in local_memory.items():
+        for sample in samples:
+            rows.append(normalise(np.array(sample['embedding'], dtype=np.float32)))
+            owners.append(sid)
+            geoms.append(None)
     state["matrix"] = np.vstack(rows) if rows else np.zeros((0, 512), dtype=np.float32)
     state["owners"] = owners
     state["geoms"] = geoms
@@ -315,6 +328,7 @@ def load_cache() -> None:
     faces = read_json(FACES_FILE, {}) or {}
     students = read_json(STUDENTS_FILE, []) or []
     settings = read_json(SETTINGS_FILE, {}) or {}
+    local_memory.update(read_json(os.path.join(os.path.dirname(FACES_FILE), 'face-memory.json'), {}) or {})
     with lock:
         state["faces"] = {k: v for k, v in faces.items() if isinstance(v, dict)}
         state["students"] = {s["id"]: s for s in students if isinstance(s, dict)}
@@ -668,6 +682,21 @@ def sync_once() -> None:
         valid_ids = set(faces.keys())
 
     save_cache()
+    write_json_atomic(os.path.join(os.path.dirname(FACES_FILE), 'face-memory.json'), local_memory)
+    # Store every changed enrollment crop outside the live scan path.
+    for item in changed:
+        image = item.get('reference_image')
+        if not image:
+            continue
+        try:
+            if image.startswith('data:image/'):
+                cache_image(item['id'], base64.b64decode(image.split(',', 1)[1], validate=True))
+            else:
+                response = requests.get(image, timeout=10)
+                response.raise_for_status()
+                cache_image(item['id'], response.content)
+        except Exception as exc:
+            print(f"[agent] reference photo unavailable: {item['id']}: {type(exc).__name__}")
     prune_images(valid_ids)
     try:
         door.configure(door_cfg)
@@ -1707,6 +1736,8 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
         matrix = state["matrix"]
         owners = list(state["owners"])
         geoms = list(state["geoms"])
+        anchor_matrix = state.get('anchor_matrix', matrix)
+        anchor_owners = list(state.get('anchor_owners', owners))
         settings = dict(state["settings"])
 
     threshold = float(settings.get("match_threshold") or 0.45)
@@ -1854,10 +1885,16 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
 
     # Two people scoring almost the same means the frame is not good enough to
     # tell them apart — ask for another scan instead of guessing.
-    if best_score - runner_up < 0.04 and runner_up > 0:
+    # Adaptive samples must never override ambiguous original enrollment.
+    anchored_scores = {}
+    for sid, score in zip(anchor_owners, anchor_matrix @ query):
+        anchored_scores[sid] = max(anchored_scores.get(sid, -1.), float(score))
+    own_anchor = anchored_scores.get(student_id, -1.)
+    other_anchor = max((v for sid, v in anchored_scores.items() if sid != student_id), default=-1.)
+    if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or own_anchor-other_anchor < .08:
         return {
             "result": "denied",
-            "message": "ภาพไม่ชัดพอ กรุณามองกล้องตรงๆ อีกครั้ง",
+            "message": "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียนแทน",
             "speak": "กรุณามองกล้องอีกครั้ง",
             "next_delay_seconds": 2,
             "face_detection": visual,
@@ -1911,7 +1948,24 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
     if geometry_score is not None and geo_min > 0 and geometry_score < geo_min:
         return {"result": "denied", "message": "สัดส่วนใบหน้าไม่ตรงกับข้อมูลที่ลงทะเบียนไว้ กรุณาสแกนอีกครั้ง",
                 "speak": "กรุณาสแกนอีกครั้ง", "next_delay_seconds": 1, "face_detection": visual}
-    return submit_attendance_fast(payload, settings, delay, {"face_detection": visual})
+    result = submit_attendance_fast(payload, settings, delay, {"face_detection": visual})
+    # Learn only clear, enrollment-anchored student matches; never unknowns,
+    # visitors, test scans, QR images, or ambiguous twins. No raw scan copies.
+    if result.get('result') in ('ok', 'duplicate'):
+        x1, y1, x2, y2 = [max(0, int(v)) for v in face.bbox]
+        crop = arr[y1:y2, x1:x2]
+        sharpness = laplacian_sharpness(crop) if crop.size else 0
+        with lock:
+            person = state['students'].get(student_id) or {}
+            if person.get('person_type') == 'student' and learn_face(local_memory,
+                    enrollment_anchors(state['faces']), student_id, query.tolist(),
+                    sharpness, float(face.det_score)):
+                rebuild_matrix_locked()
+                try:
+                    write_json_atomic(os.path.join(os.path.dirname(FACES_FILE), 'face-memory.json'), local_memory)
+                except OSError as exc:
+                    print(f'[agent] local face memory not persisted: {type(exc).__name__}')
+    return result
 
 
 def open_firewall(port: int) -> None:

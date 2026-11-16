@@ -121,11 +121,13 @@ def create_router(cloud_url, embed, read_card, sync, device_key='', settings_rea
                         raise ValueError('ไม่พบ QR บัตรนักเรียน กรุณาชูบัตรให้ชัด')
                     session['student'],session['samples'] = student,[]
                     return response({'student':student})
-                if kind == 'capture':
+                if kind in ('capture', 'upload'):
                     if not session['student']:
                         raise ValueError('เลือกนักเรียนก่อนถ่ายภาพ')
-                    if len(session['samples']) >= 3:
-                        raise ValueError('ครบสามภาพแล้ว')
+                    if len(session['samples']) >= 5:
+                        raise ValueError('ครบห้าภาพแล้ว')
+                    if len(str(body.get('image',''))) > 8_000_000:
+                        raise ValueError('รูปใหญ่เกินไป กรุณาเลือกรูปเล็กกว่า 6 MB')
                     faces = embed(str(body.get('image','')))
                     error = quality_error(faces,session['samples'])
                     if error:
@@ -134,16 +136,18 @@ def create_router(cloud_url, embed, read_card, sync, device_key='', settings_rea
                     session['samples'].append(sample)
                     return response({'count':len(session['samples']), 'photo':sample.get('crop')})
                 if kind == 'save':
-                    if not session['student'] or len(session['samples']) != 3:
-                        raise ValueError('ต้องเลือกนักเรียนและถ่ายครบสามภาพ')
+                    if not session['student'] or not 3 <= len(session['samples']) <= 5:
+                        raise ValueError('ต้องเลือกนักเรียนและเก็บสามถึงห้าภาพ')
+                    count = len(session['samples'])
                     result = cloud('kiosk-face-register', {'student_id':session['student']['id'],
                         'descriptors':[s['descriptor'] for s in session['samples']],
+                        'face_images':[s.get('crop') for s in session['samples']],
                         'face_image':session['samples'][0].get('crop')},session['token'])
-                    if result.get('success') is not True or result.get('count') != 3:
+                    if result.get('success') is not True or result.get('count') != count:
                         raise ValueError('ระบบยังไม่ยืนยันการบันทึก กรุณาลองใหม่')
                     session['samples']=[]
                     threading.Thread(target=sync,daemon=True).start()
-                    return response({'ok':True,'count':3})
+                    return response({'ok':True,'count':count})
                 if kind == 'sync':
                     # Revalidates school roles; stale local sessions do not confer privileges.
                     roster=cloud('kiosk-native-admin',{'action':'roster'},session['token'])

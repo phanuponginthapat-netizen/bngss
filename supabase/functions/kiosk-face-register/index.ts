@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     const ip = clientIp(req);
     if (!rateOk(ip)) return respond({ error: "rate_limited" }, 429);
 
-    const { qr, student_code, student_id, descriptors, face_image } = await req.json().catch(() => ({} as any));
+    const { qr, student_code, student_id, descriptors, face_image, face_images } = await req.json().catch(() => ({} as any));
 
     // ต้องมี descriptors
     if (!Array.isArray(descriptors) || descriptors.length === 0 || descriptors.length > 5) {
@@ -60,6 +60,10 @@ Deno.serve(async (req) => {
     }
     for (const d of descriptors) {
       if (!Array.isArray(d) || d.length !== 512 || !d.every((v) => typeof v === "number" && Number.isFinite(v))) return respond({ error: "invalid_descriptor_dim" }, 400);
+    }
+    if (face_images !== undefined && (!Array.isArray(face_images) || face_images.length !== descriptors.length ||
+        face_images.some((image: unknown) => typeof image !== 'string' || image.length > 1_000_000 || !/^(data:image\/jpeg;base64,)?[A-Za-z0-9+/]+={0,2}$/.test(image)))) {
+      return respond({ error: 'invalid_face_images' }, 400);
     }
 
     // หา student_id จากหลายทาง
@@ -121,7 +125,8 @@ Deno.serve(async (req) => {
       descriptor: desc,
       captured_by: null,
       source: "kiosk_door",
-      face_image: i === 0 && face_image ? face_image : null,
+      face_image: face_images?.[i] ? (face_images[i].startsWith('data:') ? face_images[i] : `data:image/jpeg;base64,${face_images[i]}`) : i === 0 && face_image ? face_image : null,
+      created_at: new Date().toISOString(),
     }));
 
     const { error: insErr } = await admin.from("student_face_descriptors").upsert(rows, { onConflict: "student_id,sample_index" });
