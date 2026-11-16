@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
             provider.webhook_test_success = test.ok && result.success === true;
             provider.webhook_test_status = result.statusCode ?? test.status;
             provider.webhook_test_reason = result.reason ?? null;
+            provider.webhook_test_detail = result.detail ?? null;
           }
         } else provider = { checked: true, accepted: false, provider_status: response.status };
       }
