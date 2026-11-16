@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeIdPhotoCrop,
+  faceBoxFromLandmarks,
   ID_PHOTO_WIDTH,
   ID_PHOTO_HEIGHT,
   ID_FACE_HEIGHT_RATIO,
