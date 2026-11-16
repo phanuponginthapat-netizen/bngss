@@ -1,4 +1,5 @@
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
@@ -237,13 +238,9 @@ const StudentDashboard = () => {
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
-              {data?.student?.photo_url ? (
-                <img loading="lazy" decoding="async" src={data.student.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center">
-                  <UserIcon className="w-8 h-8" />
-                </div>
-              )}
+              <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden ring-2 ring-primary-foreground/40 flex items-center justify-center" data-student-photo>
+                <IdCardPhoto url={data?.student?.photo_url || undefined} name={displayName} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 opacity-80" />
