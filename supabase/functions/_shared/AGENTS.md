@@ -15,3 +15,4 @@
 
 - Validate upload size/type/path before privileged writes; verify LINE webhook HMAC on raw bytes, and constrain bundle tables and fields with server-owned allowlists to prevent untrusted payloads choosing authority.
 - Resolve Vault credentials through getSecret so saved Cloud settings override stale environments on every receive/send/recovery path; LINE quota reads must validate both provider reads and reject incomplete usage instead of reporting zero success.
+- Shared all-role chat emits text before optional illustrations and awaited history; chat provider timeouts are terminal and must not trigger another inference, preventing indefinite loading and ambiguous duplicate billing.

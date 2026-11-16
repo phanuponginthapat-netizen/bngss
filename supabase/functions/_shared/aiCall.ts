@@ -349,6 +349,9 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
 
   const successes = results.filter((r) => r.ok);
   if (successes.length === 0) {
+    if (results.some(r => r.error?.includes("AI ใช้เวลาตอบนานเกินไป"))) {
+      throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
+    }
     const single = await aiCall(opts);
     return { ...single, panel: results };
   }
