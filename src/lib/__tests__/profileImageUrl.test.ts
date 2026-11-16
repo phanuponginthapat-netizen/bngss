@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sign, from } = vi.hoisted(() => {
@@ -10,7 +11,7 @@ describe("private family portraits", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    localStorage.clear();
+    vi.stubGlobal("localStorage", { getItem: vi.fn(() => null), setItem: vi.fn() });
     sign.mockResolvedValue({ data: { signedUrl: "https://current.example/readable.webp?token=fresh" } });
   });
 
