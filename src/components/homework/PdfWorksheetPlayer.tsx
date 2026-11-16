@@ -3,9 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, Square, Eraser, Check, X } from "lucide-react";
-import { renderPdfToImages, gradeField, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
+import { Loader2, Eraser, Check, X, ZoomIn, ZoomOut } from "lucide-react";
+import { renderPdfToImages, gradeField, isWorksheetGradable, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { supabase } from "@/integrations/supabase/client";
+import MediaCaptureButtons from "./MediaCaptureButtons";
 
 interface Props {
   pdfUrl: string;
@@ -19,18 +20,23 @@ interface Props {
 }
 
 export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersChange, readOnly, showResults, studentId, compact }: Props) {
+  const [zoom, setZoom] = useState(100);
   const [pages, setPages] = useState<WorksheetPageImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryPdf, setRetryPdf] = useState(0);
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
+    setPages([]);
     renderPdfToImages(pdfUrl)
-      .then(setPages)
-      .catch((e: any) => setError(String(e?.message ?? e) || "เปิด PDF ไม่สำเร็จ"))
-      .finally(() => setLoading(false));
-  }, [pdfUrl]);
+      .then(pages => { if (active) setPages(pages); })
+      .catch((e: any) => { if (active) setError(String(e?.message ?? e) || "เปิด PDF ไม่สำเร็จ"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [pdfUrl, retryPdf]);
 
   const set = (id: string, v: any) => onAnswersChange({ ...answers, [id]: v });
 
@@ -38,21 +44,31 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
   if (error) return (
     <div className="p-6 text-center space-y-2">
       <p className="text-sm text-destructive">โหลด PDF ไม่สำเร็จ: {error}</p>
-      <Button size="sm" variant="outline" onClick={() => { setLoading(true); setError(null); renderPdfToImages(pdfUrl).then(setPages).catch((e: any) => setError(String(e?.message ?? e))).finally(() => setLoading(false)); }}>
+      <Button size="sm" variant="outline" onClick={() => setRetryPdf(v => v + 1)}>
         ลองใหม่
       </Button>
     </div>
   );
 
   return (
-    <div className={`${compact ? "space-y-2 p-2" : "space-y-3 p-3"} bg-slate-100 rounded overflow-x-auto`}>
+    <div className="space-y-2 min-w-0">
+      <div className="flex items-center justify-between gap-2 border-b pb-2">
+        <span className="text-xs text-muted-foreground">{pages.length} หน้า · {fields.length} ช่องตอบ</span>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="icon" title="ย่อใบงาน" aria-label="ย่อใบงาน" disabled={zoom <= 100} onClick={() => setZoom(z => z - 25)}><ZoomOut className="h-4 w-4" /></Button>
+          <span className="text-xs tabular-nums w-10 text-center">{zoom}%</span>
+          <Button type="button" variant="ghost" size="icon" title="ขยายใบงาน" aria-label="ขยายใบงาน" disabled={zoom >= 200} onClick={() => setZoom(z => z + 25)}><ZoomIn className="h-4 w-4" /></Button>
+        </div>
+      </div>
+      <div className={`${compact ? "p-2" : "p-3"} bg-muted rounded-md overflow-auto`}>
+      <div className="space-y-3" style={{ width: `${zoom}%` }}>
       {pages.map(p => (
         <div key={p.page} className="space-y-1">
           <div className="text-xs text-muted-foreground">หน้า {p.page}</div>
-          <div className="relative bg-white shadow border mx-auto min-w-[280px]" style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}` }}>
+          <div className="relative bg-card shadow-sm border mx-auto min-w-[280px]" style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}` }}>
             <img src={p.dataUrl} alt={`page ${p.page}`} className="absolute inset-0 w-full h-full select-none pointer-events-none" draggable={false} />
             {fields.filter(f => f.page === p.page).map(f => {
-              const result = showResults && f.correct !== undefined ? gradeField(f, answers[f.id]) : null;
+              const result = showResults && isWorksheetGradable(f) ? gradeField(f, answers[f.id]) : null;
               return (
                 <div key={f.id}
                   className="absolute"
@@ -66,7 +82,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
                     studentId={studentId}
                   />
                   {result && (
-                    <div className={`absolute -top-2 -right-2 rounded-full p-0.5 ${result.correct ? "bg-emerald-500" : "bg-rose-500"} text-white shadow`}>
+                    <div className={`absolute -top-2 -right-2 rounded-full p-0.5 ${result.correct ? "bg-success" : "bg-destructive"} text-primary-foreground shadow`}>
                       {result.correct ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                     </div>
                   )}
@@ -76,6 +92,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
           </div>
         </div>
       ))}
+      </div></div>
     </div>
   );
 }
@@ -84,26 +101,26 @@ function FieldControl({ field, value, onChange, readOnly, studentId }: {
   field: WorksheetField; value: any; onChange: (v: any) => void; readOnly?: boolean; studentId?: string | null;
 }) {
   if (field.type === "text") {
-    return <Input className="w-full h-full text-sm bg-white/95 border-amber-400" disabled={readOnly}
+    return <Input className="w-full h-full text-sm bg-background/95 border-primary/50" disabled={readOnly}
       placeholder={field.placeholder || field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
   }
   if (field.type === "textarea") {
-    return <Textarea className="w-full h-full text-sm bg-white/95 border-amber-400 resize-none" disabled={readOnly}
+    return <Textarea className="w-full h-full text-sm bg-background/95 border-primary/50 resize-none" disabled={readOnly}
       placeholder={field.placeholder || field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
   }
   if (field.type === "checkbox") {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-white/80 border border-amber-400 rounded">
+      <div className="w-full h-full flex items-center justify-center bg-background/80 border border-primary/50 rounded">
         <Checkbox checked={!!value} disabled={readOnly} onCheckedChange={(c) => onChange(!!c)} className="w-5 h-5" />
       </div>
     );
   }
   if (field.type === "mc") {
     return (
-      <div className="w-full h-full bg-white/95 border border-amber-400 rounded p-1 overflow-auto text-xs space-y-0.5">
+      <div className="w-full h-full bg-background/95 border border-primary/50 rounded p-1 overflow-auto text-xs space-y-0.5">
         {(field.options || []).map((opt, i) => (
           <label key={i} className="flex items-center gap-1 cursor-pointer">
-            <input type="radio" name={field.id} disabled={readOnly} checked={Number(value) === i} onChange={() => onChange(i)} />
+            <input type="radio" name={field.id} disabled={readOnly} checked={value !== undefined && value !== null && value !== "" && Number(value) === i} onChange={() => onChange(i)} />
             <span className="truncate">{opt}</span>
           </label>
         ))}
@@ -155,7 +172,7 @@ function DrawCanvas({ value, onChange, readOnly }: { value: any; onChange: (v: s
   };
 
   return (
-    <div className="w-full h-full bg-white/95 border border-amber-400 rounded relative">
+    <div className="w-full h-full bg-background/95 border border-primary/50 rounded relative">
       <canvas ref={canvasRef} width={600} height={300} className="w-full h-full touch-none"
         onPointerDown={(e) => {
           if (readOnly) return;
@@ -190,86 +207,31 @@ function DrawCanvas({ value, onChange, readOnly }: { value: any; onChange: (v: s
 }
 
 function AudioRecorder({ value, onChange, readOnly, studentId }: { value: any; onChange: (v: string) => void; readOnly?: boolean; studentId?: string | null }) {
-  const [recording, setRecording] = useState(false);
-  const recRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recSecs, setRecSecs] = useState(0);
-  const recTimerRef = useRef<number|null>(null);
-  const startTimer = () => { setRecSecs(0); recTimerRef.current = window.setInterval(()=>setRecSecs(s=>s+1),1000); };
-  const stopTimer = () => { if(recTimerRef.current) clearInterval(recTimerRef.current); recTimerRef.current=null; };
-  const mmss = (s:number)=> `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    return () => { if(recTimerRef.current) clearInterval(recTimerRef.current); };
-  }, []);
-
-  useEffect(() => {
-    if (!value) { setUrl(null); return; }
-    (async () => {
-      const { data } = await supabase.storage.from("homework-files").createSignedUrl(value, 3600);
-      if (data?.signedUrl) setUrl(data.signedUrl);
-      else setError("โหลดไฟล์เสียงไม่สำเร็จ");
-    })();
-  }, [value]);
-
-  const start = async () => {
-    setError(null);
-    let stream: MediaStream | null = null;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e: any) {
-      setError("ไม่อนุญาตใช้ไมโครโฟน — เปิดสิทธิ์ในเบราว์เซอร์แล้วลองใหม่");
-      return;
-    }
-    const rec = new MediaRecorder(stream);
-    chunksRef.current = [];
-    rec.ondataavailable = (e) => chunksRef.current.push(e.data);
-    rec.onstop = async () => {
-      try {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const path = `worksheet-audio/${studentId || "anon"}/${Date.now()}.webm`;
-        const { error } = await supabase.storage.from("homework-files").upload(path, blob, { contentType: "audio/webm", upsert: false });
-        if (error) setError("อัปโหลดเสียงไม่สำเร็จ: " + error.message);
-        else onChange(path);
-      } catch (e: any) {
-        setError(String(e?.message ?? e));
-      } finally {
-        stream?.getTracks().forEach(t => t.stop());
-        stopTimer();
-      }
-    };
-    rec.start();
-    recRef.current = rec;
-    setRecording(true);
-    startTimer();
-  };
-  const stop = () => { recRef.current?.stop(); setRecording(false); stopTimer(); };
-
-  return (
-    <div className="w-full h-full flex flex-col gap-1 bg-white/95 border border-amber-400 rounded px-1 py-1">
-      {recording ? (
-        <div className="rounded-lg border border-red-500 bg-red-50 dark:bg-red-950/20 p-2 space-y-1 sticky top-0 z-10 shadow">
-          <div className="flex items-center gap-2">
-            <span className="flex gap-1"><span className="w-1 h-4 bg-red-600 animate-pulse" style={{animationDelay:"0ms"}}/><span className="w-1 h-6 bg-red-600 animate-pulse" style={{animationDelay:"150ms"}}/><span className="w-1 h-3 bg-red-600 animate-pulse" style={{animationDelay:"300ms"}}/></span>
-            <span className="text-xs font-semibold">กำลังอัดเสียง...</span>
-            <span className="ml-auto font-mono font-bold tabular-nums text-xs">{mmss(recSecs)}</span>
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse inline-block" />
-          </div>
-          <div className="flex items-center justify-center gap-1 py-1"><span className="w-2 h-2 rounded-full bg-red-600 animate-ping"/><span className="text-[10px]">ไมค์กำลังอัด...</span></div>
-          <Button size="sm" variant="destructive" className="w-full h-6 text-xs gap-1" onClick={stop}><Square className="w-3 h-3" /> หยุดและบันทึก</Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1">
-          {!readOnly && (
-            <Button size="icon" variant="outline" className="h-6 w-6" onClick={start}><Mic className="w-3 h-3" /></Button>
-          )}
-          {url && <audio src={url} controls className="h-6 flex-1" />}
-          {!url && <span className="text-[10px] text-muted-foreground">ยังไม่มีเสียง</span>}
-        </div>
-      )}
-      {error && <span className="text-[10px] text-destructive truncate" title={error}>{error}</span>}
-      {!recording && url && null}
+    let active = true;
+    setUrl(null); setError(null);
+    if (!value) return;
+    supabase.storage.from("homework-files").createSignedUrl(value, 3600).then(({ data, error }) => {
+      if (!active) return;
+      if (error || !data?.signedUrl) setError("โหลดไฟล์เสียงไม่สำเร็จ");
+      else setUrl(data.signedUrl);
+    });
+    return () => { active = false; };
+  }, [value, retry]);
+  return <div className="w-full h-full overflow-auto bg-background/95 border border-primary/50 rounded p-1 space-y-1">
+    <div className="flex flex-wrap items-center gap-1">
+      {!readOnly && <MediaCaptureButtons compact audioOnly onCaptured={async file => {
+        const path = `worksheet-audio/${studentId || "anon"}/${crypto.randomUUID()}_${file.name}`;
+        const { error } = await supabase.storage.from("homework-files").upload(path, file, { contentType: file.type, upsert: false });
+        if (error) throw error;
+        onChange(path);
+      }} />}
+      {!value && <span className="text-xs text-muted-foreground">ยังไม่มีเสียง</span>}
     </div>
-  );
+    {url && <audio src={url} controls className="w-full min-w-0 h-8" onError={() => setError("เล่นไฟล์เสียงไม่สำเร็จ")} />}
+    {error && <div className="text-xs text-destructive"><p>{error}</p><Button type="button" size="sm" variant="ghost" onClick={() => setRetry(r => r + 1)}>ลองใหม่</Button></div>}
+  </div>;
 }

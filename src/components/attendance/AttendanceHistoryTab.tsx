@@ -35,18 +35,19 @@ interface Props {
   classroomFilter: string;
   setClassroomFilter: (v: string) => void;
   gradeOptions: string[];
+  readOnly?: boolean;
 }
 
 export function AttendanceHistoryTab({
   records, students, filteredClassrooms,
   gradeFilter, setGradeFilter, classroomFilter, setClassroomFilter,
-  gradeOptions,
+  gradeOptions, readOnly = false,
 }: Props) {
   const { lang } = useLanguage();
   const qc = useQueryClient();
 
   const filteredRecords = useMemo(() => {
-    let result = records;
+    let result = records.filter((r: any) => r.subject_id);
     if (gradeFilter && gradeFilter !== "all") {
       result = result.filter((r: any) => r.students?.classrooms?.grade_level === gradeFilter);
     }
@@ -58,6 +59,7 @@ export function AttendanceHistoryTab({
   }, [records, gradeFilter, classroomFilter, students]);
 
   const handleDelete = async (id: string) => {
+    if (readOnly) return;
     await supabase.from("attendance").delete().eq("id", id);
     qc.invalidateQueries({ queryKey: ["attendance"] });
     toast.success(lang === "th" ? "ลบสำเร็จ" : "Deleted");
@@ -66,6 +68,7 @@ export function AttendanceHistoryTab({
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
+        {!readOnly && <>
         <Select value={gradeFilter} onValueChange={setGradeFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder={lang === "th" ? "ระดับชั้น" : "Grade"} /></SelectTrigger>
           <SelectContent>
@@ -82,6 +85,7 @@ export function AttendanceHistoryTab({
             ))}
           </SelectContent>
         </Select>
+        </>}
       </div>
 
       <Card>
@@ -92,6 +96,7 @@ export function AttendanceHistoryTab({
                 <TableHead>{lang === "th" ? "วันที่" : "Date"}</TableHead>
                 <TableHead>{lang === "th" ? "นักเรียน" : "Student"}</TableHead>
                 <TableHead>{lang === "th" ? "ห้อง" : "Room"}</TableHead>
+                <TableHead>{lang === "th" ? "วิชา / คาบ" : "Subject / period"}</TableHead>
                 <TableHead>{lang === "th" ? "สถานะ" : "Status"}</TableHead>
                 <TableHead>{lang === "th" ? "หมายเหตุ" : "Notes"}</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -100,7 +105,7 @@ export function AttendanceHistoryTab({
             <TableBody>
               {filteredRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {lang === "th" ? "ไม่มีข้อมูล" : "No data"}
                   </TableCell>
                 </TableRow>
@@ -117,6 +122,7 @@ export function AttendanceHistoryTab({
                       ? r.students.classrooms.name
                       : "-"}
                   </TableCell>
+                  <TableCell className="text-xs">{r.subjects?.name_th || r.subjects?.code || "—"} · {r.period > 0 ? `คาบ ${r.period}` : "ไม่ระบุคาบ (ข้อมูลเดิม)"}</TableCell>
                   <TableCell>
                     <Badge className={SC[r.status] || ""}>
                       {SL[r.status]?.[lang] || r.status}
@@ -124,9 +130,9 @@ export function AttendanceHistoryTab({
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{r.notes}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
+                    {!readOnly && <Button variant="ghost" size="sm" onClick={() => handleDelete(r.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    </Button>}
                   </TableCell>
                 </TableRow>
               ))}

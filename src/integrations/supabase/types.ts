@@ -1661,6 +1661,7 @@ export type Database = {
           id: string
           late_minutes: number | null
           notes: string | null
+          period: number
           recorded_by: string | null
           school_id: string | null
           semester: number | null
@@ -1675,6 +1676,7 @@ export type Database = {
           id?: string
           late_minutes?: number | null
           notes?: string | null
+          period?: number
           recorded_by?: string | null
           school_id?: string | null
           semester?: number | null
@@ -1689,6 +1691,7 @@ export type Database = {
           id?: string
           late_minutes?: number | null
           notes?: string | null
+          period?: number
           recorded_by?: string | null
           school_id?: string | null
           semester?: number | null
@@ -5944,6 +5947,111 @@ export type Database = {
           sort_order?: number
           storage_path?: string
           title?: string
+        }
+        Relationships: []
+      }
+      fact_attendance: {
+        Row: {
+          entry_method: string | null
+          etl_at: string
+          id: string
+          scan_date: string
+          scan_time: string
+          scan_type: string | null
+          source: string
+          student_id: string | null
+        }
+        Insert: {
+          entry_method?: string | null
+          etl_at: string
+          id: string
+          scan_date: string
+          scan_time: string
+          scan_type?: string | null
+          source?: string
+          student_id?: string | null
+        }
+        Update: {
+          entry_method?: string | null
+          etl_at?: string
+          id?: string
+          scan_date?: string
+          scan_time?: string
+          scan_type?: string | null
+          source?: string
+          student_id?: string | null
+        }
+        Relationships: []
+      }
+      fact_finance: {
+        Row: {
+          amount: number | null
+          category: string | null
+          etl_at: string
+          id: string
+          source_id: string
+          source_table: string
+          transaction_date: string
+          type: string | null
+        }
+        Insert: {
+          amount?: number | null
+          category?: string | null
+          etl_at: string
+          id: string
+          source_id: string
+          source_table: string
+          transaction_date: string
+          type?: string | null
+        }
+        Update: {
+          amount?: number | null
+          category?: string | null
+          etl_at?: string
+          id?: string
+          source_id?: string
+          source_table?: string
+          transaction_date?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      fact_grades: {
+        Row: {
+          academic_year: number
+          etl_at: string
+          grade: string | null
+          grade_point: number | null
+          id: string
+          semester: number
+          source_updated_at: string | null
+          student_code: string
+          subject_id: string
+          total_score: number | null
+        }
+        Insert: {
+          academic_year: number
+          etl_at: string
+          grade?: string | null
+          grade_point?: number | null
+          id: string
+          semester: number
+          source_updated_at?: string | null
+          student_code: string
+          subject_id: string
+          total_score?: number | null
+        }
+        Update: {
+          academic_year?: number
+          etl_at?: string
+          grade?: string | null
+          grade_point?: number | null
+          id?: string
+          semester?: number
+          source_updated_at?: string | null
+          student_code?: string
+          subject_id?: string
+          total_score?: number | null
         }
         Relationships: []
       }
@@ -17822,7 +17930,10 @@ export type Database = {
         Args: { _student_id: string; _user_id?: string }
         Returns: boolean
       }
+      is_public_ar_object: { Args: { _name: string }; Returns: boolean }
+      is_school_member: { Args: { _uid: string }; Returns: boolean }
       is_staff_any: { Args: { _uid: string }; Returns: boolean }
+      is_staff_avatar_folder: { Args: { _folder: string }; Returns: boolean }
       is_staff_user: { Args: { _uid: string }; Returns: boolean }
       is_subject_group_head: {
         Args: { _group: string; _user_id: string }

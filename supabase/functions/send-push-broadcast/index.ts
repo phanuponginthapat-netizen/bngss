@@ -1,3 +1,4 @@
+import { authorizeCaller } from "../_shared/callerAuth.ts";
 import { pushOne } from "../_shared/webPush.ts";
 import { sendFcm } from "../_shared/fcmPush.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -9,28 +10,9 @@ Deno.serve(async (req) => {
   try {
     const admin = makeAdmin();
 
-    // SECURITY: admin-only
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const { data: userData } = await admin.auth.getUser(token);
-    const callerId = userData?.user?.id;
-    if (!callerId) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const { data: callerRole } = await admin.from("user_roles")
-      .select("role").eq("user_id", callerId).eq("role", "admin").maybeSingle();
-    if (!callerRole) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // SECURITY: admin users, internal service calls, or database triggers (cron secret) only.
+    const caller = await authorizeCaller(req, corsHeaders, { roles: ["admin"], allowCron: true });
+    if (caller instanceof Response) return caller;
 
     const { title, body, url, tag } = await req.json();
     if (!title) {

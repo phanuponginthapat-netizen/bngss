@@ -22,12 +22,8 @@ Deno.serve(async req=>{
   const samples=validVisitorLiveness(d.face_samples)?d.face_samples:null;
   const approval=visitorRegistrationApproval(d.face_consent,d.photo_url,new Date().toISOString());
   if(recent?.length){
-    // A resubmission may add a consented photo; never reuse an embedding from a different image.
-    if(approval.face_approved_at){
-      const {error:updateError}=await db.from('visitor_logs').update({...approval,face_consent:true,photo_url:d.photo_url,face_samples:samples,face_embedding:samples?.[0].descriptor??null,face_error:null}).eq('id',recent[0].id).is('check_out',null);
-      if(updateError)throw updateError;
-    }
-    return reply({ok:true,duplicate:true,id:recent[0].id,check_in:recent[0].check_in});
+    // Public identity fields are not credentials: never mutate or reveal the existing row.
+    return reply({ok:true,duplicate:true});
   }
   const {data,error}=await db.from('visitor_logs').insert({visitor_name:d.visitor_name,visitor_phone:d.visitor_phone||null,organization:d.organization||null,purpose:d.purpose,contact_person_name:d.contact_person_name||null,vehicle_plate:d.vehicle_plate||null,photo_url:d.photo_url||null,face_consent:d.face_consent,face_samples:samples,face_embedding:samples?.[0].descriptor??null,...approval,notes:'ลงทะเบียนผู้มาติดต่อ'}).select('id,check_in').single();
   if(error)throw error;

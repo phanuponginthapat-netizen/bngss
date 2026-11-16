@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 // Suggests a mapping from ad-hoc "proxy" subjects (created while importing a
 // timetable) to real curriculum subjects. Uses AI when a provider is
 // configured, and always falls back to deterministic string similarity.
@@ -43,6 +44,9 @@ function heuristicMap(proxies: Subject[], real: Subject[]): Record<string, strin
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: STAFF_ROLES });
+  if (__caller instanceof Response) return __caller;
+
   const json = (b: unknown, status = 200) =>
     new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

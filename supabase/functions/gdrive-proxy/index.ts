@@ -139,6 +139,9 @@ Deno.serve(async (req) => {
             body: finalBody,
           });
           if (retried.ok) {
+            if (retried.status === 204 || retried.status === 205) {
+              return new Response(null, { status: retried.status, headers: corsHeaders });
+            }
             const retryContentType = retried.headers.get("Content-Type") ?? "application/json";
             if (retryContentType.startsWith("application/json") || retryContentType.startsWith("text/") || retryContentType.includes("+json")) {
               const retryText = await retried.text();
@@ -179,6 +182,10 @@ Deno.serve(async (req) => {
       }, upstream.status);
     }
 
+    // Empty successful responses (notably Drive DELETE) cannot contain a body.
+    if (upstream.status === 204 || upstream.status === 205) {
+      return new Response(null, { status: upstream.status, headers: corsHeaders });
+    }
     // Stream download responses directly
     if (contentType.startsWith("application/json") || contentType.startsWith("text/") || contentType.includes("+json")) {
       const text = await upstream.text();

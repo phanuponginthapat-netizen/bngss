@@ -7,6 +7,8 @@
 // POST { action: "upload", path, base64, contentType, public?: true }
 // POST { action: "delete", fileId }
 // POST { action: "list", path? }
+import { authorizeCaller, STAFF_ROLES } from "../_shared/callerAuth.ts";
+import { validateDriveUpload } from "../_shared/uploadValidation.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -44,6 +46,8 @@ function b64ToBytes(b64: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const caller = await authorizeCaller(req, corsHeaders, { roles: STAFF_ROLES });
+  if (caller instanceof Response) return caller;
   try {
     // ต้องล็อกอินก่อนเสมอ
     const supabase = createClient(
@@ -56,11 +60,32 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const action = body.action ?? "upload";
+    const folderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID");
+    if (!folderId || !/^[A-Za-z0-9_-]{10,200}$/.test(folderId)) return json({ error: "drive folder not configured" }, 400);
+    if (!["upload", "list", "delete"].includes(action)) return json({ error: "invalid action" }, 400);
+    let fileBytes: Uint8Array | undefined;
+    if (action === "upload") {
+      try { fileBytes = validateDriveUpload(body.path, body.contentType, body.base64); }
+      catch { return json({ error: "invalid path, unsupported type or file exceeds 50 MB" }, 400); }
+    }
     const token = await accessToken();
-    const folderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID") || undefined;
 
     if (action === "delete") {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${body.fileId}`, {
+      // Only admins/directors may delete, and only files inside the school's configured folder.
+      const fileId = String(body.fileId ?? "");
+      if (!/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return json({ error: "invalid fileId" }, 400);
+      const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      if (!(roleRows ?? []).some((r: any) => r.role === "admin" || r.role === "director")) {
+        return json({ error: "forbidden" }, 403);
+      }
+      if (!folderId) return json({ error: "drive folder not configured" }, 400);
+      const meta = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meta.status === 404) return json({ success: true });
+      const parents: string[] = meta.ok ? ((await meta.json()).parents ?? []) : [];
+      if (!parents.includes(folderId)) return json({ error: "forbidden" }, 403);
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -96,7 +121,7 @@ Deno.serve(async (req) => {
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`,
     );
     const tail = enc.encode(`\r\n--${boundary}--`);
-    const fileBytes = b64ToBytes(base64);
+    if (!fileBytes) return json({ error: "invalid upload" }, 400);
     const payload = new Uint8Array(head.length + fileBytes.length + tail.length);
     payload.set(head, 0);
     payload.set(fileBytes, head.length);

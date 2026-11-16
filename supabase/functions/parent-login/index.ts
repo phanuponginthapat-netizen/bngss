@@ -1,6 +1,7 @@
 // Parent login: ใช้รหัสนักเรียน/อีเมล + วันเกิด เพื่อเข้าระบบในฐานะบัญชีนักเรียน
 // คืน magic link (action_link) ให้ client redirect ไปเข้าระบบอัตโนมัติ
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { ensureParentAccount } from "../_shared/parentAccount.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
       if (uid) {
         const { data: s } = await sb
           .from("students")
-          .select("id, date_of_birth, auth_user_id, status")
+          .select("id, student_code, first_name, last_name, school_id, parent_user_id, parent_user_id_2, date_of_birth, auth_user_id, status")
           .eq("auth_user_id", uid)
           .maybeSingle();
         student = s;
@@ -115,13 +116,13 @@ Deno.serve(async (req) => {
     } else {
       const { data: s } = await sb
         .from("students")
-        .select("id, date_of_birth, auth_user_id, status")
+        .select("id, student_code, first_name, last_name, school_id, parent_user_id, parent_user_id_2, date_of_birth, auth_user_id, status")
         .eq("student_code", id)
         .maybeSingle();
       student = s;
     }
 
-    if (!student || !student.auth_user_id) {
+    if (!student) {
       return respond({ error: "not_found" }, 404);
     }
     if (student.status && student.status !== "active") {
@@ -131,8 +132,10 @@ Deno.serve(async (req) => {
       return respond({ error: "dob_mismatch" }, 401);
     }
 
-    // 2) ดึง email ของบัญชีนักเรียน
-    const { data: au } = await sb.auth.admin.getUserById(student.auth_user_id);
+    // 2) Sign in as the parent's own account (never the student's)
+    const ensured = await ensureParentAccount(sb, student);
+    if ("error" in ensured) return respond({ error: ensured.error }, ensured.status);
+    const { data: au } = await sb.auth.admin.getUserById(ensured.parentUserId);
     const email = au?.user?.email;
     if (!email) return respond({ error: "no_email" }, 500);
 

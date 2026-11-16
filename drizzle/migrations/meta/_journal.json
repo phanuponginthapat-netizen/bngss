@@ -309,6 +309,62 @@
       "when": 1794712230765,
       "tag": "0043_facegate_staff_receipt_realtime",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794730942960,
+      "tag": "0044_tighten_school_member_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794732235594,
+      "tag": "0045_notify_both_parents_on_absence",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1794732790752,
+      "tag": "0046_notification_triggers_use_cron_invoke",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794734232964,
+      "tag": "0047_separate_school_and_lesson_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794741117551,
+      "tag": "0048_student_class_homework_submit",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794744656524,
+      "tag": "0049_restore_verified_school_warehouse",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794745428384,
+      "tag": "0050_restrict_face_identity_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794796163747,
+      "tag": "0051_face_scan_notify_linked_parents",
+      "breakpoints": true
     }
   ]
 }

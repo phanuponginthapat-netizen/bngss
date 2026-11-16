@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -343,6 +344,9 @@ async function runSetup(force = false) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+  if (__caller instanceof Response) return __caller;
+
 
   try {
     let force = false;

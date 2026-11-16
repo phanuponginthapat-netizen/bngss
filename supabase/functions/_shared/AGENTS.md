@@ -10,3 +10,8 @@
 - Kiosk attendance retries use validated captured timestamps for school windows, duplicate checks and persisted scan dates; missing legacy timestamps alone use receipt time, preventing delayed uploads becoming current-day attendance.
 - Staff scan retries derive stable receipt IDs from device, identity, captured timestamp and direction; one lost response cannot create several pass records.
 - FaceGate live person counts use shared resolved student class statuses and distinct confirmed staff identities, never event-row counts; legacy staff pass rows without direction remain direction-unknown.
+- Edge functions authorize callers through _shared/callerAuth.ts (service key, cron secret, or school role); never rely on a bare session or open endpoints.
+- Shared school reference data RLS uses public.is_school_member(auth.uid()) so open sign-ups cannot read school records.
+
+- Validate upload size/type/path before privileged writes; verify LINE webhook HMAC on raw bytes, and constrain bundle tables and fields with server-owned allowlists to prevent untrusted payloads choosing authority.
+- Resolve Vault credentials through getSecret so saved Cloud settings override stale environments on every receive/send/recovery path; LINE quota reads must validate both provider reads and reject incomplete usage instead of reporting zero success.

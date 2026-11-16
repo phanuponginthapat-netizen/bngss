@@ -4,6 +4,7 @@
 //                                   /content /recent /today-stats (หน้าจอสแกนดึง CMS/หลังบ้าน)
 // รับรองเครื่องด้วย header: x-device-key  (ดูรหัสเครื่องได้ที่หน้า "ตั้งค่าคีออส")
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateJpegSnapshot } from "../_shared/uploadValidation.ts";
 import { scanTimestamp } from "../_shared/scanTimestamp.ts";
 import { scanReceipt } from "../_shared/scanReceipt.ts";
 import { scanLiveCounts } from "../_shared/scanLiveCounts.ts";
@@ -110,11 +111,7 @@ async function loadSettings(db: ReturnType<typeof admin>) {
 async function storeSnapshot(db: ReturnType<typeof admin>, snapshot: string | null, personId: string) {
   if (!snapshot) return null;
   try {
-    const raw = snapshot.includes(",") ? snapshot.slice(snapshot.indexOf(",") + 1) : snapshot;
-    const bin = atob(raw);
-    if (bin.length > 5_000_000) return null;
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const bytes = validateJpegSnapshot(snapshot);
     const path = `scans/${bkkDate()}/${personId}-${Date.now()}.jpg`;
     const { error } = await db.storage.from("face-photos").upload(path, bytes, { contentType: "image/jpeg" });
     if (error) return null;

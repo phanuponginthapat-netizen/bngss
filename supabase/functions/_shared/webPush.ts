@@ -90,8 +90,9 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
     } as Parameters<typeof appServer.subscribe>[0]);
 
     const body = JSON.stringify({
-      title: payload.title,
-      body: payload.body ?? "",
+      title: payload.title.slice(0, 200),
+      // Push services cap encrypted payloads at ~4KB (413 otherwise); long digests open in-app instead.
+      body: (payload.body ?? "").length > 1500 ? `${(payload.body ?? "").slice(0, 1500)}…` : (payload.body ?? ""),
       url: payload.url ?? "/dashboard",
       tag: payload.tag ?? "general",
     });
@@ -99,7 +100,11 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
     await subscriber.pushTextMessage(body, { urgency: "high", ttl: 3600, topic: (payload.tag ?? "general").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || undefined } as any);
     return { ok: true, gone: false };
   } catch (e: any) {
-    const msg = String(e?.message || e || "");
+    let msg = String(e?.message || e || "");
+    try {
+      const detail = e?.response ? await e.response.clone().text() : "";
+      if (detail) msg = `${msg} | ${detail.slice(0, 200)}`;
+    } catch (_) { /* response body unavailable */ }
     // negrel/webpush throws PushMessageError with `response`/`statusCode` for HTTP failures
     const status: number | undefined =
       e?.response?.status ?? e?.statusCode ?? (msg.match(/\b(4\d\d|5\d\d)\b/) ? Number(RegExp.$1) : undefined);

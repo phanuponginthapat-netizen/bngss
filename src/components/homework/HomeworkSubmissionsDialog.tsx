@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,36 +27,45 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
   const [assignment, setAssignment] = useState<any>(null);
   const [assignmentPdfUrl, setAssignmentPdfUrl] = useState<string>("");
   const [drafts, setDrafts] = useState<Record<string, { score: string; feedback: string }>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadVersion = useRef(0);
   
 
   const load = async () => {
     if (!assignmentId) return;
+    const version = ++loadVersion.current;
     setLoading(true);
-    const { data: a } = await supabase.from("homework_assignments").select("*").eq("id", assignmentId).maybeSingle();
-    setAssignment(a);
-    setAssignmentPdfUrl("");
+    setLoadError(null); setRows([]); setAssignment(null); setAssignmentPdfUrl("");
+    try {
+    const { data: a, error: assignmentError } = await supabase.from("homework_assignments").select("*").eq("id", assignmentId).single();
+    if (assignmentError) throw assignmentError;
+    let pdfUrl = "";
     if (a?.pdf_path) {
-      const { data: signed } = await supabase.storage.from("homework-files").createSignedUrl(a.pdf_path, 3600);
-      setAssignmentPdfUrl(signed?.signedUrl || "");
+      const { data: signed, error } = await supabase.storage.from("homework-files").createSignedUrl(a.pdf_path, 3600);
+      if (error || !signed?.signedUrl) throw error || new Error("เปิด PDF ไม่สำเร็จ");
+      pdfUrl = signed.signedUrl;
     }
-    const { data: subs } = await supabase
+    const { data: subs, error: submissionsError } = await supabase
       .from("homework_submissions" as any)
       .select("*")
       .eq("assignment_id", assignmentId)
       .order("submitted_at", { ascending: false });
+    if (submissionsError) throw submissionsError;
     // resolve student names
     const ids = Array.from(new Set((subs || []).map((s: any) => s.student_id)));
     const map: Record<string, string> = {};
     const authMap: Record<string, string> = {};
     if (ids.length) {
-      const { data: students } = await supabase.from("students").select("id,prefix,first_name,last_name,student_code,auth_user_id").in("id", ids);
+      const { data: students, error: studentsError } = await supabase.from("students").select("id,prefix,first_name,last_name,student_code,auth_user_id").in("id", ids);
+      if (studentsError) throw studentsError;
       (students || []).forEach((p: any) => {
         map[p.id] = `${p.prefix || ""}${p.first_name || ""} ${p.last_name || ""}`.trim() + (p.student_code ? ` (${p.student_code})` : "");
         if (p.auth_user_id) authMap[p.id] = p.auth_user_id;
       });
       const missingIds = ids.filter((id: any) => !map[id]);
       if (missingIds.length) {
-        const { data: profs } = await supabase.from("profiles").select("id,first_name,last_name,student_code").in("id", missingIds);
+        const { data: profs, error: profilesError } = await supabase.from("profiles").select("id,first_name,last_name,student_code").in("id", missingIds);
+        if (profilesError) throw profilesError;
         (profs || []).forEach((p: any) => {
           map[p.id] = `${p.first_name || ""} ${p.last_name || ""}`.trim() + (p.student_code ? ` (${p.student_code})` : "");
           authMap[p.id] = p.id;
@@ -64,6 +73,8 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
       }
     }
     const enriched = (subs || []).map((s: any) => ({ ...s, _name: map[s.student_id] || s.student_id.slice(0, 8), _authUserId: authMap[s.student_id] || null }));
+    if (version !== loadVersion.current) return;
+    setAssignment(a); setAssignmentPdfUrl(pdfUrl);
     setRows(enriched);
     const d: Record<string, { score: string; feedback: string }> = {};
     enriched.forEach((s: any) => {
@@ -72,10 +83,14 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
       d[s.id] = { score: suggested?.toString() ?? "", feedback: s.feedback || "" };
     });
     setDrafts(d);
-    setLoading(false);
+    } catch (error) { if (version === loadVersion.current) setLoadError(saveErrorMessage(error)); }
+    finally { if (version === loadVersion.current) setLoading(false); }
   };
 
-  useEffect(() => { if (open && assignmentId) load(); }, [open, assignmentId]);
+  useEffect(() => {
+    if (open && assignmentId) load();
+    return () => { loadVersion.current += 1; };
+  }, [open, assignmentId]);
 
 
   const grade = async (s: any) => {
@@ -129,6 +144,8 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
 
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        ) : loadError ? (
+          <div className="py-6 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={load}>ลองใหม่</Button></div>
         ) : rows.length === 0 ? (
           <p className="text-center text-muted-foreground py-10">ยังไม่มีนักเรียนส่งงาน</p>
         ) : (

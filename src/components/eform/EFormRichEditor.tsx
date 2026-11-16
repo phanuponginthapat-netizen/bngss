@@ -715,7 +715,7 @@ const EFormRichEditor = ({ html, onChange, fontFamily = 'Sarabun', fontSizePt: i
   const editor = useEditor({
     editable: !readOnly,
     extensions: [
-      StarterKit.configure({ paragraph: false, heading: false }),
+      StarterKit.configure({ paragraph: false, heading: false, link: false, underline: false }),
       EFormParagraph,
       EFormHeading,
       Underline,

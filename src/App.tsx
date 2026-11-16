@@ -70,6 +70,7 @@ const InstallPage = lazy(() => import("./pages/InstallPage"));
 const VisitorCheckinPage = lazy(() => import("./pages/VisitorCheckinPage"));
 const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 const ParentAppPage = lazy(() => import("./pages/ParentAppPage"));
+const FamilyGradesPage = lazy(() => import("./pages/student/FamilyGradesPage"));
 
 // Academic
 const SchedulePage = lazy(() => import("./pages/academic/SchedulePage"));
@@ -478,8 +479,9 @@ const App = () => {
 
                 {/* Student Affairs */}
                 <Route path="student" element={<Navigate to="/dashboard/student/attendance" replace />} />
+                <Route path="student/grades" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FamilyGradesPage /></ProtectedRoute>} />
                 <Route path="student/attendance" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><DepartmentRoute departments={["student_affairs","academic"]} bypassRoles={["parent","student"]}><AttendancePage /></DepartmentRoute></ProtectedRoute>} />
-                <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><FaceScanPage /></ProtectedRoute>} />
+                <Route path="student/face-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><FaceScanPage /></ProtectedRoute>} />
                 {/* ลงทะเบียนใบหน้าของตนเอง — ทุกบัญชีที่ล็อกอินเข้าถึงได้ (ข้อมูลของตัวเองเท่านั้น) */}
                 <Route path="student/my-face" element={<ProtectedRoute><MyFaceEnrollPage /></ProtectedRoute>} />
                 <Route path="staff/mobile-qr-scan" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><MobileQrScanPage /></ProtectedRoute>} />
@@ -487,7 +489,7 @@ const App = () => {
 
                 <Route path="student/leave" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><StudentLeavePage /></ProtectedRoute>} />
                 <Route path="student/screening" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs"]}><ScreeningPage /></DepartmentRoute></ProtectedRoute>} />
-                <Route path="student/health-trend" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "parent"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent"]}><HealthTrendPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="student/health-trend" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "parent", "student"]}><DepartmentRoute departments={["student_affairs"]} bypassRoles={["parent", "student"]}><HealthTrendPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/homeroom" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs","academic"]}><HomeroomPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/sdq" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["student_affairs"]}><SDQPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="student/home-visit" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><HomeVisitPage /></ProtectedRoute>} />

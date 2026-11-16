@@ -394,9 +394,9 @@ export default function LineVaultPage() {
   const [semFilter, setSemFilter] = useState<string>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
 
-  async function load() {
+  async function load(background = false) {
     const version = ++loadVersion.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     setLoadError(null);
     try {
       const all: Item[] = [];
@@ -423,7 +423,19 @@ export default function LineVaultPage() {
     }
   }
 
-  useEffect(() => { load();   }, [isAdmin]);
+  useEffect(() => {
+    void load();
+    const refresh = () => { if (document.visibilityState === "visible") void load(true); };
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      ++loadVersion.current;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [isAdmin]);
 
   const yearOptions = useMemo(() => {
     const s = new Set<number>();
@@ -530,7 +542,7 @@ export default function LineVaultPage() {
           <p className="text-sm text-muted-foreground">เก็บรูปภาพ ไฟล์ และโน้ตจากกลุ่ม LINE OA อัตโนมัติ — ไม่หมดอายุ</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />รีเฟรช</Button>
+          <Button variant="outline" size="sm" onClick={() => void load()}><RefreshCw className="h-4 w-4 mr-1" />รีเฟรช</Button>
           {isAdmin && <ManualUploadDialog onDone={load} />}
         </div>
       </div>
@@ -552,7 +564,7 @@ export default function LineVaultPage() {
 
       {loadError ? <div role="alert" className="border border-destructive rounded p-4 space-y-3">
         <p className="text-destructive">โหลดคลังไฟล์ไม่สำเร็จ: {loadError}</p>
-        <Button variant="outline" onClick={load}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
+        <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-1 h-4 w-4" />ลองใหม่</Button>
       </div> : <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList>
           <TabsTrigger value="all">ทั้งหมด <Badge variant="secondary" className="ml-2">{items.length}</Badge></TabsTrigger>
@@ -1204,8 +1216,10 @@ function VaultSettings() {
   const SUPABASE_URL = getBackendConfig().url;
   const webhookUrl = `${SUPABASE_URL}/functions/v1/line-vault-webhook`;
   const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState<{ token: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
+  const [status, setStatus] = useState<{ token: boolean; signature?: boolean; webhook_ok?: boolean; error?: string; groups?: number; items?: number } | null>(null);
   const [tokenDraft, setTokenDraft] = useState("");
+  const [signatureDraft, setSignatureDraft] = useState("");
+  const [savingSignature, setSavingSignature] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [savingToken, setSavingToken] = useState(false);
   const [quota, setQuota] = useState<{
@@ -1224,15 +1238,19 @@ function VaultSettings() {
     setChecking(true);
     try {
       // Primary source of truth: the app_secrets row itself
-      const { data: row } = await supabase
+      const { data: row, error: tokenError } = await supabase
         .from("app_secrets" as any)
-        .select("value")
+        .select("key")
         .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
         .maybeSingle();
-      const dbHasToken = !!(row as any)?.value && String((row as any).value).trim().length > 0;
+      if (tokenError) throw tokenError;
+      const dbHasToken = !!row;
+      const { data: signatureRow, error: signatureError } = await supabase.from("app_secrets").select("key").eq("key", "LINE_VAULT_CHANNEL_SECRET").maybeSingle();
+      if (signatureError) throw signatureError;
 
       // Best-effort: also ping the webhook to see if env is already synced
       let envHasToken = false;
+      let envHasSignature = false;
       let webhookOk = true;
       let errMsg: string | undefined;
       try {
@@ -1240,6 +1258,7 @@ function VaultSettings() {
           body: { __ping: true },
         });
         envHasToken = !!(data as any)?.token_configured;
+        envHasSignature = !!(data as any)?.signature_configured;
         webhookOk = !error;
         errMsg = error?.message;
       } catch (e: any) {
@@ -1253,6 +1272,7 @@ function VaultSettings() {
       ]);
       setStatus({
         token: dbHasToken || envHasToken,
+        signature: !!signatureRow || envHasSignature,
         webhook_ok: webhookOk,
         error: errMsg,
         groups: groups || 0,
@@ -1308,6 +1328,21 @@ function VaultSettings() {
     }
   }
 
+  async function saveSignature() {
+    const value = signatureDraft.trim();
+    if (!value) return;
+    setSavingSignature(true);
+    try {
+      const { data, error } = await supabase.from("app_secrets").upsert({ key: "LINE_VAULT_CHANNEL_SECRET", value, category: "line", description: "Channel Secret สำหรับตรวจลายเซ็น LINE Vault", updated_at: new Date().toISOString() }, { onConflict: "key" }).select("key");
+      if (error) throw error;
+      if (!data?.length) throw new Error("บันทึก Channel Secret ไม่สำเร็จ");
+      setSignatureDraft("");
+      toast.success("บันทึก Channel Secret แล้ว");
+      await checkStatus();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
+    finally { setSavingSignature(false); }
+  }
+
   return (
     <div className="space-y-4 max-w-3xl">
       <Card>
@@ -1326,6 +1361,9 @@ function VaultSettings() {
               <RefreshCw className={`h-3.5 w-3.5 mr-1 ${checking ? "animate-spin" : ""}`} />ตรวจสอบ
             </Button>
           </div>
+          <p className={`text-sm ${status?.signature ? "text-muted-foreground" : "text-destructive"}`}>
+            {status?.signature ? "ตั้งค่า Channel Secret แล้ว" : "ยังไม่ได้ตั้ง Channel Secret — ระงับการรับข้อความเพื่อป้องกันข้อความปลอม"}
+          </p>
           {status && (
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2 rounded bg-muted"><div className="text-muted-foreground">กลุ่มที่เชื่อม</div><div className="text-lg font-semibold">{status.groups ?? "-"}</div></div>
@@ -1408,6 +1446,17 @@ function VaultSettings() {
         </CardContent>
       </Card>
 
+
+      <Card>
+        <CardHeader><CardTitle>Channel Secret (LINE Vault)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <Label htmlFor="vault-channel-secret">Channel Secret</Label>
+          <div className="flex gap-2">
+            <Input id="vault-channel-secret" type="password" value={signatureDraft} onChange={e => setSignatureDraft(e.target.value)} autoComplete="off" placeholder="Channel Secret ของ LINE OA สำหรับ Vault" />
+            <Button onClick={saveSignature} disabled={savingSignature || !signatureDraft.trim()}><Save className="h-4 w-4 mr-1" />บันทึก</Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Webhook URL (ตั้งใน LINE Developers ของ OA ตัวใหม่)</CardTitle></CardHeader>

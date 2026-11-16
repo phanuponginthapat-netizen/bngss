@@ -121,6 +121,8 @@ Deno.serve(async (req) => {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    let callerId: string | null = null;
+    let callerIsStaff = false;
     if (token !== serviceKey) {
       const { data: userData, error: userErr } = await admin.auth.getUser(token);
       if (userErr || !userData?.user) {
@@ -128,6 +130,14 @@ Deno.serve(async (req) => {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      callerId = userData.user.id;
+      const { data: callerRoles, error: crErr } = await admin.from("user_roles").select("role").eq("user_id", callerId);
+      if (crErr || !(callerRoles ?? []).length) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      callerIsStaff = (callerRoles ?? []).some((r: any) => ["admin", "director", "teacher"].includes(r.role));
     }
 
     const payload = (await req.json()) as FanoutRequest;
@@ -135,6 +145,34 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "title and user_ids[] required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (callerId) {
+      if (payload.user_ids.length > 1000 || String(payload.title).length > 300 || String(payload.body ?? "").length > 4000) {
+        return new Response(JSON.stringify({ error: "payload too large" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!callerIsStaff) {
+        // Students/parents may only notify themselves or school staff, and only in-app/push.
+        const targets = [...new Set(payload.user_ids.filter(Boolean))].filter((u) => u !== callerId);
+        if (targets.length > 50) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (targets.length) {
+          const { data: staffRows } = await admin.from("user_roles").select("user_id")
+            .in("user_id", targets).in("role", ["admin", "director", "teacher"]);
+          const staffSet = new Set((staffRows ?? []).map((r: any) => r.user_id));
+          if (targets.some((u) => !staffSet.has(u))) {
+            return new Response(JSON.stringify({ error: "Forbidden" }), {
+              status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+        payload.channels = ["in_app", "push"];
+        if (payload.severity === "critical") payload.severity = "warning" as Severity;
+      }
     }
 
     const channels = new Set<string>(payload.channels ?? ["in_app", "push", "line"]);
@@ -148,7 +186,7 @@ Deno.serve(async (req) => {
     const sevRank = SEVERITY_RANK[severity] ?? 0;
     // Critical events always fan out to Google Chat so admins/directors see them,
     // even if the caller didn't opt-in to gchat.
-    if (severity === "critical") channels.add("gchat");
+    if (severity === "critical" && (!callerId || callerIsStaff)) channels.add("gchat");
 
     // School-wide per-category routing (admin controlled). Skip channel entirely
     // when this category is disabled in school_settings.channel_category_routing.

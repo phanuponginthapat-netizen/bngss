@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
 import { JoditDocEditor, type JoditDocEditorHandle } from "@/components/office/JoditDocEditor";
 import { swal } from "@/lib/swal";
+import { requireOfficeSourceReady } from "@/lib/office/sourceReadState";
 
 export default function DocsEditorPage() {
   const [sp] = useSearchParams();
@@ -15,44 +17,50 @@ export default function DocsEditorPage() {
   const [fileId, setFileId] = useState<string | null>(fileIdParam);
   const [fileName, setFileName] = useState<string>("เอกสารใหม่.docx");
   const [loading, setLoading] = useState(!!fileIdParam);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const sourceVersion = useRef(0);
   const [initialHtml, setInitialHtml] = useState<string>("<p><br/></p>");
   const [pageSize, setPageSize] = useState<"A4" | "Letter">("A4");
   const editorRef = useRef<JoditDocEditorHandle>(null);
 
   useEffect(() => {
-    setFileId(fileIdParam);
-    setLoading(!!fileIdParam);
-    if (!fileIdParam) return;
+    const version = ++sourceVersion.current;
+    setFileId(fileIdParam); setLoading(!!fileIdParam); setReadError(null);
+    if (!fileIdParam) { setInitialHtml("<p><br/></p>"); setFileName("เอกสารใหม่.docx"); return; }
     (async () => {
       try {
         const meta = await getFileMeta(fileIdParam);
-        setFileName(meta.name);
         const buf = await downloadFile(fileIdParam);
         const { value } = await mammoth.convertToHtml({ arrayBuffer: buf });
+        if (version !== sourceVersion.current) return;
         setInitialHtml(value || "<p><br/></p>");
+        setFileName(meta.name);
       } catch (e: any) {
-        swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e));
-        setFileId(null);
-      } finally {
-        setLoading(false);
-      }
+        if (version === sourceVersion.current) setReadError(String(e?.message ?? e));
+      } finally { if (version === sourceVersion.current) setLoading(false); }
     })();
-  }, [fileIdParam]);
+    return () => { sourceVersion.current += 1; };
+  }, [fileIdParam, retry]);
 
   const handleImportLocal = async (file: File) => {
+    const version = ++sourceVersion.current;
+    setLoading(true);
     try {
       const buf = await file.arrayBuffer();
       const { value } = await mammoth.convertToHtml({ arrayBuffer: buf });
+      if (version !== sourceVersion.current) return;
       setInitialHtml(value || "<p><br/></p>");
       editorRef.current?.setHtml(value || "");
       setFileName(file.name);
-      setFileId(null);
+      setFileId(null); setReadError(null);
     } catch (e: any) {
       swal.error("อ่านไฟล์ไม่ได้", String(e?.message ?? e));
-    }
+    } finally { if (version === sourceVersion.current) setLoading(false); }
   };
 
   const buildDocx = async (): Promise<Blob> => {
+    requireOfficeSourceReady(loading, readError);
     const body = editorRef.current?.getHtml() ?? "";
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
@@ -80,10 +88,11 @@ export default function DocsEditorPage() {
   };
 
   const doPrint = () => {
+    if (loading || readError) return;
     const html = editorRef.current?.getHtml() ?? "";
     const win = window.open("", "_blank", "width=900,height=1200");
     if (!win) return;
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${fileName}</title>
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(fileName)}</title>
       <style>
         @page { size: ${pageSize}; margin: 2.54cm; }
         body { font-family: Sarabun, 'TH Sarabun New', sans-serif; font-size: 14pt; color: #111; line-height: 1.6; }
@@ -116,12 +125,12 @@ export default function DocsEditorPage() {
           </select>
           <div className="ml-auto flex items-center gap-2">
             <label className="cursor-pointer">
-              <input type="file" accept=".docx" className="hidden" onChange={e => e.target.files?.[0] && handleImportLocal(e.target.files[0])} />
+              <input type="file" accept=".docx" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImportLocal(file); e.target.value = ""; }} />
               <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-1" />นำเข้า</span></Button>
             </label>
-            <Button variant="outline" size="sm" onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
-            <Button variant="outline" size="sm" onClick={download}><Download className="w-4 h-4 mr-1" />โหลด .docx</Button>
-            <SaveToDriveButton
+            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
+            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download className="w-4 h-4 mr-1" />โหลด .docx</Button>
+            <SaveToDriveButton disabled={loading || !!readError}
               fileId={fileId} fileName={fileName} defaultName="เอกสารใหม่.docx"
               mimeType={MIME.docx} getBlob={buildDocx}
               onSaved={(id, name) => { setFileId(id); setFileName(name); }}
@@ -133,6 +142,8 @@ export default function DocsEditorPage() {
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="text-center py-16 text-muted-foreground">กำลังโหลดเอกสาร…</div>
+        ) : readError ? (
+          <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิดไฟล์ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p><Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div>
         ) : (
           <JoditDocEditor
             ref={editorRef}

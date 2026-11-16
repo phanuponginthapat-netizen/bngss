@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { dobMatches, normalizeDob } from "../_shared/lineSession.ts";
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 10;
@@ -50,7 +51,7 @@ Deno.serve(async (req) => {
     const ip = clientIp(req);
     if (!rateOk(ip)) return respond({ error: "rate_limited" }, 429);
 
-    const { qr } = await req.json().catch(() => ({}));
+    const { qr, dob } = await req.json().catch(() => ({}));
     if (!qr || typeof qr !== "string" || qr.length > 500) {
       return respond({ error: "invalid_input" }, 400);
     }
@@ -144,6 +145,14 @@ Deno.serve(async (req) => {
     if (!authUserId && foundButNoAccount) return respond({ error: "no_account" }, 409);
     if (!authUserId) return respond({ error: "not_found" }, 404);
 
+
+    // School decision: scanning the card QR signs in directly (young students, elderly parents).
+    // If a date of birth is supplied it must still match.
+    if (dob && typeof dob === "string") {
+      const { data: stuDob } = await admin.from("students").select("date_of_birth").eq("auth_user_id", authUserId).maybeSingle();
+      const storedDob = stuDob?.date_of_birth ?? null;
+      if (storedDob && normalizeDob(dob) && !dobMatches(storedDob, dob)) return respond({ error: "dob_mismatch" }, 401);
+    }
 
     // ดึง email แล้วออก magic link → แลกเป็น session
     const { data: au } = await admin.auth.admin.getUserById(authUserId);

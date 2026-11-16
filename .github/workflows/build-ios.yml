@@ -13,6 +13,8 @@ permissions:
 
 jobs:
   build-ios:
+    # เผยแพร่ไฟล์ได้เฉพาะจาก main เท่านั้น — กันการกดรันจากสาขาเก่าแล้วได้ไฟล์รุ่นเก่า
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,17 @@
+CREATE TABLE public.fact_attendance (id uuid PRIMARY KEY, student_id uuid, scan_date date NOT NULL, scan_time timestamptz NOT NULL, scan_type text, entry_method text, source text NOT NULL DEFAULT 'face_scan_logs', etl_at timestamptz NOT NULL);
+GRANT SELECT ON public.fact_attendance TO authenticated; GRANT ALL ON public.fact_attendance TO service_role;
+ALTER TABLE public.fact_attendance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY warehouse_admin_read ON public.fact_attendance FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'::public.app_role) OR public.has_role(auth.uid(),'director'::public.app_role));
+CREATE TABLE public.fact_grades (id uuid PRIMARY KEY, student_code text NOT NULL, subject_id uuid NOT NULL, total_score numeric, grade text, grade_point numeric, academic_year integer NOT NULL, semester integer NOT NULL, source_updated_at timestamptz, etl_at timestamptz NOT NULL);
+GRANT SELECT ON public.fact_grades TO authenticated; GRANT ALL ON public.fact_grades TO service_role;
+ALTER TABLE public.fact_grades ENABLE ROW LEVEL SECURITY;
+CREATE POLICY warehouse_admin_read ON public.fact_grades FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'::public.app_role) OR public.has_role(auth.uid(),'director'::public.app_role));
+CREATE UNIQUE INDEX fact_grades_term_key ON public.fact_grades(student_code,subject_id,academic_year,semester);
+CREATE TABLE public.fact_finance (id text PRIMARY KEY, source_id uuid NOT NULL, source_table text NOT NULL, amount numeric, type text, category text, transaction_date date NOT NULL, etl_at timestamptz NOT NULL);
+GRANT SELECT ON public.fact_finance TO authenticated; GRANT ALL ON public.fact_finance TO service_role;
+ALTER TABLE public.fact_finance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY warehouse_admin_read ON public.fact_finance FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'admin'::public.app_role) OR public.has_role(auth.uid(),'director'::public.app_role));
+CREATE INDEX fact_attendance_scan_date_idx ON public.fact_attendance(scan_date); CREATE INDEX fact_finance_date_idx ON public.fact_finance(transaction_date);
+COMMENT ON TABLE public.fact_attendance IS 'Verified gate scan evidence only; not inferred school absence or lesson attendance.';
+COMMENT ON TABLE public.fact_grades IS 'Copies of stored school scores keyed by student code and explicit academic term; no recalculated totals.';
+COMMENT ON TABLE public.fact_finance IS 'Copies of managed school budget transactions; no fabricated legacy petty cash source.';

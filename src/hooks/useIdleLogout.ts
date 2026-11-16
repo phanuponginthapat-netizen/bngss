@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { isMobileSession } from "@/lib/mobileSession";
 
 /**
  * Auto sign-out after inactivity when running in a normal browser tab
@@ -8,6 +9,7 @@ import { toast } from "sonner";
  *
  * - Timeout: 2 hours of no user activity
  * - PWA (display-mode: standalone / iOS navigator.standalone): exempted
+ * - Mobile browsers, in-app browsers, tablets and native Android/iOS: exempted
  * - Activity events: mousemove, mousedown, keydown, touchstart, scroll, wheel
  * - Shares last-activity timestamp across tabs via localStorage
  */
@@ -50,25 +52,13 @@ function isRunningAsKiosk(): boolean {
   return false;
 }
 
-function isMobileDevice(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    // Touch-capable device OR mobile UA — ยกเว้นทั้งเบราว์เซอร์มือถือ ไม่ใช่แค่ PWA
-    // เพื่อให้ session ไม่หลุดระหว่างพักหน้าจอ (มือถือ freeze JS timer)
-    if (navigator.maxTouchPoints > 1) return true;
-    if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) return true;
-    if (window.matchMedia?.("(pointer: coarse)").matches) return true;
-  } catch { /* ignore */ }
-  return false;
-}
-
 export function useIdleLogout(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     if (typeof window === "undefined") return;
     if (isRunningAsPWA()) return; // ยกเว้น PWA
     if (isRunningAsKiosk()) return; // ยกเว้นโหมด kiosk — ห้ามหลุด session
-    if (isMobileDevice()) return; // ยกเว้นมือถือ/แท็บเล็ต — กัน session หลุดเวลาพักหน้าจอ → realtime แจ้งเตือนจะขาด
+    if (isMobileSession()) return; // มือถือทุกแพลตฟอร์มไม่เริ่มตัวนับหมดเวลา
 
 
     const now = () => Date.now();

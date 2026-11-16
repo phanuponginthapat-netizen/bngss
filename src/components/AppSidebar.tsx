@@ -84,6 +84,7 @@ export function AppSidebar() {
       tone: "student",
       items: [
         { to: "/dashboard/student/attendance", icon: ClipboardList, label: L("การมาเรียน", "Attendance") },
+        { to: "/dashboard/student/grades", icon: BookOpenCheck, label: L("ผลการเรียน", "Grades") },
         { to: "/dashboard/student/behavior", icon: Shield, label: L("พฤติกรรม", "Behavior") },
         { to: "/dashboard/student/leave", icon: FileText, label: L("ยื่นใบลา", "Leave") },
         { to: "/dashboard/student/health-trend", icon: Heart, label: L("สุขภาพ", "Health") },
@@ -99,7 +100,6 @@ export function AppSidebar() {
       tone: "general",
       items: [
         { to: "/dashboard/academic/calendar", icon: CalendarDays, label: L("ปฏิทินโรงเรียน", "Calendar") },
-        { to: "/dashboard/members", icon: Users, label: L("สมาชิกโรงเรียน", "Members") },
       ],
     },
     {
@@ -153,7 +153,7 @@ export function AppSidebar() {
   return <Sidebar side="right" collapsible="offcanvas" className="border-l border-sidebar-border bg-sidebar">
     <SidebarHeader className="gap-2 border-b border-sidebar-border/70 px-2.5 pb-2.5 pt-3">
       <div className="flex items-center gap-2"><span className="side-brand-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sidebar-primary">{schoolLogo ? <img src={schoolLogo} alt="" className="h-full w-full rounded-lg object-cover" /> : <GraduationCap className="h-4 w-4" />}</span><div className="min-w-0 flex-1"><h2 title={appName} className="truncate text-[13px] font-semibold leading-5 !tracking-normal text-sidebar-foreground">{brandTitle}</h2></div><Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="ซ่อนเมนู" title={L("ซ่อนเมนู", "Hide menu")} className="h-6 w-6 shrink-0 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3.5 w-3.5" /></Button></div>
-      <div className="side-search relative"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/45" /><Input aria-label="ค้นหาเมนู" placeholder={L("ค้นหาเมนู…", "Search menus…")} value={search} onChange={e => setSearch(e.target.value)} className="h-8 rounded-md border-transparent pl-7 pr-7 text-[11px] text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-0" />{search && <Button variant="ghost" size="icon" aria-label={L("ล้างคำค้น", "Clear search")} onClick={() => setSearch("")} className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3 w-3" /></Button>}</div>
+      {role !== "parent" && <div className="side-search relative"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/45" /><Input aria-label="ค้นหาเมนู" placeholder={L("ค้นหาเมนู…", "Search menus…")} value={search} onChange={e => setSearch(e.target.value)} className="h-8 rounded-md border-transparent pl-7 pr-7 text-[11px] text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-0" />{search && <Button variant="ghost" size="icon" aria-label={L("ล้างคำค้น", "Clear search")} onClick={() => setSearch("")} className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3 w-3" /></Button>}</div>}
     </SidebarHeader>
     <SidebarContent className="gap-0.5 px-2 py-2"><ViewModeSwitcher collapsed={false} />
       {compact ? compact.map((group, index) => section(`compact-${index}`, group.label, group.icon ?? FolderOpen, group.items.filter(i => i.label.toLowerCase().includes(q)), group.tone)) : <>

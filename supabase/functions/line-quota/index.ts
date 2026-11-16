@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { getLineToken } from "../_shared/lineApi.ts";
+import { readLineQuota } from "../_shared/lineQuota.ts";
+import { readAllRows } from "../_shared/readAllRows.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -50,42 +52,19 @@ serve(async (req) => {
     }
 
 
-    const headers = { Authorization: `Bearer ${token}` };
-
-    const [quotaRes, consumptionRes] = await Promise.all([
-      fetch("https://api.line.me/v2/bot/message/quota", { headers }),
-      fetch("https://api.line.me/v2/bot/message/quota/consumption", { headers }),
-    ]);
-
-    if (!quotaRes.ok) {
-      const text = await quotaRes.text();
-      return new Response(JSON.stringify({
-        configured: false,
-        quota: { type: "none", value: 0 },
-        consumption: { totalUsage: 0 },
-        breakdown: {},
-        totals: { sent: 0, failed: 0, skipped: 0 },
-        period_start: new Date().toISOString(),
-        message: `LINE token ไม่ถูกต้องหรือหมดอายุ (${quotaRes.status}): ${text}`,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const quota = await quotaRes.json(); // { type: "limited"|"none", value }
-    const consumption = consumptionRes.ok ? await consumptionRes.json() : { totalUsage: 0 };
+    const { quota, consumption } = await readLineQuota(token);
 
     // Breakdown from delivery logs (current month)
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);
 
-    const { data: breakdownRaw } = await supabase
+    const breakdownRaw = await readAllRows<any>((from, to) => supabase
       .from("notification_delivery_log")
       .select("notification_type, status")
       .eq("channel", "line")
-      .gte("created_at", monthStart.toISOString());
+      .gte("created_at", monthStart.toISOString())
+      .order("id").range(from, to));
 
     const breakdown: Record<string, { sent: number; failed: number; skipped: number }> = {};
     let totals = { sent: 0, failed: 0, skipped: 0 };

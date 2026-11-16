@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { aiCall } from "../_shared/aiCall.ts";
 
@@ -58,6 +59,9 @@ const LETTERS = ["A", "B", "C", "D"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: STAFF_ROLES });
+  if (__caller instanceof Response) return __caller;
+
   try {
     const { subject, topic, level, count, references, grade_level, indicators } = await req.json();
     const refs = Array.isArray(references) && references.length ? references.join(", ") : "onet";

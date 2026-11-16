@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Activity, Search, Info, ScanLine } from "lucide-react";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 import { useParentChildren } from "@/hooks/useParentChildren";
+import { useUserRole } from "@/hooks/useUserRole";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { toast } from "sonner";
 
@@ -19,6 +20,7 @@ interface Student {
   classroom_id: string | null;
   gender: string | null;
   date_of_birth: string | null;
+  auth_user_id: string | null;
   classrooms?: { name: string; grade_level: string | null } | null;
 }
 
@@ -38,6 +40,8 @@ export default function HealthTrendPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const { homeroomClassroomIds, isFiltered, hasHomeroom, teacherFullName } = useHomeroomClassrooms();
   const { isParent, childIds } = useParentChildren();
+  const { isStudent, userId } = useUserRole();
+  const isFamily = isParent || isStudent;
 
   // โหลดรายการห้องเรียนสำหรับตัวกรอง
   useEffect(() => {
@@ -56,11 +60,13 @@ export default function HealthTrendPage() {
     const t = setTimeout(async () => {
       let query = supabase
         .from("students")
-        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+        .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
         .eq("status", "active");
 
       const term = q.trim();
-      if (term) {
+      // Parents/students must not search other students — RLS already scopes rows,
+      // but never even send a name/code search from a family session.
+      if (term && !isFamily) {
         query = query.or(
           `first_name.ilike.%${term}%,last_name.ilike.%${term}%,student_code.ilike.%${term}%`,
         );
@@ -75,13 +81,14 @@ export default function HealthTrendPage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [q, isFamily]);
 
   const scoped = useMemo(() => {
     if (isParent) return students.filter((s) => childIds.includes(s.id));
+    if (isStudent) return students.filter((s) => s.auth_user_id === userId);
     if (!isFiltered || !homeroomClassroomIds) return students;
     return students.filter((s) => s.classroom_id && homeroomClassroomIds.includes(s.classroom_id));
-  }, [students, isFiltered, homeroomClassroomIds, isParent, childIds]);
+  }, [students, isFiltered, homeroomClassroomIds, isParent, isStudent, userId, childIds]);
 
   const filtered = useMemo(() => {
     return scoped.filter((s) => {
@@ -90,6 +97,11 @@ export default function HealthTrendPage() {
       return true;
     });
   }, [scoped, gradeFilter, classroomFilter]);
+
+  // Parents see only their own children; students see only themselves — auto-select, no search needed.
+  useEffect(() => {
+    if (isFamily && !selected && scoped.length > 0) setSelected(scoped[0]);
+  }, [isFamily, selected, scoped]);
 
   const grades = useMemo(() => {
     const set = new Set<string>();
@@ -118,7 +130,7 @@ export default function HealthTrendPage() {
         // ดึงตัวเต็มพร้อม classroom
         const { data } = await supabase
           .from("students")
-          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,classrooms!students_classroom_id_fkey(name,grade_level)")
+          .select("id,first_name,last_name,student_code,classroom_id,gender,date_of_birth,auth_user_id,classrooms!students_classroom_id_fkey(name,grade_level)")
           .eq("id", resolved.id)
           .maybeSingle();
         if (data) setSelected(data as any);
@@ -160,32 +172,36 @@ export default function HealthTrendPage() {
             <CardTitle>เลือกนักเรียน</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="h-4 w-4 absolute top-3 left-2 text-muted-foreground" />
-                <Input className="pl-8" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => setQ(e.target.value)} />
-              </div>
-              <Button variant="outline" size="icon" onClick={() => setScannerOpen(true)} title="สแกน QR / บาร์โค้ด">
-                <ScanLine className="h-4 w-4" />
-              </Button>
-            </div>
+            {!isFamily && (
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="h-4 w-4 absolute top-3 left-2 text-muted-foreground" />
+                    <Input className="pl-8" placeholder="ค้นหาชื่อ / รหัส" value={q} onChange={(e) => setQ(e.target.value)} />
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => setScannerOpen(true)} title="สแกน QR / บาร์โค้ด">
+                    <ScanLine className="h-4 w-4" />
+                  </Button>
+                </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
-                <SelectTrigger><SelectValue placeholder="ระดับชั้น" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทุกระดับชั้น</SelectItem>
-                  {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-                <SelectTrigger><SelectValue placeholder="ห้องเรียน" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">ทุกห้อง</SelectItem>
-                  {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select value={gradeFilter} onValueChange={(v) => { setGradeFilter(v); setClassroomFilter("all"); }}>
+                    <SelectTrigger><SelectValue placeholder="ระดับชั้น" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ทุกระดับชั้น</SelectItem>
+                      {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                    <SelectTrigger><SelectValue placeholder="ห้องเรียน" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">ทุกห้อง</SelectItem>
+                      {classroomOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div className="text-xs text-muted-foreground">พบ {filtered.length} คน</div>
 
@@ -219,7 +235,7 @@ export default function HealthTrendPage() {
       </div>
 
       <BarcodeScanner
-        open={scannerOpen}
+        open={scannerOpen && !isFamily}
         onClose={() => setScannerOpen(false)}
         onScan={handleScan}
         title="สแกน QR / บาร์โค้ดนักเรียน"

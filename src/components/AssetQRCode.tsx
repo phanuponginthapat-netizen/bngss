@@ -1,4 +1,5 @@
 import { QRCodeSVG } from "qrcode.react";
+import { escapeHtml } from "@/lib/escapeHtml";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download, QrCode } from "lucide-react";
@@ -22,7 +23,7 @@ export const AssetQRCode = ({ open, onClose, asset }: Props) => {
     const w = window.open("", "_blank", "width=400,height=600");
     if (!w) return;
     w.document.write(`
-      <html><head><title>QR ${asset.asset_code}</title>
+      <html><head><title>QR ${escapeHtml(asset.asset_code)}</title>
       <style>
         body{font-family:sans-serif;text-align:center;padding:20px;margin:0}
         .label{border:2px solid #000;padding:16px;border-radius:8px;display:inline-block}

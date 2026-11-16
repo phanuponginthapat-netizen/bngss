@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     if (!item.storage_path && !item.drive_file_id && item.source === "line" && item.kind !== "note") {
       const recovered = await recoverLineVaultFile(admin, item, async (messageId) => {
-        const token = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim() || await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
+        const token = await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
         if (!token) throw new Error("LINE Vault recovery is not configured");
         const response = await fetch(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, {
           headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(25000),

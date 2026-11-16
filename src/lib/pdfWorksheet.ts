@@ -53,19 +53,21 @@ export async function renderPdfToImages(
   } else {
     data = await fileOrUrl.arrayBuffer();
   }
-  const doc = await pdfjsLib.getDocument({ data }).promise;
+  const task = pdfjsLib.getDocument({ data });
+  const doc = await task.promise;
   const out: WorksheetPageImage[] = [];
+  try {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
-    if (!base.width || !base.height) continue;
+    if (!base.width || !base.height) throw new Error(`อ่านขนาด PDF หน้า ${i} ไม่สำเร็จ`);
     const scale = targetWidth / base.width;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) continue;
+    if (!ctx) throw new Error(`แสดง PDF หน้า ${i} ไม่สำเร็จ`);
     await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
     out.push({
       page: i,
@@ -74,7 +76,9 @@ export async function renderPdfToImages(
       height: canvas.height,
     });
   }
+  if (!out.length) throw new Error("PDF ไม่มีหน้าที่อ่านได้");
   return out;
+  } finally { await task.destroy(); }
 }
 
 export function newField(
@@ -110,39 +114,4 @@ export function newField(
   return base;
 }
 
-export function gradeField(
-  field: WorksheetField,
-  answer: any,
-): { correct: boolean; score: number } {
-  const maxScore = field.score ?? 1;
-  if (field.correct === undefined || field.correct === null || field.correct === "") {
-    return { correct: false, score: 0 };
-  }
-  const norm = (v: any) => {
-    if (typeof v !== "string") return v;
-    let s = v;
-    if (field.trim !== false) s = s.trim();
-    if (!field.caseSensitive) s = s.toLowerCase();
-    return s;
-  };
-  switch (field.type) {
-    case "text":
-    case "textarea": {
-      const expected = String(field.correct).split("|").map((s) => String(norm(s)));
-      const got = String(norm(answer ?? ""));
-      return expected.includes(got) ? { correct: true, score: maxScore } : { correct: false, score: 0 };
-    }
-    case "mc": {
-      return Number(answer) === Number(field.correct)
-        ? { correct: true, score: maxScore }
-        : { correct: false, score: 0 };
-    }
-    case "checkbox": {
-      return !!answer === !!field.correct
-        ? { correct: true, score: maxScore }
-        : { correct: false, score: 0 };
-    }
-    default:
-      return { correct: false, score: 0 };
-  }
-}
+export { gradeField, isWorksheetGradable } from "./worksheetGrading";

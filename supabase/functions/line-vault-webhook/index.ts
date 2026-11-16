@@ -1,6 +1,9 @@
 // Dedicated LINE OA webhook for LINE Vault (group/room capture only).
 // Uses its own channel access token: LINE_VAULT_CHANNEL_ACCESS_TOKEN
 // so it is fully independent from the chatbot OA.
+import { verifyLineSignature } from "../_shared/lineSignature.ts";
+import { getSecret } from "../_shared/getSecret.ts";
+import { authorizeCaller, ADMIN_ROLES } from "../_shared/callerAuth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { captureLineGroupEvent, fetchLineGroupMemberProfile, registerLineGroupFromJoin } from "../_shared/lineVaultCapture.ts";
 
@@ -35,21 +38,6 @@ async function replyMessage(token: string, replyToken: string, text: string) {
   } catch (e) { console.error("replyMessage", e); }
 }
 
-async function getConfiguredVaultToken(sb: any) {
-  const envToken = Deno.env.get("LINE_VAULT_CHANNEL_ACCESS_TOKEN")?.trim();
-  if (envToken) return envToken;
-
-  const { data, error } = await sb
-    .from("app_secrets")
-    .select("value")
-    .eq("key", "LINE_VAULT_CHANNEL_ACCESS_TOKEN")
-    .maybeSingle();
-
-  if (error) console.error("LINE Vault token lookup failed", error.message);
-  const savedToken = String(data?.value ?? "").trim();
-  return savedToken || null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -58,27 +46,60 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const token = await getConfiguredVaultToken(sb);
+    const token = await getSecret("LINE_VAULT_CHANNEL_ACCESS_TOKEN");
 
-    const body = await req.json().catch(() => ({}));
+    if (req.method !== "POST") return new Response(null, { status: 405, headers: corsHeaders });
+    const raw = await req.text();
+    const body = JSON.parse(raw);
 
     // Health-check ping from admin UI
-    if (body?.__ping) {
-      return new Response(JSON.stringify({ ok: true, token_configured: !!token }), {
+    if (body?.__ping || body?.__repair_webhook) {
+      const caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+      if (caller instanceof Response) return caller;
+      const signatureSecret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
+      let provider: Record<string, unknown> = { checked: false };
+      if (token) {
+        const endpoint = `${Deno.env.get("SUPABASE_URL")}/functions/v1/line-vault-webhook`;
+        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        if (body?.__repair_webhook) {
+          const repair = await fetch("https://api.line.me/v2/bot/channel/webhook/endpoint", {
+            method: "PUT", headers, body: JSON.stringify({ endpoint }),
+          });
+          if (!repair.ok) return new Response(JSON.stringify({ ok: false, error: "LINE rejected webhook configuration", provider_status: repair.status }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const response = await fetch("https://api.line.me/v2/bot/channel/webhook/endpoint", { headers });
+        if (response.ok) {
+          const configured = await response.json();
+          provider = { checked: true, accepted: true, webhook_active: configured.active === true, webhook_matches: configured.endpoint === endpoint };
+          if (body?.__repair_webhook) {
+            const test = await fetch("https://api.line.me/v2/bot/channel/webhook/test", { method: "POST", headers, body: JSON.stringify({ endpoint }) });
+            const result = await test.json().catch(() => ({}));
+            provider.webhook_test_success = test.ok && result.success === true;
+            provider.webhook_test_status = result.statusCode ?? test.status;
+            provider.webhook_test_reason = result.reason ?? null;
+            provider.webhook_test_detail = result.detail ?? null;
+          }
+        } else provider = { checked: true, accepted: false, provider_status: response.status };
+      }
+      return new Response(JSON.stringify({ ok: true, token_configured: !!token, signature_configured: !!signatureSecret, provider }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const secret = await getSecret("LINE_VAULT_CHANNEL_SECRET");
+    if (!secret) return new Response(JSON.stringify({ error: "LINE Vault channel secret not configured" }), { status: 503, headers: corsHeaders });
+    if (!(await verifyLineSignature(raw, req.headers.get("x-line-signature"), secret))) return new Response(null, { status: 403, headers: corsHeaders });
+
     if (!token) {
       console.error("LINE_VAULT_CHANNEL_ACCESS_TOKEN not set");
       return new Response(JSON.stringify({ error: "LINE Vault OA token not configured", token_configured: false }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const events: any[] = body?.events || [];
     if (events.length > 0) {
-      console.log("LINE Vault webhook events", events.map((e: any) => `${e?.type}:${e?.source?.type || "unknown"}`).join(","));
+      console.log("LINE Vault webhook events", events.map((e: any) => `${e?.type}:${e?.source?.type || "unknown"}:${e?.message?.type || "none"}`).join(","));
     }
 
     // Per-group aggregation of this webhook batch so we send ONE friendly summary reply
@@ -123,7 +144,11 @@ Deno.serve(async (req) => {
           downloadLineContent,
           fetchLineProfile: fetchLineGroupMemberProfile,
         });
-        if (!result?.captured) continue;
+        if (!result?.captured) {
+          console.warn("LINE Vault capture skipped", event.message?.type, result?.reason || "unknown");
+          continue;
+        }
+        console.info("LINE Vault capture saved", event.message?.type);
 
         const groupId = event.source.groupId || event.source.roomId;
         if (!groupId) continue;
@@ -193,7 +218,7 @@ Deno.serve(async (req) => {
   } catch (e: any) {
     console.error("line-vault-webhook fatal", e);
     return new Response(JSON.stringify({ error: e?.message || "unknown" }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

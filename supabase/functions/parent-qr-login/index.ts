@@ -3,6 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { ensureParentAccount } from "../_shared/parentAccount.ts";
 import { dobMatches, normalizeDob } from "../_shared/lineSession.ts";
 
 const RATE_WINDOW_MS = 60_000;
@@ -86,97 +87,14 @@ Deno.serve(async (req) => {
     if (!student) return respond({ error: "not_found" }, 404);
     if (student.status && student.status !== "active") return respond({ error: "inactive" }, 403);
 
-    // รหัสนักเรียนเดาได้ง่าย → ต้องยืนยันวันเกิดเสมอ (QR แบบ UUID เดาไม่ได้ จึงสแกนเข้าได้ทันที)
-    if (!uuid) {
-      if (!dob || typeof dob !== "string") return respond({ error: "dob_required" }, 401);
-      if (!normalizeDob(dob)) return respond({ error: "invalid_dob_format" }, 400);
-      if (!dobMatches(student.date_of_birth, dob)) return respond({ error: "dob_mismatch" }, 401);
+    // School decision: scanning the student card QR signs the parent in directly; a supplied DOB must still match.
+    if (dob && typeof dob === "string" && student.date_of_birth && normalizeDob(dob) && !dobMatches(student.date_of_birth, dob)) {
+      return respond({ error: "dob_mismatch" }, 401);
     }
 
-    // 1) หาบัญชีผู้ปกครองที่ผูกไว้แล้ว (ต้องมี role = parent จริง)
-    let parentUserId: string | null = null;
-    const candidates = [student.parent_user_id, student.parent_user_id_2].filter(Boolean) as string[];
-    for (const cand of candidates) {
-      const { data: roleRow } = await admin
-        .from("user_roles")
-        .select("user_id")
-        .eq("user_id", cand)
-        .eq("role", "parent")
-        .maybeSingle();
-      if (roleRow) { parentUserId = cand; break; }
-    }
-
-    // 2) ถ้ายังไม่มี → สร้างบัญชีผู้ปกครองอัตโนมัติ
-    if (!parentUserId) {
-      const codeSlug = String(student.student_code || student.id).toLowerCase().replace(/[^a-z0-9]/g, "");
-      const email = `parent.${codeSlug}@parent.local`;
-
-      const { data: created, error: createErr } = await admin.auth.admin.createUser({
-        email,
-        password: randomPassword(),
-        email_confirm: true,
-        user_metadata: {
-          account_type: "parent",
-          child_student_code: student.student_code,
-          first_name: "ผู้ปกครองของ",
-          last_name: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
-        },
-      });
-
-      if (created?.user?.id) {
-        parentUserId = created.user.id;
-      } else {
-        // อาจมีอยู่แล้วจากการสร้างครั้งก่อน — ค้นหาซ้ำ
-        if (!createErr) return respond({ error: "provision_failed" }, 500);
-        for (let page = 1; page <= 20 && !parentUserId; page++) {
-          const { data: list, error: lerr } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-          if (lerr || !list?.users?.length) break;
-          const u = list.users.find((x: any) => (x.email || "").toLowerCase() === email);
-          if (u) parentUserId = u.id;
-          if (list.users.length < 200) break;
-        }
-        if (!parentUserId) return respond({ error: "provision_failed" }, 500);
-      }
-
-      // profile (บาง instance มี trigger handle_new_user สร้างให้แล้ว → ใช้ upsert)
-      await admin.from("profiles").upsert(
-        {
-          id: parentUserId,
-          first_name: "ผู้ปกครองของ",
-          last_name: `${student.first_name ?? ""} ${student.last_name ?? ""}`.trim(),
-          // ห้ามใส่ student_code: trigger จะผูกบัญชีผู้ปกครองเป็นบัญชีนักเรียนเอง
-          school_id: student.school_id ?? null,
-          account_linked: true,
-        },
-        { onConflict: "id" },
-      );
-
-      // role = parent (เท่านั้น — ห้ามให้สิทธิ์อื่น)
-      await admin.from("user_roles").upsert(
-        { user_id: parentUserId, role: "parent" },
-        { onConflict: "user_id,role", ignoreDuplicates: true },
-      );
-
-      // ผูกกับนักเรียน
-      const patch = student.parent_user_id
-        ? { parent_user_id_2: parentUserId }
-        : { parent_user_id: parentUserId };
-      const { error: linkErr } = await admin.from("students").update(patch).eq("id", student.id);
-      if (linkErr) {
-        console.error("parent link failed", linkErr);
-        return respond({ error: "link_failed" }, 500);
-      }
-    }
-
-    // 3) ป้องกันการยกระดับสิทธิ์: บัญชีผู้ปกครองต้องไม่มี role อื่น
-    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", parentUserId);
-    const roleList = (roles ?? []).map((r: any) => r.role);
-    if (roleList.some((r: string) => r !== "parent")) {
-      return respond({ error: "not_a_parent_account" }, 403);
-    }
-    if (!roleList.includes("parent")) {
-      await admin.from("user_roles").insert({ user_id: parentUserId, role: "parent" });
-    }
+    const ensured = await ensureParentAccount(admin, student);
+    if ("error" in ensured) return respond({ error: ensured.error }, ensured.status);
+    const parentUserId = ensured.parentUserId;
 
     // 4) ออก session ให้บัญชีผู้ปกครอง
     const { data: au } = await admin.auth.admin.getUserById(parentUserId);

@@ -16,6 +16,8 @@ permissions:
 
 jobs:
   changes:
+    # เผยแพร่เว็บจริงได้เฉพาะจาก main เท่านั้น
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       db: ${{ steps.filter.outputs.db }}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -27,6 +28,8 @@ import {
   Heart,
 } from "lucide-react";
 import { todayBangkok } from "@/lib/dateBE";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { calculateGPA } from "@/lib/gradeUtils";
 import { parentAttendanceStatus } from "@/lib/parentAttendance";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,6 +112,7 @@ type ChildBundle = {
   remediation: RemediationRow[];
   loading: boolean;
   attendanceError?: string;
+  scoresError?: string;
 };
 
 // ---------- Helpers ----------
@@ -143,6 +147,7 @@ function gradeColor(grade: string | null) {
 
 export default function ParentAppPage() {
   const { lang } = useLanguage();
+  const calendar = useAcademicYear();
   const L = useCallback((th: string, en: string) => (lang === "th" ? th : en), [lang]);
 
   const [children, setChildren] = useState<Child[]>([]);
@@ -301,11 +306,12 @@ export default function ParentAppPage() {
     const scoresPromise = child.student_code
       ? supabase
           .from("student_scores")
-          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th)")
+          .select("id, student_code, subject_id, total_score, grade, grade_point, semester, academic_year, subjects(code, name_th, credits)")
           .eq("student_code", child.student_code)
+          .eq("academic_year", calendar.currentAcademicYear - 543).eq("semester", 1)
           .order("updated_at", { ascending: false })
-          .limit(5)
-      : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null });
+          .order("id").limit(1000)
+      : Promise.resolve({ data: [], error: null } as unknown as { data: ScoreRow[] | null; error: null });
 
     // upcoming homework — try task_assignments by classroom_id + due_date >= today, limit 5
     // also fallback to homework_assignments
@@ -361,6 +367,7 @@ export default function ParentAppPage() {
     const attendanceError = faceRes.status === "rejected" || attRes.status === "rejected" || (faceRes.status === "fulfilled" && faceRes.value.error) || (attRes.status === "fulfilled" && attRes.value.error) ? "อ่านผลสแกน/เช็คชื่อไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const faceLogs = faceRes.status === "fulfilled" ? ((faceRes.value.data as unknown as FaceLog[]) ?? []) : [];
     const attendance = attRes.status === "fulfilled" ? ((attRes.value.data as unknown as AttendanceRow[]) ?? []) : [];
+    const scoresError = scoresRes.status === "rejected" || (scoresRes.status === "fulfilled" && scoresRes.value.error) ? "อ่านคะแนนไม่สำเร็จ กรุณาลองใหม่" : undefined;
     const scores = scoresRes.status === "fulfilled" ? ((scoresRes.value.data as unknown as ScoreRow[]) ?? []) : [];
     let homework: HomeworkRow[] = [];
     if (hwAssignRes.status === "fulfilled" && hwAssignRes.value.data && (hwAssignRes.value.data as unknown[]).length > 0) {
@@ -402,10 +409,11 @@ export default function ParentAppPage() {
       }
     }
 
-    return { faceLogs, attendance, scores, homework, remediation, attendanceError };
-  }, []);
+    return { faceLogs, attendance, scores, homework, remediation, attendanceError, scoresError };
+  }, [calendar.currentAcademicYear]);
 
   const loadAll = useCallback(async () => {
+    if (!calendar.isReady) return;
     if (!userId) {
       setLoadingChildren(false);
       return;
@@ -466,7 +474,7 @@ export default function ParentAppPage() {
       setLoadingChildren(false);
       setRefreshing(false);
     }
-  }, [userId, fetchChildren, fetchBundleForChild, L]);
+  }, [userId, fetchChildren, fetchBundleForChild, L, calendar.isReady]);
 
   useEffect(() => {
     void loadAll();
@@ -556,6 +564,7 @@ export default function ParentAppPage() {
   };
 
   const renderScores = (b: ChildBundle) => {
+    if (b.scoresError) return <p role="alert" className="text-destructive">{b.scoresError}</p>;
     if (b.loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {L("กำลังโหลดคะแนน...", "Loading grades...")}</div>;
     if (b.scores.length === 0) {
       return (
@@ -575,7 +584,7 @@ export default function ParentAppPage() {
               <div className="min-w-0">
                 <div className="text-sm font-medium truncate">{s.subjects?.name_th || s.subjects?.code || L("วิชา", "Subject")} · {s.subjects?.code || s.subject_id?.slice(0, 6) || "-"}</div>
                 <div className="text-xs text-muted-foreground">
-                  {s.academic_year ? `${L("ปี", "Year")} ${s.academic_year}` : ""} {s.semester ? `· ${L("เทอม", "Sem")} ${s.semester}` : ""} · {L("คะแนนรวม", "Total")} {s.total_score ?? "-"}
+                  {s.academic_year ? `${L("ปี", "Year")} ${s.academic_year < 2400 ? s.academic_year + 543 : s.academic_year}` : ""} {s.semester ? `· ${L("เทอม", "Sem")} ${s.semester}` : ""} · {L("คะแนนรวม", "Total")} {s.total_score ?? "-"}
                 </div>
               </div>
               <Badge className={gradeColor(s.grade)} variant="outline">{s.grade ?? "-"}</Badge>
@@ -759,7 +768,7 @@ export default function ParentAppPage() {
                       onClick={() => setSelectedChildId(c.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${selectedChildId === c.id ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-card border-border hover:bg-muted"}`}
                     >
-                      {c.photo_url ? <img src={c.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" /> : <GraduationCap className="w-3.5 h-3.5" />}
+                      <span className="w-5 h-5 shrink-0 rounded-full overflow-hidden flex items-center justify-center"><IdCardPhoto url={c.photo_url || undefined} name={fullName(c)} /></span>
                       <span className="max-w-[90px] truncate">{fullName(c)}</span>
                     </button>
                   ))}
@@ -785,7 +794,7 @@ export default function ParentAppPage() {
             const selChild = children.find(c => c.id === selId);
             if (!selChild) return null;
             const gpaVals = selBundle?.scores?.map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n > 0) || [];
-            const avgGpa = gpaVals.length ? (gpaVals.reduce((a: number, b: number) => a + b, 0) / gpaVals.length).toFixed(2) : "—";
+            const avgGpa = !selBundle?.scoresError && selBundle?.scores?.some(s => s.grade_point != null) ? calculateGPA(selBundle.scores.map((s: any) => ({ gradePoint: s.grade_point == null ? null : Number(s.grade_point), credits: Number(s.subjects?.credits ?? 0) }))).toFixed(2) : "—";
             let attendanceToday:string|null=null;
             let statusUnavailable=!!selBundle?.attendanceError||!lateThreshold;
             if(selBundle&&lateThreshold)try{attendanceToday=parentAttendanceStatus(selChild.id,selBundle.attendance,selBundle.faceLogs,lateThreshold);}catch{statusUnavailable=true;}
@@ -881,13 +890,9 @@ export default function ParentAppPage() {
               <Card key={child.id} className="overflow-hidden border-border/60 shadow-sm">
                 <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-start gap-4">
-                    {child.photo_url ? (
-                      <img src={child.photo_url} alt={fullName(child)} className="w-14 h-14 rounded-xl object-cover border" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center border">
-                        <GraduationCap className="w-7 h-7 text-primary" />
-                      </div>
-                    )}
+                    <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center border">
+                      <IdCardPhoto url={child.photo_url || undefined} name={fullName(child)} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg leading-tight">{fullName(child)}</CardTitle>
                       <CardDescription className="flex flex-wrap items-center gap-2 mt-1">

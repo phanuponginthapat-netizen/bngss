@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, Trash2, Type, AlignLeft, ListChecks, CheckSquare, Pencil, Mic, MousePointer2 } from "lucide-react";
-import { renderPdfToImages, newField, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
+import { renderPdfToImages, newField, isWorksheetGradable, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
 
@@ -28,7 +28,11 @@ const TOOLS: { type: WorksheetFieldType; label: string; Icon: any }[] = [
 
 export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onPdfChange, onFieldsChange }: Props) {
   const [pages, setPages] = useState<WorksheetPageImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [retryPdf, setRetryPdf] = useState(0);
+  const renderVersion = useRef(0);
   const [fields, setFields] = useState<WorksheetField[]>(initialFields || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<WorksheetFieldType | null>(null);
@@ -41,18 +45,28 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
 
   useEffect(() => {
     if (!initialPdfUrl) return;
+    const version = ++renderVersion.current;
     setLoading(true);
-    renderPdfToImages(initialPdfUrl).then(setPages).catch(e => toast.error(saveErrorMessage(e))).finally(() => setLoading(false));
-  }, [initialPdfUrl]);
+    setPdfError(null);
+    renderPdfToImages(initialPdfUrl)
+      .then(pages => { if (renderVersion.current === version) setPages(pages); })
+      .catch(e => { if (renderVersion.current === version) setPdfError(saveErrorMessage(e)); })
+      .finally(() => { if (renderVersion.current === version) setLoading(false); });
+    return () => { renderVersion.current += 1; };
+  }, [initialPdfUrl, retryPdf]);
 
   const handleUpload = async (file: File) => {
     if (file.type !== "application/pdf") { toast.error("กรุณาเลือกไฟล์ PDF"); return; }
+    const version = ++renderVersion.current;
     setLoading(true);
+    setPdfError(null);
     try {
       const imgs = await renderPdfToImages(file);
+      if (renderVersion.current !== version) return;
       setPages(imgs);
       onPdfChange(file);
-    } catch (e: any) { toast.error(saveErrorMessage(e)); } finally { setLoading(false); }
+    } catch (e: any) { if (renderVersion.current === version) setPdfError(saveErrorMessage(e)); }
+    finally { if (renderVersion.current === version) setLoading(false); }
   };
 
   const handlePageClick = (page: number, e: React.MouseEvent<HTMLDivElement>) => {
@@ -148,36 +162,28 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
   return (
     <div className="flex flex-col md:flex-row gap-3 h-full min-h-[70dvh] md:min-h-0">
       {/* LEFT: toolbar + pages */}
-      <div className="flex-1 min-w-0 overflow-auto bg-slate-100 rounded p-3 space-y-3 max-h-[62dvh] md:max-h-none">
+      <div className="flex-1 min-w-0 overflow-auto bg-muted rounded-md p-3 space-y-3 max-h-[62dvh] md:max-h-none">
+        <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleUpload(file); e.target.value = ""; }} />
         {!pages.length && (
-          <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-10 bg-white cursor-pointer hover:bg-muted">
+          <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8 bg-background">
             <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
-            <span className="text-sm font-medium">อัปโหลด PDF ต้นแบบ</span>
-            <span className="text-xs text-muted-foreground">นำใบงานที่มีอยู่มาทำเป็นใบงานออนไลน์</span>
-            <input type="file" accept="application/pdf" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-          </label>
+            <Button type="button" variant="outline" disabled={loading} onClick={() => fileInputRef.current?.click()}>เลือก PDF ต้นแบบ</Button>
+          </div>
         )}
         {loading && <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>}
+        {pdfError && <div className="space-y-2"><p className="text-destructive">{pdfError}</p>{initialPdfUrl && <Button variant="outline" onClick={() => setRetryPdf(v => v + 1)}>ลองใหม่</Button>}</div>}
 
         {pages.length > 0 && (
-          <div className="sticky top-0 z-10 bg-white border rounded p-2 flex flex-nowrap md:flex-wrap gap-1 items-center overflow-x-auto">
+          <div className="sticky top-0 z-10 bg-background border rounded-md p-2 flex flex-wrap gap-1 items-center">
             <Button size="sm" variant={activeTool === null ? "default" : "outline"} onClick={() => setActiveTool(null)}>
               <MousePointer2 className="w-3.5 h-3.5 mr-1" /> เลือก
             </Button>
             {TOOLS.map(t => (
-              <Button key={t.type} size="sm" variant={activeTool === t.type ? "default" : "outline"} onClick={() => setActiveTool(t.type)}>
+              <Button key={t.type} size="sm" variant={activeTool === t.type ? "default" : "outline"} aria-pressed={activeTool === t.type} title={t.label} onClick={() => setActiveTool(t.type)}>
                 <t.Icon className="w-3.5 h-3.5 mr-1" />{t.label}
               </Button>
             ))}
-            <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">
-              {activeTool ? "แตะบนหน้า PDF เพื่อวาง" : "เลือกเครื่องมือ แล้วแตะ/คลิกบน PDF"}
-            </span>
-            <label className="ml-auto text-xs px-2 py-1 border rounded cursor-pointer hover:bg-muted">
-              เปลี่ยน PDF
-              <input type="file" accept="application/pdf" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-            </label>
+            <Button type="button" size="sm" variant="ghost" className="ml-auto" disabled={loading} onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4" />เปลี่ยน PDF</Button>
           </div>
         )}
 
@@ -185,7 +191,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
           <div key={p.page} className="space-y-1">
             <div className="text-xs text-muted-foreground">หน้า {p.page}</div>
             <div
-              className={`pdf-page relative bg-white shadow border mx-auto ${activeTool ? "touch-none" : "touch-pan-y"}`}
+              className={`pdf-page relative bg-card shadow-sm border mx-auto ${activeTool ? "touch-none" : "touch-pan-y"}`}
               style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}`, cursor: activeTool ? "crosshair" : "default" }}
               onClick={(e) => handlePageClick(p.page, e)}
             >
@@ -195,10 +201,10 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
                   key={f.id}
                   onPointerDown={(e) => onFieldPointerDown(f.id, e)}
                   onClick={(e) => { e.stopPropagation(); setSelectedId(f.id); }}
-                  className={`absolute border-2 ${selectedId === f.id ? "border-primary bg-primary/10" : "border-amber-500/70 bg-amber-200/30"} rounded cursor-move flex items-center justify-center text-[10px] font-medium text-amber-900 touch-none`}
+                  className={`absolute border-2 ${selectedId === f.id ? "border-primary bg-primary/10" : "border-warning/70 bg-warning/10"} rounded cursor-move flex items-center justify-center text-[10px] font-medium text-foreground touch-none`}
                   style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
                 >
-                  <span className="px-1 truncate">{f.type}{f.label ? `: ${f.label}` : ""}</span>
+                  <span className="px-1 truncate">{TOOLS.find(t => t.type === f.type)?.label}{f.label ? `: ${f.label}` : ""}</span>
                   <span
                     onPointerDown={(e) => onResize(f.id, e)}
                     className="absolute -right-1 -bottom-1 w-5 h-5 bg-primary rounded-sm cursor-se-resize touch-none"
@@ -211,12 +217,12 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
       </div>
 
       {/* RIGHT: properties — bottom sheet on mobile */}
-      <div className="w-full md:w-72 md:shrink-0 border rounded p-3 overflow-auto space-y-2 max-h-[38dvh] md:max-h-none bg-background">
+      <div className="w-full md:w-72 md:shrink-0 border-t md:border-t-0 md:border-l p-3 overflow-auto space-y-2 max-h-[38dvh] md:max-h-none bg-background">
         <div className="font-semibold text-sm">คุณสมบัติกล่อง</div>
         {!selected && <p className="text-xs text-muted-foreground">แตะกล่องบน PDF เพื่อตั้งค่า</p>}
         {selected && (
           <>
-            <div className="text-xs text-muted-foreground">ชนิด: {selected.type} · หน้า {selected.page}</div>
+            <div className="text-xs text-muted-foreground">ชนิด: {TOOLS.find(t => t.type === selected.type)?.label} · หน้า {selected.page}</div>
             <div>
               <Label className="text-xs">ป้ายชื่อ</Label>
               <Input className="h-8 text-sm" value={selected.label || ""} onChange={(e) => updateField(selected.id, { label: e.target.value })} />
@@ -281,7 +287,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
           </>
         )}
         {fields.length > 0 && (
-          <div className="pt-2 border-t text-xs text-muted-foreground">รวม {fields.length} กล่อง · คะแนนเต็ม {fields.reduce((s, f) => s + (f.score ?? 0), 0)}</div>
+          <div className="pt-2 border-t text-xs text-muted-foreground">รวม {fields.length} กล่อง · คะแนนตรวจอัตโนมัติ {fields.reduce((s, f) => s + (isWorksheetGradable(f) ? f.score ?? 1 : 0), 0)}</div>
         )}
       </div>
     </div>

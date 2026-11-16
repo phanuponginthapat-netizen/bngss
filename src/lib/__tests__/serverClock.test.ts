@@ -29,7 +29,7 @@ describe("serverClock sync", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toMatch(/\/auth\/v1\/health$/);
-    expect(calls[0].init?.method).toBe("HEAD");
+    expect(calls[0].init?.method).toBe("GET");
     const apiKey = calls[0].init?.headers?.apikey;
     expect(typeof apiKey).toBe("string");
     expect(apiKey && apiKey.length > 20).toBe(true);
@@ -51,5 +51,13 @@ describe("serverClock sync", () => {
     // เครื่องน้าเซิรฟ์เวอร 5 วินาที → ตองเห็นสวนตางในชวงเดกวนกน
     expect(clockSkewMs()).toBeGreaterThan(4000);
     expect(clockSkewMs()).toBeLessThan(6500);
+  });
+  it("does not synchronize from an error response date", async () => {
+    const before = clockSkewMs();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, {
+      status: 405, headers: { date: new Date(Date.now() + 600000).toUTCString() },
+    })));
+    await syncServerClock(true);
+    expect(clockSkewMs()).toBe(before);
   });
 });

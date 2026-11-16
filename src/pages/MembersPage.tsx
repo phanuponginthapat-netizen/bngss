@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Search, Users, Briefcase } from "lucide-react";
 
 interface Member {
@@ -31,7 +32,7 @@ export default function MembersPage() {
   // Students should not see email / employee_code of other members
   const canSeeSensitive = role === "admin" || role === "director" || role === "teacher";
 
-  const { data: members = [], isLoading } = useQuery({
+  const { data: members = [], isLoading, error, refetch } = useQuery({
     queryKey: ["school-members", userId, schoolId],
     enabled: !!userId,
     queryFn: async () => {
@@ -73,6 +74,21 @@ export default function MembersPage() {
     staff: visibleMembers.filter(m => !!m.employee_code).length,
     student: visibleMembers.filter(m => !!m.student_code).length,
   }), [visibleMembers]);
+
+  if (error) return <div className="p-6 space-y-3" role="alert">
+    <h1 className="text-xl font-bold">สมาชิกโรงเรียน</h1>
+    <p>อ่านรายชื่อสมาชิกไม่สำเร็จ</p>
+    <Button variant="outline" onClick={() => refetch()}>ลองใหม่</Button>
+  </div>;
+
+  // Parents must not browse or search the school member directory.
+  if (role === "parent") return (
+    <div className="p-6 max-w-xl mx-auto">
+      <Card><CardContent className="py-12 text-center text-muted-foreground">
+        หน้านี้สำหรับครูและบุคลากรเท่านั้น
+      </CardContent></Card>
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">

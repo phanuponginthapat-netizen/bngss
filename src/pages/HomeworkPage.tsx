@@ -20,6 +20,7 @@ import AttachmentList from "@/components/homework/AttachmentList";
 import HomeworkRichDesignerDialog from "@/components/homework/HomeworkRichDesignerDialog";
 import HomeworkAnswerDialog from "@/components/homework/HomeworkAnswerDialog";
 import HomeworkSubmissionsDialog from "@/components/homework/HomeworkSubmissionsDialog";
+import HomeworkToolsBar from "@/components/homework/HomeworkToolsBar";
 import { Sparkles, FileEdit, ClipboardList } from "lucide-react";
 
 import { StudentSubmissionPanel, TeacherGradingPanel, type SubmissionsMap } from "@/components/homework/HomeworkSubmission";
@@ -203,21 +204,22 @@ const HomeworkPage = () => {
   const [subsOpen, setSubsOpen] = useState(false);
   const [subsAssignmentId, setSubsAssignmentId] = useState<string | null>(null);
 
-  const { data: richList = [] } = useQuery({
+  const { data: richList = [], error: richError, refetch: retryRich } = useQuery({
     queryKey: ["hw-assignments", role, userId, studentRow?.classroom_id],
-    enabled: !!role && !!userId,
+    enabled: !!role && !!userId && (!isStudentLike || !!studentRow?.classroom_id),
     queryFn: async () => {
       let q = supabase.from("homework_assignments").select("*").order("created_at", { ascending: false });
       if (isStudentLike && studentRow?.classroom_id) q = q.eq("classroom_id", studentRow.classroom_id);
       else if (isTeacher && !isAdmin && !isDirector) q = q.eq("created_by", userId!);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return (data || []).filter((a: any) => !!a.content_html || !!a.pdf_path);
     },
   });
 
 
   // Homework list
-  const { data: list = [], isLoading } = useQuery({
+  const { data: list = [], isLoading, error: listError, refetch: retryList } = useQuery({
     queryKey: ["homework-list", role, userId, studentRow?.classroom_id],
     enabled: !!role && !!userId,
     queryFn: async () => {
@@ -367,7 +369,7 @@ const HomeworkPage = () => {
         <div className="flex items-center gap-2 flex-wrap">
         {canCreate && (
           <Button variant="outline" onClick={() => { setRichEditingId(null); setRichOpen(true); }}>
-            <Sparkles className="w-4 h-4 mr-1" /> สร้างใบงาน Rich
+            <Sparkles className="w-4 h-4 mr-1" /> สร้างใบงาน / Liveworksheet
           </Button>
         )}
         {canCreate && (
@@ -375,7 +377,7 @@ const HomeworkPage = () => {
             <DialogTrigger asChild>
               <Button><Plus className="w-4 h-4 mr-1" /> สั่งการบ้าน</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
               <DialogHeader><DialogTitle>สั่งการบ้านใหม่</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -434,6 +436,8 @@ const HomeworkPage = () => {
         )}
         </div>
       </div>
+
+      <Card className="border-border/60"><CardContent className="p-3"><HomeworkToolsBar title="เครื่องมือในระบบ" /></CardContent></Card>
 
       {isLoading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
 
@@ -554,21 +558,20 @@ const HomeworkPage = () => {
       })()}
 
       {/* ===== Rich homework section ===== */}
+      {(richError || listError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); }}>ลองใหม่</Button></div>}
       {richList.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> ใบงาน Rich ({richList.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <section className="space-y-2 border-t pt-5">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" /> ใบงาน / Liveworksheet ({richList.length})
+            </h2>
+          <div className="space-y-2">
             {richList.map((a: any) => (
-              <div key={a.id} className="flex items-center justify-between gap-2 border rounded p-2">
+              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b py-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-sm truncate">{a.title}</div>
+                  <div className="font-medium text-sm break-words">{a.title}</div>
                   {a.due_date && <div className="text-xs text-muted-foreground">กำหนดส่ง: {new Date(a.due_date).toLocaleDateString("th-TH")}</div>}
                 </div>
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   {isStudent && !isParent && studentRow?.id && (
                     <Button size="sm" onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}>
                       <FileEdit className="w-3.5 h-3.5 mr-1" /> ทำใบงาน
@@ -580,7 +583,7 @@ const HomeworkPage = () => {
                         <ClipboardList className="w-3.5 h-3.5 mr-1" /> ตรวจ
                       </Button>
                       {(isAdmin || isDirector || a.created_by === userId) && (
-                        <Button size="sm" variant="ghost" onClick={() => { setRichEditingId(a.id); setRichOpen(true); }}>
+                        <Button size="sm" variant="ghost" title="แก้ไขใบงาน" aria-label="แก้ไขใบงาน" onClick={() => { setRichEditingId(a.id); setRichOpen(true); }}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       )}
@@ -589,8 +592,8 @@ const HomeworkPage = () => {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
       <HomeworkRichDesignerDialog open={richOpen} onOpenChange={setRichOpen} editingId={richEditingId} />

@@ -18,4 +18,10 @@ describe("direct push recipient authorization", () => {
     expect(await authorizePushRecipient(req("user-test"), db("u", ["admin"]), "other", "service-test")).toBe(true);
     expect(await authorizePushRecipient(req("service-test"), db(null), "other", "service-test")).toBe(true);
   });
+  it("accepts database triggers only with the matching scheduler secret", async () => {
+    const cron = (v: string) => new Request("https://example.test", { headers: { "x-cron-secret": v } });
+    expect(await authorizePushRecipient(cron("cron-ok"), db(null), "other", "service-test", "cron-ok")).toBe(true);
+    expect(await authorizePushRecipient(cron("wrong"), db(null), "other", "service-test", "cron-ok")).toBe(false);
+    expect(await authorizePushRecipient(cron("cron-ok"), db(null), "other", "service-test", null)).toBe(false);
+  });
 });

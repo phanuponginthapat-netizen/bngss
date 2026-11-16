@@ -1,3 +1,4 @@
+import { authorizeCaller, ADMIN_ROLES, STAFF_ROLES } from "../_shared/callerAuth.ts";
 // Analyze PDF template: try AcroForm fields first (deterministic, no AI), then fallback to AI providers.
 // Saves the resulting field_map back to print_templates row.
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
@@ -39,6 +40,9 @@ const SYSTEM_PROMPT = `คุณคือผู้เชี่ยวชาญฟ
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const __caller = await authorizeCaller(req, corsHeaders, { roles: ADMIN_ROLES });
+  if (__caller instanceof Response) return __caller;
+
 
   let templateId: string | undefined;
 

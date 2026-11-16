@@ -1,7 +1,10 @@
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { useEffect, useState, lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { familyGradeSemester } from "@/lib/familyGrades";
+import { calculateGPA } from '@/lib/gradeUtils';
 import { requireSuccessfulReads } from "@/lib/dataReliability";
 import { toCE } from "@/lib/utils";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
@@ -38,11 +41,12 @@ const MyRadarWidget = lazy(() => import("./MyRadarWidget"));
 
 const StudentDashboard = () => {
   const { lang } = useLanguage();
-  const { userId } = useUserRole();
+  const { userId, isParent, isStudent } = useUserRole();
   const navigate = useNavigate();
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
   const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
   const currentBE = currentAcademicYear;
+  const gradeSemester = familyGradeSemester(isParent || isStudent, currentSemester);
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const weather = useWeatherData();
 
@@ -54,14 +58,16 @@ const StudentDashboard = () => {
   })();
 
   const { data, isLoading, error: dashboardError } = useQuery({
-    queryKey: ["student_dashboard", userId, currentAcademicYear, currentSemester, schoolDate],
+    queryKey: ["student_dashboard", userId, isParent, currentAcademicYear, currentSemester, schoolDate],
     enabled: !!userId && termReady,
     queryFn: async () => {
-      const { data: student, error: studentError } = await supabase
+      // Parents see their linked child (students.parent_user_id/_2); students see themselves.
+      const base = supabase
         .from("students")
-        .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url")
-        .eq("auth_user_id", userId!)
-        .maybeSingle();
+        .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url");
+      const { data: student, error: studentError } = isParent
+        ? await base.or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`).order("student_code").limit(1).maybeSingle()
+        : await base.eq("auth_user_id", userId!).maybeSingle();
       if (studentError) throw studentError;
 
       if (!student) {
@@ -84,7 +90,7 @@ const StudentDashboard = () => {
         student.classroom_id
           ? supabase.from("classrooms").select("name, grade_level, homeroom_teacher").eq("id", student.classroom_id).maybeSingle()
           : Promise.resolve({ data: null } as any),
-        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
+        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").is("subject_id", null).eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
         supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
           .eq("student_id", student.id).order("record_date", { ascending: false }).limit(5),
         supabase.from("student_leaves").select("id, status, start_date, end_date, reason")
@@ -149,18 +155,17 @@ const StudentDashboard = () => {
 
   // ── Enhanced student KPIs: GPA, upcoming exams, recent grades, sparkline trends ──
   const { data: gpaData } = useQuery({
-    queryKey: ["student_gpa", data?.student?.student_code],
-    enabled: !!data?.student?.student_code,
+    queryKey: ["student_gpa", data?.student?.student_code, currentAcademicYear, gradeSemester],
+    enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
-      const { data: rows } = await supabase
+      const rows = await fetchAllRows((from, to) => supabase
         .from("student_scores")
-        .select("grade_point, total_score, grade, updated_at")
-        .eq("student_code", data!.student!.student_code)
-        .not("grade_point", "is", null)
-        .order("updated_at", { ascending: false })
-        .limit(20);
-      const pts = (rows || []).map(r => Number(r.grade_point)).filter(n => !isNaN(n));
-      const avg = pts.length ? (pts.reduce((a, b) => a + b, 0) / pts.length) : 0;
+        .select("id, grade_point, total_score, grade, updated_at, subjects(credits)")
+        .eq("student_code", data?.student?.student_code ?? "")
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
+        .order("updated_at", { ascending: false }).order('id').range(from, to));
+      const pts = rows.map(r => r.grade_point ?? (/^[0-4](\.5)?$/.test(r.grade ?? "") ? Number(r.grade) : null)).filter((n): n is number => n != null && Number.isFinite(n));
+      const avg = calculateGPA(rows.map(r => ({ gradePoint: r.grade_point ?? (/^[0-4](\.5)?$/.test(r.grade ?? "") ? Number(r.grade) : null), credits: Number(r.subjects?.credits ?? 0) })));
       const spark = (rows || []).slice(0, 7).reverse().map(r => ({ v: Number(r.grade_point) || 0 }));
       const recent = (rows || []).slice(0, 5);
       return { gpa: pts.length ? avg.toFixed(2) : "—", count: pts.length, spark, recent, avgNum: avg };
@@ -193,15 +198,17 @@ const StudentDashboard = () => {
   });
 
   const { data: recentGrades } = useQuery({
-    queryKey: ["student_recent_grades", data?.student?.student_code],
-    enabled: !!data?.student?.student_code,
+    queryKey: ["student_recent_grades", data?.student?.student_code, currentAcademicYear, gradeSemester],
+    enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("student_scores")
         .select("id, grade, total_score, grade_point, subjects(name_th, code)")
-        .eq("student_code", data!.student!.student_code)
+        .eq("student_code", data?.student?.student_code ?? "")
+        .eq("academic_year", toCE(currentAcademicYear)).eq("semester", gradeSemester)
         .order("updated_at", { ascending: false })
         .limit(5);
+      if (error) throw error;
       return rows || [];
     },
   });
@@ -231,17 +238,13 @@ const StudentDashboard = () => {
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
-              {data?.student?.photo_url ? (
-                <img loading="lazy" decoding="async" src={data.student.photo_url} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center">
-                  <UserIcon className="w-8 h-8" />
-                </div>
-              )}
+              <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden ring-2 ring-primary-foreground/40 flex items-center justify-center" data-student-photo>
+                <IdCardPhoto url={data?.student?.photo_url || undefined} name={displayName} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 opacity-80" />
-                  <span className="text-xs font-medium opacity-80 tracking-wide uppercase">{L("นักเรียน", "Student")}</span>
+                  <span className="text-xs font-medium opacity-80 tracking-wide uppercase">{isParent ? L("ผู้ปกครอง", "Parent") : L("นักเรียน", "Student")}</span>
                 </div>
                 <h1 className="text-2xl font-bold mb-1 truncate">{greeting}{displayName ? `, ${displayName}` : ""} 👋</h1>
                 <p className="text-sm opacity-90 truncate">
@@ -340,7 +343,7 @@ const StudentDashboard = () => {
             >
               {/* GPA */}
               <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
-                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <Card onClick={() => navigate("/dashboard/student/grades")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
                   <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full gradient-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -456,7 +459,7 @@ const StudentDashboard = () => {
 
               {/* Recent Grades */}
               <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }} transition={{ duration: 0.4 }}>
-                <Card onClick={() => navigate("/dashboard/academic/transcript")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
+                <Card onClick={() => navigate("/dashboard/student/grades")} className="relative overflow-hidden border-0 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-1 transition-all group ring-1 ring-border/40 h-full">
                   <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-primary opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -549,7 +552,7 @@ const StudentDashboard = () => {
       {/* คะแนนของฉัน — กราฟใยแมงมุม 8 กลุ่มสาระ */}
       {data?.student && (
         <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
-          <MyRadarWidget />
+          <MyRadarWidget studentCode={data.student.student_code} />
         </Suspense>
       )}
 

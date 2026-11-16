@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { FileSpreadsheet, TrendingUp, Users, AlertTriangle } from "lucide-react";
+import { countLessonStatuses } from "@/lib/lessonAttendance";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 
 interface Props {
@@ -23,12 +24,14 @@ interface Props {
   setClassroomFilter: (v: string) => void;
   gradeOptions: string[];
   records: any[];
+  /** Parents: hide student-scope filters — they only ever see their own children. */
+  hideFilters?: boolean;
 }
 
 export function AttendanceReportTab({
   students, classrooms, filteredClassrooms,
   gradeFilter, setGradeFilter, classroomFilter, setClassroomFilter,
-  gradeOptions, records,
+  gradeOptions, records, hideFilters = false,
 }: Props) {
   const { lang } = useLanguage();
   const [startDate, setStartDate] = useState(() => {
@@ -37,22 +40,6 @@ export function AttendanceReportTab({
     return bkkDateISO(d);
   });
   const [endDate, setEndDate] = useState(todayBangkok());
-  const [holidayDates, setHolidayDates] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("attendance_auto_holidays")
-        .select("holiday_date")
-        .gte("holiday_date", startDate)
-        .lte("holiday_date", endDate);
-      if (cancelled) return;
-      setHolidayDates(new Set((data || []).map((r: any) => r.holiday_date)));
-    })();
-    return () => { cancelled = true; };
-  }, [startDate, endDate]);
-
   const classStudents = useMemo(() => {
     if (!classroomFilter || classroomFilter === "all") return [];
     return students
@@ -64,37 +51,13 @@ export function AttendanceReportTab({
   const filteredRecords = useMemo(() => {
     const studentIds = new Set(classStudents.map((s: any) => s.id));
     return records.filter((r: any) =>
-      r.student_id && studentIds.has(r.student_id) &&
-      r.attendance_date >= startDate && r.attendance_date <= endDate &&
-      !holidayDates.has(r.attendance_date)
+      r.subject_id && r.student_id && studentIds.has(r.student_id) &&
+      r.attendance_date >= startDate && r.attendance_date <= endDate
     );
-  }, [records, classStudents, startDate, endDate, holidayDates]);
+  }, [records, classStudents, startDate, endDate]);
 
-  // Per-student summary — นับเป็น "วัน" จริง (1 วัน = 1 ครั้ง) ไม่ใช่นับรายคาบ
-  // ถ้าวันเดียวกันมีหลายคาบ ใช้ลำดับความสำคัญ: มา > สาย > ลา/ป่วย > ขาด
-  const studentSummary = useMemo(() => {
-    const PRIORITY: Record<string, number> = { present: 5, late: 4, leave: 3, sick: 2, absent: 1 };
-    // student_id -> date -> best status
-    const byStudent: Record<string, Record<string, string>> = {};
-    filteredRecords.forEach((r: any) => {
-      const st = r.status as string;
-      if (!(st in PRIORITY)) return;
-      const days = (byStudent[r.student_id] ||= {});
-      const prev = days[r.attendance_date];
-      if (!prev || PRIORITY[st] > PRIORITY[prev]) days[r.attendance_date] = st;
-    });
-
-    const map: Record<string, { present: number; absent: number; late: number; sick: number; leave: number; total: number }> = {};
-    classStudents.forEach((s: any) => {
-      const counts = { present: 0, absent: 0, late: 0, sick: 0, leave: 0, total: 0 };
-      Object.values(byStudent[s.id] || {}).forEach((st) => {
-        (counts as any)[st]++;
-        counts.total++;
-      });
-      map[s.id] = counts;
-    });
-    return map;
-  }, [classStudents, filteredRecords]);
+  // Each saved lesson remains an independent record; never collapse it to school days.
+  const studentSummary = useMemo<Record<string, ReturnType<typeof countLessonStatuses>>>(() => Object.fromEntries(classStudents.map((s: any) => [s.id, countLessonStatuses(filteredRecords.filter((r: any) => r.student_id === s.id))])), [classStudents, filteredRecords]);
 
   // Overall stats
   const overallStats = useMemo(() => {
@@ -141,16 +104,16 @@ export function AttendanceReportTab({
         "สาย(นาทีเฉลี่ย)": avgLateMin,
         "ป่วย": sm.sick,
         "ลา": sm.leave,
-        "รวมวัน": sm.total,
+        "รวมคาบ": sm.total,
         "อัตราเข้าเรียน(%)": rate,
       };
     });
     const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "รายงานการมาเรียน");
+    XLSX.utils.book_append_sheet(wb, ws, "รายงานการเข้าเรียนรายคาบ");
     const classroom = classrooms.find((c: any) => c.id === classroomFilter);
-    const fileName = `รายงานการมาเรียน_${classroom?.grade_level || ""}_${classroom?.name || ""}_${startDate}_${endDate}.xlsx`;
+    const fileName = `รายงานการเข้าเรียนรายคาบ_${classroom?.grade_level || ""}_${classroom?.name || ""}_${startDate}_${endDate}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
@@ -162,28 +125,32 @@ export function AttendanceReportTab({
       <Card>
         <CardContent className="pt-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <Label>{lang === "th" ? "ระดับชั้น" : "Grade"}</Label>
-              <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
-                  {gradeOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{lang === "th" ? "ห้องเรียน" : "Room"}</Label>
-              <Select value={classroomFilter} onValueChange={setClassroomFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
-                  {filteredClassrooms.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!hideFilters && (
+              <>
+                <div>
+                  <Label>{lang === "th" ? "ระดับชั้น" : "Grade"}</Label>
+                  <Select value={gradeFilter} onValueChange={setGradeFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === "th" ? "ทุกระดับชั้น" : "All"}</SelectItem>
+                      {gradeOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{lang === "th" ? "ห้องเรียน" : "Room"}</Label>
+                  <Select value={classroomFilter} onValueChange={setClassroomFilter}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === "th" ? "ทุกห้อง" : "All"}</SelectItem>
+                      {filteredClassrooms.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div>
               <Label>{lang === "th" ? "ตั้งแต่" : "From"}</Label>
               <BEDatePicker value={startDate} onChange={(v) => setStartDate(v)} />
@@ -195,16 +162,6 @@ export function AttendanceReportTab({
           </div>
         </CardContent>
       </Card>
-
-      {holidayDates.size > 0 && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
-          <CardContent className="py-3 text-sm text-blue-700 dark:text-blue-300">
-            🏖️ {lang === "th"
-              ? `ระบบตรวจพบวันหยุด ${holidayDates.size} วัน (ขาดเกิน 50 คน) — ไม่นับรวมในรายงาน: ${Array.from(holidayDates).sort().join(", ")}`
-              : `${holidayDates.size} auto-detected holidays excluded: ${Array.from(holidayDates).sort().join(", ")}`}
-          </CardContent>
-        </Card>
-      )}
 
       {classroomFilter && classroomFilter !== "all" && classStudents.length > 0 && (
         <>
@@ -234,7 +191,7 @@ export function AttendanceReportTab({
               <CardContent className="pt-4 text-center">
                 <AlertTriangle className="w-6 h-6 mx-auto text-orange-500 mb-1" />
                 <div className="text-2xl font-bold text-orange-500">{atRiskStudents.length}</div>
-                <div className="text-xs text-muted-foreground">{lang === "th" ? "เสี่ยงขาดเรียน (≥3 วัน)" : "At Risk"}</div>
+                <div className="text-xs text-muted-foreground">{lang === "th" ? "เสี่ยงขาดเรียน (≥3 คาบ)" : "At Risk"}</div>
               </CardContent>
             </Card>
           </div>
@@ -245,14 +202,14 @@ export function AttendanceReportTab({
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2 text-orange-700 dark:text-orange-400">
                   <AlertTriangle className="w-4 h-4" />
-                  {lang === "th" ? "นักเรียนเสี่ยงขาดเรียน (ขาด ≥ 3 วัน)" : "At Risk Students (Absent ≥ 3 days)"}
+                  {lang === "th" ? "นักเรียนเสี่ยงขาดเรียน (ขาด ≥ 3 คาบ)" : "At Risk Students (Absent ≥ 3 periods)"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap gap-2">
                   {atRiskStudents.map((s: any) => (
                     <Badge key={s.id} variant="outline" className="bg-background">
-                      {s.prefix}{s.first_name} {s.last_name} ({studentSummary[s.id]?.absent} {lang === "th" ? "วัน" : "d"})
+                      {s.prefix}{s.first_name} {s.last_name} ({studentSummary[s.id]?.absent} {lang === "th" ? "คาบ" : "periods"})
                     </Badge>
                   ))}
                 </div>
@@ -265,7 +222,7 @@ export function AttendanceReportTab({
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">
                 {lang === "th"
-                   ? `รายงานการมาเรียน ${classroom?.name}`
+                   ? `รายงานการเข้าเรียนรายคาบ ${classroom?.name}`
                    : `Attendance Report ${classroom?.name}`}
               </CardTitle>
               <Button variant="outline" size="sm" onClick={exportExcel}>

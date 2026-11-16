@@ -102,14 +102,17 @@ Deno.serve(async (req) => {
           body: `${student.student_name} — ${label} วันที่ ${attendance_date}`,
           type: "attendance_absent",
           severity: "warning",
-          url: "/dashboard/parent/attendance",
+          url: "/dashboard/student/attendance",
           read: false,
         });
       }
     }
 
     if (notifications.length) {
-      const { error: notifErr } = await admin.from("notifications").insert(notifications);
+      const { error: notifErr } = await admin.from("notifications").insert(
+        // notifications columns are message/is_read; this function sends the pushes itself.
+        notifications.map((n: any) => ({ user_id: n.user_id, title: n.title, message: n.body, type: n.type, is_read: false, push_sent: true })),
+      );
       if (notifErr) console.error("Notification insert error:", notifErr);
     }
 
@@ -128,8 +131,8 @@ Deno.serve(async (req) => {
         const payload = {
           title: "📋 แจ้งเตือนการขาดเรียน",
           body: `${name} — ${label} วันที่ ${attendance_date}`,
-          url: "/dashboard/parent/attendance",
-          tag: "attendance-absent",
+          url: "/dashboard/student/attendance",
+          tag: `attendance-absent-${matchingStudent?.student_id ?? "x"}`,
         };
 
         const r = isFcm

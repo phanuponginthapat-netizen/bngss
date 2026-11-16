@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import AttachmentUploader from "./AttachmentUploader";
 import AttachmentList from "./AttachmentList";
 import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import { saveErrorMessage } from "@/lib/saveError";
+import { writeTaskJson } from "@/lib/taskJsonWrite";
 
 export type Reply = {
   id: string;
@@ -57,6 +57,7 @@ export default function HomeworkReplies({
       toast.error("พิมพ์ข้อความหรือแนบไฟล์อย่างน้อย 1 อย่าง");
       return;
     }
+    if (busy) return;
     setBusy(true);
     const newReply: Reply = {
       id: crypto.randomUUID(),
@@ -67,10 +68,12 @@ export default function HomeworkReplies({
       at: new Date().toISOString(),
       attachments: merged,
     };
-    const next = [...(replies || []), newReply];
-    const { error } = await supabase.from("task_assignments").update({ replies: next as any }).eq("id", taskId);
-    setBusy(false);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    try {
+      await writeTaskJson(taskId, "replies", current => [...current as unknown[], newReply]);
+    } catch (error) {
+      toast.error(saveErrorMessage(error));
+      return;
+    } finally { setBusy(false); }
     setText("");
     setPending([]);
     toast.success("ส่งแล้ว");
