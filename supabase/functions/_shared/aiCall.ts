@@ -196,6 +196,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         const r = await fetch(p.base_url, {
           method: "POST",
+          signal: AbortSignal.timeout(45000),
           headers,
           body: JSON.stringify(body),
         });
@@ -242,6 +243,9 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         return { content, provider: p.name, model: useModel };
       } catch (e: any) {
+        if (e?.name === "TimeoutError" || e?.name === "AbortError") {
+          throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
+        }
         const msg = `${p.name}(${useModel}): exception ${e?.message || e}`;
         errors.push(msg);
         await logUsage({

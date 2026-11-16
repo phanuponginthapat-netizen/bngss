@@ -20,6 +20,7 @@ import { askFreeAI } from "@/lib/freeAI";
 import { useUserRole } from "@/hooks/useUserRole";
 import { streamImage } from "@/lib/streamImage";
 import { loadAiChatHistory } from "@/lib/aiChatHistory";
+import { streamAiChat } from "@/lib/aiChatStream";
 
 const AI_IMAGE_PREFIX = "ai-image://";
 const signedCache = new Map<string, string>();
@@ -753,21 +754,15 @@ export default function AiChatBubble() {
       return;
     }
     try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: { messages: nextSend },
+      const data = await streamAiChat(nextSend, reply => {
+        setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       });
-      if (error) throw error;
       const reply = (data as any)?.reply || (data as any)?.error || "ขอโทษค่ะ ตอบไม่ได้";
       setMessages([...nextDisplay, { role: "assistant", content: reply }]);
       if (data?.historySaved === false) swal.error("สร้างคำตอบแล้ว แต่ยังบันทึกแชทไม่สำเร็จ กรุณาคัดลอกหรือบันทึกร่างเก็บไว้ก่อนปิดหน้า");
       speak(reply);
     } catch (e: any) {
-      // ลอง AI ฟรีในเครื่องก่อน (ไม่ต้องใช้ API)
-      try {
-        const prompt = nextSend.map(m=> `${m.role}: ${m.content}`).join("\n");
-        const free = await askFreeAI(prompt);
-        if (free) { setMessages([...nextDisplay, { role: "assistant", content: free + "\n\n_(ตอบด้วย AI ฟรีในเครื่อง)_" }]); speak(free); return; }
-      } catch {}
+      // Do not start a second inference after an ambiguous failure.
       const msg = String(e?.message || e?.context?.error || "");
       // จำแนกชนิด error ให้แม่นยำ — "เครดิตหมด" ใช้เฉพาะกรณีโควต้าจริงๆ เท่านั้น
       const isDailyQuota = /ครบ\s*\d+\s*ข้อความ|daily limit|quota.*exceed/i.test(msg);

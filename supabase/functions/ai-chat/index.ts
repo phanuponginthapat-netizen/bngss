@@ -21,7 +21,7 @@ type CachedCtx = { persona: string; botName: string; languages: string; schoolCo
 let CTX_CACHE: CachedCtx | null = null;
 const CTX_TTL_MS = 60_000; // 60s
 
-Deno.serve(async (req) => {
+async function handleChat(req: Request, onReply?: (text: string) => void) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // SECURITY: require a valid authenticated session — verify JWT signature server-side
@@ -463,6 +463,8 @@ Deno.serve(async (req) => {
           functionName: "ai-chat",
         });
 
+    // Show the completed text before optional illustration and durable history work.
+    onReply?.(String(result.content || ""));
     // ---- Auto-generate illustrative image for student homework (concept, not answer) ----
     if (strictNoAnswer) {
       try {
@@ -595,4 +597,31 @@ AI ตอบ: ${String(result.content || "").slice(0, 400)}
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return handleChat(req);
+  const body = await req.clone().json().catch(() => null);
+  if (body?.stream !== true || body?.mode && body.mode !== "chat") return handleChat(req);
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit = (payload: unknown) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`)); } catch { /* disconnected */ }
+      };
+      const heartbeat = setInterval(() => emit({ type: "pending" }), 10000);
+      try {
+        const response = await handleChat(req, text => emit({ type: "delta", text }));
+        const result = await response.json();
+        if (!response.ok) emit({ type: "error", message: result.error || "AI ไม่สามารถตอบได้" });
+        else emit({ type: "done", ...result });
+      } catch {
+        emit({ type: "error", message: "การเชื่อมต่อ AI ขัดข้อง กรุณาตรวจข้อความก่อนลองใหม่" });
+      } finally {
+        clearInterval(heartbeat);
+        try { controller.close(); } catch { /* disconnected */ }
+      }
+    },
+  });
+  return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
 });
