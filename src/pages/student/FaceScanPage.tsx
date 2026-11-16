@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { QrCode, ScanFace, UserPlus, Database, BarChart3, Settings, ShieldCheck, Monitor, BatteryFull, Zap, Briefcase } from "lucide-react";
+import { QrCode, ScanFace, UserPlus, Database, BarChart3, Settings, ShieldCheck, Monitor, BatteryFull, Zap, Briefcase, RefreshCw } from "lucide-react";
 import FaceScanTab from "@/components/facescan/FaceScanTab";
 import FaceRegisterTab from "@/components/facescan/FaceRegisterTab";
 import FaceDatabaseTab from "@/components/facescan/FaceDatabaseTab";
@@ -11,6 +11,7 @@ import FaceReportTab from "@/components/facescan/FaceReportTab";
 import FaceSettingsTab from "@/components/facescan/FaceSettingsTab";
 import FaceApprovalTab from "@/components/facescan/FaceApprovalTab";
 import StaffFaceTab from "@/components/facescan/StaffFaceTab";
+import FaceSyncStatusTab from "@/components/facescan/FaceSyncStatusTab";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const FaceScanPage = () => {
@@ -48,7 +49,7 @@ const FaceScanPage = () => {
 
       <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <div className="w-full overflow-x-auto">
-          <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-8" : "sm:grid-cols-5"} sm:max-w-5xl gap-1`}>
+          <TabsList className={`inline-flex h-auto w-auto min-w-full sm:grid ${canManage ? "sm:grid-cols-9" : "sm:grid-cols-5"} sm:max-w-5xl gap-1`}>
             <TabsTrigger value="qr" className="gap-2 whitespace-nowrap">
               <QrCode className="w-4 h-4" /><span>สแกน QR</span>
               <BatteryFull className="w-3 h-3 text-emerald-500" />
@@ -61,9 +62,12 @@ const FaceScanPage = () => {
             {canManage && <TabsTrigger value="approval" className="gap-2 whitespace-nowrap"><ShieldCheck className="w-4 h-4" /><span>อนุมัติ</span></TabsTrigger>}
             {canManage && <TabsTrigger value="database" className="gap-2 whitespace-nowrap"><Database className="w-4 h-4" /><span>ฐานข้อมูล</span></TabsTrigger>}
             {canSeeReport && <TabsTrigger value="report" className="gap-2 whitespace-nowrap"><BarChart3 className="w-4 h-4" /><span>รายงาน</span></TabsTrigger>}
+            {canManage && <TabsTrigger value="sync" className="gap-2 whitespace-nowrap"><RefreshCw className="w-4 h-4" /><span>สถานะซิงค์ตู้</span></TabsTrigger>}
             {canManage && <TabsTrigger value="settings" className="gap-2 whitespace-nowrap"><Settings className="w-4 h-4" /><span>ตั้งค่า</span></TabsTrigger>}
           </TabsList>
         </div>
+
+        {canManage && <TabsContent value="sync" className="mt-4"><FaceSyncStatusTab /></TabsContent>}
 
         {/* สแกน QR — น้ำหนักเบา ไม่โหลดโมเดล AI */}
         <TabsContent value="qr" className="mt-4">
