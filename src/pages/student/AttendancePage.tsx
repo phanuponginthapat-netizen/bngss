@@ -170,7 +170,7 @@ const AttendancePage = () => {
         </TabsContent>
 
         <TabsContent value="report">
-          <AttendanceReportTab {...sharedProps} records={records} />
+          <AttendanceReportTab {...sharedProps} records={records} hideFilters={isParent} />
         </TabsContent>
 
         <TabsContent value="history">
