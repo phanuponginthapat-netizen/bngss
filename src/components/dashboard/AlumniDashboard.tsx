@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 import DailyTaskBar from "./DailyTaskBar";
 import { todayBangkok } from "@/lib/dateBE";
 import { useWeatherData } from "@/hooks/useWeatherData";
@@ -80,7 +81,7 @@ const AlumniDashboard = () => {
         </div>
         <div className="relative z-10 flex items-center gap-4">
           {data?.profile?.avatar_url ? (
-            <img src={data.profile.avatar_url} alt="" className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/40" />
+            <div className="w-16 h-16 shrink-0 rounded-lg overflow-hidden ring-2 ring-primary-foreground/40"><IdCardPhoto url={data.profile.avatar_url} name={data.profile.first_name || 'รูปประจำตัว'} /></div>
           ) : (
             <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center">
               <Award className="w-8 h-8" />

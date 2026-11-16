@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -509,7 +510,7 @@ const StaffFaceTab = () => {
                   {grouped.map((g) => (
                     <div key={g.personnel_id} className="p-3 rounded-lg border bg-card flex items-center gap-3">
                       {g.face_image ? (
-                        <img src={g.face_image} alt="" className="w-12 h-12 rounded-full object-cover border" />
+                        <div className="w-12 h-12 rounded-full overflow-hidden border shrink-0"><IdCardPhoto url={g.face_image} bucket="face-photos" name={fullName(g)} /></div>
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-xs">{g.first_name?.[0]}</div>
                       )}

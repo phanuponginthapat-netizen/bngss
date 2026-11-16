@@ -6,6 +6,7 @@ import HomeworkEditor from "./HomeworkEditor";
 import { toast } from "sonner";
 import { renderPdfToImages, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 
 interface Props {
   attachments: Attachment[];
@@ -72,26 +73,14 @@ export default function AttachmentList({ attachments, canEdit, onEditedSave, den
           {images.map((a, index) => {
             const url = imageUrls[attachmentKey(a, index)];
             return (
-              <button
-                type="button"
+              <div
+                role="group"
                 key={attachmentKey(a, index)}
                 onClick={() => url && setLightbox(url)}
                 className={`group relative rounded-lg overflow-hidden border bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary ${dense ? "aspect-square" : "min-h-[260px] max-h-[520px]"}`}
                 title={a.name}
               >
-                {url ? (
-                  <img
-                    src={url}
-                    alt={a.name}
-                    loading="lazy"
-                    decoding="async"
-                    className={`w-full h-full transition-transform group-hover:scale-[1.02] ${dense ? "object-cover" : "object-contain"}`}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <ImageIcon className="w-6 h-6 animate-pulse" />
-                  </div>
-                )}
+                <div className={dense ? 'h-full w-full' : 'h-[300px] w-full'}><IdCardPhoto url={a.path} bucket="homework-files" name={a.name} fit={dense ? 'cover' : 'contain'} /></div>
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
                   <div className="text-[10px] text-white truncate">{a.name}</div>
                 </div>
@@ -116,7 +105,7 @@ export default function AttachmentList({ attachments, canEdit, onEditedSave, den
                     <Pencil className="w-3 h-3" />
                   </span>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

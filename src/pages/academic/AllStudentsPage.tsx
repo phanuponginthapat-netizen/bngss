@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { csvCell } from "@/lib/csvCell";
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -427,14 +428,7 @@ const AllStudentsPage = () => {
                     {fieldConfig.photo_url && (
                       <TableCell className="w-14">
                         {s.photo_url ? (
-                          <img
-                            src={s.photo_url}
-                            alt={s.first_name}
-                            width={36}
-                            height={36}
-                            className="w-9 h-9 min-w-9 min-h-9 aspect-square shrink-0 rounded-full object-cover border block"
-                            loading="lazy"
-                          />
+                          <div className="w-9 h-9 shrink-0 rounded-full overflow-hidden border"><IdCardPhoto url={s.photo_url} name={s.first_name} /></div>
                         ) : (
                           <div className="w-9 h-9 aspect-square shrink-0 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                             <User className="w-4 h-4" />
@@ -501,7 +495,7 @@ const AllStudentsPage = () => {
               {fieldConfig.photo_url && (
                 <div className="flex justify-center pb-2">
                   {detailStudent.photo_url ? (
-                    <img src={detailStudent.photo_url} alt={detailStudent.first_name} className="w-28 h-28 rounded-full object-cover border-4 border-primary/20 shadow-md" />
+                    <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-primary/20 shadow-md"><IdCardPhoto url={detailStudent.photo_url} name={detailStudent.first_name} /></div>
                   ) : (
                     <div className="w-28 h-28 rounded-full bg-muted flex items-center justify-center border-4 border-primary/20">
                       <User className="w-10 h-10 text-muted-foreground" />

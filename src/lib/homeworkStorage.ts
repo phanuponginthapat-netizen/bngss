@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { resolveStorageUrl } from './storageUrl';
 
 export type Attachment = {
   id: string;
@@ -47,9 +48,7 @@ export async function uploadHomeworkFile(file: File, folder: string): Promise<At
 }
 
 export async function signedHomeworkUrl(path: string, expiresInSec = 3600): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expiresInSec);
-  if (error) throw error;
-  return data.signedUrl;
+  return resolveStorageUrl(BUCKET, path);
 }
 
 export async function downloadHomeworkBlob(path: string): Promise<Blob> {

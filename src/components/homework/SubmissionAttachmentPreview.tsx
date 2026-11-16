@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink, Download, FileText, Loader2 } from "lucide-react";
 import { renderPdfToImages, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
+import { resolveStorageUrl } from '@/lib/storageUrl';
+import { IdCardPhoto } from '@/components/IdCardPhoto';
 
 interface Props {
   bucket: string;
@@ -26,9 +28,10 @@ export function SubmissionAttachmentPreview({ bucket, path, name, size }: Props)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    supabase.storage.from(bucket).createSignedUrl(path, 3600).then(({ data }) => {
+    setUrl('');
+    resolveStorageUrl(bucket, path).then(resolved => {
       if (!cancelled) {
-        setUrl(data?.signedUrl || "");
+        setUrl(resolved);
         setLoading(false);
       }
     }).catch(() => {
@@ -80,13 +83,7 @@ export function SubmissionAttachmentPreview({ bucket, path, name, size }: Props)
       {header}
       {isImage(name) ? (
         <>
-          <img
-            src={url}
-            alt={name}
-            loading="lazy"
-            className="w-full max-h-80 object-contain rounded bg-black/5 cursor-zoom-in"
-            onClick={() => setZoom(true)}
-          />
+          <div className="h-64 w-full rounded overflow-hidden cursor-zoom-in" onClick={() => setZoom(true)}><IdCardPhoto url={path} bucket={bucket} name={name} fit="contain" /></div>
           {zoom && (
             <div
               className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
