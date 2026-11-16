@@ -118,7 +118,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.14.1"
+AGENT_VERSION = "1.14.2"
 
 
 def default_cache_dir() -> str:
@@ -631,6 +631,13 @@ def device_health() -> dict:
         notes.append("ไม่พบ micro:bit ประตู")
     info["voice_progress"] = voice_preparation.status()
     info["health_note"] = " • ".join(notes)
+    last = state.get("last_sync")
+    info["face_sync"] = {
+        "faces_loaded": int(state["matrix"].shape[0]),
+        "people_loaded": len({f.get("student_id") for f in state["faces"].values()}),
+        "last_sync_at": datetime.fromtimestamp(last, timezone.utc).isoformat() if last else None,
+        "last_error": state.get("last_sync_error"),
+    }
     return info
 
 
@@ -1114,7 +1121,9 @@ def sync_loop() -> None:
     while True:
         try:
             sync_once()
+            state["last_sync_error"] = None
         except Exception as exc:  # noqa: BLE001
+            state["last_sync_error"] = f"{type(exc).__name__}: {exc}"[:200]
             print(f"[agent] sync failed: {exc}")
         time.sleep(SYNC_SECONDS)
 
