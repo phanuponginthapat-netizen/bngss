@@ -16,13 +16,14 @@ export function SignedImage({ bucket, path, fallback = "", alt = "", ...rest }: 
 
   useEffect(() => {
     let mounted = true;
+    setUrl("");
     if (!path) {
       setUrl(fallback);
       return;
     }
     resolveStorageUrl(bucket, path).then((u) => {
       if (mounted) setUrl(u || fallback);
-    });
+    }).catch(() => { if (mounted) setUrl(fallback); });
     return () => {
       mounted = false;
     };
