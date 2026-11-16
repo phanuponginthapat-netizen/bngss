@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -767,7 +768,7 @@ export default function ParentAppPage() {
                       onClick={() => setSelectedChildId(c.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${selectedChildId === c.id ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-card border-border hover:bg-muted"}`}
                     >
-                      {c.photo_url ? <img src={c.photo_url} alt="" className="w-5 h-5 rounded-full object-cover" /> : <GraduationCap className="w-3.5 h-3.5" />}
+                      <span className="w-5 h-5 shrink-0 rounded-full overflow-hidden flex items-center justify-center"><IdCardPhoto url={c.photo_url || undefined} name={fullName(c)} /></span>
                       <span className="max-w-[90px] truncate">{fullName(c)}</span>
                     </button>
                   ))}
@@ -889,13 +890,9 @@ export default function ParentAppPage() {
               <Card key={child.id} className="overflow-hidden border-border/60 shadow-sm">
                 <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 via-transparent to-transparent">
                   <div className="flex items-start gap-4">
-                    {child.photo_url ? (
-                      <img src={child.photo_url} alt={fullName(child)} className="w-14 h-14 rounded-xl object-cover border" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center border">
-                        <GraduationCap className="w-7 h-7 text-primary" />
-                      </div>
-                    )}
+                    <div className="w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-primary/10 flex items-center justify-center border">
+                      <IdCardPhoto url={child.photo_url || undefined} name={fullName(child)} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg leading-tight">{fullName(child)}</CardTitle>
                       <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
