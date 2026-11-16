@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function FamilyGrades() {
-  const { userId, isParent, loading: roleLoading } = useUserRole();
+  const { userId, isParent, isStudent, loading: roleLoading } = useUserRole();
   const family = useParentChildren();
   const calendar = useAcademicYear();
   const [childId, setChildId] = useState('');
@@ -18,7 +18,7 @@ export default function FamilyGrades() {
   const [year, setYear] = useState<number | null>(null);
   const [semester, setSemester] = useState<number | null>(null);
   const effectiveYear = year ?? calendar.currentAcademicYear;
-  const effectiveSemester = semester ?? familyGradeSemester(isParent, calendar.currentSemester);
+  const effectiveSemester = semester ?? familyGradeSemester(isParent || isStudent, calendar.currentSemester);
   const identity = useQuery({
     queryKey: ['family-grade-student', userId, isParent, child?.id],
     enabled: !!userId && !roleLoading && (!isParent || !family.isLoading),
