@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
+import { loadFaceModels, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, type QualityReport } from "@/lib/faceApi";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ import { canSaveFaceRegistration } from '@/lib/faceRegistrationPolicy';
 import { filterFaceRegistrationStudents } from '@/lib/faceRegistrationFilter';
 import { swal } from '@/lib/swal';
 import { removePendingFacePortrait } from '@/lib/removePendingFacePortrait';
+import { detectRobustFaceDescriptor, saveSyncedFaceDescriptor } from '@/lib/faceSync';
 
 
 const FaceRegisterTab = () => {
@@ -105,19 +106,6 @@ const FaceRegisterTab = () => {
     finally { setRemoving(null); }
   };
 
-  const detectRobust = async (img: HTMLImageElement): Promise<Float32Array | null> => {
-    const desc = await getDescriptorFromImage(img);
-    if (desc) return desc;
-    const [{ default: faceapiMod }, { detectorOptionsHQ: detHQ }] = await Promise.all([
-      import("@vladmandic/face-api"),
-      import("@/lib/faceApi"),
-    ]);
-    const faceapi: any = (faceapiMod as any).default || faceapiMod;
-    const res = await faceapi.detectSingleFace(img as any, detHQ(512, 0.25)).withFaceLandmarks().catch(()=>null);
-    if (!res) return null;
-    return await embedWithArcFace(img, res.landmarks, 1, 1).catch(()=>null);
-  };
-
   const runAutoSync = async (force = false) => {
     if (!modelReady) { toast.error("AI Model ยังไม่พร้อม"); return; }
     setSyncing(true);
@@ -141,10 +129,9 @@ const FaceRegisterTab = () => {
         const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
         try {
           const img = await loadFaceSyncImage(s.photo_url, loadImageFromUrl);
-          const desc = await detectRobust(img);
+          const desc = await detectRobustFaceDescriptor(img);
           if (!desc) return { ok: false, name: fullName, id: s.id, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" };
-          const { error } = await supabase.from("student_face_descriptors").upsert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar", created_at: new Date().toISOString() }, { onConflict: "student_id,sample_index" });
-          if (error) return { ok: false, name: fullName, id: s.id, reason: "DB: " + error.message };
+          await saveSyncedFaceDescriptor(s.id, desc, user?.id);
           return { ok: true, name: fullName, id: s.id };
         } catch (e: any) {
           return { ok: false, name: fullName, id: s.id, reason: e?.message || "unknown error" };
