@@ -20,6 +20,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { canvasToFaceThumb } from "@/lib/faceThumb";
 import { computeFaceTexture } from "@/lib/faceTexture";
 import { clearRegisteredFaceCache } from "@/lib/registeredFace";
+import { loadFaceSyncImage } from '@/lib/faceSyncImage';
 import { saveErrorMessage } from "@/lib/saveError";
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 
@@ -113,11 +114,10 @@ const FaceRegisterTab = () => {
       const results = await Promise.all(batch.map(async (s: any) => {
         const fullName = `${s.prefix || ""}${s.first_name || ""} ${s.last_name || ""}`.trim();
         try {
-          const img = await loadImageFromUrl(s.photo_url).catch(() => { throw new Error("โหลดรูปไม่ได้ (CORS/404)"); });
+          const img = await loadFaceSyncImage(s.photo_url, loadImageFromUrl);
           const desc = await detectRobust(img);
           if (!desc) return { ok: false, name: fullName, id: s.id, reason: "ตรวจไม่พบใบหน้าในรูป (เบลอ/มุมเอียง/หลายคน)" };
-          if (force) await supabase.from("student_face_descriptors").delete().eq("student_id", s.id).eq("source", "profile_avatar");
-          const { error } = await supabase.from("student_face_descriptors").upsert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar" }, { onConflict: "student_id,sample_index" });
+          const { error } = await supabase.from("student_face_descriptors").upsert({ student_id: s.id, sample_index: 0, descriptor: Array.from(desc), captured_by: user?.id, source: "profile_avatar", created_at: new Date().toISOString() }, { onConflict: "student_id,sample_index" });
           if (error) return { ok: false, name: fullName, id: s.id, reason: "DB: " + error.message };
           return { ok: true, name: fullName, id: s.id };
         } catch (e: any) {
