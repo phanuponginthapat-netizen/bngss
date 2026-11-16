@@ -16,6 +16,7 @@ import { useParentChildren } from "@/hooks/useParentChildren";
 import { Card, CardContent } from "@/components/ui/card";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { Button } from '@/components/ui/button';
+import FamilySchoolAttendance from '@/components/attendance/FamilySchoolAttendance';
 
 const toDbAcademicYear = (year: number) => {
   if (!year || year <= 0) return undefined;
@@ -33,7 +34,7 @@ const AttendancePage = () => {
   }, [isParent, children, sd.classroomFilter]);
   const canSeeAll = isAdmin || isDirector;
   const canCheckSubject = !isParent && (canSeeAll || isTeacher);
-  const defaultTab = isParent ? "report" : (canCheckSubject ? "subject" : "dashboard");
+  const defaultTab = isParent ? "school" : (canCheckSubject ? "subject" : "dashboard");
 
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
@@ -109,13 +110,13 @@ const AttendancePage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
-            {isParent ? 'การเข้าเรียนรายคาบของลูก' : lang === "th" ? "เช็คชื่อนักเรียน (รายคาบวิชา)" : "Student Attendance (Per Period)"}
+            {isParent ? 'การมาเรียนของลูก' : lang === "th" ? "เช็คชื่อนักเรียน (รายคาบวิชา)" : "Student Attendance (Per Period)"}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          {!isParent && <p className="text-sm text-muted-foreground">
             {lang === "th"
               ? "ครูประจำวิชาเช็คชื่อรายคาบ — แสกน QR หรือติ๊กสถานะด้วยตนเอง"
               : "Subject teachers check per-period — scan QR or tick status manually"}
-          </p>
+          </p>}
         </div>
         {academicYear > 0 && (
           <AcademicYearFilter
@@ -130,7 +131,8 @@ const AttendancePage = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          {isParent && <TabsTrigger value="school">มาโรงเรียน</TabsTrigger>}
           {canCheckSubject && (
             <TabsTrigger value="subject">
               <BookOpen className="w-4 h-4 mr-1" />
@@ -143,13 +145,14 @@ const AttendancePage = () => {
           </TabsTrigger>
           <TabsTrigger value="report">
             <BarChart3 className="w-4 h-4 mr-1" />
-            {lang === "th" ? "รายงาน" : "Report"}
+            {isParent ? 'รายงานรายคาบ' : lang === "th" ? "รายงาน" : "Report"}
           </TabsTrigger>
           <TabsTrigger value="history">
             <History className="w-4 h-4 mr-1" />
-            {lang === "th" ? "ประวัติ" : "History"}
+            {isParent ? 'ประวัติรายคาบ' : lang === "th" ? "ประวัติ" : "History"}
           </TabsTrigger>
         </TabsList>
+        {isParent && <TabsContent value="school"><FamilySchoolAttendance /></TabsContent>}
 
         {canCheckSubject && (
           <TabsContent value="subject">

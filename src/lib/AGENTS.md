@@ -18,3 +18,4 @@
 - Probation results aggregate stored subject grade points once per real student using shared credit-weighted GPA, with complete term-scoped reads; never treat an individual subject grade as a student's GPA.
 - Escape every interpolated AR attribute and reject unsafe URL protocols/component delimiters before scene parsing so publisher content cannot become executable markup.
 - Family score views use explicit student-code/year/semester queries and a dedicated read-only grade destination; grade defaults never change timetable terms, preventing denied staff links and mixed historical results.
+- Family school-attendance views query only null-subject period-zero rows; timetable headers prefer stored period times so school-day records and configured estimates never masquerade as lesson evidence.
