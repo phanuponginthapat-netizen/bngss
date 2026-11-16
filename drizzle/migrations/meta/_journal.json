@@ -386,6 +386,13 @@
       "when": 1794808706338,
       "tag": "0054_preserve_required_pending_face_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794808945841,
+      "tag": "0055_block_family_portrait_changes",
+      "breakpoints": true
     }
   ]
 }
