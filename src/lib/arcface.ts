@@ -17,6 +17,7 @@
  * INCOMPATIBLE and must be re-registered.
  */
 import * as ort from "onnxruntime-web";
+import { faceSimilarityTransform } from "./faceAlignment";
 import type * as faceapi from "@vladmandic/face-api";
 
 // Serve WASM binaries from jsDelivr so we don't have to bundle them.
@@ -136,72 +137,6 @@ export function fivePointsFromLandmarks68(lm: faceapi.FaceLandmarks68): Array<[n
 // Returns 2x3 affine matrix [a c e; b d f] such that dst = M · [src; 1].
 // ─────────────────────────────────────────────────────────────────
 
-function umeyama(
-  src: Array<[number, number]>,
-  dst: Array<[number, number]>,
-): [number, number, number, number, number, number] {
-  const n = src.length;
-  let sx = 0, sy = 0, dx = 0, dy = 0;
-  for (let i = 0; i < n; i++) {
-    sx += src[i][0]; sy += src[i][1];
-    dx += dst[i][0]; dy += dst[i][1];
-  }
-  sx /= n; sy /= n; dx /= n; dy /= n;
-
-  let srcVar = 0;
-  let sxx = 0, sxy = 0, syx = 0, syy = 0;
-  for (let i = 0; i < n; i++) {
-    const ax = src[i][0] - sx, ay = src[i][1] - sy;
-    const bx = dst[i][0] - dx, by = dst[i][1] - dy;
-    srcVar += ax * ax + ay * ay;
-    sxx += bx * ax; sxy += bx * ay;
-    syx += by * ax; syy += by * ay;
-  }
-  srcVar /= n;
-
-  // Covariance H = [[sxx sxy],[syx syy]] / n
-  const hxx = sxx / n, hxy = sxy / n, hyx = syx / n, hyy = syy / n;
-
-  // 2x2 SVD via closed form
-  const E = (hxx + hyy) / 2;
-  const F = (hxx - hyy) / 2;
-  const G = (hyx + hxy) / 2;
-  const H = (hyx - hxy) / 2;
-  const Q = Math.sqrt(E * E + H * H);
-  const R = Math.sqrt(F * F + G * G);
-  const sx1 = Q + R;
-  const sx2 = Q - R;
-  const a1 = Math.atan2(G, F);
-  const a2 = Math.atan2(H, E);
-  const theta = (a2 - a1) / 2;
-  const phi = (a2 + a1) / 2;
-
-  // U = rot(phi), V = rot(theta), S = diag(sx1, sx2). H = U S V^T.
-  // R_opt = U · diag(1, det(U V^T)) · V^T
-  const cp = Math.cos(phi), sp = Math.sin(phi);
-  const ct = Math.cos(theta), st = Math.sin(theta);
-  // det(U V^T) sign check — for reflection correction
-  const det = (cp * ct + sp * st) * (cp * ct + sp * st) - (-sp * ct + cp * st) * (sp * ct - cp * st);
-  const d = det >= 0 ? 1 : -1;
-
-  // R = U · diag(1,d) · V^T
-  const r11 = cp * ct + sp * (d * st);
-  const r12 = cp * (-st) + sp * (d * ct);
-  const r21 = -sp * ct + cp * (d * st);
-  const r22 = -sp * (-st) + cp * (d * ct);
-
-  const scale = srcVar > 0 ? (sx1 + d * sx2) / srcVar : 1;
-  const tx = dx - scale * (r11 * sx + r12 * sy);
-  const ty = dy - scale * (r21 * sx + r22 * sy);
-
-  // canvas setTransform(a, b, c, d, e, f): x' = a*x + c*y + e, y' = b*x + d*y + f
-  const a = scale * r11;
-  const b = scale * r21;
-  const c = scale * r12;
-  const dd = scale * r22;
-  return [a, b, c, dd, tx, ty];
-}
-
 // ─────────────────────────────────────────────────────────────────
 // Alignment + preprocessing
 // ─────────────────────────────────────────────────────────────────
@@ -219,11 +154,12 @@ export function alignFace112(
   if (!_alignCanvas) _alignCanvas = document.createElement("canvas");
   _alignCanvas.width = INPUT_SIZE;
   _alignCanvas.height = INPUT_SIZE;
-  const ctx = _alignCanvas.getContext("2d", { willReadFrequently: true })!;
+  const ctx = _alignCanvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("อ่านภาพใบหน้าไม่สำเร็จ");
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, INPUT_SIZE, INPUT_SIZE);
 
-  const m = umeyama(srcLandmarks5, ARC_TEMPLATE);
+  const m = faceSimilarityTransform(srcLandmarks5, ARC_TEMPLATE);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -234,7 +170,8 @@ export function alignFace112(
 
 /** Convert 112×112 RGBA canvas → NCHW Float32 tensor normalized to [-1, 1] (RGB). */
 function canvasToTensor(canvas: HTMLCanvasElement): ort.Tensor {
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("อ่านภาพใบหน้าไม่สำเร็จ");
   const { data } = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
   const n = INPUT_SIZE * INPUT_SIZE;
   const out = new Float32Array(3 * n);
