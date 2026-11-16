@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { getColdStorageFetchUrl, getPrivateColdStorageUrl } from "./coldStorage";
+import { imageStorageSource } from './imageStorageSource';
 
 /** base สำหรับอ่านไฟล์จาก bucket app-downloads (private) — ต้องแนบ anon key ใน header */
 export const APP_DOWNLOADS_BASE = `${getBackendConfig().url}/storage/v1/object/app-downloads`;
@@ -46,7 +47,8 @@ export async function createStorageSignedUrl(
   path: string,
   expiresInSeconds = 3600
 ): Promise<string> {
-  const key = `${bucket}/${path}`;
+  const { data: auth } = await supabase.auth.getSession();
+  const key = `${getBackendConfig().url}:${auth.session?.user.id || 'signed-out'}:${bucket}/${path}`;
   const hit = signedCache.get(key);
   if (hit && hit.exp > Date.now()) return hit.url;
 
@@ -68,11 +70,10 @@ export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Prom
   if (!pathOrUrl) return "";
   if (/^(data:|blob:)/i.test(pathOrUrl)) return pathOrUrl;
 
-  // ลิงก์เต็มที่ไม่ใช่ของ storage bucket นี้ → คืนค่าเดิม
-  const match = pathOrUrl.match(new RegExp(`/${bucket}/(.+?)(\\?|$)`));
-  if (/^https?:\/\//i.test(pathOrUrl) && !match) return pathOrUrl;
-
-  const path = decodeURIComponent(match ? match[1] : pathOrUrl).replace(/^\/+/, "");
+  const source = imageStorageSource(pathOrUrl, bucket);
+  if (!source) return pathOrUrl;
+  bucket = source.bucket;
+  const path = source.path.replace(/^\/+/, "");
 
   if (await isOffloaded(bucket, path)) {
     return PUBLIC_BUCKETS.has(bucket) ? getColdStorageFetchUrl(bucket, path) : getPrivateColdStorageUrl(bucket, path);
@@ -91,7 +92,9 @@ export async function resolveStorageUrl(bucket: string, pathOrUrl: string): Prom
 const offloadedCache = new Map<string, { paths: Set<string>; exp: number }>();
 
 async function isOffloaded(bucket: string, path: string): Promise<boolean> {
-  const hit = offloadedCache.get(bucket);
+  const { data: auth } = await supabase.auth.getSession();
+  const key = `${getBackendConfig().url}:${auth.session?.user.id || 'signed-out'}:${bucket}`;
+  const hit = offloadedCache.get(key);
   if (hit && hit.exp > Date.now()) return hit.paths.has(path);
   try {
     const { data, error } = await (supabase as any)
@@ -100,7 +103,7 @@ async function isOffloaded(bucket: string, path: string): Promise<boolean> {
       .eq("bucket_name", bucket);
     if (error) throw error;
     const paths = new Set<string>((data ?? []).map((r: any) => r.file_path));
-    offloadedCache.set(bucket, { paths, exp: Date.now() + 5 * 60_000 });
+    offloadedCache.set(key, { paths, exp: Date.now() + 5 * 60_000 });
     return paths.has(path);
   } catch {
     return false;

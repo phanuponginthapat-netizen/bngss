@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History } from "lucide-react";
+import { RefreshCw, Sparkles, CheckCircle2, XCircle, Image as ImageIcon, Camera, Save, Upload, ShieldCheck, History, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadFaceModels, getDescriptorFromImage, loadImageFromUrl, detectFaceWithLandmarks, assessFaceQuality, BANK_GRADE, embedWithArcFace, type QualityReport } from "@/lib/faceApi";
@@ -30,6 +30,8 @@ import { IdCardPhoto } from '@/components/IdCardPhoto';
 import FaceGuideOverlay from "@/components/facescan/FaceGuideOverlay";
 import { canSaveFaceRegistration } from '@/lib/faceRegistrationPolicy';
 import { filterFaceRegistrationStudents } from '@/lib/faceRegistrationFilter';
+import { swal } from '@/lib/swal';
+import { removePendingFacePortrait } from '@/lib/removePendingFacePortrait';
 
 
 const FaceRegisterTab = () => {
@@ -58,6 +60,7 @@ const FaceRegisterTab = () => {
   const [lastQuality, setLastQuality] = useState<QualityReport | null>(null);
   const [uploadFailures, setUploadFailures] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   useEffect(() => { loadFaceModels().then(() => setModelReady(true)); }, []);
 
@@ -87,6 +90,20 @@ const FaceRegisterTab = () => {
   const registeredIds = new Set(existing.map((r: any) => r.student_id));
   const withAvatar = students.filter((s: any) => s.photo_url);
   const pending = withAvatar.filter((s: any) => !registeredIds.has(s.id));
+  const removePortrait = async (id: string) => {
+    const student = students.find(s => s.id === id);
+    if (!canSaveDirectly || syncing || removing || !student?.photo_url) return;
+    if (!await swal.confirm({ title: `ลบรูปบัตรของ ${student.first_name} ${student.last_name}?`, text: 'นำรูปนี้ออกจากรายการซิงค์และล้างใบหน้าที่อ้างอิงรูปเดิม ไม่ลบประวัติมาโรงเรียน รูปโปรไฟล์บัญชีและไฟล์ต้นฉบับที่ใช้งานร่วมกันยังคงอยู่', danger: true })) return;
+    setRemoving(id);
+    try {
+      await removePendingFacePortrait(id, student.photo_url);
+      setFailedList(list => list.filter(f => f.id !== id));
+      clearRegisteredFaceCache(id);
+      await Promise.all(['students-list-face-register','face-registered-ids','face-known','face-db','face-pending-requests','students'].map(key => qc.invalidateQueries({ queryKey:[key] })));
+      toast.success('นำรูปออกจากรายการซิงค์แล้ว');
+    } catch (error) { toast.error(saveErrorMessage(error)); }
+    finally { setRemoving(null); }
+  };
 
   const detectRobust = async (img: HTMLImageElement): Promise<Float32Array | null> => {
     const desc = await getDescriptorFromImage(img);
@@ -549,7 +566,8 @@ const FaceRegisterTab = () => {
               {failedList.map((f) => (
                 <div key={f.id} className="flex items-start justify-between gap-3 p-2 text-sm">
                   <span className="font-medium truncate">{f.name}</span>
-                  <span className="text-xs text-muted-foreground text-right">{f.reason}</span>
+                  <span className="text-xs text-muted-foreground text-right flex-1">{f.reason}</span>
+                  {canSaveDirectly && <Button size="icon" variant="ghost" title={`ลบรูปที่ซิงค์ไม่สำเร็จของ ${f.name}`} aria-label={`ลบรูปที่ซิงค์ไม่สำเร็จของ ${f.name}`} disabled={syncing || !!removing} onClick={() => removePortrait(f.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                 </div>
               ))}
             </div>
@@ -565,13 +583,13 @@ const FaceRegisterTab = () => {
               <h4 className="font-semibold flex items-center gap-2"><ImageIcon className="w-4 h-4" />รอซิงค์ ({pending.length})</h4>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {pending.slice(0, 20).map((s: any) => (
+              {pending.map((s: any) => (
                 <div key={s.id} className="flex-shrink-0 w-20 text-center">
                   <div className="w-20 h-20 overflow-hidden rounded-lg border"><IdCardPhoto url={s.photo_url} name={s.first_name} /></div>
                   <p className="text-xs mt-1 truncate">{s.first_name}</p>
+                  {canSaveDirectly && <Button variant="ghost" size="icon" className="h-7 w-7" title={`ลบรูปที่รอซิงค์ของ ${s.first_name}`} aria-label={`ลบรูปที่รอซิงค์ของ ${s.first_name}`} disabled={!!removing} onClick={() => removePortrait(s.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}
                 </div>
               ))}
-              {pending.length > 20 && <div className="flex items-center px-3 text-xs text-muted-foreground">+{pending.length - 20}</div>}
             </div>
           </CardContent>
         </Card>
