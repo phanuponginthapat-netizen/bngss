@@ -90,10 +90,21 @@ export async function makeIdCardPhoto(file: File): Promise<File> {
   const faceapi = await import("@vladmandic/face-api");
   const { loadFaceModels, detectorOptionsHQ } = await import("./faceApi");
   await loadFaceModels();
-  const faces = await faceapi.detectAllFaces(img, detectorOptionsHQ(608, 0.5));
+  const faces = await faceapi
+    .detectAllFaces(img, detectorOptionsHQ(608, 0.5))
+    .withFaceLandmarks();
   if (faces.length === 0) throw new Error("ไม่พบใบหน้าในรูป กรุณาใช้รูปหน้าตรงที่ชัดเจน");
   // เลือกใบหน้าใหญ่สุด (คนที่อยู่หน้าสุด) ถ้ามีคนอื่นติดมาด้านหลัง
-  const face = faces.map(f => f.box).sort((a, b) => b.width * b.height - a.width * a.height)[0];
+  const best = faces.sort(
+    (a: any, b: any) =>
+      (b.detection.box.width * b.detection.box.height) -
+      (a.detection.box.width * a.detection.box.height),
+  )[0] as any;
+  const fallback = best.detection.box as Box;
+  const face = faceBoxFromLandmarks(
+    (best.landmarks?.positions ?? []).map((p: any) => ({ x: p.x, y: p.y })),
+    fallback,
+  );
   const crop = computeIdPhotoCrop(face, img.naturalWidth, img.naturalHeight);
   const canvas = document.createElement("canvas");
   canvas.width = ID_PHOTO_WIDTH; canvas.height = ID_PHOTO_HEIGHT;
