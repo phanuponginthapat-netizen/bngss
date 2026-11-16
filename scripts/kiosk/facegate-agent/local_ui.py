@@ -119,10 +119,7 @@ let display = { mirror: true, rotate: 0, voice_enabled: true, next_delay_seconds
 let broadcastMedia = [], broadcastIndex = 0, broadcastTimer = null;
 let content = {};
 function openAdmin() {
-  openNativeAdmin(); return;
-  if (window.pywebview && window.pywebview.api && window.pywebview.api.open_admin) {
-    window.pywebview.api.open_admin();
-  } else { location.href = '/admin'; }
+  openNativeAdmin();
 }
 let nativeAdminOpen = false;
 function openNativeAdmin() {
