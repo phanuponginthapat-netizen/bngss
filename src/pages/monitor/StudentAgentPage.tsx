@@ -381,7 +381,7 @@ export default function StudentAgentPage() {
       }
       case "screenshot": {
         const img = await captureScreenshot();
-        if (img && me) send({ type: "screenshot-image", from: me.id, to: from, image: img });
+        if (me) send(img ? { type: "screenshot-image", from: me.id, to: from, image: img } : { type: "screenshot-image", from: me.id, to: from, image: "", error: "จับภาพจอไม่ได้ (หน้าต่าง Chrome อาจถูกย่อไว้)" });
         break;
       }
     }
@@ -446,7 +446,7 @@ export default function StudentAgentPage() {
       if (stream !== streamRef.current) stream.getTracks().forEach((t) => t.stop());
       return canvas.toDataURL("image/jpeg", 0.7);
     } catch (e) {
-      toast.error("Screenshot ไม่สำเร็จ");
+      console.warn("[agent] screenshot failed:", (e as Error)?.message);
       return null;
     }
   }
@@ -520,6 +520,7 @@ export default function StudentAgentPage() {
     if (!me) return false;
     stopLiveFrames(viewerId);
     let busy = false;
+    let warned = false;
     const tick = async () => {
       if (busy) return; busy = true;
       try {
@@ -527,24 +528,34 @@ export default function StudentAgentPage() {
         if (r?.ok && r.image) send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(r.image), live: true });
       } finally { busy = false; }
     };
-    const first = await extCall("SB_CAPTURE_TAB");
-    if (!first?.ok || !first.image) return false;
-    send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(first.image), live: true });
-    liveTimersRef.current.set(viewerId, setInterval(tick, 2000));
+    // ลองจับภาพแรกสูงสุด 3 ครั้ง (ส่วนขยายเพิ่งตื่น/หน้าต่างกำลังสลับ)
+    let first: any = null;
+    for (let i = 0; i < 3 && !(first?.ok && first.image); i++) {
+      if (i) await new Promise((r) => setTimeout(r, 700));
+      first = await extCall("SB_CAPTURE_TAB");
+    }
+    const ok = !!(first?.ok && first.image);
+    if (ok) send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(first.image), live: true });
+    else if (!warned) {
+      warned = true;
+      // ไม่เด้งให้นักเรียนกดแชร์จอ — แจ้งครูแทน แล้วส่งภาพต่อทันทีเมื่อจับได้
+      send({ type: "screenshot-image", from: me.id, to: viewerId, image: "", error: extInstalled ? "ยังจับภาพจอไม่ได้ (หน้าต่าง Chrome อาจถูกย่อไว้) จะส่งภาพทันทีเมื่อเปิดหน้าต่าง" : "เครื่องนี้ไม่มีส่วนขยาย BNG Safe Browser จึงดูจอไม่ได้" });
+    }
+    // ส่งเฟรมต่อเนื่องทุก ~1.5 วิ แม้ภาพแรกยังไม่ได้ (นักเรียนเปิดหน้าต่างกลับเมื่อไรครูเห็นทันที)
+    liveTimersRef.current.set(viewerId, setInterval(tick, 1500));
     // หยุดเองหลัง 10 นาที กันส่งภาพค้างถ้าครูปิดหน้าไปโดยไม่กดหยุด
     setTimeout(() => stopLiveFrames(viewerId), 10 * 60 * 1000);
-    return true;
+    return ok;
   }
 
   async function startSharing(viewerId: string) {
     if (!me || !channelRef.current) return;
-    // Chrome ปกติ: ส่งภาพผ่านส่วนขยายทันที ไม่เปิดหน้าต่างขออนุญาตแชร์จอให้นักเรียนกด
-    // ส่งภาพผ่านส่วนขยายก่อนเสมอ ครูเห็นภาพทันที แล้วค่อยลองอัปเกรดเป็นวิดีโอ (โหมด kiosk)
-    const framesOk = await startLiveFrames(viewerId);
-    if (kioskConfig?.mode !== "student" && !streamRef.current && framesOk) return;
-    // ส่วนขยายจับภาพไม่ได้ (ไม่มี/รุ่นเก่า) → ขอแชร์จอแบบเดิม นักเรียนกดแชร์แล้วครูเห็นจอ
-    const stream = kioskConfig?.mode === "student" || streamRef.current || !framesOk ? await ensureStream() : null;
-    if (!stream) { if (!framesOk) await startLiveFrames(viewerId); return; }
+    // ส่งภาพผ่านส่วนขยายทันที ไม่มีหน้าต่างให้นักเรียนกดแชร์จอเลย
+    await startLiveFrames(viewerId);
+    // อัปเกรดเป็นวิดีโอเฉพาะโหมด kiosk ของโปรแกรม (Chrome เลือกจออัตโนมัติ ไม่มี dialog)
+    if (kioskConfig?.mode !== "student" && !streamRef.current) return;
+    const stream = await ensureStream();
+    if (!stream) return;
     peersRef.current.get(viewerId)?.close();
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peersRef.current.set(viewerId, pc);
@@ -633,7 +644,7 @@ export default function StudentAgentPage() {
   async function sendScreenshotToTeacher() {
     if (!me || !channelRef.current) { toast.error("ยังไม่ได้เชื่อมต่อ"); return; }
     const img = await captureScreenshot();
-    if (!img) return;
+    if (!img) { toast.error("จับภาพหน้าจอไม่สำเร็จ"); return; }
     send({ type: "screenshot-image", from: me.id, to: "*", image: img });
     toast.success("ส่งภาพหน้าจอให้ครูแล้ว");
   }

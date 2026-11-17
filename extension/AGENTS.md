@@ -5,3 +5,4 @@
 - The student agent page reports extension and Safe Browser versions via presence (monitor cards) and kiosk_heartbeat (kiosk_devices.extension_version/agent_version); FaceGate device-key rows keep their own agent_version.
 
 - The pinned agent tab is the primary student agent and acks every handled monitor event; the extension service worker reopens it and executes pending request/stop/command events itself only after a short grace period with no ack (then reloads the agent tab), and stops its own frames immediately on stop-stream — keeps the proven tab path while covering frozen tabs without duplicate commands.
+- Teacher screen view never opens a share-screen picker for students: the agent streams extension captureVisibleTab frames (~1.5s, retried, continuing while the window is minimized and telling the teacher why), and upgrades to WebRTC getDisplayMedia only in Safe Browser kiosk mode where Chrome auto-selects the screen.
