@@ -17,6 +17,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { swal } from "@/lib/swal";
 import { SUBJECT_GROUPS } from "@/hooks/useUserSubjectGroups";
 import type { DeptRole } from "@/hooks/useUserDepartments";
+import { isVisibleSchoolPersonnel } from "@/lib/personnelVisibility";
 
 const DEPARTMENTS = [
   { value: "academic", th: "ฝ่ายวิชาการ", en: "Academic Affairs" },
@@ -56,11 +57,12 @@ export default function DepartmentManagementPage() {
     queryFn: async () => {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, first_name, last_name, employee_code")
+        .select("id, first_name, last_name, employee_code, department, position_title")
         .order("first_name");
       const { data: roles } = await supabase.from("user_roles").select("user_id, role");
       const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
       return (profiles || [])
+        .filter(isVisibleSchoolPersonnel)
         .map((p: any) => ({ ...p, role: roleMap.get(p.id) }))
         .filter((p: any) => p.role && p.role !== "student" && p.role !== "alumni" && p.role !== "parent");
     },

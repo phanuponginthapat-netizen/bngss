@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, GraduationCap, Users, Building2 } from "lucide-react";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import SystemLoader from "@/components/SystemLoader";
+import { isVisibleSchoolPersonnel } from "@/lib/personnelVisibility";
 
 interface OrgPerson {
   id: string;
@@ -87,7 +88,7 @@ const OrgChartPage = () => {
   useEffect(() => {
     (async () => {
       const { data } = await (supabase.rpc as any)("get_public_org_chart");
-      setPeople((data as OrgPerson[]) || []);
+      setPeople(((data as OrgPerson[]) || []).filter(isVisibleSchoolPersonnel));
       setLoading(false);
     })();
   }, [appName]);
@@ -99,7 +100,7 @@ const OrgChartPage = () => {
     rest.forEach((p) => {
       const k = canonDept(p.department);
       if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(p);
+      map.get(k)?.push(p);
     });
     const sorted = Array.from(map.entries()).sort(([a], [b]) => {
       const ai = DEPT_ORDER.indexOf(a);

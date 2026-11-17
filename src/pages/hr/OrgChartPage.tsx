@@ -12,6 +12,7 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { formatDateLongBE } from "@/lib/dateBE";
 import { SUBJECT_GROUPS, SUBJECT_GROUP_COLORS } from "@/hooks/useUserSubjectGroups";
 import type { DeptRole } from "@/hooks/useUserDepartments";
+import { isVisibleSchoolPersonnel } from "@/lib/personnelVisibility";
 
 type Person = {
   id: string;
@@ -110,7 +111,7 @@ export default function OrgChartPage() {
       }
       return (data || [])
         // ตัดบัญชีอุปกรณ์/ระบบออกจากผังบุคลากร
-        .filter((p: any) => p.department !== "ระบบ" && p.employee_code !== "kiosk")
+        .filter(isVisibleSchoolPersonnel)
         .map((p: any) => ({
           ...p,
           department: normalizeDept(p.department),
