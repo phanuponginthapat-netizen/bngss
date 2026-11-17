@@ -128,7 +128,10 @@ export default function SchoolRadarWidget() {
   });
 
   const readError = error || calendarError;
-  const rows = readError || !isReady ? [] : data ?? [];
+  const rows = readError || !isReady ? [] : data?.rows ?? [];
+  const displayYear = data?.year ?? currentAcademicYear;
+  const displaySemester = data?.semester ?? currentSemester;
+  const fellBack = data?.fellBack ?? false;
   const hasData = rows.some(r => r.currentCount > 0 || r.previousCount > 0);
   const withScores = rows.filter((r): r is typeof r & {current:number} => r.current !== null);
   const top = [...withScores].sort((a,b)=>b.current-a.current)[0];
@@ -143,16 +146,16 @@ export default function SchoolRadarWidget() {
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" />
-            คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {currentSemester}
+            คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {displaySemester}
           </CardTitle>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + BE_OFFSET}</span>
+              <span className="text-muted-foreground">ปี {displayYear + BE_OFFSET}</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary/25" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + 542}</span>
+              <span className="text-muted-foreground">ปี {displayYear + 542}</span>
             </span>
           </div>
         </div>
