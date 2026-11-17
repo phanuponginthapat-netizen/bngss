@@ -1,0 +1,1 @@
+- Dashboard greeting and mascot use square two-column desktop presentation across role dashboards; DashboardIntroGrid preserves role-specific reads/actions and stacks on narrow screens to keep names and controls readable. Admin sortable overview applies the same square geometry without rewriting saved widget preferences.

@@ -380,7 +380,7 @@ export default function MascotHeroWidget() {
 
 
   return (
-    <Card className="relative overflow-hidden border-2 border-primary/20 p-0 h-full">
+    <Card className="relative overflow-hidden rounded-lg border border-primary/20 p-0 h-full">
       <div
         className="relative w-full h-full"
         style={{
@@ -391,10 +391,10 @@ export default function MascotHeroWidget() {
       >
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/40 to-white/80 dark:from-black/30 dark:via-black/50 dark:to-black/80" />
 
-        <div className="relative flex flex-col gap-3 p-3 md:p-4">
+        <div className="relative flex h-full flex-col justify-center gap-3 p-3 md:p-4">
 
-          <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-3 md:gap-4 items-center">
-            <div className="relative w-full rounded-2xl bg-transparent p-2 md:p-3">
+          <div className={`grid grid-cols-1 gap-3 md:gap-4 items-center ${isGroupRadar ? "xl:grid-cols-[1.4fr_1fr]" : ""}`}>
+            <div className={`relative w-full rounded-lg bg-transparent p-2 md:p-3 ${isGroupRadar ? "" : "hidden"}`}>
               {isGroupRadar && (
                 <>
                   <div className="flex justify-center mb-2">
