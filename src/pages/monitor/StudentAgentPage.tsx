@@ -288,6 +288,8 @@ export default function StudentAgentPage() {
       case "message":
         setMessage(payload?.message || "");
         setTimeout(() => setMessage(null), 8000);
+        // หน้า agent อยู่เบื้องหลัง → ให้ส่วนขยายแสดงข้อความบนแท็บที่นักเรียนกำลังดู
+        window.postMessage({ type: "SB_MESSAGE", message: payload?.message || "" }, window.location.origin);
         break;
       case "open-url": {
         const url = String(payload?.url || "");

@@ -85,14 +85,19 @@
       a.title = label;
       const iconWrap = document.createElement("div");
       iconWrap.className = "sb-app-icon";
-      if (s.logo_url) {
-        const img = document.createElement("img");
-        img.src = s.logo_url; img.alt = "";
-        img.onerror = () => { iconWrap.textContent = s.icon || "🌐"; };
-        iconWrap.appendChild(img);
-      } else {
-        iconWrap.textContent = s.icon || "🌐";
-      }
+      // โลโก้จากผู้ดูแล → favicon ของเว็บ (ผ่านส่วนขยาย ไม่ติด CSP ของหน้า) → Google favicon → 🌐
+      const srcs = [];
+      if (s.logo_url) srcs.push(s.logo_url);
+      try { const fav = new URL(chrome.runtime.getURL("/_favicon/")); fav.searchParams.set("pageUrl", url); fav.searchParams.set("size", "64"); srcs.push(fav.toString()); } catch {}
+      try { srcs.push(`https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=64`); } catch {}
+      const img = document.createElement("img");
+      img.alt = "";
+      let k = 0;
+      const next = () => { if (k < srcs.length) img.src = srcs[k++]; else { img.remove(); iconWrap.textContent = /^\p{Extended_Pictographic}/u.test(s.icon || "") ? s.icon : "🌐"; } };
+      img.onerror = next;
+      img.onload = () => { if (img.naturalWidth <= 1) next(); };
+      iconWrap.appendChild(img);
+      next();
       const lbl = document.createElement("div");
       lbl.className = "sb-app-label";
       lbl.textContent = label;

@@ -445,7 +445,10 @@ async function enforceUrl(tabId, url) {
   const timeRules = parseTimeRules(config?.browser_time_rules);
 
   const adHit = hostMatches(host, ads);
-  const blockHit = hostMatches(host, block);
+  let blockHit = hostMatches(host, block);
+  if (!blockHit && config?.browser_auto_blocklist !== false && config?.browser_auto_blocklist !== "0" && !isSchoolUrl(url)) {
+    try { const a = await autoBlockHit(host); if (a) blockHit = `${a.domain} (${a.cat === "gambling" ? "เว็บพนัน" : "เนื้อหาไม่เหมาะสม"})`; } catch { /* ignore */ }
+  }
   const timeHit = checkTimeRules(host, timeRules);
 
   // ---- Keyword filter: ตรวจคำต้องห้ามใน URL (โดเมน + path + query + คำค้นหา) ----
@@ -579,7 +582,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const internal = source.startsWith(chrome.runtime.getURL("")) && !sender.tab;
   const agent = school && new URL(source).pathname === "/dashboard/monitor/agent";
   if ((["SET_SESSION", "CLEAR_SESSION", "GET_BACKEND"].includes(msg?.type) && !school) ||
-      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL", "SB_CAPTURE_TAB", "SB_POWER"].includes(msg?.type) && !agent) ||
+      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL", "SB_MESSAGE", "SB_CAPTURE_TAB", "SB_POWER"].includes(msg?.type) && !agent) ||
       (msg?.type === "WIFI" && source !== chrome.runtime.getURL("wifi.html"))) {
     sendResponse({ ok: false, error: "ไม่อนุญาตคำสั่งจากหน้านี้" }); return false;
   }
@@ -662,37 +665,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.create({ url: msg.url, active: true });
     sendResponse({ ok: true });
   } else if (msg?.type === "SB_LOCK_ALL") {
-    // ล็อกทุกแท็บ — inject overlay
-    chrome.storage.local.set({ locked: true, lockMsg: msg.message || "ครูล็อกจอ" });
-    chrome.tabs.query({}, (tabs) => {
-      for (const t of tabs) {
-        if (!t.id || !t.url || !/^https?:/.test(t.url) || (self.sbTrustedSchoolUrl(t.url) && new URL(t.url).pathname === "/dashboard/monitor/agent")) continue;
-        chrome.scripting.executeScript({
-          target: { tabId: t.id },
-          func: (message) => {
-            if (document.getElementById("__sb_lock")) return;
-            const o = document.createElement("div");
-            o.id = "__sb_lock";
-            o.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.98);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui;text-align:center;padding:2rem";
-            o.textContent = `🔒 หน้าจอถูกล็อกโดยครู — ${message}`;
-            document.documentElement.appendChild(o);
-          },
-          args: [msg.message || "ครูล็อกจอ"],
-        }).catch(() => {});
-      }
-    });
+    // ล็อกทุกแท็บ — จอดำสนิท ข้อความใหญ่ ปิดเสียงทุกแท็บ
+    chrome.storage.local.set({ locked: true, lockMsg: msg.message || "ครูล็อกจอ" }).then(() => applyLockAll());
     sendResponse({ ok: true });
   } else if (msg?.type === "SB_UNLOCK_ALL") {
     chrome.storage.local.set({ locked: false });
     chrome.tabs.query({}, (tabs) => {
       for (const t of tabs) {
         if (!t.id) continue;
+        if (!isAgentTabUrl(t.url)) chrome.tabs.update(t.id, { muted: false }).catch(() => {});
         chrome.scripting.executeScript({
           target: { tabId: t.id },
           func: () => { document.getElementById("__sb_lock")?.remove(); },
         }).catch(() => {});
       }
     });
+    sendResponse({ ok: true });
+  } else if (msg?.type === "SB_MESSAGE") {
+    // ครูส่งข้อความ → แสดงบนแท็บที่นักเรียนกำลังดูอยู่
+    showTeacherMessage(String(msg.message || "").slice(0, 500));
     sendResponse({ ok: true });
   } else if (msg?.type === "SB_SCREENSHOT") {
     if (!internal && !sender.tab?.active) { sendResponse({ ok: false, error: "เลือกแท็บนี้ก่อนจับภาพ" }); return false; }
@@ -766,3 +757,127 @@ chrome.alarms?.create?.("kiosk-ping", { periodInMinutes: 0.5 });
 const KIOSK_STATUS_PATH = "/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version);
 chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "kiosk-ping") kioskLauncher(KIOSK_STATUS_PATH).catch(() => {}); });
 kioskLauncher(KIOSK_STATUS_PATH).catch(() => {});
+
+
+// ===== ล็อกจอ / ข้อความจากครู (ใช้ชื่อและโลโก้โรงเรียนจาก CMS) =====
+function isAgentTabUrl(u) {
+  try { return !!u && self.sbTrustedSchoolUrl(u) && new URL(u).pathname === "/dashboard/monitor/agent"; } catch { return false; }
+}
+async function brandInfo() {
+  const { config } = await chrome.storage.local.get(["config"]);
+  return {
+    school: config?.school_name || config?.footer_school_name || "",
+    logo: /^https:\/\//.test(config?.school_logo || "") ? config.school_logo : "",
+  };
+}
+function lockPage(message, school, logo) {
+  document.querySelectorAll("video,audio").forEach((m) => { try { m.pause(); m.muted = true; } catch {} });
+  let o = document.getElementById("__sb_lock");
+  if (!o) {
+    o = document.createElement("div");
+    o.id = "__sb_lock";
+    document.documentElement.appendChild(o);
+    const stop = (e) => { if (document.getElementById("__sb_lock")) { e.stopPropagation(); e.preventDefault(); } };
+    ["keydown", "keyup", "keypress", "wheel", "contextmenu"].forEach((ev) => window.addEventListener(ev, stop, true));
+  }
+  o.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483647;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;font-family:'Sarabun','Noto Sans Thai',system-ui,sans-serif;text-align:center;padding:4vh 6vw;cursor:none;user-select:none";
+  o.innerHTML = "";
+  if (logo) { const i = document.createElement("img"); i.src = logo; i.alt = ""; i.style.cssText = "width:min(22vh,180px);height:min(22vh,180px);object-fit:contain;border-radius:24px;background:#fff;padding:12px"; o.appendChild(i); }
+  const lock = document.createElement("div"); lock.textContent = "🔒"; lock.style.cssText = "font-size:min(14vh,120px);line-height:1"; o.appendChild(lock);
+  const t = document.createElement("div"); t.textContent = "หน้าจอถูกล็อกโดยครู"; t.style.cssText = "font-size:min(8vh,64px);font-weight:800;color:#fff"; o.appendChild(t);
+  const m = document.createElement("div"); m.textContent = message; m.style.cssText = "font-size:min(5vh,40px);font-weight:500;color:#e5e7eb;max-width:90vw;line-height:1.4"; o.appendChild(m);
+  if (school) { const sc = document.createElement("div"); sc.textContent = school; sc.style.cssText = "margin-top:3vh;font-size:min(3vh,22px);color:#9ca3af"; o.appendChild(sc); }
+  if (!window.__sbLockMuteTimer) window.__sbLockMuteTimer = setInterval(() => {
+    if (!document.getElementById("__sb_lock")) { clearInterval(window.__sbLockMuteTimer); window.__sbLockMuteTimer = null; return; }
+    document.querySelectorAll("video,audio").forEach((x) => { try { x.pause(); } catch {} });
+  }, 1000);
+}
+async function lockTab(tabId, url, info) {
+  const { lockMsg } = await chrome.storage.local.get(["lockMsg"]);
+  if (isAgentTabUrl(url)) return;
+  chrome.tabs.update(tabId, { muted: true }).catch(() => {});
+  if (!/^https?:/.test(url || "")) return;
+  chrome.scripting.executeScript({ target: { tabId, allFrames: false }, func: lockPage, args: [lockMsg || "ครูล็อกจอ", info.school, info.logo] }).catch(() => {});
+}
+async function applyLockAll() {
+  const info = await brandInfo();
+  const tabs = await chrome.tabs.query({});
+  for (const t of tabs) if (t.id) lockTab(t.id, t.url, info);
+}
+// แท็บใหม่/โหลดหน้าใหม่ระหว่างล็อก → ล็อกซ้ำ
+chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
+  if (info.status !== "complete" && info.mutedInfo?.muted !== false) return;
+  const { locked } = await chrome.storage.local.get(["locked"]);
+  if (locked) lockTab(tabId, tab.url, await brandInfo());
+});
+function messagePage(message, school, logo) {
+  document.getElementById("__sb_msg")?.remove();
+  const o = document.createElement("div");
+  o.id = "__sb_msg";
+  o.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:'Sarabun','Noto Sans Thai',system-ui,sans-serif";
+  const card = document.createElement("div");
+  card.style.cssText = "background:#fff;color:#111827;border-radius:24px;max-width:min(720px,90vw);width:100%;padding:32px 36px;box-shadow:0 25px 60px rgba(0,0,0,.4);text-align:center;border-top:8px solid #2563eb";
+  const head = document.createElement("div");
+  head.style.cssText = "display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px;color:#2563eb;font-size:22px;font-weight:700";
+  if (logo) { const i = document.createElement("img"); i.src = logo; i.alt = ""; i.style.cssText = "width:44px;height:44px;object-fit:contain"; head.appendChild(i); }
+  const h = document.createElement("span"); h.textContent = "📢 ข้อความจากครู"; head.appendChild(h); card.appendChild(head);
+  const m = document.createElement("div"); m.textContent = message; m.style.cssText = "font-size:30px;line-height:1.5;font-weight:600;white-space:pre-wrap;word-break:break-word"; card.appendChild(m);
+  if (school) { const sc = document.createElement("div"); sc.textContent = school; sc.style.cssText = "margin-top:16px;font-size:15px;color:#6b7280"; card.appendChild(sc); }
+  const b = document.createElement("button"); b.textContent = "รับทราบ";
+  b.style.cssText = "margin-top:24px;background:#2563eb;color:#fff;border:0;border-radius:12px;padding:12px 40px;font-size:20px;font-weight:700;cursor:pointer;font-family:inherit";
+  b.onclick = () => o.remove(); card.appendChild(b);
+  o.appendChild(card);
+  document.documentElement.appendChild(o);
+  setTimeout(() => o.remove(), 60000);
+}
+async function showTeacherMessage(message) {
+  if (!message) return;
+  const info = await brandInfo();
+  const tabs = await chrome.tabs.query({ active: true });
+  for (const t of tabs) {
+    if (!t.id || !/^https?:/.test(t.url || "")) continue;
+    chrome.scripting.executeScript({ target: { tabId: t.id }, func: messagePage, args: [message, info.school, info.logo] }).catch(() => {});
+  }
+  notify("📢 ข้อความจากครู", message);
+}
+
+// ===== รายชื่อเว็บพนัน/ลามกอัปเดตอัตโนมัติทุกวัน (แหล่งเปิด HaGeZi) =====
+const AUTO_LISTS = [
+  ["gambling", "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/gambling.mini-onlydomains.txt"],
+  ["adult", "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/nsfw-onlydomains.txt"],
+];
+let _autoSet = null;
+async function refreshAutoBlocklist(force) {
+  const { autoBlockAt } = await chrome.storage.local.get(["autoBlockAt"]);
+  if (!force && autoBlockAt && Date.now() - autoBlockAt < 20 * 3600 * 1000) return;
+  const out = {};
+  for (const [cat, url] of AUTO_LISTS) {
+    try {
+      const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(60000) });
+      if (!r.ok) throw new Error(String(r.status));
+      const list = (await r.text()).split("\n").map((x) => x.trim().toLowerCase()).filter((x) => x && !x.startsWith("#"));
+      if (list.length > 1000) out[cat] = list.join("\n"); // กันไฟล์เสียทับรายการเดิม
+    } catch (e) { console.warn("[auto-blocklist]", cat, e?.message); }
+  }
+  if (Object.keys(out).length) {
+    const { autoBlock = {} } = await chrome.storage.local.get(["autoBlock"]);
+    await chrome.storage.local.set({ autoBlock: { ...autoBlock, ...out }, autoBlockAt: Date.now() });
+    _autoSet = null;
+  }
+}
+async function autoBlockHit(host) {
+  if (!_autoSet) {
+    const { autoBlock = {} } = await chrome.storage.local.get(["autoBlock"]);
+    _autoSet = new Map();
+    for (const [cat, txt] of Object.entries(autoBlock)) for (const d of String(txt).split("\n")) if (d) _autoSet.set(d, cat);
+  }
+  const parts = String(host || "").toLowerCase().split(".");
+  for (let i = 0; i < parts.length - 1; i++) {
+    const d = parts.slice(i).join(".");
+    if (_autoSet.has(d)) return { domain: d, cat: _autoSet.get(d) };
+  }
+  return null;
+}
+chrome.alarms?.create?.("auto-blocklist", { periodInMinutes: 360 });
+chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "auto-blocklist") refreshAutoBlocklist(false); });
+refreshAutoBlocklist(false);
