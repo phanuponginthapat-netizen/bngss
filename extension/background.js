@@ -754,3 +754,8 @@ chrome.tabs.onUpdated.addListener((tabId, ci, tab) => {
   if (!trusted) chrome.scripting.insertCSS({ target: { tabId }, files: ["toolbar.css"] }).catch(() => {});
   chrome.scripting.executeScript({ target: { tabId }, files }).catch(() => {});
 });
+
+// แจ้งโปรแกรม Safe Browser ว่าส่วนขยายทำงานอยู่ (ถ้าไม่ได้ยิน โปรแกรมจะเปิดเบราว์เซอร์ใหม่)
+chrome.alarms?.create?.("kiosk-ping", { periodInMinutes: 0.5 });
+chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "kiosk-ping") kioskLauncher("/status").catch(() => {}); });
+kioskLauncher("/status").catch(() => {});
