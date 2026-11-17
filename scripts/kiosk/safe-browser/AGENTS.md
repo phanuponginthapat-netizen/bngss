@@ -4,3 +4,4 @@
 - Every leave path (Start/Win, Alt+F4/Tab, Ctrl+W/Q, log off, Task Manager, power/sleep buttons, shutdown) is vetoed or disabled while running and opens the staff-card exit page; lock policies are removed only after an authorized exit or power action.
 
 - Ctrl+Alt+Del cannot be intercepted, so a 0.3s watchdog terminates Task Manager and system tools (cmd/PowerShell/regedit/Process Explorer) while running and refocuses the browser; elevated tools on admin accounts cannot be killed, so students use standard accounts.
+- Teacher remote commands (lock, open URL, screenshot, shutdown/restart, logout) travel teacher → agent page → extension (agent-page-only message allow-list) → launcher bridge, so no new origin is trusted; kiosk adds --auto-select-desktop-capture-source so live view and screen capture need no picker, and screenshot falls back to the extension's captureVisibleTab instead of the Linux local daemon port.
