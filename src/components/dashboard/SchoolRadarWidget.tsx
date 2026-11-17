@@ -150,11 +150,11 @@ export default function SchoolRadarWidget() {
           </CardTitle>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1">
-              <span className="w-3 h-2 rounded-sm bg-primary" />
+              <span className="w-4 border-t-2 border-chart-current" />
               <span className="text-muted-foreground">ปี {displayYear + BE_OFFSET}</span>
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-2 rounded-sm bg-primary/25" />
+              <span className="w-4 border-t-2 border-dashed border-chart-previous" />
               <span className="text-muted-foreground">ปี {displayYear + 542}</span>
             </span>
           </div>
@@ -188,19 +188,19 @@ export default function SchoolRadarWidget() {
                 <Radar
                   name={`ปี ${displayYear + 542}`}
                   dataKey="previous"
-                  stroke="hsl(var(--primary))"
-                  strokeOpacity={0.35}
+                  stroke="hsl(var(--chart-year-previous))"
+                  strokeWidth={2}
                   strokeDasharray="4 3"
-                  fill="hsl(var(--primary))"
+                  fill="hsl(var(--chart-year-previous))"
                   fillOpacity={0.12}
                 />
                 {/* ปีปัจจุบัน — สีเข้ม */}
                 <Radar
                   name={`ปี ${displayYear + BE_OFFSET}`}
                   dataKey="current"
-                  stroke="hsl(var(--primary))"
+                  stroke="hsl(var(--chart-year-current))"
                   strokeWidth={2}
-                  fill="hsl(var(--primary))"
+                  fill="hsl(var(--chart-year-current))"
                   fillOpacity={0.45}
                 />
                 <Tooltip
