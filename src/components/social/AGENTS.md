@@ -1,1 +1,1 @@
-- SocialWallWidget presents CMS channels one at a time in a vertical viewer; unsupported Facebook profile embeds keep an explicit original-link fallback and never fabricate posts or interactions.
+- SocialWallWidget presents active CMS channels side by side in a responsive two-column grid; try numeric Facebook page URLs in the Page Plugin and keep original links visible because platform privacy or embedding restrictions cannot be inferred from the URL or iframe load events. Never fabricate posts or interactions.
