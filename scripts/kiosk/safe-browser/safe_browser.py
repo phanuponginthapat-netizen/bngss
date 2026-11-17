@@ -397,6 +397,14 @@ class Bridge(BaseHTTPRequestHandler):
             else:
                 power(action)
             return
+        if self.path == "/power" and self._origin_ok():
+            # ครูสั่ งจากหน้า Monitor Agent → extension เป็ นผ้ยู ้าง (origin ตองเป็ น extension เทานั้ น)
+            action = str(self._body().get("action") or "")
+            if action not in ("shutdown", "restart", "sleep", "cancel"):
+                return self._send(400, {"error": "คำสั่ งไม่ถูกต้อง"})
+            ok = power(action)
+            log("extension power command", action, ok)
+            return self._send(200 if ok else 502, {"ok": ok, "error": None if ok else "เครื่องทำคำสั่ งไม่สำเร็จ"})
         if self.path == "/register-local" and self._local_ok():
             body = self._body()
             qr, name = str(body.get("qr") or "")[:500], str(body.get("name") or "").strip()[:60]
