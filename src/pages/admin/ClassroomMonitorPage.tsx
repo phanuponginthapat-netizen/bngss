@@ -8,19 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  MonitorPlay, Eye, EyeOff, Lock, Unlock, MessageSquare, Users, RefreshCw, Maximize2,
-  Power, Link2, Camera, LogOut, RotateCw,
+  MonitorPlay, Lock, Unlock, MessageSquare, Users, RefreshCw,
+  Power, Link2, LogOut, RotateCw, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createMonitorChannel, RTC_CONFIG, sendMonitorEvent, readMonitorEvent,
+  createMonitorChannel, sendMonitorEvent, readMonitorEvent,
   type MonitorEvent, type AgentPresence, type CommandAction,
 } from "@/lib/monitorSignal";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { KioskDevicesLiveCard } from "@/components/kiosk/KioskDevicesLiveCard";
 
-/** viaExtension = หน้า Agent ไม่ได้เชื่อมต่อ แต่ส่วนขยายในเครื่องยังส่งสถานะอยู่ — ดูจอได้ผ่านส่วนขยาย */
-interface AgentCard extends AgentPresence { streaming: boolean; viaExtension?: boolean }
+/** viaExtension = หน้า Agent ไม่ได้เชื่อมต่อ แต่ส่วนขยายในเครื่องยังส่งสถานะอยู่ */
+interface AgentCard extends AgentPresence { viaExtension?: boolean }
+
+/** เว็บที่นักเรียนกำลังเปิดอยู่ รายงานจากส่วนขยายผ่านสถานะเครื่อง */
+interface ActiveTab { title: string; url: string; at: string }
 
 const EXT_ONLINE_MS = 3 * 60 * 1000;
 
@@ -34,24 +37,13 @@ export default function ClassroomMonitorPage() {
   const [msgText, setMsgText] = useState("");
   const [urlOpen, setUrlOpen] = useState(false);
   const [urlText, setUrlText] = useState("https://");
-  const [fsAgent, setFsAgent] = useState<AgentCard | null>(null);
-  const [shotDialog, setShotDialog] = useState<{ name: string; image: string } | null>(null);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const streamsRef = useRef<Map<string, MediaStream>>(new Map());
-  const videoRefs = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const agentsRef = useRef<Record<string, AgentCard>>({});
-  const [, forceRerender] = useState(0);
-  // ภาพสดแบบเฟรม (เครื่องที่ใช้ Chrome ปกติ แชร์จอเบื้องหลังไม่ได้)
-  const [liveFrames, setLiveFrames] = useState<Record<string, string>>({});
-  const liveFramesRef = useRef<Record<string, string>>({});
-  useEffect(() => { liveFramesRef.current = liveFrames; }, [liveFrames]);
-  // หลังกดหยุดดูจอ ภาพที่ส่งค้างอยู่ยังมาถึงได้อีกไม่กี่วินาที — ไม่แสดงซ้ำ
-  const stoppedAtRef = useRef<Map<string, number>>(new Map());
   // นักเรียนที่ส่วนขยายยังออนไลน์ แม้หน้า Agent จะถูก Chrome พักไว้
   const [extAgents, setExtAgents] = useState<Record<string, AgentCard>>({});
-  const bump = () => forceRerender((n) => n + 1);
+  // เว็บที่แต่ละเครื่องกำลังเปิดอยู่ (จากสถานะเครื่อง)
+  const [activeTabs, setActiveTabs] = useState<Record<string, ActiveTab>>({});
 
   // keep ref in sync so broadcast handler (registered once) sees latest names
   useEffect(() => { agentsRef.current = agents; }, [agents]);
@@ -78,7 +70,7 @@ export default function ClassroomMonitorPage() {
         const p = state[key]?.[0];
         if (!p || !p.user_id || p.user_id === me.id) continue;
         if (p.role && p.role !== "student" && p.role !== "teacher" && p.role !== "parent") continue;
-        next[p.user_id] = { ...p, streaming: peersRef.current.has(p.user_id) };
+        next[p.user_id] = { ...p };
       }
       setAgents(next);
     });
@@ -86,31 +78,12 @@ export default function ClassroomMonitorPage() {
     ch.on("broadcast", { event: "monitor" }, async ({ payload: raw }) => {
       const payload = await readMonitorEvent(raw).catch(() => null);
       if (!payload) return;
+      // ส่วนขยาย/หน้า Agent แจ้งข้อผิดพลาดของคำสั่งกลับมาทางช่องนี้
       if (payload.type === "screenshot-image") {
-        // ครูขอ → to=me.id, นักเรียนส่งเอง → to="*"
-        if (payload.to !== me.id && payload.to !== "*") return;
-        if (payload.error) {
-          if (payload.to === me.id) toast.error(`${agentsRef.current[payload.from]?.name || "นักเรียน"}: ${payload.error}`, { duration: 8000 });
-          return;
-        }
-        if (payload.live) {
-          if (payload.to !== me.id) return;
-          if (Date.now() - (stoppedAtRef.current.get(payload.from) ?? 0) < 30000) return;
-          setLiveFrames((f) => ({ ...f, [payload.from]: payload.image }));
-          return;
-        }
-        const a = agentsRef.current[payload.from];
-        const isUnsolicited = payload.to === "*";
-        setShotDialog({ name: a?.name || "นักเรียน", image: payload.image });
-        if (isUnsolicited) {
-          toast.info(`📸 ${a?.name || "นักเรียน"} ส่งภาพหน้าจอให้คุณ`, { duration: 6000 });
+        if (payload.to === me.id && payload.error) {
+          toast.error(`${agentsRef.current[payload.from]?.name || "นักเรียน"}: ${payload.error}`, { duration: 8000 });
         }
         return;
-      }
-      if (payload.to !== me.id) return;
-      switch (payload.type) {
-        case "offer": onOffer(payload.from, payload.sdp); break;
-        case "ice":   onIce(payload.from, payload.candidate); break;
       }
     });
 
@@ -121,9 +94,6 @@ export default function ClassroomMonitorPage() {
     });
 
     return () => {
-      peersRef.current.forEach((pc) => pc.close());
-      peersRef.current.clear();
-      streamsRef.current.clear();
       supabase.removeChannel(ch);
       channelRef.current = null;
     };
@@ -155,30 +125,24 @@ export default function ClassroomMonitorPage() {
       const names = new Map(((profs as any[]) ?? []).map((p) => [p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()]));
       const rooms = new Map(((studs as any[]) ?? []).map((s) => [s.auth_user_id, s.classrooms?.name ?? null]));
       const next: Record<string, AgentCard> = {};
+      const tabs: Record<string, ActiveTab> = {};
       latest.forEach((d, id) => {
         next[id] = {
           user_id: id, name: names.get(id) || "นักเรียน", classroom: rooms.get(id) ?? null,
           room: (d.meta as any)?.room ?? null, role: "student", online_at: d.last_seen_at,
-          ext_version: d.extension_version, app_version: d.agent_version, streaming: false, viaExtension: true,
+          ext_version: d.extension_version, app_version: d.agent_version, viaExtension: true,
         };
+        const at = (d.meta as any)?.active_tab;
+        if (at && typeof at.url === "string" && at.url) {
+          tabs[id] = { title: String(at.title ?? ""), url: at.url, at: String(at.at ?? "") };
+        }
       });
       setExtAgents(next);
+      setActiveTabs(tabs);
     };
     load();
     const iv = window.setInterval(load, 20000);
     return () => { alive = false; window.clearInterval(iv); };
-  }, [me?.id]);
-
-  // ต่ออายุการดูจอผ่านส่วนขยายทุกนาที (ส่วนขยายหยุดส่งเองถ้าครูปิดหน้านี้ไป)
-  useEffect(() => {
-    if (!me) return;
-    const iv = window.setInterval(() => {
-      Object.keys(liveFramesRef.current).forEach((id) => {
-        if (!agentsRef.current[id] && !peersRef.current.has(id)) send({ type: "request-stream", from: me.id, to: id });
-      });
-    }, 60000);
-    return () => window.clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
 
   const allAgents = useMemo(() => ({ ...extAgents, ...agents }), [extAgents, agents]);
@@ -191,94 +155,6 @@ export default function ClassroomMonitorPage() {
   function cmd(agentId: string, action: CommandAction, payload?: any) {
     if (!me) return;
     send({ type: "command", from: me.id, to: agentId, action, payload });
-  }
-
-  async function onOffer(agentId: string, sdp: RTCSessionDescriptionInit) {
-    if (!me) return;
-    peersRef.current.get(agentId)?.close();
-    const pc = new RTCPeerConnection(RTC_CONFIG);
-    peersRef.current.set(agentId, pc);
-    pc.ontrack = (ev) => {
-      const stream = ev.streams[0];
-      streamsRef.current.set(agentId, stream);
-      requestAnimationFrame(() => {
-        const v = videoRefs.current.get(agentId);
-        if (v) { v.srcObject = stream; v.play().catch(() => {}); }
-      });
-      bump();
-    };
-    pc.onicecandidate = (ev) => {
-      if (ev.candidate) send({ type: "ice", from: me.id, to: agentId, candidate: ev.candidate.toJSON() });
-    };
-    pc.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
-        peersRef.current.delete(agentId);
-        streamsRef.current.delete(agentId);
-        setAgents((a) => ({ ...a, [agentId]: a[agentId] ? { ...a[agentId], streaming: false } : a[agentId] }));
-      }
-    };
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    send({ type: "answer", from: me.id, to: agentId, sdp: answer });
-    setAgents((a) => ({ ...a, [agentId]: a[agentId] ? { ...a[agentId], streaming: true } : a[agentId] }));
-  }
-
-  async function onIce(agentId: string, cand: RTCIceCandidateInit) {
-    const pc = peersRef.current.get(agentId); if (!pc) return;
-    try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
-  }
-
-  function view(agent: AgentCard) {
-    if (!me) return;
-    if (peersRef.current.has(agent.user_id)) { toast("กำลังดูอยู่แล้ว"); return; }
-    stoppedAtRef.current.delete(agent.user_id);
-    send({ type: "request-stream", from: me.id, to: agent.user_id });
-    toast(agent.viaExtension ? `ขอดูจอ ${agent.name}… ภาพจะขึ้นภายในไม่กี่วินาที` : `ขอดูจอ ${agent.name}…`);
-  }
-
-  function viewById(userId: string, name: string) {
-    if (!me) return;
-    if (peersRef.current.has(userId)) { toast("กำลังดูอยู่แล้ว"); return; }
-    stoppedAtRef.current.delete(userId);
-    if (!agentsRef.current[userId]) {
-      // หน้า Agent อาจถูก Chrome พักไว้ — ส่งคำขอไว้ก่อน ส่วนขยายจะรับคำขอและส่งภาพเอง (~30 วินาที)
-      toast(`กำลังขอดูจอ ${name}… ภาพจะขึ้นภายในไม่กี่วินาที`);
-      send({ type: "request-stream", from: me.id, to: userId });
-      setTimeout(() => document.getElementById(`agent-card-${userId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
-      let tries = 0;
-      const timer = window.setInterval(() => {
-        tries++;
-        if (liveFramesRef.current[userId]) { window.clearInterval(timer); return; }
-        if (agentsRef.current[userId]) {
-          window.clearInterval(timer);
-          if (!peersRef.current.has(userId)) send({ type: "request-stream", from: me.id, to: userId });
-        } else if (tries >= 40) {
-          window.clearInterval(timer);
-          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.19.1 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
-        } else if (tries % 8 === 0) {
-          send({ type: "request-stream", from: me.id, to: userId }); // คำขอหมดอายุใน 1 นาที — ส่งใหม่
-        }
-      }, 3000);
-      return;
-    }
-    send({ type: "request-stream", from: me.id, to: userId });
-    toast(`ขอดูจอ ${name}…`);
-    // scroll to the card once streaming/placeholder renders
-    setTimeout(() => {
-      document.getElementById(`agent-card-${userId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
-  }
-
-  function stopView(agentId: string) {
-    if (!me) return;
-    send({ type: "stop-stream", from: me.id, to: agentId });
-    stoppedAtRef.current.set(agentId, Date.now());
-    setLiveFrames((f) => { const n = { ...f }; delete n[agentId]; return n; });
-    peersRef.current.get(agentId)?.close();
-    peersRef.current.delete(agentId);
-    streamsRef.current.delete(agentId);
-    setAgents((a) => ({ ...a, [agentId]: a[agentId] ? { ...a[agentId], streaming: false } : a[agentId] }));
   }
 
   function sendMessage() {
@@ -384,19 +260,11 @@ export default function ClassroomMonitorPage() {
       <div className="rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border p-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><MonitorPlay className="w-6 h-6 text-primary" /> ระบบเฝ้าดูหน้าจอนักเรียน (Classroom Monitor)</h1>
-            <p className="text-sm text-muted-foreground mt-1">Web-based WebRTC — คุมทั้งห้อง: ล็อก / ส่งลิงก์ / ปิดเครื่อง / screenshot</p>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><MonitorPlay className="w-6 h-6 text-primary" /> ระบบเฝ้าดูนักเรียน (Classroom Monitor)</h1>
+            <p className="text-sm text-muted-foreground mt-1">คุมทั้งห้อง: ล็อก / ส่งลิงก์ / ปิดเครื่อง / ส่งข้อความ — และดูเว็บที่นักเรียนกำลังเปิดอยู่</p>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="default" size="sm" onClick={() => {
-            if (!me) return;
-            const targets = filtered.filter((a) => !peersRef.current.has(a.user_id));
-            if (targets.length === 0) { toast("กำลังดูอยู่ครบทุกเครื่องแล้ว"); return; }
-            targets.forEach((a) => send({ type: "request-stream", from: me.id, to: a.user_id }));
-            toast.success(`ขอดูจอ ${targets.length} เครื่อง`);
-          }} className="gap-1"><Eye className="w-4 h-4" /> ดูจอทุกเครื่อง ({filtered.length})</Button>
-          <Button variant="outline" size="sm" onClick={() => bulk("screenshot", null, "ขอ Screenshot ")} className="gap-1"><Camera className="w-4 h-4" /> Screenshot ({filtered.length})</Button>
           <Button variant="destructive" size="sm" onClick={() => bulk("lock", { message: "ตั้งใจฟังครู" }, "ล็อก ")} className="gap-1"><Lock className="w-4 h-4" /> ล็อก ({filtered.length})</Button>
           <Button variant="outline" size="sm" onClick={() => bulk("unlock", null, "ปลดล็อก ")} className="gap-1"><Unlock className="w-4 h-4" /> ปลดล็อก ({filtered.length})</Button>
           <Button variant="outline" size="sm" onClick={() => setUrlOpen(true)} className="gap-1"><Link2 className="w-4 h-4" /> เปิดลิงก์ ({filtered.length})</Button>
@@ -415,7 +283,7 @@ export default function ClassroomMonitorPage() {
         </div>
       </div>
 
-      <KioskDevicesLiveCard onViewDevice={viewById} liveUserIds={liveUserIds} />
+      <KioskDevicesLiveCard liveUserIds={liveUserIds} />
 
       {roomActivity.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
@@ -506,21 +374,20 @@ export default function ClassroomMonitorPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((a) => (
             <Card key={a.user_id} id={`agent-card-${a.user_id}`} className="overflow-hidden scroll-mt-24">
-              <div className="aspect-video bg-black relative">
-                {a.streaming ? (
-                  <video
-                    ref={(el) => { videoRefs.current.set(a.user_id, el); const s = streamsRef.current.get(a.user_id); if (el && s && el.srcObject !== s) { el.srcObject = s; el.play().catch(() => {}); } }}
-                    autoPlay playsInline muted className="w-full h-full object-contain"
-                  />
-                ) : liveFrames[a.user_id] ? (
-                  <img src={liveFrames[a.user_id]} alt={`หน้าจอ ${a.name}`} className="w-full h-full object-contain" />
+              <div className="bg-muted/40 border-b px-3 py-2.5 min-h-[64px] flex items-center gap-2">
+                <Globe className="w-4 h-4 shrink-0 text-muted-foreground" />
+                {activeTabs[a.user_id] ? (
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate" title={activeTabs[a.user_id].title}>
+                      {activeTabs[a.user_id].title || activeTabs[a.user_id].url}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate" title={activeTabs[a.user_id].url}>
+                      {(() => { try { return new URL(activeTabs[a.user_id].url).hostname; } catch { return activeTabs[a.user_id].url; } })()}
+                      {activeTabs[a.user_id].at && ` · ${new Date(activeTabs[a.user_id].at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`}
+                    </p>
+                  </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">ยังไม่ได้ขอดูจอ</div>
-                )}
-                {a.streaming && (
-                  <Button size="icon" variant="secondary" className="absolute top-2 right-2 h-7 w-7" onClick={() => setFsAgent(a)}>
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </Button>
+                  <p className="text-xs text-muted-foreground">ยังไม่มีข้อมูลเว็บที่เปิด — ส่วนขยายจะรายงานอัตโนมัติ</p>
                 )}
               </div>
               <CardContent className="p-3 space-y-2">
@@ -534,20 +401,14 @@ export default function ClassroomMonitorPage() {
                     <span title="รุ่นส่วนขยาย">🧩 {a.ext_version ? `v${a.ext_version}` : "รุ่นเก่ากว่า 1.15.1 หรือไม่พบ"}</span>
                     <span>·</span>
                     <span title="รุ่นโปรแกรม Safe Browser">🖥️ {a.app_version ? `Safe Browser v${a.app_version}` : "Chrome ปกติ"}</span>
-                    {a.viaExtension && <><span>·</span><span title="ควบคุมผ่านส่วนขยายโดยตรง: ดูจอ ภาพหน้าจอ ข้อความ ล็อก เปิดเว็บ ปิดเครื่อง">ผ่านส่วนขยาย</span></>}
+                    {a.viaExtension && <><span>·</span><span title="ควบคุมผ่านส่วนขยายโดยตรง: ข้อความ ล็อก เปิดเว็บ ปิดเครื่อง">ผ่านส่วนขยาย</span></>}
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {a.streaming || liveFrames[a.user_id] ? (
-                    <Button size="sm" variant="outline" onClick={() => stopView(a.user_id)} className="gap-1 col-span-1"><EyeOff className="w-3.5 h-3.5" /></Button>
-                  ) : (
-                    <Button size="sm" onClick={() => view(a)} className="gap-1 col-span-1"><Eye className="w-3.5 h-3.5" /></Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => cmd(a.user_id, "screenshot")} className="gap-1"><Camera className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" onClick={() => setMsgTarget(a)} className="gap-1"><MessageSquare className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="destructive" onClick={() => cmd(a.user_id, "lock", { message: "อยู่ในโหมดตั้งใจฟังครู" })} className="gap-1"><Lock className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="outline" onClick={() => cmd(a.user_id, "unlock")} className="gap-1"><Unlock className="w-3.5 h-3.5" /></Button>
-                  <Button size="sm" variant="destructive" onClick={async () => { if ((await swal.confirm({ title: `ปิดเครื่อง ${a.name}?` }))) cmd(a.user_id, "shutdown", { sec: 15 }); }} className="gap-1"><Power className="w-3.5 h-3.5" /></Button>
+                <div className="grid grid-cols-4 gap-1">
+                  <Button size="sm" variant="outline" onClick={() => setMsgTarget(a)} className="gap-1" title="ส่งข้อความ"><MessageSquare className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="destructive" onClick={() => cmd(a.user_id, "lock", { message: "อยู่ในโหมดตั้งใจฟังครู" })} className="gap-1" title="ล็อกจอ"><Lock className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="outline" onClick={() => cmd(a.user_id, "unlock")} className="gap-1" title="ปลดล็อก"><Unlock className="w-3.5 h-3.5" /></Button>
+                  <Button size="sm" variant="destructive" onClick={async () => { if ((await swal.confirm({ title: `ปิดเครื่อง ${a.name}?` }))) cmd(a.user_id, "shutdown", { sec: 15 }); }} className="gap-1" title="ปิดเครื่อง"><Power className="w-3.5 h-3.5" /></Button>
                 </div>
               </CardContent>
             </Card>
@@ -582,38 +443,6 @@ export default function ClassroomMonitorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Screenshot preview */}
-      <Dialog open={!!shotDialog} onOpenChange={(o) => !o && setShotDialog(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader><DialogTitle>Screenshot จาก {shotDialog?.name}</DialogTitle></DialogHeader>
-          {shotDialog && (
-            <>
-              <img src={shotDialog.image} alt="screenshot" className="w-full rounded border" />
-              <DialogFooter>
-                <a href={shotDialog.image} download={`screenshot-${shotDialog.name}-${Date.now()}.jpg`}>
-                  <Button variant="outline">ดาวน์โหลด</Button>
-                </a>
-                <Button onClick={() => setShotDialog(null)}>ปิด</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Fullscreen viewer */}
-      <Dialog open={!!fsAgent} onOpenChange={(o) => !o && setFsAgent(null)}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader><DialogTitle>{fsAgent?.name} · {fsAgent?.classroom || "—"}</DialogTitle></DialogHeader>
-          <div className="aspect-video bg-black">
-            {fsAgent && (
-              <video
-                autoPlay playsInline muted className="w-full h-full object-contain"
-                ref={(el) => { if (el && fsAgent) { const s = streamsRef.current.get(fsAgent.user_id); if (s) { el.srcObject = s; el.play().catch(() => {}); } } }}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

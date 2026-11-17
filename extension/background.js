@@ -177,6 +177,39 @@ chrome.windows.onRemoved.addListener(async (id) => {
   if (main?.id) chrome.windows.update(main.id, { focused: true }).catch(() => {});
 });
 
+// เว็บที่นักเรียนกำลังเปิดอยู่ (แท็บ active ของหน้าต่างปกติที่โฟกัสล่าสุด) — ส่งไปกับสถานะเครื่อง
+// ให้ครูเห็นจากหน้า Classroom Monitor แทนการจับภาพหน้าจอ
+async function getActiveTabInfo() {
+  try {
+    const skip = (u) => !u || u.startsWith(AGENT_URL) || /^(chrome|edge|about|chrome-extension):/.test(u) || u.includes("/blocked.html");
+    const pick = async (win) => {
+      if (!win?.id || win.state === "minimized") return null;
+      const [t] = await chrome.tabs.query({ active: true, windowId: win.id }).catch(() => []);
+      const u = t?.url || t?.pendingUrl || "";
+      if (!t || skip(u) || !/^https?:/.test(u)) return null;
+      return { title: String(t.title || "").slice(0, 200), url: u.slice(0, 500) };
+    };
+    const last = await pick(await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null));
+    if (last) return last;
+    for (const w of await chrome.windows.getAll({ windowTypes: ["normal"] }).catch(() => [])) {
+      const r = await pick(w); if (r) return r;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+// เปลี่ยนแท็บ/เปลี่ยนเว็บ → รายงานเว็บที่กำลังเปิดทันที (หน่วงรวมยอด 8 วิ กันยิงถี่เกิน)
+let _tabReportTimer = 0;
+function scheduleActiveTabReport() {
+  clearTimeout(_tabReportTimer);
+  _tabReportTimer = setTimeout(async () => {
+    const s = await getValidSession().catch(() => null);
+    if (s?.access_token && isStudentSession(s)) extHeartbeat();
+  }, 8000);
+}
+chrome.tabs.onActivated.addListener(() => scheduleActiveTabReport());
+chrome.tabs.onUpdated.addListener((id, info) => { if (info.status === "complete" || info.title || info.url) scheduleActiveTabReport(); });
+
 // สถานะเครื่องจากส่วนขยายเอง ทุก 30 วิ — หน้า Agent ที่ซ่อนอยู่อาจถูก Chrome หยุดชั่วคราว
 // ทำให้ระบบเห็นเครื่องนักเรียนเป็นออฟไลน์ทั้งที่ยังใช้งานอยู่
 async function extHeartbeat() {
@@ -187,6 +220,7 @@ async function extHeartbeat() {
     if (!extDeviceId) { extDeviceId = crypto.randomUUID(); await chrome.storage.local.set({ extDeviceId }); }
     await loadBackend();
     const st = await kioskLauncher("/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version)).catch(() => null);
+    const activeTab = await getActiveTabInfo();
     const ua = navigator.userAgent;
     const hbRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/kiosk_heartbeat`, {
       method: "POST",
@@ -197,23 +231,21 @@ async function extHeartbeat() {
         _user_agent: ua, _status: "online", _kiosk_mode: "student",
         _extension_installed: true, _extension_version: chrome.runtime.getManifest().version,
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
+        _active_title: activeTab?.title ?? null,
+        _active_url: activeTab?.url ?? null,
       }),
     });
     noteServerClock(hbRes);
     if (!hbRes.ok) setMonDiag("hb " + hbRes.status);
     ensureAgentTab();
     ensureRealtime();
-    resumeExtViewers().catch(() => {});
     await withTimeout(handlePendingMonitor(session), 20000, "pending");
   } catch (e) { setMonDiag("hb:" + String(e?.message || e).slice(0, 60)); }
 }
 
-// ครูขอดูจอแต่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง)
-// → ส่วนขยายรับคำขอเองและส่งภาพจอให้ครูโดยตรง ไม่ต้องรอหน้า Agent แล้วค่อยปลุกหน้า Agent ไว้ใช้งานอื่น
+// คำสั่งครูที่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง) → ส่วนขยายรับแทน
+// (ไม่มีการจับภาพหน้าจอแล้ว — ครูดู "เว็บที่กำลังเปิด" จากสถานะเครื่องแทน)
 const MONITOR_TOPIC = "classroom-monitor";
-const EXT_FRAME_MS = 2500;
-const EXT_FRAME_TTL = 5 * 60 * 1000; // ครูต่ออายุเองทุกนาทีขณะเปิดดู ปิดหน้าไปแล้วหยุดเองใน 5 นาที
-const _extFrames = new Map(); // viewerId -> { timer, until, busy }
 
 async function sbRpc(session, name, body) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
@@ -236,88 +268,6 @@ async function sendMonitorFromExt(session, event) {
     body: JSON.stringify({ messages: [{ topic: MONITOR_TOPIC, event: "monitor", payload: { receipt } }] }),
   });
   if (!r.ok) throw new Error(`broadcast ${r.status}`);
-}
-
-// จับภาพแท็บที่นักเรียนเห็นจริง: หน้าต่างปกติที่โฟกัสล่าสุด (กันกรณีหน้าต่างปัจจุบันเป็น popup/หน้า agent)
-async function captureStudentScreen(quality = 70) {
-  const shot = (windowId) => new Promise((res) => chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality }, (d) => { void chrome.runtime.lastError; res(d || null); }));
-  let dataUrl = null;
-  try {
-    const w = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
-    if (w?.id != null && w.state !== "minimized") dataUrl = await shot(w.id);
-    if (!dataUrl) {
-      for (const win of await chrome.windows.getAll({ windowTypes: ["normal"] })) {
-        if (win.state === "minimized") continue;
-        dataUrl = await shot(win.id); if (dataUrl) break;
-      }
-    }
-  } catch { /* ignore */ }
-  return dataUrl;
-}
-
-async function shrinkShot(dataUrl) {
-  try {
-    const blob = await (await fetch(dataUrl)).blob();
-    const bmp = await createImageBitmap(blob);
-    const scale = Math.min(1, 1280 / bmp.width);
-    const c = new OffscreenCanvas(Math.max(1, Math.round(bmp.width * scale)), Math.max(1, Math.round(bmp.height * scale)));
-    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-    bmp.close?.();
-    const out = await c.convertToBlob({ type: "image/jpeg", quality: 0.6 });
-    const buf = new Uint8Array(await out.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
-    return "data:image/jpeg;base64," + btoa(bin);
-  } catch { return dataUrl; }
-}
-
-async function saveExtViewers() {
-  const v = {};
-  _extFrames.forEach((x, id) => { v[id] = x.until; });
-  await chrome.storage.session?.set?.({ extViewers: v }).catch?.(() => {});
-}
-
-function stopExtFrames(viewerId) {
-  const x = _extFrames.get(viewerId);
-  if (x) clearInterval(x.timer);
-  _extFrames.delete(viewerId);
-  saveExtViewers();
-}
-
-function startExtFrames(viewerId, until = Date.now() + EXT_FRAME_TTL) {
-  const cur = _extFrames.get(viewerId);
-  if (cur) { cur.until = Math.max(cur.until, until); saveExtViewers(); return; }
-  const st = { timer: 0, until, busy: false, ticks: 0 };
-  const tick = async () => {
-    if (st.busy) return;
-    if (Date.now() > st.until) { stopExtFrames(viewerId); return; }
-    st.busy = true;
-    try {
-      const session = await getValidSession();
-      if (!session?.access_token || !isStudentSession(session)) { stopExtFrames(viewerId); return; }
-      // เช็คคำสั่งหยุดดูจอเป็นระยะ
-      if (++st.ticks % 4 === 0) await handlePendingMonitor(session);
-      if (!_extFrames.has(viewerId)) return;
-      const raw = await captureStudentScreen(70);
-      if (!raw) return;
-      await sendMonitorFromExt(session, { type: "screenshot-image", from: session.user?.id, to: viewerId, image: await shrinkShot(raw), live: true });
-    } catch { /* ลองใหม่รอบหน้า */ }
-    finally { st.busy = false; }
-  };
-  st.timer = setInterval(tick, EXT_FRAME_MS);
-  _extFrames.set(viewerId, st);
-  saveExtViewers();
-  tick();
-}
-
-// service worker อาจถูกปิด — กลับมาส่งภาพต่อให้ครูที่ยังดูอยู่
-async function resumeExtViewers() {
-  try {
-    const { extViewers } = (await chrome.storage.session?.get?.(["extViewers"])) || {};
-    for (const [id, until] of Object.entries(extViewers || {})) {
-      if (typeof until === "number" && until > Date.now() && !_extFrames.has(id)) startExtFrames(id, until);
-    }
-  } catch { /* ignore */ }
 }
 
 const _handledEvents = new Set();
@@ -365,10 +315,8 @@ async function processMonitorEvent(session, id, ev) {
   markHandled(id);
   if (ev.to === me) await sbRpc(session, "ack_monitor_event", { _id: id }).catch((e) => { setMonDiag("ack:" + (e?.message || e)); });
   // ไม่รอคำสั่งให้เสร็จ — คำสั่งที่ค้าง (เช่นแท็บไม่ตอบ) ต้องไม่ขวางคำสั่งถัดไป
-  if (ev.type !== "stop-stream") wakeAgentTab();
-  if (ev.type === "stop-stream") stopExtFrames(ev.from);
-  else if (ev.type === "request-stream") startExtFrames(ev.from);
-  else if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).then(() => setMonDiag("done " + (ev.action || ev.type)), (e) => { setMonDiag("cmd:" + (e?.message || e)); });
+  wakeAgentTab();
+  if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).then(() => setMonDiag("done " + (ev.action || ev.type)), (e) => { setMonDiag("cmd:" + (e?.message || e)); });
   setMonDiag("got " + (ev.action || ev.type));
 }
 
@@ -441,9 +389,6 @@ async function runTeacherCommand(session, teacherId, action, payload) {
     } else if (action === "shutdown" || action === "reboot" || action === "logout") {
       const r = await powerAction(action === "reboot" ? "restart" : action);
       if (!r?.ok) reply({ error: (r?.error || "สั่งเครื่องไม่สำเร็จ") + " (ต้องใช้โปรแกรม BNG Safe Browser)" });
-    } else if (action === "screenshot") {
-      const raw = await captureStudentScreen(80);
-      if (raw) reply({ image: await shrinkShot(raw) }); else reply({ error: "จับภาพไม่สำเร็จ (หน้าต่าง Chrome ถูกย่ออยู่)" });
     }
   } catch (e) { reply({ error: "ทำคำสั่งไม่สำเร็จ: " + (e?.message || e) }); }
 }
@@ -483,8 +428,7 @@ async function ensureRealtime() {
       if (!ev || ev.type === "screenshot-image") return;
       const me = jwtSub(s.access_token) || s.user?.id;
       if (ev.to !== me) return;
-      // หยุดดูจอทำได้ทันทีเสมอ (ไม่ซ้ำซ้อน) ส่วนคำสั่งอื่นรอให้หน้า Agent รับก่อน แล้วค่อยตรวจว่ายังค้างไหม
-      if (ev.type === "stop-stream") stopExtFrames(ev.from);
+      // รอให้หน้า Agent รับก่อน แล้วค่อยตรวจว่ายังค้างไหม
       schedulePendingCheck();
     };
     ws.onclose = () => { clearInterval(_rtHb); if (_rtWs === ws) { _rtWs = null; setTimeout(ensureRealtime, 5000); } };
@@ -913,7 +857,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const internal = source.startsWith(chrome.runtime.getURL("")) && !sender.tab;
   const agent = school && new URL(source).pathname === "/dashboard/monitor/agent";
   if ((["SET_SESSION", "CLEAR_SESSION", "GET_BACKEND"].includes(msg?.type) && !school) ||
-      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL", "SB_MESSAGE", "SB_CAPTURE_TAB", "SB_POWER"].includes(msg?.type) && !agent) ||
+      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL", "SB_MESSAGE", "SB_POWER"].includes(msg?.type) && !agent) ||
       (msg?.type === "WIFI" && source !== chrome.runtime.getURL("wifi.html"))) {
     sendResponse({ ok: false, error: "ไม่อนุญาตคำสั่งจากหน้านี้" }); return false;
   }
@@ -1042,14 +986,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         saveAs: false,
       }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, error: "บันทึกภาพไม่สำเร็จ" }));
     });
-    return true;
-  } else if (msg?.type === "SB_CAPTURE_TAB") {
-    // ครูสั่ ง screenshot จากหน้า agent → จบั ภาพหน้าจอที่นั กเรียนกำลังดู (ไม่มี dialog เลือกจอ)
-    // จับภาพแท็บที่นักเรียนเห็นจริง: หน้าต่างปกติที่โฟกัสล่าสุด (กันกรณีหน้าต่างปัจจุบันเป็น popup/หน้า agent)
-    (async () => {
-      const dataUrl = await captureStudentScreen(70);
-      sendResponse(dataUrl ? { ok: true, image: dataUrl } : { ok: false, error: "จับภาพไม่สำเร็จ" });
-    })();
     return true;
   } else if (msg?.type === "SB_POWER") {
     // ครูสั่ งปดิ /รีสตารท์ /ออกจากระบบ → ผาน launcher ของโปรแกรม BNG Safe Browser

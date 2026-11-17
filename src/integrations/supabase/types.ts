@@ -17968,22 +17968,41 @@ export type Database = {
         }
         Returns: Json
       }
-      kiosk_heartbeat: {
-        Args: {
-          _agent_version?: string
-          _config_updated_at?: string
-          _device_id: string
-          _extension_installed?: boolean
-          _extension_version?: string
-          _hostname?: string
-          _kiosk_mode?: string
-          _screen_resolution?: string
-          _status?: string
-          _uptime_sec?: number
-          _user_agent?: string
-        }
-        Returns: undefined
-      }
+      kiosk_heartbeat:
+        | {
+            Args: {
+              _agent_version?: string
+              _config_updated_at?: string
+              _device_id: string
+              _extension_installed?: boolean
+              _extension_version?: string
+              _hostname?: string
+              _kiosk_mode?: string
+              _screen_resolution?: string
+              _status?: string
+              _uptime_sec?: number
+              _user_agent?: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _active_title?: string
+              _active_url?: string
+              _agent_version?: string
+              _config_updated_at?: string
+              _device_id: string
+              _extension_installed?: boolean
+              _extension_version?: string
+              _hostname?: string
+              _kiosk_mode?: string
+              _screen_resolution?: string
+              _status?: string
+              _uptime_sec?: number
+              _user_agent?: string
+            }
+            Returns: undefined
+          }
       line_vault_dispatch: {
         Args: { category: string; payload: Json }
         Returns: undefined

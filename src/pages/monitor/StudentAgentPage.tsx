@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  MonitorPlay, ShieldCheck, Lock, MessageSquare, StopCircle, Power, LogOut,
+  MonitorPlay, ShieldCheck, Lock, MessageSquare, Power, LogOut,
   Puzzle, CheckCircle2, XCircle, Wifi, Clock, GraduationCap, Radio, Download,
   Globe,
 } from "lucide-react";
@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import {
   createMonitorChannel,
   callLocalCtl,
-  RTC_CONFIG,
   sendMonitorEvent, readMonitorEvent,
   type MonitorEvent,
   type AgentPresence,
@@ -31,12 +30,12 @@ import { getDeviceId } from "@/lib/deviceId";
 /**
  * นักเรียน / เครื่องปลายทาง เปิดหน้านี้แล้วอยู่เบื้องหลัง — คล้าย NetSupport Client
  * - บันทึกสถานะออนไลน์ผ่าน Presence
- * - รับคำสั่ง lock / unlock / message / open-url / shutdown / reboot / logout / screenshot
- * - แชร์จอผ่าน WebRTC เมื่อครูขอ
+ * - รับคำสั่ง lock / unlock / message / open-url / shutdown / reboot / logout
+ * - ครูเห็น "เว็บที่กำลังเปิด" จากส่วนขยาย ไม่มีการจับภาพหน้าจอ
  */
 export default function StudentAgentPage() {
   useBrowserShortcuts(); // รับการเปลี่ยนทางลัดแบบสด → ส่งต่อให้รายการโปรดของส่วนขยาย
-  const [status, setStatus] = useState<"idle" | "sharing" | "locked">("idle");
+  const [status, setStatus] = useState<"idle" | "locked">("idle");
   const [locked, setLocked] = useState<{ msg: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<{ action: string; sec: number } | null>(null);
@@ -56,8 +55,6 @@ export default function StudentAgentPage() {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const versionsRef = useRef<{ ext_version: string | null; app_version: string | null }>({ ext_version: null, app_version: null });
   const presenceRef = useRef<AgentPresence | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
   // Live clock
   useEffect(() => {
@@ -97,7 +94,7 @@ export default function StudentAgentPage() {
   // ==== Heartbeat → ตาราง kiosk_devices ทุก 30 วิ ====
   useKioskHeartbeat({
     enabled: !!me,
-    status: status === "sharing" ? "sharing" : status === "locked" ? "locked" : "online",
+    status: status === "locked" ? "locked" : "online",
     kioskMode: "student",
     configUpdatedAt: kioskConfig?.updated_at ?? null,
     extensionInstalled: extInstalled,
@@ -271,17 +268,10 @@ export default function StudentAgentPage() {
       if (!payload) return;
       if (payload.to !== me.id && payload.to !== "*") return;
       // แจ้งระบบว่าหน้า Agent รับคำสั่งแล้ว ส่วนขยายจะได้ไม่ทำซ้ำ
-      if (payload.to === me.id && (payload.type === "request-stream" || payload.type === "stop-stream" || payload.type === "command")) {
+      if (payload.to === me.id && payload.type === "command") {
         supabase.rpc("ack_monitor_event", { _id: raw.receipt }).then(() => {}, () => {});
       }
-      switch (payload.type) {
-        case "request-stream":
-          startSharing(payload.from); break;
-        case "stop-stream":    stopPeer(payload.from); break;
-        case "answer":         onAnswer(payload.from, payload.sdp); break;
-        case "ice":            onIce(payload.from, payload.candidate); break;
-        case "command":        handleCommand(payload.from, payload.action, payload.payload); break;
-      }
+      if (payload.type === "command") handleCommand(payload.from, payload.action, payload.payload);
     };
 
     ch.on("broadcast", { event: "monitor" }, onBroadcast);
@@ -294,16 +284,14 @@ export default function StudentAgentPage() {
       }
     });
 
-    // คำขอดูจอที่ส่งมาตอนแท็บนี้ถูก Chrome พักไว้ (ไม่ได้รับ broadcast) — รับต่อเมื่อแท็บตื่น
+    // คำสั่งที่ส่งมาตอนแท็บนี้ถูก Chrome พักไว้ (ไม่ได้รับ broadcast) — รับต่อเมื่อแท็บตื่น
     const checkPending = async () => {
       const { data } = await supabase.rpc("pending_monitor_events");
       for (const row of (data as { id: string; event: any }[] | null) ?? []) {
         if (seen.has(row.id)) continue;
         seen.add(row.id);
         await supabase.rpc("ack_monitor_event", { _id: row.id });
-        if (row.event?.type === "request-stream" && row.event?.from) startSharing(row.event.from);
-        else if (row.event?.type === "stop-stream" && row.event?.from) stopPeer(row.event.from);
-        else if (row.event?.type === "command" && row.event?.from) handleCommand(row.event.from, row.event.action, row.event.payload);
+        if (row.event?.type === "command" && row.event?.from) handleCommand(row.event.from, row.event.action, row.event.payload);
       }
     };
     const onWake = () => { if (document.visibilityState !== "hidden") checkPending().catch(() => {}); };
@@ -311,12 +299,6 @@ export default function StudentAgentPage() {
     document.addEventListener("visibilitychange", onWake);
 
     return () => {
-      peersRef.current.forEach((pc) => pc.close());
-      peersRef.current.clear();
-      liveTimersRef.current.forEach((t) => clearInterval(t));
-      liveTimersRef.current.clear();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
       document.removeEventListener("resume", onWake);
       document.removeEventListener("visibilitychange", onWake);
       supabase.removeChannel(ch);
@@ -371,17 +353,13 @@ export default function StudentAgentPage() {
         });
         break;
       }
+      // ไม่มีคำสั่ง screenshot แล้ว — ครูดู "เว็บที่กำลังเปิด" จากสถานะเครื่องแทน
       case "logout": {
         toast("ครูสั่ง logout — กำลังออกจากระบบ");
         await supabase.auth.signOut().catch(() => {});
         // และให้ daemon logout session Linux ด้วย (ถ้ามี)
         extCall("SB_POWER", { action: "logout" }).catch(() => {});
         setTimeout(() => { (window as any).__kioskAllowUnload = true; window.location.href = "/"; }, 500);
-        break;
-      }
-      case "screenshot": {
-        const img = await captureScreenshot();
-        if (me) send(img ? { type: "screenshot-image", from: me.id, to: from, image: img } : { type: "screenshot-image", from: me.id, to: from, image: "", error: "จับภาพจอไม่ได้ (หน้าต่าง Chrome อาจถูกย่อไว้)" });
         break;
       }
     }
@@ -420,210 +398,6 @@ export default function StudentAgentPage() {
     });
   }
 
-  async function captureScreenshot(): Promise<string | null> {
-    try {
-      // ถ้ากำลังแชร์จออยู่แล้ว → capture จาก stream
-      const viaExt = await extCall("SB_CAPTURE_TAB");
-      if (viaExt?.ok && viaExt.image) return viaExt.image;
-      if (!streamRef.current && kioskConfig?.mode !== "student") throw new Error("no silent capture");
-      const stream = streamRef.current ?? (await navigator.mediaDevices.getDisplayMedia({ video: true }));
-      const track = stream.getVideoTracks()[0];
-      // @ts-ignore ImageCapture ยังไม่ standard
-      const imageCapture = "ImageCapture" in window ? new (window as any).ImageCapture(track) : null;
-      let bitmap: ImageBitmap;
-      if (imageCapture) {
-        bitmap = await imageCapture.grabFrame();
-      } else {
-        const v = document.createElement("video");
-        v.srcObject = stream; await v.play();
-        bitmap = await createImageBitmap(v);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width; canvas.height = bitmap.height;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("ไม่สามารถสร้างภาพได้");
-      context.drawImage(bitmap, 0, 0);
-      if (stream !== streamRef.current) stream.getTracks().forEach((t) => t.stop());
-      return canvas.toDataURL("image/jpeg", 0.7);
-    } catch (e) {
-      console.warn("[agent] screenshot failed:", (e as Error)?.message);
-      return null;
-    }
-  }
-
-  async function ensureStream(): Promise<MediaStream | null> {
-    if (streamRef.current && streamRef.current.getTracks().every((t) => t.readyState === "live")) return streamRef.current;
-    try {
-      const s = await navigator.mediaDevices.getDisplayMedia({
-        // ขอเป็น "ทั้งหน้าจอ" — ใน kiosk chromium flag --auto-select-desktop-capture-source
-        // จะ auto-pick โดยไม่มี dialog เด้ง
-        video: {
-          frameRate: { ideal: 15, max: 20 },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          // @ts-ignore
-          displaySurface: "monitor",
-        } as MediaTrackConstraints,
-        audio: false,
-        // @ts-ignore
-        selfBrowserSurface: "exclude",
-        // @ts-ignore
-        surfaceSwitching: "exclude",
-        // @ts-ignore
-        monitorTypeSurfaces: "include",
-        // @ts-ignore
-        systemAudio: "exclude",
-        // @ts-ignore
-        preferCurrentTab: false,
-      } as any);
-      streamRef.current = s;
-      const track = s.getVideoTracks()[0];
-      // ⚡ ให้ encoder รู้ว่าเป็น motion → smoother
-      try { (track as any).contentHint = "motion"; } catch { /* ignore */ }
-      track.addEventListener("ended", () => {
-        // ในโหมด kiosk ถ้า track จบ → ลอง restart เงียบ ๆ
-        peersRef.current.forEach((pc) => pc.close());
-        peersRef.current.clear();
-        streamRef.current = null;
-        setStatus("idle");
-        // auto-retry หลัง 3 วิ (สำหรับ kiosk mode เท่านั้น)
-        if (kioskConfig?.mode === "student") {
-          setTimeout(() => { ensureStream().catch(() => {}); }, 3000);
-        }
-      });
-      return s;
-    } catch (e: any) {
-      // เงียบ ไม่ต้อง toast ให้ นร รู้ (fail silently)
-      console.warn("[agent] ensureStream failed:", e?.message);
-      return null;
-    }
-  }
-
-  /** Chrome ปกติ (ไม่ใช่โหมด kiosk) แชร์จอเบื้องหลังไม่ได้ → ส่งภาพแท็บที่นักเรียนดูอยู่เป็นเฟรมทุก ~2 วิ ผ่าน extension */
-  const liveTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
-  async function shrinkFrame(dataUrl: string): Promise<string> {
-    try {
-      const img = new Image(); img.src = dataUrl; await img.decode();
-      const scale = Math.min(1, 960 / img.width);
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
-      return c.toDataURL("image/jpeg", 0.6);
-    } catch { return dataUrl; }
-  }
-  function stopLiveFrames(viewerId: string) {
-    const t = liveTimersRef.current.get(viewerId);
-    if (t) clearInterval(t);
-    liveTimersRef.current.delete(viewerId);
-  }
-  async function startLiveFrames(viewerId: string): Promise<boolean> {
-    if (!me) return false;
-    stopLiveFrames(viewerId);
-    let busy = false;
-    let warned = false;
-    const tick = async () => {
-      if (busy) return; busy = true;
-      try {
-        const r = await extCall("SB_CAPTURE_TAB");
-        if (r?.ok && r.image) send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(r.image), live: true });
-      } finally { busy = false; }
-    };
-    // ลองจับภาพแรกสูงสุด 3 ครั้ง (ส่วนขยายเพิ่งตื่น/หน้าต่างกำลังสลับ)
-    let first: any = null;
-    for (let i = 0; i < 3 && !(first?.ok && first.image); i++) {
-      if (i) await new Promise((r) => setTimeout(r, 700));
-      first = await extCall("SB_CAPTURE_TAB");
-    }
-    const ok = !!(first?.ok && first.image);
-    if (ok) send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(first.image), live: true });
-    else if (!warned) {
-      warned = true;
-      // ไม่เด้งให้นักเรียนกดแชร์จอ — แจ้งครูแทน แล้วส่งภาพต่อทันทีเมื่อจับได้
-      send({ type: "screenshot-image", from: me.id, to: viewerId, image: "", error: extInstalled ? "ยังจับภาพจอไม่ได้ (หน้าต่าง Chrome อาจถูกย่อไว้) จะส่งภาพทันทีเมื่อเปิดหน้าต่าง" : "เครื่องนี้ไม่มีส่วนขยาย BNG Safe Browser จึงดูจอไม่ได้" });
-    }
-    // ส่งเฟรมต่อเนื่องทุก ~1.5 วิ แม้ภาพแรกยังไม่ได้ (นักเรียนเปิดหน้าต่างกลับเมื่อไรครูเห็นทันที)
-    liveTimersRef.current.set(viewerId, setInterval(tick, 1500));
-    // หยุดเองหลัง 10 นาที กันส่งภาพค้างถ้าครูปิดหน้าไปโดยไม่กดหยุด
-    setTimeout(() => stopLiveFrames(viewerId), 10 * 60 * 1000);
-    return ok;
-  }
-
-  async function startSharing(viewerId: string) {
-    if (!me || !channelRef.current) return;
-    // ส่งภาพผ่านส่วนขยายทันที ไม่มีหน้าต่างให้นักเรียนกดแชร์จอเลย
-    await startLiveFrames(viewerId);
-    // อัปเกรดเป็นวิดีโอเฉพาะโหมด kiosk ของโปรแกรม (Chrome เลือกจออัตโนมัติ ไม่มี dialog)
-    if (kioskConfig?.mode !== "student" && !streamRef.current) return;
-    const stream = await ensureStream();
-    if (!stream) return;
-    peersRef.current.get(viewerId)?.close();
-    const pc = new RTCPeerConnection(RTC_CONFIG);
-    peersRef.current.set(viewerId, pc);
-    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-
-    // ⚡ tune sender: VP9 preferred + bitrate cap → smoother, less lag
-    try {
-      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-      if (sender) {
-        const params = sender.getParameters();
-        params.encodings = [{
-          maxBitrate: 2_000_000,    // 2 Mbps
-          maxFramerate: 15,
-          scaleResolutionDownBy: 1.5,   // ~1280x720 → เบา CPU
-          // @ts-ignore
-          networkPriority: "high",
-          priority: "high",
-        }] as any;
-        params.degradationPreference = "maintain-framerate";
-        await sender.setParameters(params);
-      }
-      // Prefer VP9 codec
-      const tcvr = pc.getTransceivers().find((t) => t.sender.track?.kind === "video");
-      if (tcvr && "setCodecPreferences" in tcvr) {
-        const caps = RTCRtpSender.getCapabilities("video");
-        if (caps) {
-          const vp9 = caps.codecs.filter((c) => /vp9|vp8|h264/i.test(c.mimeType));
-          try { tcvr.setCodecPreferences(vp9); } catch { /* ignore */ }
-        }
-      }
-    } catch { /* ignore */ }
-
-    pc.onicecandidate = (ev) => {
-      if (ev.candidate) send({ type: "ice", from: me.id, to: viewerId, candidate: ev.candidate.toJSON() });
-    };
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected") stopLiveFrames(viewerId);
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
-        if (pc.connectionState === "failed" && !liveTimersRef.current.has(viewerId)) startLiveFrames(viewerId);
-        peersRef.current.delete(viewerId);
-        if (peersRef.current.size === 0) setStatus("idle");
-      }
-    };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    send({ type: "offer", from: me.id, to: viewerId, sdp: offer });
-    setStatus("sharing");
-  }
-
-
-  function stopPeer(viewerId: string) {
-    stopLiveFrames(viewerId);
-    peersRef.current.get(viewerId)?.close();
-    peersRef.current.delete(viewerId);
-    if (peersRef.current.size === 0) {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      setStatus("idle");
-    }
-  }
-  async function onAnswer(viewerId: string, sdp: RTCSessionDescriptionInit) {
-    const pc = peersRef.current.get(viewerId); if (!pc) return;
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-  }
-  async function onIce(viewerId: string, cand: RTCIceCandidateInit) {
-    const pc = peersRef.current.get(viewerId); if (!pc) return;
-    try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
-  }
   function send(ev: MonitorEvent) {
     sendMonitorEvent(channelRef.current, ev).catch(e => toast.error(e.message));
   }
@@ -639,15 +413,6 @@ export default function StudentAgentPage() {
     (window as any).__kioskAllowUnload = true; window.location.href = "/";
   }
 
-
-  /** นักเรียนกดส่งภาพหน้าจอให้ครูเอง (broadcast to="*") */
-  async function sendScreenshotToTeacher() {
-    if (!me || !channelRef.current) { toast.error("ยังไม่ได้เชื่อมต่อ"); return; }
-    const img = await captureScreenshot();
-    if (!img) { toast.error("จับภาพหน้าจอไม่สำเร็จ"); return; }
-    send({ type: "screenshot-image", from: me.id, to: "*", image: img });
-    toast.success("ส่งภาพหน้าจอให้ครูแล้ว");
-  }
 
   // openBrowserUrl ย้ายไป @/hooks/useBrowserShortcuts (ใช้ร่วมทั้งระบบ)
 
@@ -693,7 +458,7 @@ export default function StudentAgentPage() {
                   <Badge variant="outline" className="gap-1 border-primary/30 bg-background/60">
                     <MonitorPlay className="w-3 h-3" /> โหมด Agent
                   </Badge>
-                  <Badge className={`gap-1 ${status === "sharing" ? "" : status === "locked" ? "" : "bg-emerald-500 hover:bg-emerald-500"}`}
+                  <Badge className={`gap-1 ${status === "locked" ? "" : "bg-emerald-500 hover:bg-emerald-500"}`}
                     variant={status === "locked" ? "destructive" : "default"}>
                     <ShieldCheck className="w-3 h-3" /> {statusLabel}
                   </Badge>
@@ -804,16 +569,16 @@ export default function StudentAgentPage() {
                 <div>
                   <h2 className="font-bold text-base mb-1">พร้อมรับคำสั่งจากครู</h2>
                   <p className="text-sm text-muted-foreground">
-                    เปิดหน้านี้ทิ้งไว้ระหว่างคาบเรียน ครูสามารถขอดูจอ ส่งข้อความ เปิดลิงก์ หรือปิดเครื่องได้จากแดชบอร์ด
+                    เปิดหน้านี้ทิ้งไว้ระหว่างคาบเรียน ครูสามารถส่งข้อความ เปิดลิงก์ ล็อกจอ หรือปิดเครื่องได้จากแดชบอร์ด และเห็นชื่อเว็บที่คุณกำลังเปิดอยู่
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {[
-                    { label: "รับดูจอ", ok: true },
                     { label: "รับข้อความ", ok: true },
                     { label: "รับล็อกจอ", ok: true },
-                    { label: "รับ Screenshot", ok: true },
+                    { label: "รับเปิดลิงก์", ok: true },
+                    { label: "แจ้งเว็บที่เปิด", ok: true },
                   ].map((f) => (
                     <div key={f.label} className="rounded-lg border p-3 text-xs flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -823,10 +588,6 @@ export default function StudentAgentPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {/* ปุ่มหยุดแชร์ซ่อนไว้ — ไม่ให้ นร เห็น */}
-                  <Button variant="default" size="sm" onClick={sendScreenshotToTeacher} className="gap-2">
-                    <Download className="w-4 h-4" /> ส่งภาพหน้าจอให้ครู
-                  </Button>
                   <Button variant="outline" size="sm" onClick={selfShutdown} className="gap-2">
                     <Power className="w-4 h-4" /> ปิดเครื่องนี้
                   </Button>
@@ -884,7 +645,7 @@ export default function StudentAgentPage() {
                   {[
                     "กรองโฆษณา / เว็บพนัน",
                     "Toolbar ระบุตัวผู้ใช้",
-                    "Screenshot จากครู",
+                    "รายงานเว็บที่กำลังเปิด",
                     "Auto-open Agent Tab",
                   ].map((f) => (
                     <div key={f} className="rounded-lg border p-3 text-xs flex items-center gap-2">

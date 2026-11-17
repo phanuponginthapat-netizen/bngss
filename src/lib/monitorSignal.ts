@@ -1,5 +1,5 @@
 /**
- * WebRTC signaling ผ่าน Supabase Realtime broadcast — ไม่ต้องมี server แยก
+ * สั่งงานเครื่องนักเรียนผ่าน Supabase Realtime broadcast — ไม่ต้องมี server แยก
  * ใช้กับ Classroom Monitor (Phase 3, NetSupport-style)
  *
  * Command actions ที่รองรับ:
@@ -8,21 +8,13 @@
  *   - open-url               : เปิดลิงก์ให้นักเรียนทุกเครื่องอัตโนมัติ
  *   - shutdown / reboot      : สั่งปิด/รีสตาร์ทเครื่อง (ผ่าน local daemon port 9998)
  *   - logout                 : สั่ง logout session ปัจจุบัน
- *   - screenshot             : ขอ screenshot จากเครื่องนักเรียน
- *   - screenshot-image       : ส่งภาพ screenshot กลับหา viewer (base64 dataURL)
+ *   - screenshot-image       : ช่องตอบกลับข้อผิดพลาดของคำสั่ง (ไม่มีการจับ/ส่งภาพหน้าจอ)
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const MONITOR_CHANNEL = "classroom-monitor";
 export const LOCAL_CTL_URL = "http://127.0.0.1:9998";
-
-export const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun.cloudflare.com:3478" },
-  ],
-};
 
 export function createMonitorChannel(userId: string): RealtimeChannel {
   return supabase.channel(MONITOR_CHANNEL, {
@@ -37,17 +29,11 @@ export type CommandAction =
   | "open-url"
   | "shutdown"
   | "reboot"
-  | "logout"
-  | "screenshot";
+  | "logout";
 
 export type MonitorEvent =
-  | { type: "request-stream"; from: string; to: string }
-  | { type: "stop-stream"; from: string; to: string }
-  | { type: "offer"; from: string; to: string; sdp: RTCSessionDescriptionInit }
-  | { type: "answer"; from: string; to: string; sdp: RTCSessionDescriptionInit }
-  | { type: "ice"; from: string; to: string; candidate: RTCIceCandidateInit }
   | { type: "command"; from: string; to: string; action: CommandAction; payload?: any }
-  | { type: "screenshot-image"; from: string; to: string; image: string /* dataURL */; live?: boolean /* ภาพสดแบบเฟรม เมื่อแชร์จอไม่ได้ */; error?: string /* แจ้งครูว่าคำสั่งล้มเหลว */ };
+  | { type: "screenshot-image"; from: string; to: string; image: string; error?: string /* แจ้งครูว่าคำสั่งล้มเหลว */ };
 
 /** Broadcast contains only a receipt; identity, payload and expiry are verified by Cloud. */
 export async function sendMonitorEvent(channel: RealtimeChannel | null, event: MonitorEvent | Record<string, unknown>, name = "monitor") {

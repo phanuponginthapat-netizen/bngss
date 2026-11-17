@@ -145,8 +145,8 @@
     if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_SCREENSHOT" || t === "SB_MESSAGE") {
       try { chrome.runtime.sendMessage(ev.data); } catch {}
     }
-    // คำสั่ งที่ตองได ้รบ ั คำตลบกลบั (screenshot / power) → สง่ ผลกลบั ไปหน้า agent
-    if (t === "SB_CAPTURE_TAB" || t === "SB_POWER" || t === "KIOSK_STATUS") {
+    // คำสั่ งที่ตองได ้รบ ั คำตลบกลบั (power) → สง่ ผลกลบั ไปหน้า agent
+    if (t === "SB_POWER" || t === "KIOSK_STATUS") {
       const id = ev.data.requestId;
       try {
         chrome.runtime.sendMessage(ev.data).then((result) => {
