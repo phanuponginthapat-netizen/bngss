@@ -22,7 +22,7 @@ export function AppSidebar() {
   const { isModuleEnabled } = useModuleToggles();
   const { pathname } = useLocation();
   const [search, setSearch] = useState("");
-  const [closedSections, setClosedSections] = useState<string[]>(["departments"]);
+  const [closedSections, setClosedSections] = useState<string[]>([]);
   const L = (th: string, en: string) => lang === "th" ? th : en;
   // แสดงชื่อบรืการสั้น ๆ บรรทัดเดียว (เช่น "BNG Smart School") โดยไม่แสดงชื่โรงเรียนยาวซ้ำ
   const brandTitle = (() => {
@@ -135,38 +135,38 @@ export function AppSidebar() {
   const toneByUrl = new Map<string, string>();
   areas.forEach(a => a.groups.forEach(g => g.items.forEach(i => { if (!toneByUrl.has(i.url)) toneByUrl.set(i.url, a.key); })));
   const menuItem = (item: { to: string; icon: NavigationItem["icon"]; label: string; tone?: string }, active = pathname === item.to) => (
-    <Fragment key={item.to}><SidebarMenuItem className={item.tone ? `tone-${item.tone}` : undefined}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="side-item group/nav relative h-auto min-h-7 gap-2 rounded-md px-1.5 py-[3px]">
+    <Fragment key={item.to}><SidebarMenuItem className={item.tone ? `tone-${item.tone}` : undefined}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="side-item group/nav relative h-auto min-h-9 gap-2.5 rounded-lg px-2 py-1.5">
       <Link to={item.to} onClick={onNavigate} aria-current={active ? "page" : undefined}>
-        <span className="side-chip flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px]"><item.icon className="h-3 w-3" /></span>
-        <span className="min-w-0 flex-1 !whitespace-normal !overflow-visible break-words text-[12px] leading-[17px]">{item.label}</span>
+        <span className="side-chip flex h-6 w-6 shrink-0 items-center justify-center rounded-md"><item.icon className="h-3.5 w-3.5" /></span>
+        <span className="min-w-0 flex-1 !whitespace-normal !overflow-visible break-words text-[13.5px] leading-[19px]">{item.label}</span>
       </Link>
     </SidebarMenuButton></SidebarMenuItem>{item.to === "/dashboard/profile" && (role === "admin" || role === "observer") && <SidebarMenuItem><WidgetCustomizer sidebar /></SidebarMenuItem>}</Fragment>
   );
   const section = (key: string, label: string, Icon: NavigationItem["icon"], items: { to: string; icon: NavigationItem["icon"]; label: string; active?: boolean; tone?: string }[], tone?: string) => {
     if (!items.length) return null;
     const expanded = Boolean(q) || items.some(item => item.active || item.to === pathname) || !closedSections.includes(key);
-    return <SidebarGroup key={key} className={cn("border-t border-sidebar-border/60 px-0 pb-1 pt-1.5", tone && `tone-${tone}`)}>
-      <SidebarGroupLabel asChild className="mb-0.5 h-auto px-0">
-        <Button variant="ghost" onClick={() => setClosedSections(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key])} aria-expanded={expanded} aria-controls={`sidebar-section-${key}`} className="side-group-head h-auto min-h-6 w-full justify-start gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-semibold">
-          <span className="side-chip flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px]"><Icon className="h-2.5 w-2.5" /></span><span className="min-w-0 flex-1 whitespace-normal text-left">{label}</span><span className="side-count text-[9px] font-normal tabular-nums">{items.length}</span><ChevronDown className={`h-3 w-3 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? "" : "-rotate-90"}`} />
+    return <SidebarGroup key={key} className={cn("border-t border-sidebar-border/60 px-0 pb-2 pt-2.5", tone && `tone-${tone}`)}>
+      <SidebarGroupLabel asChild className="mb-1 h-auto px-0">
+        <Button variant="ghost" onClick={() => setClosedSections(current => current.includes(key) ? current.filter(value => value !== key) : [...current, key])} aria-expanded={expanded} aria-controls={`sidebar-section-${key}`} className="side-group-head h-auto min-h-8 w-full justify-start gap-2 rounded-lg px-2 py-1.5 text-[12.5px] font-semibold">
+          <span className="side-chip flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px]"><Icon className="h-3 w-3" /></span><span className="min-w-0 flex-1 whitespace-normal text-left">{label}</span><span className="side-count text-[10px] font-normal tabular-nums">{items.length}</span><ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform motion-reduce:transition-none ${expanded ? "" : "-rotate-90"}`} />
         </Button>
       </SidebarGroupLabel>
-      <SidebarGroupContent id={`sidebar-section-${key}`} hidden={!expanded}><SidebarMenu className="gap-0.5">{items.map(item => menuItem(item, item.active ?? pathname === item.to))}</SidebarMenu></SidebarGroupContent>
+      <SidebarGroupContent id={`sidebar-section-${key}`} hidden={!expanded}><SidebarMenu className="gap-1">{items.map(item => menuItem(item, item.active ?? pathname === item.to))}</SidebarMenu></SidebarGroupContent>
     </SidebarGroup>;
   };
   return <Sidebar side="right" collapsible="offcanvas" className="border-l border-sidebar-border bg-sidebar">
-    <SidebarHeader className="gap-2 border-b border-sidebar-border/70 px-2.5 pb-2.5 pt-3">
-      <div className="flex items-center gap-2"><span className="side-brand-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sidebar-primary">{schoolLogo ? <img src={schoolLogo} alt="" className="h-full w-full rounded-lg object-cover" /> : <GraduationCap className="h-4 w-4" />}</span><div className="min-w-0 flex-1"><h2 title={appName} className="truncate text-[13px] font-semibold leading-5 !tracking-normal text-sidebar-foreground">{brandTitle}</h2></div><Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="ซ่อนเมนู" title={L("ซ่อนเมนู", "Hide menu")} className="h-6 w-6 shrink-0 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3.5 w-3.5" /></Button></div>
-      {role !== "parent" && <div className="side-search relative"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sidebar-foreground/45" /><Input aria-label="ค้นหาเมนู" placeholder={L("ค้นหาเมนู…", "Search menus…")} value={search} onChange={e => setSearch(e.target.value)} className="h-8 rounded-md border-transparent pl-7 pr-7 text-[11px] text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-0" />{search && <Button variant="ghost" size="icon" aria-label={L("ล้างคำค้น", "Clear search")} onClick={() => setSearch("")} className="absolute right-0.5 top-1/2 h-6 w-6 -translate-y-1/2 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3 w-3" /></Button>}</div>}
+    <SidebarHeader className="gap-2.5 border-b border-sidebar-border/70 px-3 pb-3 pt-3.5">
+      <div className="flex items-center gap-2.5"><span className="side-brand-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sidebar-primary">{schoolLogo ? <img src={schoolLogo} alt="" className="h-full w-full rounded-lg object-cover" /> : <GraduationCap className="h-5 w-5" />}</span><div className="min-w-0 flex-1"><h2 title={appName} className="truncate text-[15px] font-semibold leading-6 !tracking-normal text-sidebar-foreground">{brandTitle}</h2></div><Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="ซ่อนเมนู" title={L("ซ่อนเมนู", "Hide menu")} className="h-7 w-7 shrink-0 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-4 w-4" /></Button></div>
+      {role !== "parent" && <div className="side-search relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/45" /><Input aria-label="ค้นหาเมนู" placeholder={L("ค้นหาเมนู…", "Search menus…")} value={search} onChange={e => setSearch(e.target.value)} className="h-9 rounded-lg border-transparent pl-8 pr-8 text-[12.5px] text-sidebar-foreground placeholder:text-sidebar-foreground/45 focus-visible:ring-0" />{search && <Button variant="ghost" size="icon" aria-label={L("ล้างคำค้น", "Clear search")} onClick={() => setSearch("")} className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"><X className="h-3.5 w-3.5" /></Button>}</div>}
     </SidebarHeader>
-    <SidebarContent className="gap-0.5 px-2 py-2"><ViewModeSwitcher collapsed={false} />
+    <SidebarContent className="gap-1.5 px-2.5 py-3"><ViewModeSwitcher collapsed={false} />
       {compact ? compact.map((group, index) => section(`compact-${index}`, group.label, group.icon ?? FolderOpen, group.items.filter(i => i.label.toLowerCase().includes(q)), group.tone)) : <>
-        <SidebarGroup className="px-0 pb-1 pt-0"><SidebarGroupContent><SidebarMenu className="gap-0.5">{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard, tone: "academic" }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox, tone: "teaching" }, { to: "/dashboard/profile", label: L("โปรไฟล์ของฉัน", "My Profile"), icon: User, tone: "academic" }, ...(toolsArea ? [{ to: areaUrl("tools"), label: toolsArea.label, icon: toolsArea.icon, tone: "tools" }] : [])].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
+        <SidebarGroup className="px-0 pb-1.5 pt-0"><SidebarGroupContent><SidebarMenu className="gap-1">{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard, tone: "academic" }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox, tone: "teaching" }, { to: "/dashboard/profile", label: L("โปรไฟล์ของฉัน", "My Profile"), icon: User, tone: "academic" }, ...(toolsArea ? [{ to: areaUrl("tools"), label: toolsArea.label, icon: toolsArea.icon, tone: "tools" }] : [])].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
         {q ? section("search", L("ผลการค้นหา", "Search results"), Search, searchResults.map(i => ({ to: i.url, label: i.title, icon: i.icon, tone: toneByUrl.get(i.url) }))) : <>
           {section("daily", L("ใช้งานประจำวัน", "Daily work"), Sun, dailyItems.map(i => ({ to: i.url, label: i.title, icon: i.icon, tone: toneByUrl.get(i.url) })), "daily")}
           {section("departments", L("ฝ่ายงานและบริการ", "Departments & services"), BriefcaseBusiness, shownAreas.filter(a => a.key !== "tools").map(a => ({ to: areaUrl(a.key), label: a.label, icon: a.icon, tone: a.key, active: activeArea?.key === a.key })), "academic")}
         </>}
-        {!shownAreas.length && !dailyItems.length && q && ![L("หน้าหลัก", "Dashboard"), L("กล่องข้อความ", "Inbox"), L("โปรไฟล์ของฉัน", "My Profile")].some(label => label.toLowerCase().includes(q)) && <p role="status" className="p-3 text-center text-[11px] leading-4 text-sidebar-foreground/60">{L("ไม่พบเมนูที่ตรงกับคำค้น", "No matching menus")}</p>}
+        {!shownAreas.length && !dailyItems.length && q && ![L("หน้าหลัก", "Dashboard"), L("กล่องข้อความ", "Inbox"), L("โปรไฟล์ของฉัน", "My Profile")].some(label => label.toLowerCase().includes(q)) && <p role="status" className="p-3 text-center text-[12.5px] leading-5 text-sidebar-foreground/60">{L("ไม่พบเมนูที่ตรงกับคำค้น", "No matching menus")}</p>}
       </>}
     </SidebarContent><SidebarAccountFooter />
   </Sidebar>;

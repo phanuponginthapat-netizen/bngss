@@ -152,9 +152,9 @@ export default function WidgetCustomizer({ sidebar = false }: { sidebar?: boolea
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant={sidebar ? "ghost" : "outline"} size="sm" className={sidebar ? "side-item h-auto min-h-7 w-full justify-start gap-2 rounded-md px-1.5 py-[3px] text-sidebar-foreground" : "gap-1.5 rounded-full shadow-sm"}>
-          <Sliders className="w-3.5 h-3.5" />
-          <span className={sidebar ? "text-[12px] leading-[17px]" : undefined}>{L("ปรับวิดเจ็ต", "Customize")}</span>
+        <Button variant={sidebar ? "ghost" : "outline"} size="sm" className={sidebar ? "side-item h-auto min-h-9 w-full justify-start gap-2.5 rounded-lg px-2 py-1.5 text-sidebar-foreground" : "gap-1.5 rounded-full shadow-sm"}>
+          <Sliders className="w-4 h-4" />
+          <span className={sidebar ? "text-[13.5px] leading-[19px]" : undefined}>{L("ปรับวิดเจ็ต", "Customize")}</span>
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">

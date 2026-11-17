@@ -43,7 +43,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
   }
 
   return (
-    <div className="side-mode-track mx-1 my-1 p-0.5 rounded-lg flex items-stretch gap-1">
+    <div className="side-mode-track mx-1 my-1.5 p-1 rounded-xl flex items-stretch gap-1">
       {(["admin", "teacher"] as const).map((m) => {
         const active = viewMode === m;
         const Icon = m === "admin" ? ShieldCheck : GraduationCap;
@@ -53,7 +53,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
             type="button"
             onClick={() => toggle(m)}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1 px-1.5 py-[3px] rounded-md text-[11px] font-semibold transition-all",
+              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all",
               active
                 ? m === "admin"
                   ? "side-mode-admin"
@@ -61,7 +61,7 @@ export function ViewModeSwitcher({ collapsed = false }: { collapsed?: boolean })
                 : "side-mode-idle"
             )}
           >
-            <Icon className="w-3 h-3" />
+            <Icon className="w-3.5 h-3.5" />
             {m === "admin" ? "Admin" : "ครู"}
           </button>
         );

@@ -81,18 +81,18 @@ export function SidebarAccountFooter() {
   }
 
   return (
-    <SidebarFooter className="border-t border-sidebar-primary/20 bg-gradient-to-t from-sidebar-primary/10 via-sidebar-accent/30 to-transparent p-1.5 gap-1">
+    <SidebarFooter className="border-t border-sidebar-primary/20 bg-gradient-to-t from-sidebar-primary/10 via-sidebar-accent/30 to-transparent p-2 gap-1.5">
       {!collapsed ? (
-        <div className="flex items-center gap-1.5 min-w-0 px-1 py-0.5 rounded-lg hover:bg-sidebar-accent/40 transition-colors md:pr-[4.5rem]">
+        <div className="flex items-center gap-2.5 min-w-0 px-1.5 py-1 rounded-lg hover:bg-sidebar-accent/40 transition-colors md:pr-[4.5rem]">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-sidebar-primary/45 flex-shrink-0" />
+            <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-sidebar-primary/45 flex-shrink-0" />
           ) : (
-            <span className="w-7 h-7 rounded-full bg-sidebar-primary/15 ring-2 ring-sidebar-primary/45 flex items-center justify-center flex-shrink-0">
-              <User className="w-3.5 h-3.5 text-sidebar-primary" />
+            <span className="w-9 h-9 rounded-full bg-sidebar-primary/15 ring-2 ring-sidebar-primary/45 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-sidebar-primary" />
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
+            <div className="text-[12.5px] font-semibold text-sidebar-foreground truncate leading-tight">{fullName || userEmail.split("@")[0]}</div>
             {/* ปุ่ ม ออกจากระบบวางข ้าง ๆ ป ้ายสถานะบทบาท (ม ุมขวาล ่างท ี่เด ิมซ ้อนก ับฟอง AI) */}
             <div className="mt-0.5 flex items-center gap-1">
               {shownBadges.map((b, i) => (
@@ -109,7 +109,7 @@ export function SidebarAccountFooter() {
                   className={cn(
                     "side-role-badge",
                     `tone-${b.tone}`,
-                    "whitespace-nowrap text-[10px] px-2 py-[3px] leading-[1.35] font-bold transition-opacity",
+                    "whitespace-nowrap text-[11px] px-2 py-[3px] leading-[1.35] font-bold transition-opacity",
                     !b.active && "opacity-60"
                   )}
                 >
@@ -120,9 +120,9 @@ export function SidebarAccountFooter() {
                 onClick={handleLogout}
                 title={t("logout")}
                 aria-label={t("logout")}
-                className="flex-shrink-0 w-6 h-4 rounded-[5px] border border-destructive/25 bg-destructive/5 inline-flex items-center justify-center text-destructive/80 hover:bg-destructive/15 hover:text-destructive transition-colors"
+                className="flex-shrink-0 w-7 h-5 rounded-[6px] border border-destructive/25 bg-destructive/5 inline-flex items-center justify-center text-destructive/80 hover:bg-destructive/15 hover:text-destructive transition-colors"
               >
-                <LogOut className="w-3 h-3" />
+                <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
