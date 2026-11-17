@@ -242,6 +242,35 @@ a[href*="lovable.dev"][href*="utm"] {
     --info-foreground: 0 0% 100%;
   }
 
+  .dark {
+    --background: 220 18% 10%;
+    --foreground: 210 20% 94%;
+    --card: 220 16% 14%;
+    --card-foreground: 210 20% 94%;
+    --popover: 220 16% 16%;
+    --popover-foreground: 210 20% 94%;
+    --primary: 199 89% 64%;
+    --primary-foreground: 220 24% 10%;
+    --primary-glow: 199 85% 72%;
+    --secondary: 12 20% 22%;
+    --secondary-foreground: 12 80% 88%;
+    --muted: 220 14% 20%;
+    --muted-foreground: 215 16% 72%;
+    --accent: 12 24% 25%;
+    --accent-foreground: 12 85% 90%;
+    --destructive: 0 74% 64%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 26%;
+    --input: 220 14% 29%;
+    --ring: 199 89% 64%;
+    --success: 152 62% 54%;
+    --success-foreground: 152 50% 10%;
+    --warning: 38 92% 62%;
+    --warning-foreground: 38 60% 10%;
+    --info: 199 89% 64%;
+    --info-foreground: 220 24% 10%;
+  }
+
 }
 
 @layer base {
