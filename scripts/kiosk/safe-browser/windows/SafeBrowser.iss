@@ -28,11 +28,11 @@ Source: "..\..\..\..\extension\*"; DestDir: "{app}\extension"; Excludes: "_metad
 ; Shared copy that installed Chrome loads once via "Load unpacked"; every update refreshes it in place
 Source: "..\..\..\..\extension\*"; DestDir: "{commonappdata}\BNG Safe Browser\extension"; Excludes: "_metadata,AGENTS.md"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "tasks.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\..\..\dist-safebrowser\WifiHelper\*"; DestDir: "{app}\wifi"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\wifi\com.bngss.wifi.json"; DestDir: "{app}\wifi"; Flags: ignoreversion
 
 [Dirs]
 Name: "{commonappdata}\BNG Safe Browser"; Permissions: users-modify
-Source: "..\..\..\..\dist-safebrowser\WifiHelper\*"; DestDir: "{app}\wifi"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\wifi\com.bngss.wifi.json"; DestDir: "{app}\wifi"; Flags: ignoreversion
 
 [Registry]
 ; Wi-Fi helper for the school extension (Native Messaging) — Chrome, Chrome for Testing, Edge
