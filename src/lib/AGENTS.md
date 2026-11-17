@@ -32,3 +32,4 @@
 - AR, asset, leave, social and task media use the shared authenticated storage resolver; task attachment reads require the exact assigned recipient, sender folder and saved path, while failed previews preserve their original item positions.
 - ID card uploads pass through idPhotoCrop (largest-face crop at card ratio + gentle auto-levels) and reject photos without a face, so printed cards never receive unframed or wrong images.
 - ID card framing anchors on face-api brow-to-chin landmarks calibrated against the latest supplied portrait references, never the forehead-inclusive SSD box; fall back to the detector box only when landmarks are unusable, so framing follows measured faces rather than detector margins.
+- ID portraits use lazy browser-local MODNet matting after crop/levels and flatten soft alpha onto white; never regenerate faces or upload on matting failure, and allow explicit original-background opt-out to preserve identity and safe retries.

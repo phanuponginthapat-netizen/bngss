@@ -85,7 +85,11 @@ const loadImage = (file: File) => new Promise<HTMLImageElement>((resolve, reject
  * ทำรูปติดบัตร: ตรวจหาใบหน้า ตัดหน้าตรงตามสัดส่วนรูปติดบัตร ปรับแสง แล้วคืน JPEG 413×531
  * ถ้าไม่พบใบหน้าหรือพบหลายคน จะ throw เพื่อไม่ให้บันทึกรูปผิดลงบัตร
  */
-export async function makeIdCardPhoto(file: File): Promise<File> {
+export async function makeIdCardPhoto(
+  file: File,
+  options: { removeBackground?: boolean; onProgress?: (message: string) => void } = {},
+): Promise<File> {
+  options.onProgress?.("กำลังจัดรูปติดบัตร...");
   const img = await loadImage(file);
   const faceapi = await import("@vladmandic/face-api");
   const { loadFaceModels, detectorOptionsHQ } = await import("./faceApi");
@@ -115,6 +119,10 @@ export async function makeIdCardPhoto(file: File): Promise<File> {
   const pixels = ctx.getImageData(0, 0, ID_PHOTO_WIDTH, ID_PHOTO_HEIGHT);
   autoLevels(pixels.data);
   ctx.putImageData(pixels, 0, 0);
+  if (options.removeBackground !== false) {
+    const { removeIdPhotoBackground } = await import("./idPhotoBackground");
+    await removeIdPhotoBackground(canvas, options.onProgress);
+  }
   const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, "image/jpeg", 0.92));
   if (!blob) throw new Error("สร้างรูปติดบัตรไม่สำเร็จ");
   return new File([blob], "id-photo.jpg", { type: "image/jpeg" });
