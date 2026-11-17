@@ -155,6 +155,34 @@ chrome.windows.onRemoved.addListener(async (id) => {
   if (main?.id) chrome.windows.update(main.id, { focused: true }).catch(() => {});
 });
 
+// สถานะเครื่องจากส่วนขยายเอง ทุก 30 วิ — หน้า Agent ที่ซ่อนอยู่อาจถูก Chrome หยุดชั่วคราว
+// ทำให้ระบบเห็นเครื่องนักเรียนเป็นออฟไลน์ทั้งที่ยังใช้งานอยู่
+async function extHeartbeat() {
+  try {
+    const session = await getValidSession();
+    if (!session?.access_token || !isStudentSession(session)) return;
+    let { extDeviceId } = await chrome.storage.local.get(["extDeviceId"]);
+    if (!extDeviceId) { extDeviceId = crypto.randomUUID(); await chrome.storage.local.set({ extDeviceId }); }
+    await loadBackend();
+    const st = await kioskLauncher("/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version)).catch(() => null);
+    const ua = navigator.userAgent;
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/kiosk_heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        _device_id: extDeviceId,
+        _hostname: /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromiumOS" : /Linux/.test(ua) ? "Linux" : "Chrome",
+        _user_agent: ua, _status: "online", _kiosk_mode: "student",
+        _extension_installed: true, _extension_version: chrome.runtime.getManifest().version,
+        _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
+      }),
+    });
+  } catch { /* ออฟไลน์ชั่วคราว ลองใหม่รอบหน้า */ }
+}
+chrome.alarms?.create?.("ext-heartbeat", { periodInMinutes: 0.5 });
+chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "ext-heartbeat") extHeartbeat(); });
+extHeartbeat();
+
 // re-open ถ้านักเรียนปิด agent tab
 chrome.tabs.onRemoved.addListener(async (tabId, info) => {
   if (info.isWindowClosing) return;
@@ -669,6 +697,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   } else if (msg?.type === "GET_STATE") {
     getState().then((s) => sendResponse(s));
     return true;
+  } else if (msg?.type === "SB_DEVICE_ID") {
+    if (school && typeof msg.id === "string" && /^[\w-]{8,64}$/.test(msg.id)) chrome.storage.local.set({ extDeviceId: msg.id });
+    sendResponse({ ok: true });
   } else if (msg?.type === "SB_USER_OPEN") {
     // ผู้ใช้กดเปิดเว็บเองจากหน้าระบบโรงเรียน → เปิดแท็บใหม่ (ผ่าน filter/log ตามปกติ)
     if (!school || !/^https?:\/\//i.test(msg.url || "")) { sendResponse({ ok: false }); return false; }

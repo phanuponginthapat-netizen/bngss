@@ -1,6 +1,11 @@
 // Runs on the school system pages — sync Supabase session into extension storage.
 (function () {
   if (!self.sbTrustedSchoolUrl(location.href)) return;
+  // แชร์รหัสเครื่องของหน้าเว็บให้ส่วนขยาย เพื่อส่งสถานะเครื่องแถวเดียวกับหน้า Agent
+  try {
+    const did = localStorage.getItem("kiosk_device_id_v1");
+    if (did) chrome.runtime.sendMessage({ type: "SB_DEVICE_ID", id: did }).catch?.(() => {});
+  } catch {}
   // ค้นหา backend จาก localStorage ของหน้าเว็บ (ไม่ hardcode project อีกต่อไป)
   function detect() {
     let ref = null, url = "", anon = "";
