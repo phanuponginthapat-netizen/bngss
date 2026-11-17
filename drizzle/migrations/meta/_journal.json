@@ -421,6 +421,13 @@
       "when": 1794891836160,
       "tag": "0059_ict_device_loan_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1794892131696,
+      "tag": "0060_ict_loan_evidence_staff_read",
+      "breakpoints": true
     }
   ]
 }

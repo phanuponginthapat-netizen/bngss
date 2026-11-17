@@ -1,0 +1,1 @@
+CREATE POLICY ict_loan_photos_staff_read ON storage.objects FOR SELECT TO authenticated USING (bucket_id='ict-loan-photos' AND public._staff_check(auth.uid()));
