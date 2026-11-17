@@ -633,201 +633,6 @@ const HomeworkPage = () => {
 
 // ================= Sub-components =================
 
-const SUBJECT_GRADIENTS = [
-  "from-sky-500/15 via-sky-500/5 to-transparent",
-  "from-violet-500/15 via-violet-500/5 to-transparent",
-  "from-emerald-500/15 via-emerald-500/5 to-transparent",
-  "from-amber-500/15 via-amber-500/5 to-transparent",
-  "from-rose-500/15 via-rose-500/5 to-transparent",
-  "from-cyan-500/15 via-cyan-500/5 to-transparent",
-];
-const SUBJECT_ICON_BG = [
-  "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-  "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
-];
-function pickTheme(seed: string) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return h % SUBJECT_GRADIENTS.length;
-}
-
-function computeStats(items: any[], totalStudents: number) {
-  const now = new Date();
-  const in3days = new Date(Date.now() + 3 * 86400_000);
-  let pending = 0, graded = 0, submittedNotGraded = 0, dueSoon = 0, overdue = 0, totalExpected = 0, totalSubmissions = 0;
-  items.forEach((hw) => {
-    const subs = (hw.submissions as SubmissionsMap) || {};
-    const values = Object.values(subs);
-    totalSubmissions += values.length;
-    totalExpected += totalStudents;
-    values.forEach((s: any) => {
-      if (s.status === "submitted") { submittedNotGraded++; pending++; }
-      else if (s.status === "graded") graded++;
-    });
-    if (hw.due_date) {
-      const d = new Date(hw.due_date);
-      if (d < now) overdue++;
-      else if (d <= in3days) dueSoon++;
-    }
-  });
-  const submitRate = totalExpected > 0 ? Math.round((totalSubmissions / totalExpected) * 100) : 0;
-  return { pending, graded, submittedNotGraded, dueSoon, overdue, totalSubmissions, totalExpected, submitRate };
-}
-
-function SubjectDashboardTile({
-  subjectLabel, classLabel, items, totalStudents, onClick,
-}: {
-  subjectLabel: string; classLabel: string; items: any[]; totalStudents: number; onClick: () => void;
-}) {
-  const stats = computeStats(items, totalStudents);
-  const themeIdx = pickTheme(subjectLabel + classLabel);
-  return (
-    <button
-      onClick={onClick}
-      className="text-left group relative rounded-2xl border border-border/60 bg-card overflow-hidden hover:shadow-elevated hover:-translate-y-0.5 transition-all"
-    >
-      <div className={`absolute inset-0 bg-gradient-to-br ${SUBJECT_GRADIENTS[themeIdx]} pointer-events-none`} />
-      <div className="relative p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${SUBJECT_ICON_BG[themeIdx]}`}>
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-foreground truncate">{subjectLabel}</div>
-            {classLabel && <div className="text-xs text-muted-foreground mt-0.5 truncate">ห้อง {classLabel}</div>}
-          </div>
-          <Badge variant="secondary" className="shrink-0">{items.length} ชิ้น</Badge>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-          <StatMini icon={<Clock className="w-3.5 h-3.5" />} label="รอตรวจ" value={stats.pending} tone="warning" />
-          <StatMini icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="ตรวจแล้ว" value={stats.graded} tone="success" />
-          <StatMini icon={<AlertCircle className="w-3.5 h-3.5" />} label="เลยกำหนด" value={stats.overdue} tone="danger" />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-            <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" /> อัตราการส่ง</span>
-            <span className="font-semibold text-foreground">{stats.submitRate}%</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
-              style={{ width: `${Math.min(100, stats.submitRate)}%` }}
-            />
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function StatMini({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: "warning" | "success" | "danger" }) {
-  const toneMap = {
-    warning: "text-warning bg-warning/10",
-    success: "text-success bg-success/10",
-    danger: "text-destructive bg-destructive/10",
-  };
-  return (
-    <div className="rounded-lg bg-background/60 border border-border/40 p-2">
-      <div className={`inline-flex items-center justify-center w-6 h-6 rounded-md ${toneMap[tone]}`}>{icon}</div>
-      <div className="text-lg font-bold leading-tight mt-1">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function DashStat({
-  icon, label, value, tone,
-}: {
-  icon: React.ReactNode; label: string; value: number; tone: "warning" | "success" | "danger" | "info";
-}) {
-  const toneMap = {
-    info: "text-sky-600 bg-sky-100 ring-sky-200",
-    warning: "text-amber-600 bg-amber-100 ring-amber-200",
-    success: "text-emerald-600 bg-emerald-100 ring-emerald-200",
-    danger: "text-rose-600 bg-rose-100 ring-rose-200",
-  } as const;
-  return (
-    <div className="relative rounded-2xl bg-card border border-border/60 p-4 shadow-sm hover:shadow-elevated transition-all">
-      <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ring-1 ${toneMap[tone]}`}>{icon}</div>
-      <div className="mt-3 text-3xl font-bold leading-none text-foreground tabular-nums">{value}</div>
-      <div className="text-xs text-muted-foreground font-medium mt-1">{label}</div>
-    </div>
-  );
-}
-
-function SubjectDetailHeader({
-  subjectLabel, classLabel, items, totalStudents,
-}: {
-  subjectLabel: string; classLabel: string; items: any[]; totalStudents: number;
-}) {
-  const stats = computeStats(items, totalStudents);
-  const themeIdx = pickTheme(subjectLabel + classLabel);
-  return (
-    <div className="space-y-4">
-      {/* Hero */}
-      <Card className="relative overflow-hidden border-border/60">
-        <div className={`absolute inset-0 bg-gradient-to-br ${SUBJECT_GRADIENTS[themeIdx]} pointer-events-none`} />
-        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-        <CardContent className="relative p-6">
-          <div className="flex items-center gap-5 flex-wrap">
-            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${SUBJECT_ICON_BG[themeIdx]}`}>
-              <BookOpen className="w-8 h-8" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">แดชบอร์ดรายวิชา</div>
-              <div className="text-2xl md:text-3xl font-bold text-foreground truncate">{subjectLabel}</div>
-              <div className="text-sm text-muted-foreground flex items-center gap-4 flex-wrap mt-2">
-                {classLabel && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <LayoutGrid className="w-4 h-4" /> ห้อง <span className="font-semibold text-foreground">{classLabel}</span>
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1.5">
-                  <Users className="w-4 h-4" /> <span className="font-semibold text-foreground">{totalStudents}</span> คน
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="w-4 h-4" /> <span className="font-semibold text-foreground">{items.length}</span> การบ้าน
-                </span>
-              </div>
-            </div>
-
-            {/* Overall progress ring/bar */}
-            <div className="min-w-[180px] shrink-0">
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">อัตราการส่ง</span>
-                <span className="text-lg font-bold text-primary tabular-nums">{stats.submitRate}%</span>
-              </div>
-              <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all"
-                  style={{ width: `${Math.min(100, stats.submitRate)}%` }}
-                />
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-1.5">
-                ส่ง {stats.totalSubmissions} / {stats.totalExpected} ครั้ง
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <DashStat icon={<Clock className="w-5 h-5" />} label="รอตรวจ" value={stats.pending} tone="warning" />
-        <DashStat icon={<CheckCircle2 className="w-5 h-5" />} label="ตรวจแล้ว" value={stats.graded} tone="success" />
-        <DashStat icon={<AlertCircle className="w-5 h-5" />} label="ใกล้ครบกำหนด" value={stats.dueSoon} tone="info" />
-        <DashStat icon={<AlertCircle className="w-5 h-5" />} label="เลยกำหนด" value={stats.overdue} tone="danger" />
-      </div>
-    </div>
-  );
-}
-
 function HomeworkDetailCard({
   hw, isStudentLike, isParent, isAdmin, isDirector, isTeacher, userId, studentRow, fullName, onDelete,
 }: {
@@ -921,45 +726,104 @@ function HomeworkDetailCard({
             invalidateKeys={[["homework-list"]]}
             readOnly={isParent}
           />
-        ) : (
-          (isTeacher || isAdmin || isDirector) && (
-            <div className="pt-1">
-              <TeacherRepliesButton hw={hw} />
-            </div>
-          )
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
 
-function TeacherRepliesButton({ hw }: { hw: any }) {
+type HomeworkRow = {
+  key: string; kind: "task" | "rich"; id: string; title: string;
+  subjectLabel: string; classLabel: string; due: string | null;
+  total: number; pending: number; graded: number; overdue: boolean;
+  raw: any; canEdit: boolean;
+};
+
+function FilterChip({ label, value, active, onClick }: { label: string; value: number; active: boolean; onClick: () => void }) {
+  return (
+    <Button variant={active ? "secondary" : "ghost"} size="sm" className="h-8 text-xs gap-1.5" onClick={onClick}>
+      {label}
+      <span className="tabular-nums rounded-full bg-muted px-1.5 text-[11px] font-semibold">{value}</span>
+    </Button>
+  );
+}
+
+function HomeworkRowCard({ row, onCheckRich, onEditRich, onDelete }: {
+  row: HomeworkRow; onCheckRich: (id: string) => void; onEditRich: (id: string) => void; onDelete: (hw: any) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card px-3 py-2.5 flex items-center gap-3 flex-wrap sm:flex-nowrap hover:shadow-elevated transition-shadow">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${row.kind === "rich" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+        {row.kind === "rich" ? <Sparkles className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-sm truncate">{row.title}</div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+          {row.subjectLabel && <span>{row.subjectLabel}</span>}
+          {row.classLabel && <span>· ห้อง {row.classLabel}</span>}
+          {row.due && (
+            <span className={row.overdue ? "text-destructive font-medium" : ""}>
+              · กำหนดส่ง {new Date(row.due).toLocaleDateString("th-TH")}{row.overdue ? " · เลยกำหนด" : ""}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+        {row.kind === "task" && row.pending > 0 && (
+          <Badge variant="outline" className="border-warning/40 text-warning">รอตรวจ {row.pending}</Badge>
+        )}
+        {row.kind === "task" && row.graded > 0 && (
+          <Badge variant="outline" className="border-success/40 text-success">ตรวจแล้ว {row.graded}</Badge>
+        )}
+        {row.kind === "task" && row.total === 0 && (
+          <Badge variant="outline" className="text-muted-foreground">ยังไม่มีคนส่ง</Badge>
+        )}
+        {row.kind === "task" ? (
+          <GradeTaskDialog hw={row.raw} />
+        ) : (
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => onCheckRich(row.id)}>
+            <ClipboardList className="w-4 h-4" /> ตรวจ
+          </Button>
+        )}
+        {row.canEdit && row.kind === "task" && <EditHomeworkButton hw={row.raw} />}
+        {row.canEdit && row.kind === "rich" && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="แก้ไขใบงาน" aria-label="แก้ไขใบงาน" onClick={() => onEditRich(row.id)}>
+            <Pencil className="w-4 h-4" />
+          </Button>
+        )}
+        {row.canEdit && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="ลบ" aria-label="ลบ" onClick={() => onDelete(row.raw)}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GradeTaskDialog({ hw }: { hw: any }) {
   const [open, setOpen] = useState(false);
   const subs = (hw.submissions as SubmissionsMap) || {};
   const total = Object.keys(subs).length;
-  const pending = Object.values(subs).filter((s) => s.status === "submitted").length;
+  const pending = Object.values(subs).filter((s: any) => s.status === "submitted").length;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1">
-          <MessageSquare className="w-4 h-4" />
-          ดูการตอบกลับ
-          <Badge variant="secondary" className="ml-1">{total}</Badge>
-          {pending > 0 && <Badge className="ml-1 bg-sky-100 text-sky-700">รอตรวจ {pending}</Badge>}
+        <Button size="sm" className="gap-1">
+          <ClipboardList className="w-4 h-4" /> ตรวจ
+          {pending > 0 && <span className="tabular-nums">({pending})</span>}
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[100dvw] h-[100dvh] max-w-none rounded-none sm:rounded-lg sm:max-w-[1440px] sm:w-[96vw] sm:h-[92dvh] sm:max-h-[92dvh] p-0 sm:p-0 overflow-hidden flex flex-col gap-0">
+      <DialogContent className="w-[100dvw] h-[100dvh] max-w-none rounded-none sm:rounded-lg sm:max-w-[1440px] sm:w-[96vw] sm:h-[92dvh] sm:max-h-[92dvh] p-0 overflow-hidden flex flex-col gap-0">
         <DialogHeader className="px-6 py-4 border-b bg-card shrink-0">
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-sm">
-              <MessageSquare className="w-5 h-5" />
+              <ClipboardList className="w-5 h-5" />
             </div>
             <div className="flex flex-col items-start">
-              <span className="text-lg font-bold">การตอบกลับ — {hw.title}</span>
-              <span className="text-[11px] text-muted-foreground font-normal uppercase tracking-wide">
-                รอตรวจ {pending} · ส่งแล้ว {total}
-              </span>
+              <span className="text-lg font-bold">ตรวจการบ้าน — {hw.title}</span>
+              <span className="text-[11px] text-muted-foreground font-normal">รอตรวจ {pending} · ส่งแล้ว {total}</span>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -978,7 +842,6 @@ function TeacherRepliesButton({ hw }: { hw: any }) {
     </Dialog>
   );
 }
-
 
 
 function EditHomeworkButton({ hw }: { hw: any }) {
@@ -1017,8 +880,8 @@ function EditHomeworkButton({ hw }: { hw: any }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <Pencil className="w-4 h-4 mr-1" /> แก้ไข
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="แก้ไขการบ้าน" aria-label="แก้ไขการบ้าน">
+          <Pencil className="w-4 h-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg sm:max-h-[85vh] overflow-y-auto">
