@@ -147,6 +147,8 @@ function CardTab() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [generating, setGenerating] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [removeBackground, setRemoveBackground] = useState(true);
+  const [photoProgress, setPhotoProgress] = useState("");
   // Cart (multi-student picking across classrooms)
   const [cartClassroomId, setCartClassroomId] = useState("");
   const [cartSearch, setCartSearch] = useState("");
@@ -168,12 +170,14 @@ function CardTab() {
   const handlePhotoUpload = async (student: StudentForCard, file: File) => {
     if (!file) return;
     setUploadingId(student.id);
+    setPhotoProgress("กำลังจัดรูปติดบัตร...");
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) throw new Error("ไม่พบผู้ใช้งานที่ล็อกอินอยู่");
 
       // ตัดหน้าตรงและปรับแสงเป็นรูปติดบัตร 413×531 ก่อนบันทึก
-      const idPhoto = await makeIdCardPhoto(file);
+      const idPhoto = await makeIdCardPhoto(file, { removeBackground, onProgress: setPhotoProgress });
+      setPhotoProgress("กำลังบันทึกรูป...");
       const compressed = await compressImage(idPhoto, { maxWidth: 413, maxSizeKB: 150 });
       const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]+/g, "-");
       const fileName = `${user.id}/student-${student.id}/avatar_${Date.now()}_${safeName}`;
@@ -193,6 +197,7 @@ function CardTab() {
 
       // 3) ซิงค์ใบหน้าจากรูปใหม่ทันที เหมือนตอนใส่รูปครั้งแรก — ถ้าอ่านใบหน้าไม่ได้ รูปยังอยู่ แจ้งให้ไปซิงค์ในหน้าลงทะเบียน
       let faceSynced = false;
+      setPhotoProgress("กำลังซิงค์ใบหน้า...");
       try {
         await syncStudentFaceFromFile(student.id, idPhoto, user.id);
         faceSynced = true;
@@ -216,6 +221,7 @@ function CardTab() {
       toast.error(saveErrorMessage(e));
     } finally {
       setUploadingId(null);
+      setPhotoProgress("");
     }
   };
 
@@ -580,7 +586,10 @@ function CardTab() {
 
       {students.length > 0 && (
         <>
-          <p className="text-sm text-muted-foreground">ตัวอย่าง — กดปุ่ม "อัปโหลดรูป" ระบบจะตัดหน้าตรงและปรับแสงเป็นรูปติดบัตรให้อัตโนมัติ แล้วใส่ลงบัตรและตั้งเป็นรูปโปรไฟล์ของนักเรียนทันที</p>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={removeBackground} disabled={uploadingId !== null} onCheckedChange={(checked) => setRemoveBackground(checked === true)} />
+            ตัดพื้นหลังเป็นสีขาว
+          </label>
           <div className="flex flex-wrap gap-4">
             {students.map((s) => {
               const hasPhoto = !!(s.avatar_url || s.photo_url);
@@ -594,7 +603,7 @@ function CardTab() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      disabled={isUploading}
+                      disabled={uploadingId !== null}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (f) handlePhotoUpload(s, f);
@@ -603,13 +612,13 @@ function CardTab() {
                     />
                     <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary transition">
                       {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                      {isUploading ? "กำลังตัดรูปติดบัตร..." : hasPhoto ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+                      {isUploading ? photoProgress : hasPhoto ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
                     </span>
                   </label>
                   {hasPhoto && (
                     <button
                       type="button"
-                      disabled={isUploading}
+                      disabled={uploadingId !== null}
                       onClick={() => handlePhotoDelete(s)}
                       className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-destructive/30 bg-destructive/5 hover:bg-destructive/10 text-destructive transition disabled:opacity-50"
                     >
