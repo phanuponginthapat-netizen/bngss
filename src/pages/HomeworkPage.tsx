@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BookOpen, Loader2, Trash2, MessageSquare, Pencil, Paperclip, ArrowLeft, CheckCircle2, Clock, AlertCircle, Users, CalendarDays, LayoutGrid } from "lucide-react";
+import { Plus, BookOpen, Loader2, Trash2, Pencil, Paperclip, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import AttachmentUploader from "@/components/homework/AttachmentUploader";
 import AttachmentList from "@/components/homework/AttachmentList";
