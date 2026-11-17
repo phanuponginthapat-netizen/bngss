@@ -1,5 +1,6 @@
 import { getBackendConfig } from "@/lib/runtimeConfig";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveDirectorSignature } from "@/lib/signatureImage";
 
 /**
  * โหลด branding จาก cms_settings + ตาราง schools แล้วสร้าง manifest.json + favicon แบบไดนามิก
@@ -85,6 +86,7 @@ export async function applyDynamicBranding() {
           "director_name",
           "director_title",
           "director_signature_url",
+          "director_signature",
           "school_seal_url",
           "school_address",
           "school_phone",
@@ -98,6 +100,8 @@ export async function applyDynamicBranding() {
         .maybeSingle(),
     ]);
 
+    if (cmsRes.error) throw cmsRes.error;
+    if (schoolRes.error) throw schoolRes.error;
     const map: Record<string, string> = {};
     (cmsRes.data || []).forEach((r: any) => {
       if (r?.value) map[r.key] = r.value;
@@ -160,7 +164,7 @@ export async function applyDynamicBranding() {
 
 
 
-    const branding = { name, shortName, logo: logo192, favicon: map.app_favicon_url || logo192, themeColor, directorName: map.director_name || "", directorTitle: map.director_title || "ผู้อำนวยการโรงเรียน", directorSig: map.director_signature_url || "", schoolSeal: map.school_seal_url || "", schoolAddress: map.school_address || "", schoolPhone: map.school_phone || "", garuda: map.garuda_emblem || logo192 };
+    const branding = { name, shortName, logo: logo192, favicon: map.app_favicon_url || logo192, themeColor, directorName: map.director_name || "", directorTitle: map.director_title || "ผู้อำนวยการโรงเรียน", directorSig: resolveDirectorSignature(map), schoolSeal: map.school_seal_url || "", schoolAddress: map.school_address || "", schoolPhone: map.school_phone || "", garuda: map.garuda_emblem || logo192 };
     (window as any).__branding = branding;
     applyThemeVars(themeColor);
     try { localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(branding)); } catch {}

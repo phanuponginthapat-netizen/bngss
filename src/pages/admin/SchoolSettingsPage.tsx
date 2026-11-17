@@ -20,6 +20,9 @@ import FieldVisibilityPage from "./FieldVisibilityPage";
 import ModuleTogglesPage from "./ModuleTogglesPage";
 import DashboardShortcutsAdminPage from "./DashboardShortcutsAdminPage";
 import BrowserShortcutsAdminPage from "./BrowserShortcutsAdminPage";
+import { uploadDirectorSignature } from "@/lib/directorSignature";
+import { resolveDirectorSignature } from "@/lib/signatureImage";
+import { applyDynamicBranding } from "@/lib/dynamicManifest";
 
 function GeneralSchoolSettings() {
   const qc = useQueryClient();
@@ -59,15 +62,31 @@ function GeneralSchoolSettings() {
   const { data: cmsBranding } = useQuery({
     queryKey: ["cms_branding_sig"],
     queryFn: async () => {
-      const { data } = await supabase.from("cms_settings").select("key,value").in("key", ["director_signature_url","school_seal_url"]);
+      const { data, error } = await supabase.from("cms_settings").select("key,value").in("key", ["director_signature", "director_signature_url","school_seal_url"]);
+      if (error) throw error;
       const m: Record<string,string> = {}; (data||[]).forEach((r:any)=> m[r.key]=r.value);
-      setDirectorSig(m.director_signature_url||"");
+      setDirectorSig(resolveDirectorSignature(m));
       setSchoolSeal(m.school_seal_url||"");
       return m;
     }
   });
 
   const uploadSig = async (file: File, key: string, setter: (v:string)=>void) => {
+    if (key === "director_signature_url") {
+      if (uploadingSig) return;
+      setUploadingSig(true);
+      try {
+        const url = await uploadDirectorSignature(file);
+        setter(url);
+        await qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+        await qc.invalidateQueries({ queryKey: ["cms_branding_sig"] });
+        await applyDynamicBranding();
+        swal.toast.success("บันทึกลายเซ็นพื้นหลังโปร่งใสแล้ว");
+      } catch (error) {
+        swal.error(error instanceof Error ? error.message : "บันทึกลายเซ็นไม่สำเร็จ");
+      } finally { setUploadingSig(false); }
+      return;
+    }
     if (file.size > 2*1024*1024) { swal.toast.error("ไฟล์ต้องไม่เกิน 2MB"); return; }
     setUploadingSig(true);
     const ext = file.name.split(".").pop()||"png";
