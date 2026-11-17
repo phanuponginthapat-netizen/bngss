@@ -47,7 +47,7 @@ export type MonitorEvent =
   | { type: "answer"; from: string; to: string; sdp: RTCSessionDescriptionInit }
   | { type: "ice"; from: string; to: string; candidate: RTCIceCandidateInit }
   | { type: "command"; from: string; to: string; action: CommandAction; payload?: any }
-  | { type: "screenshot-image"; from: string; to: string; image: string /* dataURL */ };
+  | { type: "screenshot-image"; from: string; to: string; image: string /* dataURL */; live?: boolean /* ภาพสดแบบเฟรม เมื่อแชร์จอไม่ได้ */ };
 
 /** Broadcast contains only a receipt; identity, payload and expiry are verified by Cloud. */
 export async function sendMonitorEvent(channel: RealtimeChannel | null, event: MonitorEvent | Record<string, unknown>, name = "monitor") {

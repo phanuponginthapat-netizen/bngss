@@ -40,6 +40,8 @@ export default function ClassroomMonitorPage() {
   const videoRefs = useRef<Map<string, HTMLVideoElement | null>>(new Map());
   const agentsRef = useRef<Record<string, AgentCard>>({});
   const [, forceRerender] = useState(0);
+  // ภาพสดแบบเฟรม (เครื่องที่ใช้ Chrome ปกติ แชร์จอเบื้องหลังไม่ได้)
+  const [liveFrames, setLiveFrames] = useState<Record<string, string>>({});
   const bump = () => forceRerender((n) => n + 1);
 
   // keep ref in sync so broadcast handler (registered once) sees latest names
@@ -78,6 +80,11 @@ export default function ClassroomMonitorPage() {
       if (payload.type === "screenshot-image") {
         // ครูขอ → to=me.id, นักเรียนส่งเอง → to="*"
         if (payload.to !== me.id && payload.to !== "*") return;
+        if (payload.live) {
+          if (payload.to !== me.id) return;
+          setLiveFrames((f) => ({ ...f, [payload.from]: payload.image }));
+          return;
+        }
         const a = agentsRef.current[payload.from];
         const isUnsolicited = payload.to === "*";
         setShotDialog({ name: a?.name || "นักเรียน", image: payload.image });
@@ -179,6 +186,7 @@ export default function ClassroomMonitorPage() {
   function stopView(agentId: string) {
     if (!me) return;
     send({ type: "stop-stream", from: me.id, to: agentId });
+    setLiveFrames((f) => { const n = { ...f }; delete n[agentId]; return n; });
     peersRef.current.get(agentId)?.close();
     peersRef.current.delete(agentId);
     streamsRef.current.delete(agentId);
@@ -416,6 +424,8 @@ export default function ClassroomMonitorPage() {
                     ref={(el) => { videoRefs.current.set(a.user_id, el); const s = streamsRef.current.get(a.user_id); if (el && s && el.srcObject !== s) { el.srcObject = s; el.play().catch(() => {}); } }}
                     autoPlay playsInline muted className="w-full h-full object-contain"
                   />
+                ) : liveFrames[a.user_id] ? (
+                  <img src={liveFrames[a.user_id]} alt={`หน้าจอ ${a.name}`} className="w-full h-full object-contain" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white/40 text-xs">ยังไม่ได้ขอดูจอ</div>
                 )}
@@ -434,7 +444,7 @@ export default function ClassroomMonitorPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
-                  {a.streaming ? (
+                  {a.streaming || liveFrames[a.user_id] ? (
                     <Button size="sm" variant="outline" onClick={() => stopView(a.user_id)} className="gap-1 col-span-1"><EyeOff className="w-3.5 h-3.5" /></Button>
                   ) : (
                     <Button size="sm" onClick={() => view(a)} className="gap-1 col-span-1"><Eye className="w-3.5 h-3.5" /></Button>

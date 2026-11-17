@@ -261,6 +261,8 @@ export default function StudentAgentPage() {
     return () => {
       peersRef.current.forEach((pc) => pc.close());
       peersRef.current.clear();
+      liveTimersRef.current.forEach((t) => clearInterval(t));
+      liveTimersRef.current.clear();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       supabase.removeChannel(ch);
@@ -440,10 +442,47 @@ export default function StudentAgentPage() {
     }
   }
 
+  /** Chrome ปกติ (ไม่ใช่โหมด kiosk) แชร์จอเบื้องหลังไม่ได้ → ส่งภาพแท็บที่นักเรียนดูอยู่เป็นเฟรมทุก ~2 วิ ผ่าน extension */
+  const liveTimersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  async function shrinkFrame(dataUrl: string): Promise<string> {
+    try {
+      const img = new Image(); img.src = dataUrl; await img.decode();
+      const scale = Math.min(1, 960 / img.width);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.6);
+    } catch { return dataUrl; }
+  }
+  function stopLiveFrames(viewerId: string) {
+    const t = liveTimersRef.current.get(viewerId);
+    if (t) clearInterval(t);
+    liveTimersRef.current.delete(viewerId);
+  }
+  async function startLiveFrames(viewerId: string): Promise<boolean> {
+    if (!me) return false;
+    stopLiveFrames(viewerId);
+    let busy = false;
+    const tick = async () => {
+      if (busy) return; busy = true;
+      try {
+        const r = await extCall("SB_CAPTURE_TAB");
+        if (r?.ok && r.image) send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(r.image), live: true });
+      } finally { busy = false; }
+    };
+    const first = await extCall("SB_CAPTURE_TAB");
+    if (!first?.ok || !first.image) return false;
+    send({ type: "screenshot-image", from: me.id, to: viewerId, image: await shrinkFrame(first.image), live: true });
+    liveTimersRef.current.set(viewerId, setInterval(tick, 2000));
+    // หยุดเองหลัง 10 นาที กันส่งภาพค้างถ้าครูปิดหน้าไปโดยไม่กดหยุด
+    setTimeout(() => stopLiveFrames(viewerId), 10 * 60 * 1000);
+    return true;
+  }
+
   async function startSharing(viewerId: string) {
     if (!me || !channelRef.current) return;
     const stream = await ensureStream();
-    if (!stream) return;
+    if (!stream) { await startLiveFrames(viewerId); return; }
     peersRef.current.get(viewerId)?.close();
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peersRef.current.set(viewerId, pc);
@@ -493,6 +532,7 @@ export default function StudentAgentPage() {
 
 
   function stopPeer(viewerId: string) {
+    stopLiveFrames(viewerId);
     peersRef.current.get(viewerId)?.close();
     peersRef.current.delete(viewerId);
     if (peersRef.current.size === 0) {
