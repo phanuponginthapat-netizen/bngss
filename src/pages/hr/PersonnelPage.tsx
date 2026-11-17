@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -288,7 +289,7 @@ const PersonnelPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {s.avatar_url ? (
-                          <img loading="lazy" decoding="async" src={s.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0"><IdCardPhoto url={s.avatar_url} name={`${s.first_name || ""} ${s.last_name || ""}`} /></div>
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium flex-shrink-0">{(s.first_name || "?")[0]}</div>
                         )}
