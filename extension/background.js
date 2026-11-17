@@ -736,7 +736,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true;
     }
     if (!["shutdown", "restart", "sleep", "cancel"].includes(action)) { sendResponse({ ok: false, error: "คำสั่ งไม่ถูกต้อง" }); return false; }
-    kioskLauncher("/power", { action }).then((r) => sendResponse(r));
+    kioskLauncher("/power", { action }).then(async (r) => {
+      if (r?.ok || action === "sleep") return sendResponse(r);
+      // launcher ไม่ตอบ (เช่นกำลังรีสตาร์ท) → สั่งผ่านตัวช่วยในเครื่อง (WifiHelper) แทน
+      const n = await wifiCall({ cmd: "power", action });
+      sendResponse(n?.ok ? n : { ok: false, error: r?.error || n?.error || "สั่งเครื่องไม่สำเร็จ" });
+    });
     return true;
   }
 });

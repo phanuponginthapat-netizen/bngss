@@ -80,6 +80,10 @@ export default function ClassroomMonitorPage() {
       if (payload.type === "screenshot-image") {
         // ครูขอ → to=me.id, นักเรียนส่งเอง → to="*"
         if (payload.to !== me.id && payload.to !== "*") return;
+        if (payload.error) {
+          if (payload.to === me.id) toast.error(`${agentsRef.current[payload.from]?.name || "นักเรียน"}: ${payload.error}`, { duration: 8000 });
+          return;
+        }
         if (payload.live) {
           if (payload.to !== me.id) return;
           setLiveFrames((f) => ({ ...f, [payload.from]: payload.image }));

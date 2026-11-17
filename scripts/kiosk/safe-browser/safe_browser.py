@@ -29,7 +29,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.8.1"
+APP_VERSION = "1.8.2"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"

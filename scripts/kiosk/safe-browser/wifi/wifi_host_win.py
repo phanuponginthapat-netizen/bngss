@@ -16,7 +16,7 @@ import sys
 import tempfile
 from xml.sax.saxutils import escape
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 NO_WINDOW = 0x08000000
 
 
@@ -164,6 +164,14 @@ def handle(msg):
         ssid = current_ssid()
         return {"ok": True, "state": "connected" if ssid else "disconnected",
                 "connectivity": "full" if ssid else "none", "active_ssid": ssid}
+    if cmd == "power":
+        # สำรองเมื่อ launcher ไม่ตอบ: ครูสั่งปิด/รีสตาร์ทผ่านส่วนขยาย (host อนุญาตเฉพาะ extension ID ของโรงเรียน)
+        args = {"shutdown": ["/s", "/t", "15", "/c", "BNG Safe Browser: ปิดเครื่องตามคำสั่งครู"],
+                "restart": ["/r", "/t", "15"], "cancel": ["/a"]}.get(str(msg.get("action", "")))
+        if not args:
+            return {"ok": False, "error": "bad action"}
+        r = subprocess.run(["shutdown", *args], capture_output=True, creationflags=NO_WINDOW)
+        return {"ok": r.returncode == 0, "error": None if r.returncode == 0 else "shutdown failed"}
     return {"ok": False, "error": f"unknown cmd: {cmd}"}
 
 
