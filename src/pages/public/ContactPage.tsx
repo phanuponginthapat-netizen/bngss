@@ -4,6 +4,7 @@ import { getSchoolInfo } from "@/lib/schoolInfo";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { MapPin, Phone, Mail, Clock, Printer } from "lucide-react";
 import DOMPurify from "dompurify";
+import SchoolContactDetails from "@/components/public/SchoolContactDetails";
 
 export default function ContactPage() {
   const [info, setInfo] = useState<any>(null);
@@ -15,10 +16,8 @@ export default function ContactPage() {
     <PublicPageLayout title="ติดต่อโรงเรียน" subtitle="เราพร้อมให้บริการ" breadcrumbs={[{ label: "ติดต่อเรา" }]}>
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
+          <SchoolContactDetails />
           {[
-            { icon: MapPin, label: "ที่อยู่", value: c.address },
-            { icon: Phone, label: "โทรศัพท์", value: c.phone },
-            { icon: Mail, label: "อีเมล", value: c.email },
             { icon: Printer, label: "โทรสาร", value: c.fax },
             { icon: Clock, label: "เวลาทำการ", value: c.hours },
           ].filter((x) => x.value).map((x, i) => (

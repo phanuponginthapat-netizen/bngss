@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import CreditFooter from "@/components/CreditFooter";
 import HomepagePopup from "@/components/cms/HomepagePopup";
 import PageMetadata from "@/components/public/PageMetadata";
+import SchoolContactDetails from "@/components/public/SchoolContactDetails";
 
 
 // Sanitize CMS-authored HTML before injecting into the public landing page
@@ -862,7 +863,7 @@ const Index = () => {
             ) : (
               <article className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
                 <h1 className="text-3xl font-bold text-foreground mb-8">{currentPage.title}</h1>
-                <div
+                {slug === "contact" ? <SchoolContactDetails /> : <div
                   className="prose prose-sm sm:prose max-w-none
                     [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-8 [&_h2]:mb-4
                     [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:text-foreground
@@ -871,7 +872,7 @@ const Index = () => {
                     [&_ul]:text-muted-foreground [&_ol]:text-muted-foreground
                     [&_iframe]:w-full [&_iframe]:rounded-xl"
                   dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(currentPage.content) }}
-                />
+                />}
               </article>
             )
           ) : (
