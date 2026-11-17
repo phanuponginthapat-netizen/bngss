@@ -122,6 +122,39 @@ async function storeSnapshot(db: ReturnType<typeof admin>, snapshot: string | nu
   }
 }
 
+
+const staffCardHits = new Map<string, { n: number; reset: number }>();
+function staffCardRateOk(id: string) {
+  const now = Date.now(), e = staffCardHits.get(id);
+  if (!e || e.reset < now) { staffCardHits.set(id, { n: 1, reset: now + 60_000 }); return true; }
+  return ++e.n <= 10;
+}
+const STAFF_ROLES = ["admin", "director", "teacher", "staff"];
+/** Card QR → active personnel or admin account only; students and parents are always rejected. */
+async function resolveStaffCard(db: ReturnType<typeof admin>, raw: string): Promise<{ name: string; role: string } | null> {
+  const p = raw.match(/\/p\/([^/?#\s]+)/i);
+  const token = p ? decodeURIComponent(p[1]) : raw;
+  const uuid = token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0]?.toLowerCase();
+  const code = !uuid && /^[A-Za-z0-9_\-./]{2,64}$/.test(token) ? token : null;
+  if (!uuid && !code) return null;
+  const q = db.from("personnel").select("id,user_id,status,first_name,last_name");
+  const { data: rows, error } = uuid ? await q.or(`id.eq.${uuid},user_id.eq.${uuid}`).limit(2) : await q.eq("employee_code", code!).limit(2);
+  if (error) throw error;
+  const person = (rows ?? []).find((r: any) => !r.status || r.status === "active");
+  const userId = person?.user_id ?? uuid ?? null;
+  let role = person ? "staff" : "";
+  if (userId) {
+    const { data: roles, error: roleError } = await db.from("user_roles").select("role").eq("user_id", userId);
+    if (roleError) throw roleError;
+    const found = (roles ?? []).map((r: any) => r.role).find((r: string) => STAFF_ROLES.includes(r));
+    if (found) role = found;
+    else if (!person) return null;
+  }
+  if (!role) return null;
+  const name = person ? `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim() : "ผู้ดูแลระบบ";
+  return { name: name || "บุคลากร", role };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -606,6 +639,29 @@ Deno.serve(async (req) => {
         speak: "บันทึกผู้มาติดต่อแล้ว",
         next_delay_seconds: 2,
       });
+    }
+
+    // ── BNG Safe Browser (Windows kiosk) ─────────────────────────────────
+    if (route === "browser-heartbeat") {
+      const {error}=await db.from("kiosk_devices").update({
+        last_seen_at:new Date().toISOString(), status:"online", door_ok:false, camera_ok:null,
+        platform:String(body?.platform??"Safe Browser (Windows)").slice(0,80),
+        agent_version:String(body?.agent_version??"").slice(0,40)||null,
+        health_note:String(body?.health_note??"").slice(0,300)||null,
+        ...(typeof body?.disk_free_mb==="number"?{disk_free_mb:Math.max(0,Math.round(body.disk_free_mb))}:{}),
+      }).eq("id",device.id);
+      if(error)throw error;
+      return json({ok:true});
+    }
+    if (route === "staff-card") {
+      const purpose = body?.purpose === "shutdown" ? "shutdown" : body?.purpose === "exit" ? "exit" : null;
+      const raw = typeof body?.qr === "string" ? body.qr.trim() : "";
+      if (!purpose || !raw || raw.length > 500) return json({ error: "invalid card" }, 400);
+      if (!staffCardRateOk(device.id)) return json({ error: "rate_limited" }, 429);
+      const staff = await resolveStaffCard(db, raw);
+      console.log("[kiosk-api] staff-card", device.device_id, purpose, staff ? "allowed" : "denied");
+      if (!staff) return json({ ok: false, error: "not_staff" }, 403);
+      return json({ ok: true, purpose, name: staff.name, role: staff.role });
     }
 
     // ── คำสั่งค้างถึงเครื่อง ─────────────────────────────────────────────

@@ -546,6 +546,39 @@ function wifiCall(payload) {
   });
 }
 
+// ── BNG Safe Browser for Windows: local launcher bridge (127.0.0.1 only) ──
+const KIOSK_LAUNCHER = "http://127.0.0.1:47831";
+async function kioskLauncher(path, body) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), body ? 20000 : 1500);
+  try {
+    const r = await fetch(KIOSK_LAUNCHER + path, {
+      method: body ? "POST" : "GET", signal: ctrl.signal,
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await r.json().catch(() => ({}));
+    return r.ok ? { ok: true, ...data } : { ok: false, ...data, error: data.error || `HTTP ${r.status}` };
+  } catch { return { ok: false, error: "ไม่พบโปรแกรม BNG Safe Browser ในเครื่องนี้" }; }
+  finally { clearTimeout(t); }
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === "KIOSK_STATUS") { kioskLauncher("/status").then(sendResponse); return true; }
+  if (msg?.type === "KIOSK_OPEN_CONTROL") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("exit.html") }).catch(() => {});
+    sendResponse({ ok: true }); return false;
+  }
+  if (msg?.type === "KIOSK_ACTION") {
+    // Only the bundled control page may forward a card scan; the launcher re-verifies with the school server.
+    if (sender.url !== chrome.runtime.getURL("exit.html") || !["exit", "shutdown", "restart"].includes(msg.action)
+        || typeof msg.qr !== "string" || !msg.qr || msg.qr.length > 500) {
+      sendResponse({ ok: false, error: "คำสั่งไม่ถูกต้อง" }); return false;
+    }
+    kioskLauncher("/action", { action: msg.action, qr: msg.qr }).then(sendResponse); return true;
+  }
+  return false;
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const source = sender.url || sender.tab?.url || "";
   const school = self.sbTrustedSchoolUrl(source);

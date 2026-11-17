@@ -1,0 +1,73 @@
+name: Build Safe Browser (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/kiosk/safe-browser/**'
+      - 'extension/**'
+      - '.github/workflows/build-safe-browser.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build SafeBrowser.exe
+        shell: bash
+        working-directory: scripts/kiosk/safe-browser
+        run: |
+          python -m pip install pyinstaller==6.11.1
+          python -m PyInstaller safe_browser.py --name SafeBrowser --onedir --noconsole --noconfirm \
+            --distpath ../../../dist-safebrowser --workpath ../../../build-safebrowser
+          test -f ../../../dist-safebrowser/SafeBrowser/SafeBrowser.exe
+
+      - name: Download Chrome for Testing (stable, win64)
+        shell: bash
+        run: |
+          URL=$(curl -fsSL https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json \
+            | python -c "import json,sys;d=json.load(sys.stdin)['channels']['Stable']['downloads']['chrome'];print([x['url'] for x in d if x['platform']=='win64'][0])")
+          echo "Chrome: $URL"
+          curl -fsSL -o chrome.zip "$URL"
+          python -c "import zipfile;zipfile.ZipFile('chrome.zip').extractall('cft')"
+          mv cft/chrome-win64 dist-safebrowser/chrome
+          test -f dist-safebrowser/chrome/chrome.exe
+
+      - name: Read version
+        id: ver
+        shell: bash
+        run: echo "version=$(sed -n 's/^APP_VERSION = \"\([^\"]*\)\".*/\1/p' scripts/kiosk/safe-browser/safe_browser.py | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Build SafeBrowserSetup.exe
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" scripts\kiosk\safe-browser\windows\SafeBrowser.iss
+          if (-not (Test-Path dist-safebrowser\SafeBrowserSetup.exe)) { throw "SafeBrowserSetup.exe not built" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SafeBrowserSetup-v${{ steps.ver.outputs.version }}
+          path: dist-safebrowser/SafeBrowserSetup.exe
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release (safebrowser-windows)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_UPLOAD_TOKEN: ${{ secrets.CI_UPLOAD_TOKEN }}
+        run: |
+          mkdir -p "$HOME/bin" && printf '#!/bin/sh\nexec python "$@"\n' > "$HOME/bin/python3" && chmod +x "$HOME/bin/python3"
+          export PATH="$HOME/bin:$PATH" PYTHONUTF8=1 PYTHONIOENCODING=utf-8
+          bash scripts/ci/publish-release.sh safebrowser-windows "BNG Safe Browser สำหรับ Windows (.exe)" "v${{ steps.ver.outputs.version }}" dist-safebrowser/SafeBrowserSetup.exe
