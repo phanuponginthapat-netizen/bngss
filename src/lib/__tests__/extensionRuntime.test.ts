@@ -34,12 +34,8 @@ describe("extension trust and domain policies", () => {
       return { ok: true, json: async () => ({ access_token: "renewed", refresh_token: "rotated", expires_in: 3600 }) };
     });
     data.session = { access_token: "old", refresh_token: "refresh" };
-    const results = await vm.runInContext("Promise.all([tryRefreshSession(session = (await chrome.storage.local.get()).session), tryRefreshSession(session)])", ctx).catch(() => null);
-    // Execute without a top-level await in the script.
-    if (!results) {
-      const renewed = await vm.runInContext("Promise.all([tryRefreshSession({access_token:'old',refresh_token:'refresh'}),tryRefreshSession({access_token:'old',refresh_token:'refresh'})])", ctx);
-      expect(renewed.map((r: any) => r.access_token)).toEqual(["renewed", "renewed"]);
-    }
+    const renewed = await vm.runInContext("Promise.all([tryRefreshSession({access_token:'old',refresh_token:'refresh'}),tryRefreshSession({access_token:'old',refresh_token:'refresh'})])", ctx);
+    expect(renewed.map((r: any) => r.access_token)).toEqual(["renewed", "renewed"]);
     expect(requests).toBe(1);
     expect(data.session.refresh_token).toBe("rotated");
   });
