@@ -29,7 +29,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.8.1"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -173,11 +173,26 @@ def close_running_chrome():
         time.sleep(1)
 
 
-def browser_args(exe: Path) -> list[str]:
+def extension_args(exe: Path) -> list[str]:
     ext = EXT_DIR
-    args = [str(exe), *profile_args(exe)]
-    if not is_system(exe):
-        args += [f"--load-extension={ext}", f"--disable-extensions-except={ext}"]
+    return [] if is_system(exe) else [f"--load-extension={ext}", f"--disable-extensions-except={ext}"]
+
+
+def close_stray_browser(exe: Path):
+    """A Chrome left running without our flags (e.g. started by the exit page while the kiosk
+    window was closed by Alt+F4) swallows the next launch, so the extension never loads."""
+    if is_system(exe):
+        close_running_chrome(); return
+    if os.name == "nt":
+        path = str(exe).replace("'", "''")
+        subprocess.run(["powershell", "-NoProfile", "-Command",
+                        f"Get-Process chrome -ErrorAction SilentlyContinue | Where-Object {{ $_.Path -eq '{path}' }} | Stop-Process -Force"],
+                       capture_output=True)
+        time.sleep(1)
+
+
+def browser_args(exe: Path) -> list[str]:
+    args = [str(exe), *profile_args(exe), *extension_args(exe)]
     args += ["--no-first-run", "--no-default-browser-check",
             "--disable-session-crashed-bubble", "--disable-infobars", "--noerrdialogs",
             "--disable-features=Translate,DownloadBubble,DisableLoadExtensionCommandLineSwitch", "--use-fake-ui-for-media-stream",
@@ -196,13 +211,17 @@ def browser_loop():
             state["last_error"] = "ไม่พบเบราว์เซอร์ในโฟลเดอร์โปรแกรม"
             log(state["last_error"]); time.sleep(10); continue
         try:
-            if is_system(exe):
-                close_running_chrome()
+            close_stray_browser(exe)
             log("launch", exe)
-            state["browser_start"] = time.time()
+            started = time.time()
+            state["browser_start"] = started
             state["exe"] = exe
             state["proc"] = subprocess.Popen(browser_args(exe))
             state["proc"].wait()
+            if time.time() - started < 5 and not state["exiting"]:
+                # handed off to an already-running Chrome without the extension: close it and retry
+                log("launch handed off to a running browser — closing it")
+                close_stray_browser(exe)
         except OSError as e:
             state["last_error"] = str(e); log("launch failed", e)
         if not state["exiting"]:
@@ -213,7 +232,8 @@ def browser_loop():
 def open_control_page():
     exe = chrome_path()
     if exe:
-        subprocess.Popen([str(exe), *profile_args(exe), f"http://127.0.0.1:{PORT}/exit"])
+        # include the extension flags: if the kiosk window is already gone this starts the browser
+        subprocess.Popen([str(exe), *profile_args(exe), *extension_args(exe), f"http://127.0.0.1:{PORT}/exit"])
 
 
 _last_prompt = [0.0]
