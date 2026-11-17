@@ -21,3 +21,11 @@ describe("kiosk offline alerts", () => {
     expect(isPlannedOffline(at("10:00"), {}, [{ action: "shutdown", consumed_at: new Date(at("08:00")).toISOString() }])).toBe(false);
   });
 });
+
+import { isScannerDevice } from "../../../supabase/functions/_shared/kioskOfflinePolicy";
+describe("isScannerDevice", () => {
+  it("หน้า agent เครื่องนักเรียน (ไม่มี Device Key) ไม่ใช่ตู้สแกน", () => expect(isScannerDevice({ platform: null, kiosk_mode: null, device_key: null })).toBe(false));
+  it("ตู้หน้าประตูเป็นตู้สแกน", () => expect(isScannerDevice({ kiosk_mode: "door" })).toBe(true));
+  it("FaceGate ที่มี Device Key เป็นตู้สแกน", () => expect(isScannerDevice({ device_key: "abc" })).toBe(true));
+  it("Safe Browser ไม่ใช่ตู้สแกนแม้มี Device Key", () => expect(isScannerDevice({ platform: "Safe Browser (Windows)", device_key: "abc" })).toBe(false));
+});

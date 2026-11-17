@@ -3,7 +3,7 @@ import { makeAdmin } from "../_shared/supabaseAdmin.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { fanout } from "../_shared/fanout.ts";
 import { claimKioskNotification, releaseKioskNotification } from "../_shared/kioskNotificationCooldown.ts";
-import { isPlannedOffline, isStudentBrowser, PLANNED_POWER_ACTIONS } from "../_shared/kioskOfflinePolicy.ts";
+import { isPlannedOffline, isScannerDevice, isStudentBrowser, PLANNED_POWER_ACTIONS } from "../_shared/kioskOfflinePolicy.ts";
 
 async function loadKioskSettings(admin: any) {
   const { data, error } = await admin.from("school_settings").select("setting_value").eq("setting_key", "kiosk_config").maybeSingle();
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   try {
     const admin = makeAdmin();
     const threshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: offline, error } = await admin.from("kiosk_devices").select("device_id, meta, last_seen_at, platform").lt("last_seen_at", threshold).eq("status", "online");
+    const { data: offline, error } = await admin.from("kiosk_devices").select("device_id, meta, last_seen_at, platform, kiosk_mode, device_key").lt("last_seen_at", threshold).eq("status", "online");
     if (error) throw error;
     let alerted = 0, skipped = 0;
     const settings = offline?.length ? await loadKioskSettings(admin) : {};
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       const { data: changed, error: updateError } = await admin.from("kiosk_devices").update({ status: "offline" }).eq("device_id", d.device_id).eq("status", "online").select("device_id");
       if (updateError) throw updateError;
       if (!changed?.length) continue;
-      if (isStudentBrowser(d.platform)) { skipped++; continue; }
+      if (!isScannerDevice(d)) { skipped++; continue; }
       const lastSeenMs = Date.parse(d.last_seen_at);
       const { data: cmds, error: cmdError } = await admin.from("kiosk_commands").select("action, consumed_at")
         .eq("device_id", d.device_id).eq("kind", "power").in("action", PLANNED_POWER_ACTIONS)

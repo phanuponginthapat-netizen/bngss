@@ -71,7 +71,7 @@ export default function StudentAgentPage() {
   useKioskHeartbeat({
     enabled: !!me,
     status: status === "sharing" ? "sharing" : status === "locked" ? "locked" : "online",
-    kioskMode: kioskConfig?.mode ?? null,
+    kioskMode: "student",
     configUpdatedAt: kioskConfig?.updated_at ?? null,
     extensionInstalled: extInstalled,
     uptimeSec: Math.floor((now.getTime() - onlineSince.getTime()) / 1000),
