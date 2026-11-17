@@ -579,7 +579,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const internal = source.startsWith(chrome.runtime.getURL("")) && !sender.tab;
   const agent = school && new URL(source).pathname === "/dashboard/monitor/agent";
   if ((["SET_SESSION", "CLEAR_SESSION", "GET_BACKEND"].includes(msg?.type) && !school) ||
-      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL"].includes(msg?.type) && !agent) ||
+      (["SB_OPEN_URL", "SB_LOCK_ALL", "SB_UNLOCK_ALL", "SB_CAPTURE_TAB", "SB_POWER"].includes(msg?.type) && !agent) ||
       (msg?.type === "WIFI" && source !== chrome.runtime.getURL("wifi.html"))) {
     sendResponse({ ok: false, error: "ไม่อนุญาตคำสั่งจากหน้านี้" }); return false;
   }
@@ -701,6 +701,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         saveAs: false,
       }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, error: "บันทึกภาพไม่สำเร็จ" }));
     });
+    return true;
+  } else if (msg?.type === "SB_CAPTURE_TAB") {
+    // ครูสั่ ง screenshot จากหน้า agent → จบั ภาพหน้าจอที่นั กเรียนกำลังดู (ไม่มี dialog เลือกจอ)
+    chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 70 }, (dataUrl) => {
+      const error = chrome.runtime.lastError;
+      if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
+      sendResponse({ ok: true, image: dataUrl });
+    });
+    return true;
+  } else if (msg?.type === "SB_POWER") {
+    // ครูสั่ งปดิ /รีสตารท์ /ออกจากระบบ → ผาน launcher ของโปรแกรม BNG Safe Browser
+    const action = msg.action === "reboot" ? "restart" : msg.action;
+    if (action === "logout") {
+      clearSession("teacher").then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+    if (!["shutdown", "restart", "sleep", "cancel"].includes(action)) { sendResponse({ ok: false, error: "คำสั่ งไม่ถูกต้อง" }); return false; }
+    kioskLauncher("/power", { action }).then((r) => sendResponse(r));
     return true;
   }
 });

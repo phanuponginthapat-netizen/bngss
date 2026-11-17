@@ -129,6 +129,17 @@
     if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_SCREENSHOT") {
       try { chrome.runtime.sendMessage(ev.data); } catch {}
     }
+    // คำสั่ งที่ตองได ้รบ ั คำตลบกลบั (screenshot / power) → สง่ ผลกลบั ไปหน้า agent
+    if (t === "SB_CAPTURE_TAB" || t === "SB_POWER") {
+      const id = ev.data.requestId;
+      try {
+        chrome.runtime.sendMessage(ev.data).then((result) => {
+          if (id) window.postMessage({ type: "SB_RESULT", requestId: id, result: result || { ok: false } }, location.origin);
+        }).catch(() => {
+          if (id) window.postMessage({ type: "SB_RESULT", requestId: id, result: { ok: false, error: "extension ไม่ตอบสนอง" } }, location.origin);
+        });
+      } catch {}
+    }
   });
 
   document.documentElement.setAttribute("data-school-safe-browser", "1");

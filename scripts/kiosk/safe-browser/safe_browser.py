@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -114,7 +114,10 @@ def browser_args(exe: Path) -> list[str]:
             "--disable-features=Translate,DownloadBubble", "--use-fake-ui-for-media-stream",
             "--autoplay-policy=no-user-gesture-required", "--disable-dev-tools", "--disable-print-preview"]
     if KIOSK:
-        args += ["--kiosk", "--start-fullscreen"]
+        # --auto-select-desktop-capture-source: ให້หน้า Monitor Agent จบั จอ/แชรจ์อดูได้
+        # โดยไม่ขึ้น dialog เลือกจอ (kiosk ไม่มีป่ ุ่มให ้เลือก)
+        args += ["--kiosk", "--start-fullscreen",
+                 "--auto-select-desktop-capture-source=Entire screen"]
     return args + [HOME_URL]
 
 
@@ -394,6 +397,14 @@ class Bridge(BaseHTTPRequestHandler):
             else:
                 power(action)
             return
+        if self.path == "/power" and self._origin_ok():
+            # ครูสั่ งจากหน้า Monitor Agent → extension เป็ นผ้ยู ้าง (origin ตองเป็ น extension เทานั้ น)
+            action = str(self._body().get("action") or "")
+            if action not in ("shutdown", "restart", "sleep", "cancel"):
+                return self._send(400, {"error": "คำสั่ งไม่ถูกต้อง"})
+            ok = power(action)
+            log("extension power command", action, ok)
+            return self._send(200 if ok else 502, {"ok": ok, "error": None if ok else "เครื่องทำคำสั่ งไม่สำเร็จ"})
         if self.path == "/register-local" and self._local_ok():
             body = self._body()
             qr, name = str(body.get("qr") or "")[:500], str(body.get("name") or "").strip()[:60]
@@ -423,12 +434,15 @@ def cloud_loop():
             code, res = cloud("power-command", {})
             cmd, cid = res.get("command"), res.get("command_id")
             if code == 200 and cmd and cid:
-                ok = power(cmd) if cmd in ("shutdown", "cancel", "sleep") else False
-                if cmd in ("screen_on", "screen_off", "live_view"):
-                    ok, detail = True, "เครื่องเบราว์เซอร์ไม่มีคำสั่งนี้ ข้ามแล้ว"
+                action = {"reboot": "restart"}.get(cmd, cmd)
+                ok = power(action) if action in ("shutdown", "cancel", "sleep", "restart") else False
+                if cmd == "live_view":
+                    ok, detail = True, "หน้า Monitor Agent แสด่งจอให้แล้ว"
+                elif cmd in ("screen_on", "screen_off"):
+                    ok, detail = False, "เครื่องเบราว์เซอร์ไม่มีคำสั่ งน้ี"
                 else:
-                    detail = "สั่งเครื่องแล้ว" if ok else "เครื่องทำคำสั่งไม่สำเร็จ"
-                cloud("command-result", {"id": cid, "status": "scheduled" if ok and cmd == "shutdown" else ("completed" if ok else "failed"), "detail": detail})
+                    detail = "สั่ งเครื่ องแล้ว" if ok else "เครื่ องทำคำสั่ งไม่ สำเร็จ"
+                cloud("command-result", {"id": cid, "status": "scheduled" if ok and action in ("shutdown", "restart") else ("completed" if ok else "failed"), "detail": detail})
                 log("remote command", cmd, ok)
         time.sleep(20)
 
