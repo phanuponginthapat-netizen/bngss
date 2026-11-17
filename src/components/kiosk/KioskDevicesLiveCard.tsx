@@ -33,7 +33,15 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s / 86400)} วัน`;
 }
 
-export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { configUpdatedAt?: string | null; onViewDevice?: (userId: string, name: string) => void }) {
+// หน้า Agent ที่ซ่อนอยู่เบื้องหลัง Chrome หน่วงตัวจับเวลา ทำให้ heartbeat ห่างได้ถึงหลายนาที
+// จึงถือว่าออนไลน์ถ้ายังอยู่ในห้อง realtime ของหน้าดูจอ หรือ heartbeat ไม่เกิน 3 นาที
+const STALE_MS = 180_000;
+export function isDeviceOnline(d: { last_seen_at: string; status?: string | null; user_id?: string | null }, liveUserIds?: Set<string>, now = Date.now()) {
+  if (d.user_id && liveUserIds?.has(d.user_id)) return true;
+  return now - new Date(d.last_seen_at).getTime() < STALE_MS && d.status !== "offline";
+}
+
+export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice, liveUserIds }: { configUpdatedAt?: string | null; onViewDevice?: (userId: string, name: string) => void; liveUserIds?: Set<string> }) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [users, setUsers] = useState<Record<string, UserInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -90,7 +98,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
 
   const summary = useMemo(() => {
     const now = Date.now();
-    const online = devices.filter((d) => now - new Date(d.last_seen_at).getTime() < 90_000 && d.status !== "offline").length;
+    const online = devices.filter((d) => isDeviceOnline(d, liveUserIds, now)).length;
     const stale = devices.length - online;
     const outOfSync = configUpdatedAt
       ? devices.filter((d) => d.config_updated_at && d.config_updated_at !== configUpdatedAt).length
@@ -98,14 +106,14 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
     const rooms = new Set<string>();
     devices.forEach((d) => { const r = d.meta?.room; if (typeof r === "string" && r.trim()) rooms.add(r.trim()); });
     return { total: devices.length, online, stale, outOfSync, rooms: rooms.size };
-  }, [devices, configUpdatedAt]);
+  }, [devices, configUpdatedAt, liveUserIds]);
 
   // 🎯 auto-detect: ชั้นที่กำลังใช้งานมากสุดในแต่ละห้อง (จากคนที่ login อยู่)
   const roomActivity = useMemo(() => {
     const now = Date.now();
     const byRoom = new Map<string, Map<string, number>>();
     devices.forEach((d) => {
-      const isOnline = now - new Date(d.last_seen_at).getTime() < 90_000 && d.status !== "offline";
+      const isOnline = isDeviceOnline(d, liveUserIds, now);
       if (!isOnline) return;
       const room = (d.meta?.room as string)?.trim();
       if (!room) return;
@@ -155,7 +163,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
               เครื่องที่เชื่อมต่ออยู่ ({summary.online}/{summary.total})
             </CardTitle>
             <CardDescription>
-              รายชื่อเครื่องที่เปิดหน้า Agent อยู่ · realtime · หายเกิน 90 วิ = offline · ตั้ง "ห้อง" ต่อเครื่องเพื่อสั่งการแยกห้อง
+              รายชื่อเครื่องที่เปิดหน้า Agent อยู่ · realtime · หายเกิน 3 นาที = offline · ตั้ง "ห้อง" ต่อเครื่องเพื่อสั่งการแยกห้อง
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={load} className="gap-1">
@@ -216,7 +224,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice }: { config
               </thead>
               <tbody>
                 {devices.map((d) => {
-                  const isOnline = Date.now() - new Date(d.last_seen_at).getTime() < 90_000 && d.status !== "offline";
+                  const isOnline = isDeviceOnline(d, liveUserIds);
                   const inSync = !configUpdatedAt || d.config_updated_at === configUpdatedAt;
                   const room = (d.meta?.room as string) || "";
                   const isEditing = editingId === d.id;

@@ -120,6 +120,8 @@ export default function ClassroomMonitorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
 
+  const liveUserIds = useMemo(() => new Set(Object.keys(agents)), [agents]);
+
   function send(ev: MonitorEvent) {
     sendMonitorEvent(channelRef.current, ev).catch(e => toast.error(e.message));
   }
@@ -331,7 +333,7 @@ export default function ClassroomMonitorPage() {
         </div>
       </div>
 
-      <KioskDevicesLiveCard onViewDevice={viewById} />
+      <KioskDevicesLiveCard onViewDevice={viewById} liveUserIds={liveUserIds} />
 
       {roomActivity.length > 0 && (
         <Card className="border-primary/30 bg-primary/5">
