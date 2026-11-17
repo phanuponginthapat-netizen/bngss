@@ -20,6 +20,10 @@ function runtime(fetcher?: any) {
   return { ctx, listeners, data };
 }
 describe("extension trust and domain policies", () => {
+  it("permits toolbar-initiated visible-tab capture without requiring an extension-icon click", () => {
+    const manifest = JSON.parse(fs.readFileSync("extension/manifest.json", "utf8"));
+    expect(manifest.host_permissions).toContain("<all_urls>");
+  });
   it("loads public branding and policy without presenting an anonymous key as a user token", async () => {
     let headers: any;
     const { ctx, data } = runtime(async (_url: string, options: any) => {
