@@ -58,6 +58,7 @@ a[href*="lovable.dev"][href*="utm"] {
 .dashboard-intro-merged .intro-row > div {
   position: relative;
   min-width: 0;
+  grid-column: auto;
 }
 .dashboard-intro-merged .gradient-hero {
   min-height: 0;
