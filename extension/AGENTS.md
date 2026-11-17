@@ -4,4 +4,4 @@
 - Browser shortcut realtime changes on any school page post SB_REFRESH_CONFIG, which session-sync relays so the extension favorites refetch ext-config immediately (1-minute alarm as backup).
 - The student agent page reports extension and Safe Browser versions via presence (monitor cards) and kiosk_heartbeat (kiosk_devices.extension_version/agent_version); FaceGate device-key rows keep their own agent_version.
 
-- Teacher screen requests stay pending (monitor_event_receipts.handled_at) until the agent page acks them; the extension heartbeat reloads a frozen agent tab when pending requests exist, and the agent page reads pending requests on subscribe/resume, because Chrome freezes hidden tabs and drops broadcasts.
+- Teacher screen requests/stops stay pending (monitor_event_receipts.handled_at) until acked; the extension heartbeat takes over requests the agent page leaves for 5s, streams live frames itself (issue_monitor_event + Realtime HTTP broadcast, 5-minute TTL renewed by the monitor page) and the monitor lists students from recent student kiosk_devices heartbeats, because Chrome freezes the hidden agent tab.

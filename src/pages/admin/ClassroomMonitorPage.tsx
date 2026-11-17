@@ -19,7 +19,10 @@ import {
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { KioskDevicesLiveCard } from "@/components/kiosk/KioskDevicesLiveCard";
 
-interface AgentCard extends AgentPresence { streaming: boolean }
+/** viaExtension = หน้า Agent ไม่ได้เชื่อมต่อ แต่ส่วนขยายในเครื่องยังส่งสถานะอยู่ — ดูจอได้ผ่านส่วนขยาย */
+interface AgentCard extends AgentPresence { streaming: boolean; viaExtension?: boolean }
+
+const EXT_ONLINE_MS = 3 * 60 * 1000;
 
 export default function ClassroomMonitorPage() {
   const [me, setMe] = useState<{ id: string; name: string } | null>(null);
@@ -42,6 +45,12 @@ export default function ClassroomMonitorPage() {
   const [, forceRerender] = useState(0);
   // ภาพสดแบบเฟรม (เครื่องที่ใช้ Chrome ปกติ แชร์จอเบื้องหลังไม่ได้)
   const [liveFrames, setLiveFrames] = useState<Record<string, string>>({});
+  const liveFramesRef = useRef<Record<string, string>>({});
+  useEffect(() => { liveFramesRef.current = liveFrames; }, [liveFrames]);
+  // หลังกดหยุดดูจอ ภาพที่ส่งค้างอยู่ยังมาถึงได้อีกไม่กี่วินาที — ไม่แสดงซ้ำ
+  const stoppedAtRef = useRef<Map<string, number>>(new Map());
+  // นักเรียนที่ส่วนขยายยังออนไลน์ แม้หน้า Agent จะถูก Chrome พักไว้
+  const [extAgents, setExtAgents] = useState<Record<string, AgentCard>>({});
   const bump = () => forceRerender((n) => n + 1);
 
   // keep ref in sync so broadcast handler (registered once) sees latest names
@@ -86,6 +95,7 @@ export default function ClassroomMonitorPage() {
         }
         if (payload.live) {
           if (payload.to !== me.id) return;
+          if (Date.now() - (stoppedAtRef.current.get(payload.from) ?? 0) < 30000) return;
           setLiveFrames((f) => ({ ...f, [payload.from]: payload.image }));
           return;
         }
@@ -120,7 +130,59 @@ export default function ClassroomMonitorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id]);
 
-  const liveUserIds = useMemo(() => new Set(Object.keys(agents)), [agents]);
+  // เครื่องนักเรียนที่ส่วนขยายส่งสถานะภายใน 3 นาที — แสดงการ์ดได้แม้หน้า Agent หลับ
+  useEffect(() => {
+    if (!me) return;
+    let alive = true;
+    const load = async () => {
+      const since = new Date(Date.now() - EXT_ONLINE_MS).toISOString();
+      const { data: devs, error } = await supabase.from("kiosk_devices")
+        .select("user_id, extension_version, agent_version, last_seen_at, meta")
+        .eq("kiosk_mode", "student").gte("last_seen_at", since).not("user_id", "is", null);
+      if (error || !alive) return;
+      const latest = new Map<string, any>();
+      for (const d of (devs as any[]) ?? []) {
+        const cur = latest.get(d.user_id);
+        if (!cur || d.last_seen_at > cur.last_seen_at) latest.set(d.user_id, d);
+      }
+      const ids = Array.from(latest.keys());
+      if (ids.length === 0) { setExtAgents({}); return; }
+      const [{ data: profs }, { data: studs }] = await Promise.all([
+        supabase.from("profiles").select("id, first_name, last_name").in("id", ids),
+        supabase.from("students").select("auth_user_id, classrooms!students_classroom_id_fkey(name)").in("auth_user_id", ids),
+      ]);
+      if (!alive) return;
+      const names = new Map(((profs as any[]) ?? []).map((p) => [p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()]));
+      const rooms = new Map(((studs as any[]) ?? []).map((s) => [s.auth_user_id, s.classrooms?.name ?? null]));
+      const next: Record<string, AgentCard> = {};
+      latest.forEach((d, id) => {
+        next[id] = {
+          user_id: id, name: names.get(id) || "นักเรียน", classroom: rooms.get(id) ?? null,
+          room: (d.meta as any)?.room ?? null, role: "student", online_at: d.last_seen_at,
+          ext_version: d.extension_version, app_version: d.agent_version, streaming: false, viaExtension: true,
+        };
+      });
+      setExtAgents(next);
+    };
+    load();
+    const iv = window.setInterval(load, 20000);
+    return () => { alive = false; window.clearInterval(iv); };
+  }, [me?.id]);
+
+  // ต่ออายุการดูจอผ่านส่วนขยายทุกนาที (ส่วนขยายหยุดส่งเองถ้าครูปิดหน้านี้ไป)
+  useEffect(() => {
+    if (!me) return;
+    const iv = window.setInterval(() => {
+      Object.keys(liveFramesRef.current).forEach((id) => {
+        if (!agentsRef.current[id] && !peersRef.current.has(id)) send({ type: "request-stream", from: me.id, to: id });
+      });
+    }, 60000);
+    return () => window.clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id]);
+
+  const allAgents = useMemo(() => ({ ...extAgents, ...agents }), [extAgents, agents]);
+  const liveUserIds = useMemo(() => new Set(Object.keys(allAgents)), [allAgents]);
 
   function send(ev: MonitorEvent) {
     sendMonitorEvent(channelRef.current, ev).catch(e => toast.error(e.message));
@@ -170,26 +232,30 @@ export default function ClassroomMonitorPage() {
   function view(agent: AgentCard) {
     if (!me) return;
     if (peersRef.current.has(agent.user_id)) { toast("กำลังดูอยู่แล้ว"); return; }
+    stoppedAtRef.current.delete(agent.user_id);
     send({ type: "request-stream", from: me.id, to: agent.user_id });
-    toast(`ขอดูจอ ${agent.name}…`);
+    toast(agent.viaExtension ? `ขอดูจอ ${agent.name}… ภาพจะขึ้นภายในประมาณ 30 วินาที` : `ขอดูจอ ${agent.name}…`);
   }
 
   function viewById(userId: string, name: string) {
     if (!me) return;
     if (peersRef.current.has(userId)) { toast("กำลังดูอยู่แล้ว"); return; }
+    stoppedAtRef.current.delete(userId);
     if (!agentsRef.current[userId]) {
-      // หน้า Agent อาจถูก Chrome พักไว้ — ส่งคำขอไว้ก่อน ส่วนขยายจะปลุกหน้า Agent ให้รับคำขอ (~30 วินาที)
-      toast(`กำลังปลุกเครื่อง ${name}… ระบบจะเปิดจอให้อัตโนมัติ`);
+      // หน้า Agent อาจถูก Chrome พักไว้ — ส่งคำขอไว้ก่อน ส่วนขยายจะรับคำขอและส่งภาพเอง (~30 วินาที)
+      toast(`กำลังขอดูจอ ${name}… ภาพจะขึ้นภายในประมาณ 30 วินาที`);
       send({ type: "request-stream", from: me.id, to: userId });
+      setTimeout(() => document.getElementById(`agent-card-${userId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
       let tries = 0;
       const timer = window.setInterval(() => {
         tries++;
+        if (liveFramesRef.current[userId]) { window.clearInterval(timer); return; }
         if (agentsRef.current[userId]) {
           window.clearInterval(timer);
           if (!peersRef.current.has(userId)) send({ type: "request-stream", from: me.id, to: userId });
         } else if (tries >= 40) {
           window.clearInterval(timer);
-          toast.error(`${name} ยังไม่เชื่อมต่อ — ให้นักเรียนเปิดเว็บโรงเรียนหรืออัปเดตส่วนขยายเป็น 1.16.4`);
+          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.17.0 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
         } else if (tries % 8 === 0) {
           send({ type: "request-stream", from: me.id, to: userId }); // คำขอหมดอายุใน 1 นาที — ส่งใหม่
         }
@@ -207,6 +273,7 @@ export default function ClassroomMonitorPage() {
   function stopView(agentId: string) {
     if (!me) return;
     send({ type: "stop-stream", from: me.id, to: agentId });
+    stoppedAtRef.current.set(agentId, Date.now());
     setLiveFrames((f) => { const n = { ...f }; delete n[agentId]; return n; });
     peersRef.current.get(agentId)?.close();
     peersRef.current.delete(agentId);
@@ -272,7 +339,7 @@ export default function ClassroomMonitorPage() {
     }
   }
 
-  const list = useMemo(() => Object.values(agents), [agents]);
+  const list = useMemo(() => Object.values(allAgents), [allAgents]);
   const classrooms = useMemo(() => {
     const set = new Set<string>();
     list.forEach((a) => { if (a.classroom) set.add(a.classroom); });
@@ -467,6 +534,7 @@ export default function ClassroomMonitorPage() {
                     <span title="รุ่นส่วนขยาย">🧩 {a.ext_version ? `v${a.ext_version}` : "รุ่นเก่ากว่า 1.15.1 หรือไม่พบ"}</span>
                     <span>·</span>
                     <span title="รุ่นโปรแกรม Safe Browser">🖥️ {a.app_version ? `Safe Browser v${a.app_version}` : "Chrome ปกติ"}</span>
+                    {a.viaExtension && <><span>·</span><span title="หน้า Agent ถูก Chrome พักไว้ ดูจอผ่านส่วนขยายได้ คำสั่งอื่นจะทำงานเมื่อหน้า Agent กลับมา">ผ่านส่วนขยาย</span></>}
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-1">

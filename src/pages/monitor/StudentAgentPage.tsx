@@ -299,6 +299,7 @@ export default function StudentAgentPage() {
         seen.add(row.id);
         await supabase.rpc("ack_monitor_event", { _id: row.id });
         if (row.event?.type === "request-stream" && row.event?.from) startSharing(row.event.from);
+        else if (row.event?.type === "stop-stream" && row.event?.from) stopPeer(row.event.from);
       }
     };
     const onWake = () => { if (document.visibilityState !== "hidden") checkPending().catch(() => {}); };
