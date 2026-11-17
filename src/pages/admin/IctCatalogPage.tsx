@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Laptop, Smartphone, Camera, Tablet, Projector, Package, Search, ScanLine, ShoppingBag } from "lucide-react";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { toast } from "sonner";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { Link } from "react-router-dom";
 
 type Device = {
@@ -45,17 +48,22 @@ export default function IctCatalogPage() {
   const [tab, setTab] = useState("all");
   const [onlyAvailable, setOnlyAvailable] = useState(true);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const rows = await fetchAllRows<Device>((from, to) => supabase.from("ict_devices")
+        .select("id,asset_code,name,category,brand,model,status,notes,photo_url")
+        .order("status").order("name").order("id").range(from,to));
+      setDevices(rows); setLoadError(null);
+    } catch (error: any) { setLoadError(error.message || "อ่านอุปกรณ์ไม่สำเร็จ"); }
+    finally { setLoading(false); }
+  };
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("ict_devices")
-        .select("id, asset_code, name, category, brand, model, status, notes, photo_url")
-        .order("status", { ascending: true })
-        .order("name", { ascending: true });
-      setDevices((data as Device[]) || []);
-      setLoading(false);
-    })();
+    void load();
+    const timer = window.setInterval(load, 30000);
+    window.addEventListener("focus", load);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", load); };
   }, []);
 
   const countsByCat = useMemo(() => {
@@ -106,6 +114,7 @@ export default function IctCatalogPage() {
         </div>
       </div>
 
+      {loadError && <div role="alert" className="text-destructive">{loadError} <Button variant="outline" onClick={load}>ลองใหม่</Button></div>}
       <div className="relative max-w-md">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -157,12 +166,7 @@ export default function IctCatalogPage() {
                     <Card key={d.id} className="overflow-hidden group hover:shadow-lg transition-all hover:-translate-y-0.5">
                       <div className="relative aspect-square bg-muted/40 overflow-hidden">
                         {d.photo_url ? (
-                          <img
-                            src={d.photo_url}
-                            alt={d.name}
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
+                          <IdCardPhoto url={d.photo_url} name={d.name} bucket="asset-photos" />
                         ) : (
                           <div className={`w-full h-full bg-gradient-to-br ${cat.color} flex items-center justify-center`}>
                             <Icon className="w-16 h-16 text-white/80" />

@@ -1,1 +1,2 @@
 - Dedicated FaceGate administration reuses school enrollment, approval, and attendance reports; keep the school's single Cloud roster and authentication instead of importing standalone source identities.
+- ICT catalog, inventory and reports page deterministic reads and surface source failures; loan writes verify affected rows and rely on database device locks/history guards, so denied or concurrent operations cannot look successful or erase borrowing history.

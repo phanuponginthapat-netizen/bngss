@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,26 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, AlertTriangle, History } from "lucide-react";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useUserRole } from "@/hooks/useUserRole";
 
-function LoanPhoto({ url, alt }: { url: string; alt: string }) {
-  const [src, setSrc] = useState<string>("");
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const match = url.match(/\/ict-loan-photos\/(.+?)(\?|$)/) || url.match(/\/asset-photos\/(.+?)(\?|$)/);
-      if (match) {
-        const bucket = url.includes("/ict-loan-photos/") ? "ict-loan-photos" : "asset-photos";
-        const { data } = await supabase.storage.from(bucket).createSignedUrl(match[1], 3600);
-        if (!cancelled) setSrc(data?.signedUrl || url);
-      } else {
-        if (!cancelled) setSrc(url);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [url]);
-  if (!src) return <div className="w-10 h-10 rounded border bg-muted" />;
-  return <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={alt} className="w-10 h-10 object-cover rounded border" /></a>;
+function LoanPhoto({url,alt}:{url:string;alt:string}) {
+ return <div className="w-10 h-10 overflow-hidden rounded border"><IdCardPhoto url={url} name={alt} bucket="ict-loan-photos" /></div>;
 }
 
 type Loan = {
@@ -46,21 +32,26 @@ export default function IctLoanHistoryPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [loadError,setLoadError] = useState<string|null>(null);
+  const request = useRef(0);
   const load = async () => {
     if (!userId) return;
+    const version = ++request.current;
     setLoading(true);
+    try {
     let query = supabase.from("ict_loans")
       .select("id,status,borrowed_at,expected_return_at,returned_at,borrow_photo_url,return_photo_url,borrow_notes,return_notes,student_id,personnel_id,ict_devices(name,asset_code,serial_number),students(student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)),personnel(employee_code,prefix,first_name,last_name,department)")
-      .order("borrowed_at", { ascending: false }).limit(500);
+      .order("borrowed_at", { ascending: false }).order("id");
     if (filter === "active") query = query.eq("status", "active");
     else if (filter === "returned") query = query.eq("status", "returned");
     else if (filter === "overdue") query = query.eq("status", "active").lt("expected_return_at", new Date().toISOString());
 
     if (!canSeeAll) {
-      const [{ data: stu }, { data: per }] = await Promise.all([
+      const [{ data: stu,error: stuError }, { data: per,error: perError }] = await Promise.all([
         supabase.from("students").select("id").eq("auth_user_id", userId).maybeSingle(),
         supabase.from("personnel").select("id").eq("user_id", userId).maybeSingle(),
       ]);
+      if (stuError || perError) throw stuError || perError;
       const studentId = (stu as any)?.id;
       const personnelId = (per as any)?.id;
       if (!studentId && !personnelId) {
@@ -74,9 +65,10 @@ export default function IctLoanHistoryPage() {
       query = query.or(ors.join(","));
     }
 
-    const { data } = await query;
-    setLoans((data as any) || []);
-    setLoading(false);
+    const rows = await fetchAllRows<Loan>((from,to) => query.range(from,to));
+    if (version === request.current) { setLoans(rows); setLoadError(null); }
+    } catch (error: any) { if (version === request.current) setLoadError(error.message || "อ่านประวัติไม่สำเร็จ"); }
+    finally { if (version === request.current) setLoading(false); }
   };
 
   useEffect(() => { if (!roleLoading) load(); }, [filter, roleLoading, userId, canSeeAll]);
@@ -120,6 +112,7 @@ export default function IctLoanHistoryPage() {
         </div>
       </div>
 
+      {loadError && <div role="alert" className="text-destructive">{loadError} <Button variant="outline" onClick={load}>ลองใหม่</Button></div>}
       <Card>
         <CardHeader><CardTitle className="text-base">รายการ ({filtered.length})</CardTitle></CardHeader>
         <CardContent className="p-0 overflow-x-auto">

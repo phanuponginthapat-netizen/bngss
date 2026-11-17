@@ -1,6 +1,7 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { toast } from "sonner";
 import { csvCell } from "@/lib/csvCell";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,23 +35,27 @@ export default function IctLoanReportPage() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [loadError,setLoadError] = useState<string|null>(null);
+  const request = useRef(0);
   const load = async () => {
+    const version = ++request.current;
     setLoading(true);
+    try {
+    if (!from || !to || from > to) throw new Error("กรุณาเลือกช่วงวันที่ให้ถูกต้อง");
     const sel = "id,status,borrowed_at,expected_return_at,returned_at,borrow_photo_url,return_photo_url,ict_devices(id,name,asset_code,serial_number,category),students(id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)),personnel(id,employee_code,prefix,first_name,last_name,department)";
     let q = supabase.from("ict_loans").select(sel)
-      .gte("borrowed_at", from + "T00:00:00")
-      .lte("borrowed_at", to + "T23:59:59")
-      .order("borrowed_at", { ascending: false }).limit(5000);
+      .gte("borrowed_at", from + "T00:00:00+07:00")
+      .lt("borrowed_at", new Date(new Date(to + "T00:00:00+07:00").getTime()+86400000).toISOString())
+      .order("borrowed_at", { ascending: false }).order("id");
     if (statusFilter === "active") q = q.eq("status", "active");
     else if (statusFilter === "returned") q = q.eq("status", "returned");
     else if (statusFilter === "overdue") q = q.eq("status", "active").lt("expected_return_at", new Date().toISOString());
     if (borrowerType === "student") q = q.not("student_id", "is", null);
     else if (borrowerType === "personnel") q = q.not("personnel_id", "is", null);
-    const { data, error } = await q;
-    if (error) toast.error(error.message);
-    else if ((data?.length || 0) >= 5000) toast.warning("แสดงได้สูงสุด 5,000 รายการ กรุณาเลือกช่วงวันที่ให้แคบลง");
-    setLoans((data as any) || []);
-    setLoading(false);
+    const rows = await fetchAllRows<Loan>((from,to) => q.range(from,to));
+    if (version === request.current) { setLoans(rows); setLoadError(null); }
+    } catch (error: any) { if (version === request.current) setLoadError(error.message || "อ่านรายงานไม่สำเร็จ"); }
+    finally { if (version === request.current) setLoading(false); }
   };
 
   useEffect(() => { load();   }, [from, to, borrowerType, statusFilter]);
@@ -98,6 +103,7 @@ export default function IctLoanReportPage() {
   const fmt = (d?: string | null) => d ? new Date(d).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" }) : "-";
 
   const exportCsv = () => {
+    if (loading || loadError) return;
     const rows = [
       ["ผู้ยืม", "รหัส", "ประเภท", "อุปกรณ์", "S/N", "ยืมเมื่อ", "กำหนดคืน", "คืนเมื่อ", "สถานะ"],
       ...filtered.map((l) => [
@@ -126,10 +132,11 @@ export default function IctLoanReportPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> รีเฟรช</Button>
-          <Button size="sm" onClick={exportCsv}><Download className="w-4 h-4 mr-1" /> ส่งออก CSV</Button>
+          <Button size="sm" onClick={exportCsv} disabled={loading || !!loadError}><Download className="w-4 h-4 mr-1" /> ส่งออก CSV</Button>
         </div>
       </div>
 
+      {loadError && <div role="alert" className="text-destructive">{loadError} <Button variant="outline" onClick={load}>ลองใหม่</Button></div>}
       {/* Filters */}
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><Filter className="w-4 h-4" /> ตัวกรอง</CardTitle></CardHeader>
