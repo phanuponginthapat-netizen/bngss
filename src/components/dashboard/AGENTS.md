@@ -1,1 +1,1 @@
-- Dashboard greeting and mascot use compact square tiles capped at 320px in a two-column desktop grid capped at 640px; DashboardIntroGrid preserves role-specific reads/actions and stacks on narrow screens. Admin sortable overview shares this geometry without rewriting saved preferences.
+- DashboardIntroGrid combines greeting and mascot into one full-width scene with background-only fade masks at their seam; preserve role content, CMS imagery and stored widget toggles while grouping admin intro widgets for the same presentation.

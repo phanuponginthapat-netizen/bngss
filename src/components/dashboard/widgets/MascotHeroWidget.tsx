@@ -380,15 +380,16 @@ export default function MascotHeroWidget() {
 
 
   return (
-    <Card className="relative overflow-hidden rounded-lg border border-primary/20 p-0 h-full">
+    <Card className="mascot-hero-panel relative overflow-hidden rounded-lg border border-primary/20 p-0 h-full">
+      <div className="relative w-full h-full">
       <div
-        className="relative w-full h-full"
+        className="mascot-scene absolute inset-0"
         style={{
           backgroundImage: `url(${mascot.backgroundUrl})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-      >
+      />
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/40 to-white/80 dark:from-black/30 dark:via-black/50 dark:to-black/80" />
 
         <div className="relative flex h-full flex-col justify-center gap-2 p-3">

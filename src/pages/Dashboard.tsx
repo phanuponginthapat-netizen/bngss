@@ -1,4 +1,5 @@
 import React, { useEffect, lazy, Suspense } from "react";
+import DashboardIntroGrid from "@/components/dashboard/DashboardIntroGrid";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -568,7 +569,7 @@ const Dashboard = () => {
                 byGroup.get(g)?.push(w);
               });
               const GRID_CLASSES: Record<string, string> = {
-                overview: "grid grid-cols-1 md:grid-cols-[minmax(0,320px)_minmax(0,320px)] gap-3",
+                overview: "grid grid-cols-1 gap-4",
                 kpi: "grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4",
                 chart: "grid grid-cols-1 xl:grid-cols-2 gap-4",
                 info: "grid grid-cols-1 xl:grid-cols-2 gap-4",
@@ -578,7 +579,7 @@ const Dashboard = () => {
                 const render = widgetRenderers[w.key];
                 if (!render) return null;
                 return (
-                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${["hero", "mascot_hero"].includes(w.key) ? "aspect-square max-w-80 overflow-auto rounded-lg [&>div]:min-h-0 [&>div]:rounded-lg [&>div]:p-4 [&_h1]:text-lg [&_h1]:tracking-normal" : w.def.group === "overview" ? "col-span-full" : w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
+                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${w.def.group === "overview" ? "col-span-full" : w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
                     {render(w.color)}
                   </SortableWidget>
                 );
@@ -590,7 +591,12 @@ const Dashboard = () => {
                     if (!items || items.length === 0) return null;
                     return (
                       <React.Fragment key={g}><div className={GRID_CLASSES[g]} data-dashboard-group={g}>
-                        {items.map(renderWidget)}
+                        {g === "overview" ? <>
+                          {items.some(w => ["hero", "mascot_hero"].includes(w.key)) && <DashboardIntroGrid>
+                            {items.filter(w => ["hero", "mascot_hero"].includes(w.key)).sort((a, b) => a.key === "hero" ? -1 : b.key === "hero" ? 1 : 0).map(renderWidget)}
+                          </DashboardIntroGrid>}
+                          {items.filter(w => !["hero", "mascot_hero"].includes(w.key)).map(renderWidget)}
+                        </> : items.map(renderWidget)}
                       </div>{g === "overview" && <DailyTaskBar />}</React.Fragment>
                     );
                   })}
