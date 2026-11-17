@@ -1,3 +1,4 @@
+import DashboardIntroGrid from "./DashboardIntroGrid";
 import React, { lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
 import { todayBangkok } from "@/lib/dateBE";
@@ -183,10 +184,8 @@ const DirectorDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
-        <MascotHeroWidget />
-      </Suspense>
       {/* Hero */}
+      <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
         <Suspense fallback={null}>
           <DynamicHeroBackground
@@ -276,6 +275,8 @@ const DirectorDashboard = () => {
           )}
         </div>
       </div>
+        <div><Suspense fallback={<Skeleton className="h-full w-full" />}><MascotHeroWidget /></Suspense></div>
+      </DashboardIntroGrid>
 
       {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
       <DailyTaskBar />
