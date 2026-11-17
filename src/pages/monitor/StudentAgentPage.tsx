@@ -485,11 +485,11 @@ export default function StudentAgentPage() {
   async function startSharing(viewerId: string) {
     if (!me || !channelRef.current) return;
     // Chrome ปกติ: ส่งภาพผ่านส่วนขยายทันที ไม่เปิดหน้าต่างขออนุญาตแชร์จอให้นักเรียนกด
-    if (kioskConfig?.mode !== "student" && !streamRef.current) {
-      if (await startLiveFrames(viewerId)) return;
-    }
+    // ส่งภาพผ่านส่วนขยายก่อนเสมอ ครูเห็นภาพทันที แล้วค่อยลองอัปเกรดเป็นวิดีโอ (โหมด kiosk)
+    const framesOk = await startLiveFrames(viewerId);
+    if (kioskConfig?.mode !== "student" && !streamRef.current && framesOk) return;
     const stream = kioskConfig?.mode === "student" || streamRef.current ? await ensureStream() : null;
-    if (!stream) { await startLiveFrames(viewerId); return; }
+    if (!stream) { if (!framesOk) await startLiveFrames(viewerId); return; }
     peersRef.current.get(viewerId)?.close();
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peersRef.current.set(viewerId, pc);
@@ -526,7 +526,9 @@ export default function StudentAgentPage() {
       if (ev.candidate) send({ type: "ice", from: me.id, to: viewerId, candidate: ev.candidate.toJSON() });
     };
     pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") stopLiveFrames(viewerId);
       if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+        if (pc.connectionState === "failed" && !liveTimersRef.current.has(viewerId)) startLiveFrames(viewerId);
         peersRef.current.delete(viewerId);
         if (peersRef.current.size === 0) setStatus("idle");
       }

@@ -711,11 +711,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   } else if (msg?.type === "SB_CAPTURE_TAB") {
     // ครูสั่ ง screenshot จากหน้า agent → จบั ภาพหน้าจอที่นั กเรียนกำลังดู (ไม่มี dialog เลือกจอ)
-    chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 70 }, (dataUrl) => {
-      const error = chrome.runtime.lastError;
-      if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
-      sendResponse({ ok: true, image: dataUrl });
-    });
+    // จับภาพแท็บที่นักเรียนเห็นจริง: หน้าต่างปกติที่โฟกัสล่าสุด (กันกรณีหน้าต่างปัจจุบันเป็น popup/หน้า agent)
+    (async () => {
+      const shot = (windowId) => new Promise((res) => chrome.tabs.captureVisibleTab(windowId, { format: "jpeg", quality: 70 }, (d) => { void chrome.runtime.lastError; res(d || null); }));
+      let dataUrl = null;
+      try {
+        const w = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
+        if (w?.id != null) dataUrl = await shot(w.id);
+        if (!dataUrl) {
+          for (const win of await chrome.windows.getAll({ windowTypes: ["normal"] })) {
+            if (win.state === "minimized") continue;
+            dataUrl = await shot(win.id); if (dataUrl) break;
+          }
+        }
+      } catch {}
+      sendResponse(dataUrl ? { ok: true, image: dataUrl } : { ok: false, error: "จับภาพไม่สำเร็จ" });
+    })();
     return true;
   } else if (msg?.type === "SB_POWER") {
     // ครูสั่ งปดิ /รีสตารท์ /ออกจากระบบ → ผาน launcher ของโปรแกรม BNG Safe Browser
