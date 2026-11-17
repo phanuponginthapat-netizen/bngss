@@ -182,7 +182,32 @@ async function extHeartbeat() {
       }),
     });
     ensureAgentTab(); // ให้หน้า Agent เปิดอยู่เสมอ ครูจึงสั่งดูจอได้
+    await wakeAgentForPending(session);
   } catch { /* ออฟไลน์ชั่วคราว ลองใหม่รอบหน้า */ }
+}
+
+// ครูขอดูจอแต่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง) → โหลดหน้า Agent ใหม่ให้ตื่นมารับคำขอ
+let _lastAgentWake = 0;
+async function wakeAgentForPending(session) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pending_monitor_events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+    body: "{}",
+  });
+  if (!r.ok) return;
+  const rows = await r.json().catch(() => []);
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  if (Date.now() - _lastAgentWake < 40000) return; // ให้หน้าที่เพิ่งปลุกมีเวลารับคำขอก่อน
+  _lastAgentWake = Date.now();
+  const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+  const t = agentTabId ? await chrome.tabs.get(agentTabId).catch(() => null) : null;
+  if (t && (t.url || t.pendingUrl || "").startsWith(AGENT_URL)) {
+    await chrome.tabs.update(t.id, { autoDiscardable: false }).catch(() => {});
+    await chrome.tabs.reload(t.id).catch(() => {});
+  } else {
+    _lastAgentSpawn = 0; _agentSpawnFails = 0;
+    await ensureAgentTab();
+  }
 }
 chrome.alarms?.create?.("ext-heartbeat", { periodInMinutes: 0.5 });
 chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "ext-heartbeat") extHeartbeat(); });

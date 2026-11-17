@@ -178,17 +178,20 @@ export default function ClassroomMonitorPage() {
     if (!me) return;
     if (peersRef.current.has(userId)) { toast("กำลังดูอยู่แล้ว"); return; }
     if (!agentsRef.current[userId]) {
-      // ส่วนขยายจะเปิดหน้า Agent ให้เองภายใน ~30 วินาที — ส่งคำขอซ้ำเมื่อ Agent ออนไลน์
-      toast(`กำลังรอเครื่อง ${name} เชื่อมต่อ… ระบบจะเปิดจอให้อัตโนมัติ`);
+      // หน้า Agent อาจถูก Chrome พักไว้ — ส่งคำขอไว้ก่อน ส่วนขยายจะปลุกหน้า Agent ให้รับคำขอ (~30 วินาที)
+      toast(`กำลังปลุกเครื่อง ${name}… ระบบจะเปิดจอให้อัตโนมัติ`);
+      send({ type: "request-stream", from: me.id, to: userId });
       let tries = 0;
       const timer = window.setInterval(() => {
         tries++;
         if (agentsRef.current[userId]) {
           window.clearInterval(timer);
-          send({ type: "request-stream", from: me.id, to: userId });
-        } else if (tries >= 30) {
+          if (!peersRef.current.has(userId)) send({ type: "request-stream", from: me.id, to: userId });
+        } else if (tries >= 40) {
           window.clearInterval(timer);
-          toast.error(`${name} ยังไม่เชื่อมต่อ — ให้นักเรียนเปิดเว็บโรงเรียนหรืออัปเดตส่วนขยายเป็น 1.16.3`);
+          toast.error(`${name} ยังไม่เชื่อมต่อ — ให้นักเรียนเปิดเว็บโรงเรียนหรืออัปเดตส่วนขยายเป็น 1.16.4`);
+        } else if (tries % 8 === 0) {
+          send({ type: "request-stream", from: me.id, to: userId }); // คำขอหมดอายุใน 1 นาที — ส่งใหม่
         }
       }, 3000);
       return;

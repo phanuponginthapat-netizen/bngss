@@ -10189,6 +10189,7 @@ export type Database = {
           created_at: string
           event: Json
           expires_at: string
+          handled_at: string | null
           id: string
           issuer_id: string
           recipient: string
@@ -10197,6 +10198,7 @@ export type Database = {
           created_at?: string
           event: Json
           expires_at?: string
+          handled_at?: string | null
           id?: string
           issuer_id: string
           recipient: string
@@ -10205,6 +10207,7 @@ export type Database = {
           created_at?: string
           event?: Json
           expires_at?: string
+          handled_at?: string | null
           id?: string
           issuer_id?: string
           recipient?: string
@@ -17390,6 +17393,7 @@ export type Database = {
     }
     Functions: {
       _staff_check: { Args: { _uid: string }; Returns: boolean }
+      ack_monitor_event: { Args: { _id: string }; Returns: undefined }
       app_base_url: { Args: never; Returns: string }
       approve_face_request: {
         Args: {
@@ -18142,6 +18146,13 @@ export type Database = {
       }
       parent_child_codes: { Args: { _user_id: string }; Returns: string[] }
       parent_child_ids: { Args: { _user_id: string }; Returns: string[] }
+      pending_monitor_events: {
+        Args: never
+        Returns: {
+          event: Json
+          id: string
+        }[]
+      }
       pick_auto_substitute: {
         Args: {
           _dow: number

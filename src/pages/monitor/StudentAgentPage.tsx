@@ -271,7 +271,9 @@ export default function StudentAgentPage() {
       if (!payload) return;
       if (payload.to !== me.id && payload.to !== "*") return;
       switch (payload.type) {
-        case "request-stream": startSharing(payload.from); break;
+        case "request-stream":
+          supabase.rpc("ack_monitor_event", { _id: raw.receipt }).then(() => {}, () => {});
+          startSharing(payload.from); break;
         case "stop-stream":    stopPeer(payload.from); break;
         case "answer":         onAnswer(payload.from, payload.sdp); break;
         case "ice":            onIce(payload.from, payload.candidate); break;
@@ -285,8 +287,23 @@ export default function StudentAgentPage() {
         const p: AgentPresence = { user_id: me.id, name: me.name, classroom: me.classroom, room, role: me.role, online_at: new Date().toISOString(), ...versionsRef.current };
         presenceRef.current = p;
         await ch.track(p);
+        checkPending();
       }
     });
+
+    // คำขอดูจอที่ส่งมาตอนแท็บนี้ถูก Chrome พักไว้ (ไม่ได้รับ broadcast) — รับต่อเมื่อแท็บตื่น
+    const checkPending = async () => {
+      const { data } = await supabase.rpc("pending_monitor_events");
+      for (const row of (data as { id: string; event: any }[] | null) ?? []) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        await supabase.rpc("ack_monitor_event", { _id: row.id });
+        if (row.event?.type === "request-stream" && row.event?.from) startSharing(row.event.from);
+      }
+    };
+    const onWake = () => { if (document.visibilityState !== "hidden") checkPending().catch(() => {}); };
+    document.addEventListener("resume", onWake);
+    document.addEventListener("visibilitychange", onWake);
 
     return () => {
       peersRef.current.forEach((pc) => pc.close());
@@ -295,6 +312,8 @@ export default function StudentAgentPage() {
       liveTimersRef.current.clear();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      document.removeEventListener("resume", onWake);
+      document.removeEventListener("visibilitychange", onWake);
       supabase.removeChannel(ch);
       channelRef.current = null;
     };
