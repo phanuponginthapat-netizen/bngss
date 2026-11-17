@@ -457,7 +457,6 @@ const HomeworkPage = () => {
         </div>
       </div>
 
-      <Card className="border-border/60"><CardContent className="p-3"><HomeworkToolsBar title="เครื่องมือในระบบ" /></CardContent></Card>
 
       {isLoading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
 
