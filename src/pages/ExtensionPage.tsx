@@ -4,6 +4,12 @@ import { Download, Puzzle, ShieldCheck, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
 
+/** GitHub release สำหรับดาวน์โหลด/อัปเดตส่วนขยาย — ลิงก์ถาวรชี้ไฟล์ล่าสุดใน repo เสมอ */
+export const GITHUB_EXTENSION_RELEASE_URL =
+  "https://github.com/phanuponginthapat-netizen/bngss/releases/tag/extension-latest";
+export const GITHUB_EXTENSION_DOWNLOAD_URL =
+  "https://raw.githubusercontent.com/phanuponginthapat-netizen/bngss/main/public/extension.zip";
+
 export default function ExtensionPage() {
   const download = () => {
     fetch("/school-safe-browser.zip")
@@ -34,9 +40,28 @@ export default function ExtensionPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">ดาวน์โหลดและติดตั้ง</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Button onClick={download} size="lg" className="gap-2">
-            <Download className="w-4 h-4" /> ดาวน์โหลด school-safe-browser.zip
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={download} size="lg" className="gap-2">
+              <Download className="w-4 h-4" /> ดาวน์โหลด school-safe-browser.zip
+            </Button>
+            <Button asChild variant="outline" size="lg" className="gap-2">
+              <a href={GITHUB_EXTENSION_DOWNLOAD_URL} download="school-safe-browser.zip">
+                <Download className="w-4 h-4" /> ดาวน์โหลดจาก GitHub (สำรอง)
+              </a>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            หากดาวน์โหลดจากเว็บนี้ไม่ได้ ใช้ปุ่ม GitHub สำรอง — ไฟล์ชุดเดียวกันและอัปเดตพร้อมกันทุกครั้ง (
+            <a
+              href={GITHUB_EXTENSION_RELEASE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline inline-flex items-center gap-1"
+            >
+              หน้า Release <ExternalLink className="w-3 h-3" />
+            </a>
+            )
+          </p>
           <ol className="text-sm space-y-2 list-decimal pl-5">
             <li>แตกไฟล์ zip ที่ดาวน์โหลด</li>
             <li>เปิด <code className="px-1 bg-muted rounded">chrome://extensions</code></li>
