@@ -369,6 +369,7 @@ export default function StudentAgentPage() {
       // ถ้ากำลังแชร์จออยู่แล้ว → capture จาก stream
       const viaExt = await extCall("SB_CAPTURE_TAB");
       if (viaExt?.ok && viaExt.image) return viaExt.image;
+      if (!streamRef.current && kioskConfig?.mode !== "student") throw new Error("no silent capture");
       const stream = streamRef.current ?? (await navigator.mediaDevices.getDisplayMedia({ video: true }));
       const track = stream.getVideoTracks()[0];
       // @ts-ignore ImageCapture ยังไม่ standard
@@ -481,7 +482,11 @@ export default function StudentAgentPage() {
 
   async function startSharing(viewerId: string) {
     if (!me || !channelRef.current) return;
-    const stream = await ensureStream();
+    // Chrome ปกติ: ส่งภาพผ่านส่วนขยายทันที ไม่เปิดหน้าต่างขออนุญาตแชร์จอให้นักเรียนกด
+    if (kioskConfig?.mode !== "student" && !streamRef.current) {
+      if (await startLiveFrames(viewerId)) return;
+    }
+    const stream = kioskConfig?.mode === "student" || streamRef.current ? await ensureStream() : null;
     if (!stream) { await startLiveFrames(viewerId); return; }
     peersRef.current.get(viewerId)?.close();
     const pc = new RTCPeerConnection(RTC_CONFIG);
