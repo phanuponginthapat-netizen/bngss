@@ -45,3 +45,23 @@ it('restores admin CRUD, protects loan history and rejects borrowing unavailable
   await expect(db.exec(`INSERT INTO ict_devices VALUES('cccccccc-cccc-cccc-cccc-cccccccccccc','available')`)).rejects.toThrow();
  } finally { await db.close(); }
 },30000);
+
+it('allows admins to remove unused photos but preserves referenced loan evidence', async () => {
+ const db = new PGlite();
+ try {
+  await db.exec(`CREATE ROLE authenticated; CREATE SCHEMA auth; CREATE SCHEMA storage;
+   CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT '11111111-1111-1111-1111-111111111111'::uuid $$;
+   CREATE FUNCTION public.has_role(uid uuid,r text) RETURNS boolean LANGUAGE sql AS $$ SELECT r='admin' $$;
+   CREATE TABLE public.ict_loans(borrow_photo_url text,return_photo_url text);
+   CREATE TABLE storage.objects(bucket_id text,name text);
+   GRANT USAGE ON SCHEMA auth,storage TO authenticated;
+   GRANT SELECT ON public.ict_loans TO authenticated; GRANT SELECT,DELETE ON storage.objects TO authenticated;
+   ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY read_test ON storage.objects FOR SELECT TO authenticated USING(true);
+   INSERT INTO ict_loans VALUES('https://school/storage/v1/object/public/ict-loan-photos/borrow/used.jpg',NULL);
+   INSERT INTO storage.objects VALUES('ict-loan-photos','borrow/used.jpg'),('ict-loan-photos','borrow/unused.jpg');`);
+  await db.exec(readFileSync('drizzle/migrations/0061_ict_unused_evidence_cleanup.sql','utf8'));
+  await db.exec(`SET ROLE authenticated; DELETE FROM storage.objects WHERE bucket_id='ict-loan-photos'`);
+  expect((await db.query('SELECT name FROM storage.objects')).rows).toEqual([{name:'borrow/used.jpg'}]);
+ } finally { await db.close(); }
+},30000);
