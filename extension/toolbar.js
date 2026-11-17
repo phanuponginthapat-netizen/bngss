@@ -223,7 +223,11 @@
     document.querySelectorAll("body *").forEach((el) => {
       if (el === bar || bar.contains(el) || el.id === "__sb_lock") return;
       const cs = getComputedStyle(el);
-      if ((cs.position === "fixed" || cs.position === "sticky") && el.getBoundingClientRect().top < OFFSET) {
+      if (cs.position !== "fixed" && cs.position !== "sticky") return;
+      // ดูจากค่า top ที่เว็บตั้งไว้ (ไม่ใช่ตำแหน่งตอนนี้) เพื่อจับหัวเว็บที่ติดด้านบนตอนเลื่อนด้วย
+      const topVal = parseFloat(cs.top);
+      const atTop = Number.isFinite(topVal) ? topVal < OFFSET : (cs.position === "fixed" && el.getBoundingClientRect().top < OFFSET);
+      if (atTop) {
         if (!el.dataset.sbShifted) {
           const cur = parseFloat(cs.top) || 0;
           el.style.setProperty("top", (cur + OFFSET) + "px", "important");
