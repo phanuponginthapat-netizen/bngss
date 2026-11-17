@@ -3,23 +3,63 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import vm from "node:vm";
 
-function runtime() {
+function runtime(fetcher?: any) {
   const listeners: any[] = [];
   const data: Record<string, any> = {};
   const event = { addListener: () => {} };
   const chrome = {
     runtime: { getURL: (p: string) => `chrome-extension://test/${p}`, onMessage: { addListener: (f: any) => listeners.push(f) }, onInstalled: event, onStartup: event },
-    storage: { local: { get: async () => data, set: async (v: any) => Object.assign(data, v), remove: async () => {} } },
+    storage: { local: { get: async () => data, set: async (v: any) => Object.assign(data, v), remove: async (keys: string[]) => keys.forEach(k => delete data[k]) } },
     tabs: { onRemoved: event, onUpdated: event, query: async () => [], create: async () => ({ id: 1 }), update: async () => {} },
     alarms: { create: () => {}, onAlarm: event },
     webNavigation: { onBeforeNavigate: event, onCommitted: event, onHistoryStateUpdated: event },
   };
-  const ctx = vm.createContext({ chrome, URL, Date, Intl, AbortSignal, setTimeout: () => {}, setInterval: () => {}, self: {}, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });
+  const ctx = vm.createContext({ chrome, URL, Date, Intl, AbortSignal, setTimeout: () => {}, setInterval: () => {}, self: {}, fetch: fetcher || (async () => ({ ok: true, status: 200, json: async () => ({}) })) });
   ctx.importScripts = (...files: string[]) => files.forEach(f => vm.runInContext(fs.readFileSync(`extension/${f}`, "utf8"), ctx));
   vm.runInContext(fs.readFileSync("extension/background.js", "utf8"), ctx);
   return { ctx, listeners, data };
 }
 describe("extension trust and domain policies", () => {
+  it("preserves expired credentials during an offline refresh for retry", async () => {
+    const { ctx, data } = runtime(async () => { throw new Error("offline"); });
+    data.session = { access_token: "old", refresh_token: "refresh", expires_at: 1 };
+    expect(await vm.runInContext("getValidSession()", ctx)).toBeNull();
+    expect(data.session.refresh_token).toBe("refresh");
+    expect(data.sessionError).toBeTruthy();
+  });
+  it("refreshes concurrent requests once and returns the same renewed token", async () => {
+    let requests = 0;
+    const { ctx, data } = runtime(async () => {
+      requests++;
+      return { ok: true, json: async () => ({ access_token: "renewed", refresh_token: "rotated", expires_in: 3600 }) };
+    });
+    data.session = { access_token: "old", refresh_token: "refresh" };
+    const results = await vm.runInContext("Promise.all([tryRefreshSession(session = (await chrome.storage.local.get()).session), tryRefreshSession(session)])", ctx).catch(() => null);
+    // Execute without a top-level await in the script.
+    if (!results) {
+      const renewed = await vm.runInContext("Promise.all([tryRefreshSession({access_token:'old',refresh_token:'refresh'}),tryRefreshSession({access_token:'old',refresh_token:'refresh'})])", ctx);
+      expect(renewed.map((r: any) => r.access_token)).toEqual(["renewed", "renewed"]);
+    }
+    expect(requests).toBe(1);
+    expect(data.session.refresh_token).toBe("rotated");
+  });
+  it("never restores credentials if logout happens during refresh", async () => {
+    let complete: any;
+    const { ctx, data } = runtime(() => new Promise(resolve => { complete = resolve; }));
+    data.session = { access_token: "old", refresh_token: "refresh" };
+    const request = vm.runInContext("tryRefreshSession({access_token:'old',refresh_token:'refresh'})", ctx);
+    await new Promise(resolve => setImmediate(resolve));
+    delete data.session;
+    complete({ ok: true, json: async () => ({ access_token: "renewed" }) });
+    expect(await request).toBeNull();
+    expect(data.session).toBeUndefined();
+  });
+  it("clears definitively rejected refresh credentials", async () => {
+    const { ctx, data } = runtime(async () => ({ ok: false, status: 400 }));
+    data.session = { access_token: "old", refresh_token: "refresh", expires_at: 1 };
+    expect(await vm.runInContext("getValidSession()", ctx)).toBeNull();
+    expect(data.session).toBeUndefined();
+  });
   it("syncs only school domains, never unrelated hosted apps", () => {
     const m = JSON.parse(fs.readFileSync("extension/manifest.json", "utf8"));
     const matches = m.content_scripts.find((s: any) => s.js.includes("session-sync.js")).matches;
