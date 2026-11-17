@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -173,6 +173,63 @@ def set_lock_policies(on: bool):
                         except OSError: pass
         except OSError as e:
             log("policy write failed", path, e)
+
+
+BLOCKED_APPS = {"taskmgr.exe", "procexp.exe", "procexp64.exe", "processhacker.exe", "systeminformer.exe",
+                "cmd.exe", "powershell.exe", "pwsh.exe", "regedit.exe", "mmc.exe", "resmon.exe", "perfmon.exe"}
+
+
+def taskmgr_watchdog():
+    """Ctrl+Alt+Del cannot be intercepted; instead close Task Manager/system tools at once and return to the browser."""
+    if os.name != "nt" or not KIOSK:
+        return
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+
+    class PE(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD),
+                    ("heap", ctypes.c_void_p), ("mod", wintypes.DWORD), ("threads", wintypes.DWORD),
+                    ("ppid", wintypes.DWORD), ("prio", ctypes.c_long), ("flags", wintypes.DWORD),
+                    ("exe", ctypes.c_wchar * 260)]
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.OpenProcess.restype = wintypes.HANDLE
+    me = os.getpid()
+
+    def focus_browser():
+        found = []
+        CB = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def each(h, _):
+            buf = ctypes.create_unicode_buffer(64); user32.GetClassNameW(h, buf, 64)
+            if buf.value.startswith("Chrome_WidgetWin_1") and user32.IsWindowVisible(h):
+                found.append(h); return False
+            return True
+        user32.EnumWindows(CB(each), 0)
+        if found:
+            user32.keybd_event(0x12, 0, 0, 0); user32.keybd_event(0x12, 0, 2, 0)  # allow foreground switch
+            user32.ShowWindow(found[0], 3); user32.SetForegroundWindow(found[0])
+
+    def run():
+        while not state["exiting"]:
+            killed = False
+            snap = k32.CreateToolhelp32Snapshot(2, 0)
+            pe = PE(); pe.dwSize = ctypes.sizeof(PE)
+            ok = k32.Process32FirstW(snap, ctypes.byref(pe))
+            while ok:
+                if pe.exe.lower() in BLOCKED_APPS and pe.pid != me:
+                    h = k32.OpenProcess(0x0001, False, pe.pid)  # PROCESS_TERMINATE
+                    if h:
+                        if k32.TerminateProcess(h, 1):
+                            killed = True; log("closed blocked app", pe.exe)
+                        k32.CloseHandle(h)
+                ok = k32.Process32NextW(snap, ctypes.byref(pe))
+            k32.CloseHandle(snap)
+            if killed and not state["exiting"]:
+                focus_browser()
+                request_exit_card("task manager")
+            time.sleep(0.3)
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 def session_guard():
@@ -451,6 +508,7 @@ def main():
     threading.Thread(target=cloud_loop, daemon=True).start()
     set_lock_policies(True)
     session_guard()
+    taskmgr_watchdog()
     keyboard_lock()
     browser_loop()
 
