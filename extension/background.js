@@ -848,7 +848,21 @@ function messagePage(message, school, logo) {
   head.style.cssText = "display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px;color:#2563eb;font-size:22px;font-weight:700";
   if (logo) { const i = document.createElement("img"); i.src = logo; i.alt = ""; i.style.cssText = "width:44px;height:44px;object-fit:contain"; head.appendChild(i); }
   const h = document.createElement("span"); h.textContent = "📢 ข้อความจากครู"; head.appendChild(h); card.appendChild(head);
-  const m = document.createElement("div"); m.textContent = message; m.style.cssText = "font-size:30px;line-height:1.5;font-weight:600;white-space:pre-wrap;word-break:break-word"; card.appendChild(m);
+  const m = document.createElement("div"); m.style.cssText = "font-size:30px;line-height:1.5;font-weight:600;white-space:pre-wrap;word-break:break-word";
+  const re = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi; let last = 0, mt; const links = [];
+  while ((mt = re.exec(message))) {
+    m.appendChild(document.createTextNode(message.slice(last, mt.index)));
+    let u = mt[0].replace(/[.,!?)\]]+$/, ""); const href = /^https?:/i.test(u) ? u : "https://" + u; links.push(href);
+    const a = document.createElement("a"); a.textContent = u; a.href = href; a.target = "_blank"; a.rel = "noopener";
+    a.style.cssText = "color:#2563eb;text-decoration:underline;cursor:pointer";
+    m.appendChild(a); last = mt.index + u.length; re.lastIndex = last;
+  }
+  m.appendChild(document.createTextNode(message.slice(last))); card.appendChild(m);
+  links.slice(0, 3).forEach((href) => {
+    const lb = document.createElement("button"); lb.textContent = "🌐 เปิดเว็บ " + (href.replace(/^https?:\/\//, "").split("/")[0]);
+    lb.style.cssText = "display:block;margin:16px auto 0;background:#16a34a;color:#fff;border:0;border-radius:12px;padding:12px 28px;font-size:18px;font-weight:700;cursor:pointer;font-family:inherit";
+    lb.onclick = () => { window.open(href, "_blank", "noopener"); o.remove(); }; card.appendChild(lb);
+  });
   if (school) { const sc = document.createElement("div"); sc.textContent = school; sc.style.cssText = "margin-top:16px;font-size:15px;color:#6b7280"; card.appendChild(sc); }
   const b = document.createElement("button"); b.textContent = "รับทราบ";
   b.style.cssText = "margin-top:24px;background:#2563eb;color:#fff;border:0;border-radius:12px;padding:12px 40px;font-size:20px;font-weight:700;cursor:pointer;font-family:inherit";
