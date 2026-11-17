@@ -1,0 +1,1 @@
+- postgres_changes channel names (here and in every page/component) carry a random suffix; fixed names crash pages when a hook mounts twice, as happened to the student Agent page.
