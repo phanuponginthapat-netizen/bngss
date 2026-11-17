@@ -13,7 +13,7 @@ export function SocialWallWidget({ title = "ช่องทางติดตา
     {variant !== "bare" && <h2 className="flex items-center gap-2 text-sm font-semibold"><Share2 className="h-4 w-4 text-primary" />{title}</h2>}
     {loading ? <div className="h-96 animate-pulse rounded-md bg-muted" />
       : !active.length ? <p className="py-8 text-center text-sm text-muted-foreground">ยังไม่มีช่องทางติดตามข่าวสาร</p>
-      : <div className="mx-auto grid w-full max-w-[1032px] grid-cols-1 items-start gap-4 md:grid-cols-2">
+      : <div className="grid w-full grid-cols-1 items-start gap-4 md:grid-cols-2">
         {active.map(link => {
           const meta = SOCIAL_PLATFORMS[link.platform] ?? SOCIAL_PLATFORMS.website;
           const Icon = meta.icon ?? Link2;
