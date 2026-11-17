@@ -52,3 +52,4 @@
 - Linux door kiosks run FaceGate native (direct V4L2 camera + own window), not browser scanning; keep public/kiosk-setup.sh mirrored and rebuild the agent installer zip on agent changes.
 - Public app download page (/download-app) resolves the APK through src/lib/githubRelease.ts (canonical GitHub release URL + verified fallback, never API-provided URLs) so the file schools download always matches the published release.
 - Install uses shared release/platform resolvers and publicOrigin for domain-aware QR links; keep scanner packages separate and retain the old origin until custom DNS is ready.
+- Every postgres_changes realtime channel name gets a random suffix (hooks are mounted by several components at once); a fixed name throws "cannot add postgres_changes callbacks after subscribe()" and crashes the page, which once killed the student Agent page. Broadcast/presence rooms keep shared names.

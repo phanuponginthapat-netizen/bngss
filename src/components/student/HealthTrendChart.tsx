@@ -86,7 +86,7 @@ export default function HealthTrendChart({ studentId, student }: { studentId: st
     if (studentId) load();
     // realtime subscription
     const ch = supabase
-      .channel(`health_${studentId}`)
+      .channel(`health_${studentId}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "health_measurements", filter: `student_id=eq.${studentId}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };

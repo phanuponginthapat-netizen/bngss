@@ -99,7 +99,7 @@ export default function InboxPage() {
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
-      .channel("inbox-page-realtime")
+      .channel(`inbox-page-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "inbox_items", filter: `user_id=eq.${userId}` }, () => {
         qc.invalidateQueries({ queryKey: ["inbox_items_all"] });
       })

@@ -41,7 +41,7 @@ export function useBrowserShortcuts() {
   // Realtime → admin แก้ที่เดียว เห็นทุกจอทันที
   useEffect(() => {
     const ch = supabase
-      .channel("browser_shortcuts_sync")
+      .channel(`browser_shortcuts_sync-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "browser_shortcuts" },

@@ -111,7 +111,7 @@ const NotificationDropdown = () => {
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
-      .channel("unified-notifications")
+      .channel(`unified-notifications-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
         () => qc.invalidateQueries({ queryKey: ["my_notifications", userId] }))

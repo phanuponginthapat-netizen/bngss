@@ -115,7 +115,7 @@ export default function DocumentInboxPage() {
   useEffect(() => {
     if (!userId) return;
     const ch = supabase
-      .channel(`document-inbox-${userId}`)
+      .channel(`document-inbox-${userId}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
         qc.invalidateQueries({ queryKey: ["document-inbox-rows", userId, role] });
       })

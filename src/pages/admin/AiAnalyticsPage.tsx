@@ -131,7 +131,7 @@ export default function AiAnalyticsPage() {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel("ai-chat-logs")
+      .channel(`ai-chat-logs-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "ai_chat_logs" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };

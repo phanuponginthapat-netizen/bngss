@@ -71,7 +71,7 @@ export default function PadletListPage() {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel("padlet_boards_list")
+      .channel(`padlet_boards_list-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "padlet_boards" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };

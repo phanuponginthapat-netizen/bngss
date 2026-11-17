@@ -233,7 +233,7 @@ export default function PadletBoardPage() {
     setBoard(null); setNotes([]); setSignedUrls({}); setCoverSigned(""); setLoadError("");
     (async () => { setLoading(true); try { await Promise.all([loadBoard(), loadNotes()]); } catch (e: any) { setLoadError(saveErrorMessage(e)); } finally { setLoading(false); } })();
     const ch = supabase
-      .channel(`padlet_board_${id}`)
+      .channel(`padlet_board_${id}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "padlet_notes", filter: `board_id=eq.${id}` }, loadNotes)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "padlet_boards", filter: `id=eq.${id}` }, loadBoard)
       .subscribe();

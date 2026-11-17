@@ -89,7 +89,7 @@ export function KioskDevicesLiveCard({ configUpdatedAt, onViewDevice, liveUserId
   useEffect(() => {
     load();
     const ch = supabase
-      .channel("kiosk-devices-live")
+      .channel(`kiosk-devices-live-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "kiosk_devices" }, () => load())
       .subscribe();
     const iv = window.setInterval(load, 30_000);

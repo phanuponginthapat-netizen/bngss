@@ -320,7 +320,7 @@ const SchedulePage = () => {
   // Realtime — keep schedule overlay in sync with new bookings
   useEffect(() => {
     const ch = supabase
-      .channel("schedule-lcb-realtime")
+      .channel(`schedule-lcb-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "learning_center_bookings" }, () => {
         qc.invalidateQueries({ queryKey: ["schedule_week_bookings"] });
       })

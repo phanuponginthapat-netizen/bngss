@@ -102,7 +102,7 @@ const EFormInboxPage = () => {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
-      .channel(`eform-inbox-${userId}`)
+      .channel(`eform-inbox-${userId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "eform_recipients", filter: `recipient_id=eq.${userId}` },

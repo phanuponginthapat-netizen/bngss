@@ -256,7 +256,7 @@ export default function AiChatBubble() {
       setHistoryError(false);
       // Realtime: pick up messages from other devices/sessions
       channel = supabase
-        .channel(`ai-chat-${uid}`)
+        .channel(`ai-chat-${uid}-${Math.random().toString(36).slice(2)}`)
         .on("postgres_changes",
           { event: "INSERT", schema: "public", table: "ai_chat_logs", filter: `user_id=eq.${uid}` },
           (payload: any) => {

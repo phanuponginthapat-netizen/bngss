@@ -169,7 +169,7 @@ export default function LearningCenterPage() {
   // Realtime for rooms list
   useEffect(() => {
     const ch = supabase
-      .channel("special-rooms-realtime")
+      .channel(`special-rooms-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "special_rooms" }, () => {
         qc.invalidateQueries({ queryKey: ["special_rooms_active"] });
       })

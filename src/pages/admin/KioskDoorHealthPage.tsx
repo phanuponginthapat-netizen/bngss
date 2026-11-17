@@ -181,7 +181,7 @@ export default function KioskDoorHealthPage() {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel("kiosk-door-health")
+      .channel(`kiosk-door-health-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "kiosk_devices" },

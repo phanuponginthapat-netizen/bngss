@@ -60,7 +60,7 @@ const EFormTemplatesPage = () => {
   // Realtime
   useEffect(() => {
     const ch = supabase
-      .channel("eform_templates_rt")
+      .channel(`eform_templates_rt-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "eform_templates" }, () => {
         qc.invalidateQueries({ queryKey: ["eform_templates"] });
       })

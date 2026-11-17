@@ -194,7 +194,7 @@ export default function SystemHealthPage() {
 
   useEffect(() => {
     const errorChan = supabase
-      .channel("health-error-logs")
+      .channel(`health-error-logs-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "error_logs" },
@@ -220,7 +220,7 @@ export default function SystemHealthPage() {
       .subscribe();
 
     const keyChan = supabase
-      .channel("health-ai-keys")
+      .channel(`health-ai-keys-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "ai_provider_keys" },

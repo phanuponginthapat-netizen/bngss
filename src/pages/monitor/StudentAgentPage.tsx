@@ -242,7 +242,7 @@ export default function StudentAgentPage() {
     })();
     const deviceId = getDeviceId();
     const ch = supabase
-      .channel(`kiosk-room-${deviceId}`)
+      .channel(`kiosk-room-${deviceId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "kiosk_devices", filter: `device_id=eq.${deviceId}` },

@@ -129,7 +129,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
     setPosts([]);
     load();
     const ch = supabase
-      .channel(`wall_feed-${profileUserId || "school"}-${userId || "guest"}`)
+      .channel(`wall_feed-${profileUserId || "school"}-${userId || "guest"}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_posts" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_reactions" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "wall_post_comments" }, () => load())
@@ -440,7 +440,7 @@ function CommentSection({ postId, userId, commentCount }: { postId: string; user
 
   useEffect(() => {
     const ch = supabase
-      .channel(`comments-${postId}`)
+      .channel(`comments-${postId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "wall_post_comments", filter: `post_id=eq.${postId}` },

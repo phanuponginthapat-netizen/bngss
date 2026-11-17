@@ -130,7 +130,7 @@ export default function GarbageDashboardPage() {
   useEffect(() => {
     load();
     const ch = supabase
-      .channel("garbage-dashboard")
+      .channel(`garbage-dashboard-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "garbage_deposits" }, () => { load(); loadPeriod(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "garbage_redemptions" }, () => { load(); loadPeriod(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "garbage_student_points" }, load)

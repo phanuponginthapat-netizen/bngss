@@ -62,7 +62,7 @@ export function useKioskRuntimeConfig(enabled: boolean = true) {
     })();
 
     const ch = supabase
-      .channel(`kiosk-config-sync`)
+      .channel(`kiosk-config-sync-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "school_settings", filter: `setting_key=eq.${SETTING_KEY}` },
