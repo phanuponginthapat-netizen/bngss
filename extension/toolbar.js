@@ -13,7 +13,7 @@
       </span>
       <form class="sb-addr-form">
         <input class="sb-addr" type="text" spellcheck="false" autocomplete="off"
-          placeholder="พิมพ์ URL หรือคำค้นหา…" value="${location.href.replace(/"/g,"&quot;")}" />
+          placeholder="พิมพ์ URL หรือคำค้นหา…" />
         <button class="sb-btn sb-go" type="submit" title="ไป">➜</button>
       </form>
       <span class="sb-user" title="ผู้ใช้งาน">👤 <b class="sb-user-name">—</b> <span class="sb-user-email" style="opacity:.75;font-weight:400;margin-left:6px"></span></span>
@@ -38,6 +38,7 @@
   document.documentElement.appendChild(bar);
 
   const addr = bar.querySelector(".sb-addr");
+  addr.value = location.href;
   bar.querySelector(".sb-addr-form").addEventListener("submit", (e) => {
     e.preventDefault();
     let v = (addr.value || "").trim();
@@ -69,7 +70,7 @@
 
   const renderShortcuts = (list) => {
     grid.innerHTML = "";
-    const items = Array.isArray(list) ? list : [];
+    const items = Array.isArray(list) ? list.filter(s => /^https?:\/\//i.test(s?.target_url || "")) : [];
     if (items.length === 0) { empty.hidden = false; return; }
     empty.hidden = true;
     for (const s of items) {
@@ -158,7 +159,7 @@
   const OFFSET = 44;
   const shiftFixed = () => {
     document.querySelectorAll("body *").forEach((el) => {
-      if (el === bar || bar.contains(el)) return;
+      if (el === bar || bar.contains(el) || el.id === "__sb_lock") return;
       const cs = getComputedStyle(el);
       if ((cs.position === "fixed" || cs.position === "sticky") && el.getBoundingClientRect().top < OFFSET) {
         if (!el.dataset.sbShifted) {

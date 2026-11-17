@@ -1,0 +1,3 @@
+- Session refresh is single-flight and preserves credentials on temporary network failures; never resurrect a session after logout or let an unsigned-out school origin clear another origin's active account, preventing reconnect loss and cross-tab races.
+- Content keyword checks rescan bounded text after late DOM updates and validate the current tab URL and current policy before redirecting; exclude the teacher lock overlay from toolbar offsets so locks stay full-screen.
+- Rebuild all three public extension ZIP aliases from the complete extension directory after changes and retain the stable manifest key, so installed native helpers and download packages share one identity.

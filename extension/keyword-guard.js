@@ -10,9 +10,13 @@
   if (!buildList) return;
 
   let blocked = false;
+  let scanning = false;
 
   async function scan() {
-    if (blocked) return;
+    if (blocked || scanning) return;
+    scanning = true;
+    const scanUrl = location.href;
+    try {
     let cfg = {};
     try {
       const s = await chrome.runtime.sendMessage({ type: "GET_STATE" });
@@ -39,22 +43,25 @@
     }
 
     if (!hit) return;
-    blocked = true;
-    try {
-      chrome.runtime.sendMessage({
+    if (location.href !== scanUrl) return;
+    const result = await chrome.runtime.sendMessage({
         type: "KEYWORD_HIT",
         url: location.href,
         word: hit.w,
         category: hit.cat,
         where,
       });
-    } catch { /* ignore */ }
+    if (result?.ok) blocked = true;
+    } catch { /* retry on later scan */ }
+    finally { scanning = false; }
   }
 
-  const run = () => { setTimeout(scan, 400); };
+  let pending;
+  const run = () => { clearTimeout(pending); pending = setTimeout(scan, 400); };
   if (document.readyState === "complete" || document.readyState === "interactive") run();
   document.addEventListener("DOMContentLoaded", run, { once: true });
   window.addEventListener("load", run, { once: true });
+  if (document.body) new MutationObserver(run).observe(document.body, { childList: true, subtree: true, characterData: true });
 
   // SPA: ตรวจซ้ำเมื่อ URL เปลี่ยน
   let lastUrl = location.href;
@@ -64,5 +71,6 @@
       blocked = false;
       run();
     }
+    if (!blocked) run(); // Also retry config failures and policy changes on static pages.
   }, 1500);
 })();

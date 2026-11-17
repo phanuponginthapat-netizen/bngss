@@ -73,21 +73,32 @@
     return out;
   }
 
-  let lastToken = undefined; // undefined = ยังไม่เคยเช็ค → ครั้งแรกที่ไม่มี session จะสั่ง CLEAR_SESSION ด้วย
+  let lastToken = undefined;
+  let pushing = false;
+  let configReady = false;
 
   async function push() {
+    if (pushing) return;
+    pushing = true;
+    try {
+    if (!configReady) { await loadConfig(); configReady = true; }
     const s = read();
     if (!s?.access_token) {
       // ออกจากระบบแล้ว → เคลียร์ session ใน extension กันวนเปิดแท็บล็อกอินไม่หยุด
-      if (lastToken !== null) {
+      if (typeof lastToken === "string") {
+        const state = await chrome.runtime.sendMessage({ type: "GET_STATE" });
+        if (state?.session?.user?.id === lastUserId) {
+          const result = await chrome.runtime.sendMessage({ type: "CLEAR_SESSION" });
+          if (!result?.ok) return;
+        }
         lastToken = null;
-        try { chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }); } catch {}
       }
       return;
     }
     if (s.access_token === lastToken) return;
     const prof = s.user?.id ? await fetchProfile(s.user.id, s.access_token) : { name: null, role: null };
     if (!prof.role) return; // Retry incomplete identity; never infer student access.
+    if (read()?.access_token !== s.access_token) return; // Logout/token change during identity reads.
     const result = await chrome.runtime.sendMessage({
       type: "SET_SESSION",
       backend: { url: SUPA_URL, anonKey: ANON },
@@ -100,11 +111,13 @@
         user: s.user ? { id: s.user.id, email: s.user.email, name: prof.name } : null,
       },
     });
-    if (result?.ok) lastToken = s.access_token;
+    if (result?.ok) { lastToken = s.access_token; lastUserId = s.user?.id; }
+    } finally { pushing = false; }
   }
 
+  let lastUserId;
   const sync = () => push().catch(() => {});
-  (async () => { await loadConfig(); sync(); })().catch(() => {});
+  sync();
   window.addEventListener("storage", (e) => { if (e.key === KEY) sync(); });
   setInterval(sync, 10 * 1000);
 

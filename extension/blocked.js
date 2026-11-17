@@ -38,10 +38,10 @@
   try {
     chrome.storage.local.get(["config", "systemHome"], ({ config, systemHome }) => {
       const cfg = config || {};
-      const home = systemHome || "https://bngss.online/dashboard/browser";
+      const home = self.sbTrustedSchoolUrl(systemHome) ? systemHome : "https://bngss.online/dashboard/browser";
       homeBtn.href = home;
 
-      const login = next || "https://bngss.online/login";
+      const login = self.sbTrustedSchoolUrl(next) ? next : "https://bngss.online/login";
       loginBtn.href = login;
 
       const school = cfg.school_name || cfg.footer_school_name || "โรงเรียน";

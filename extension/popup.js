@@ -24,10 +24,10 @@ async function render() {
   const list = (cfg.browser_blocklist || "").split(/[\n,]+/).filter(Boolean).length;
   const ads = (cfg.browser_ad_domains || "").split(/[\n,]+/).filter(Boolean).length;
   bl.textContent = `${list} เว็บ + ${ads} โฆษณา`;
-  if (s?.configError || s?.logError) {
-    status.textContent = s.configError ? "โหลดนโยบายไม่สำเร็จ" : "บันทึกประวัติไม่สำเร็จ";
+  if (s?.configError || s?.logError || s?.sessionError) {
+    status.textContent = s.sessionError ? "เชื่อมต่อบัญชีไม่ได้" : s.configError ? "โหลดนโยบายไม่สำเร็จ" : "บันทึกประวัติไม่สำเร็จ";
     status.className = "badge no";
-    status.title = s.configError || s.logError;
+    status.title = s.sessionError || s.configError || s.logError;
   }
 }
 
@@ -37,7 +37,10 @@ document.getElementById("wifi").onclick = () => {
   window.close();
 };
 document.getElementById("refresh").onclick = async () => {
-  await chrome.runtime.sendMessage({ type: "REFRESH_CONFIG" });
-  render();
+  const button = document.getElementById("refresh");
+  button.disabled = true;
+  try { await chrome.runtime.sendMessage({ type: "REFRESH_CONFIG" }); await render(); }
+  catch { document.getElementById("status").textContent = "เชื่อมต่อไม่สำเร็จ"; }
+  finally { button.disabled = false; }
 };
 render().catch(() => { document.getElementById("status").textContent = "เชื่อมต่อไม่สำเร็จ"; });

@@ -94,6 +94,7 @@ async function ensureAgentTab() {
   if (_ensuringAgent) return;
   _ensuringAgent = true;
   try {
+    await loadAppOrigin();
     const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
     if (!session?.access_token) return; // ยังไม่ล็อกอิน
     if (!isStudentSession(session)) return; // บุคลากร — ไม่ต้องเปิด agent
@@ -182,7 +183,7 @@ chrome.alarms?.onAlarm.addListener(async (a) => {
 
 
 async function getState() {
-  const s = await chrome.storage.local.get(["session", "config", "configAt", "configError", "systemHome", "logError"]);
+  const s = await chrome.storage.local.get(["session", "config", "configAt", "configError", "systemHome", "logError", "sessionError"]);
   return { ...s, session: s.session ? { user: s.session.user, role: s.session.role, connected: !!s.session.access_token } : null };
 }
 
@@ -203,13 +204,14 @@ async function getConfig() {
 // -------------------------------------------------------------
 let _lastRemoteCheck = 0;
 let _remoteOk = true;
+let _refreshRequest = null;
 
 async function clearSession(reason) {
   try {
     const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
     if (agentTabId) chrome.tabs.remove(agentTabId).catch(() => {});
   } catch {}
-  await chrome.storage.local.remove(["session", "agentTabId", "config", "configAt"]);
+  await chrome.storage.local.remove(["session", "agentTabId", "config", "configAt", "sessionError"]);
   await chrome.storage.local.set({ locked: false, lockMsg: "" });
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) if (tab.id) chrome.scripting?.executeScript({ target: { tabId: tab.id }, func: () => document.getElementById("__sb_lock")?.remove() }).catch(() => {});
@@ -220,14 +222,22 @@ async function clearSession(reason) {
 
 async function tryRefreshSession(session) {
   if (!session?.refresh_token) return null;
-  try {
+  if (_refreshRequest) return _refreshRequest;
+  _refreshRequest = (async () => { try {
     await loadBackend();
     const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: ANON_KEY },
       body: JSON.stringify({ refresh_token: session.refresh_token }),
+      signal: AbortSignal.timeout(15000),
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 401 || r.status === 403) {
+        const { session: current } = await chrome.storage.local.get(["session"]);
+        if (current?.access_token === session.access_token) await clearSession("revoked");
+      } else await chrome.storage.local.set({ sessionError: "เชื่อมต่อบัญชีไม่ได้ กรุณาลองใหม่" });
+      return null;
+    }
     const j = await r.json();
     if (!j?.access_token) return null;
     const next = {
@@ -236,9 +246,15 @@ async function tryRefreshSession(session) {
       refresh_token: j.refresh_token || session.refresh_token,
       expires_at: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
     };
-    await chrome.storage.local.set({ session: next });
+    const { session: current } = await chrome.storage.local.get(["session"]);
+    if (current?.access_token !== session.access_token) return current?.access_token ? current : null;
+    await chrome.storage.local.set({ session: next, sessionError: null });
     return next;
-  } catch { return null; }
+  } catch {
+    await chrome.storage.local.set({ sessionError: "เชื่อมต่อบัญชีไม่ได้ กรุณาลองใหม่" });
+    return null;
+  } finally { _refreshRequest = null; } })();
+  return _refreshRequest;
 }
 
 async function verifyRemote(session) {
@@ -246,6 +262,7 @@ async function verifyRemote(session) {
     await loadBackend();
     const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+      signal: AbortSignal.timeout(15000),
     });
     if (r.status === 401 || r.status === 403) return false;
     return true; // network error / 5xx → ไม่ตัดสิทธิ์
@@ -260,13 +277,18 @@ async function getValidSession({ force = false } = {}) {
   let cur = session;
   if (cur.expires_at && cur.expires_at <= nowSec + 30) {
     cur = await tryRefreshSession(cur);
-    if (!cur) { await clearSession("expired"); return null; }
+    if (!cur) return null; // Temporary failures retain credentials for a later retry.
   }
 
   if (force || Date.now() - _lastRemoteCheck > 60 * 1000) {
     _lastRemoteCheck = Date.now();
     _remoteOk = await verifyRemote(cur);
-    if (!_remoteOk) { await clearSession("revoked"); return null; }
+    if (!_remoteOk) {
+      cur = await tryRefreshSession(cur);
+      if (!cur) return null;
+      _remoteOk = await verifyRemote(cur);
+      if (!_remoteOk) { await clearSession("revoked"); return null; }
+    }
   } else if (!_remoteOk) {
     return null;
   }
@@ -284,8 +306,10 @@ async function refreshConfig() {
   if (_configRequest) return _configRequest;
   _configRequest = (async () => { try {
     await loadBackend();
-    const { session } = await chrome.storage.local.get(["session"]);
-    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${session?.access_token || ANON_KEY}` }, signal: AbortSignal.timeout(15000) });
+    const session = await getValidSession();
+    const { session: stored } = await chrome.storage.local.get(["session"]);
+    if (stored?.access_token && !session) throw new Error("เชื่อมต่อบัญชีไม่ได้ กรุณาลองใหม่");
+    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) }, signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`อ่านนโยบายไม่สำเร็จ (${r.status})`);
     const cfg = await r.json();
     if (!cfg || typeof cfg !== "object" || Array.isArray(cfg) || cfg.error) throw new Error("นโยบายไม่ถูกต้อง");
@@ -347,7 +371,7 @@ function checkTimeRules(host, rules) {
 
 const recentLogs = new Map();
 async function logVisit(url, action, reason) {
-  const { session } = await chrome.storage.local.get(["session"]);
+  const session = await getValidSession();
   if (!session?.access_token) return;
   try {
     await loadBackend();
@@ -369,7 +393,10 @@ async function logVisit(url, action, reason) {
       body: JSON.stringify({ url: safeUrl.href, action, reason }),
       signal: AbortSignal.timeout(15000),
     });
-    if (!response.ok) throw new Error(`บันทึกประวัติไม่สำเร็จ (${response.status})`);
+    if (!response.ok) {
+      recentLogs.delete(dedup);
+      throw new Error(`บันทึกประวัติไม่สำเร็จ (${response.status})`);
+    }
     await chrome.storage.local.set({ logError: null });
   } catch (e) { await chrome.storage.local.set({ logError: String(e?.message || e) }); }
 }
@@ -511,7 +538,8 @@ function wifiCall(payload) {
         finish({ ok: false, error: err });
       });
       port.postMessage(payload);
-      setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
+      const timer = setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
+      port.onDisconnect.addListener(() => clearTimeout(timer));
     } catch (e) {
       resolve({ ok: false, error: String(e?.message || e) });
     }
@@ -539,7 +567,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "KEYWORD_HIT") {
     const tabId = sender.tab?.id;
     if (tabId && msg.url === source && !isSchoolUrl(source) && !isBlockedPage(msg.url)) {
-      getConfig().then((cfg) => {
+      getConfig().then(async (cfg) => {
+        if (String(cfg.browser_keyword_scan_page ?? "1") === "0") return;
+        const list = self.sbBuildKeywordList(cfg);
+        if (!list.words.some(k => k.w === msg.word && k.cat === msg.category)) return;
+        const tab = await chrome.tabs.get(tabId).catch(() => null);
+        if (tab?.url !== msg.url) return; // Do not redirect a newer navigation using an old scan.
         const base = cfg?.browser_block_message || "เว็บไซต์นี้ไม่อนุญาตตามนโยบายของโรงเรียน";
         const reason = `🚫 พบคำต้องห้าม "${msg.word}" (${categoryLabel(msg.category)}) ใน${msg.where || "หน้าเว็บ"} — ${base}`;
         logVisit(msg.url, "keyword_blocked", msg.word);
@@ -558,6 +591,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.systemHome) setAppOrigin(msg.systemHome);
     (async () => { await chrome.storage.local.set({
       session: msg.session,
+      sessionError: null,
       ...(msg.systemHome ? { systemHome: msg.systemHome } : {}),
     });
     // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
@@ -567,8 +601,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true }); })().catch(() => sendResponse({ ok: false }));
     return true;
   } else if (msg?.type === "CLEAR_SESSION") {
-    clearSession().then(() => sweepTabs());
-    sendResponse({ ok: true });
+    clearSession().then(() => sweepTabs()).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
 
 
   } else if (msg?.type === "REFRESH_CONFIG") {
@@ -634,12 +668,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.captureVisibleTab(sender.tab?.windowId, { format: "png" }, (dataUrl) => {
       const error = chrome.runtime.lastError;
       if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
-      chrome.downloads?.download({
+      chrome.downloads.download({
         url: dataUrl,
         filename: `screenshot-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
         saveAs: false,
-      }).catch(() => {});
-      sendResponse({ ok: true });
+      }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, error: "บันทึกภาพไม่สำเร็จ" }));
     });
     return true;
   }
