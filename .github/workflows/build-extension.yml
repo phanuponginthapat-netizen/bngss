@@ -1,0 +1,56 @@
+name: Publish Extension (GitHub Release)
+
+# Publish the school extension to GitHub Releases on every change.
+# Runs automatically whenever extension sources or the packaged zips change.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'extension/**'
+      - 'public/extension.zip'
+      - 'public/safe-browser-extension.zip'
+      - 'public/school-safe-browser.zip'
+      - 'scripts/build-extension.sh'
+      - 'scripts/ci/publish-release.sh'
+      - 'scripts/ci/storage.sh'
+      - '.github/workflows/build-extension.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    # Publish only from main -- stale branches must never push an older build.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Rebuild the zip from extension/ sources every run, so the published
+      # release always matches the code at this commit.
+      - name: Build extension zip from sources
+        run: bash scripts/build-extension.sh
+
+      # If someone edited extension/ without re-committing the zip, say so.
+      # The published release is still correct because it was rebuilt above.
+      - name: Warn when committed zip is stale
+        run: |
+          if ! git diff --quiet -- public/extension.zip public/safe-browser-extension.zip public/school-safe-browser.zip; then
+            echo "::warning::public/extension.zip in main is stale vs extension/ sources -- published build was rebuilt from this commit"
+          fi
+
+      - name: Read version
+        id: ver
+        run: |
+          V=$(python3 -c 'import json;print(json.load(open("extension/manifest.json"))["version"])')
+          test -n "$V" || { echo "cannot read version from extension/manifest.json"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "publishing extension version $V"
+
+      - name: Publish to GitHub Release (extension)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_UPLOAD_TOKEN: ${{ secrets.CI_UPLOAD_TOKEN }}
+        run: |
+          bash scripts/ci/publish-release.sh extension "School Safe Browser Extension" "v${{ steps.ver.outputs.version }}" public/extension.zip

@@ -3,7 +3,11 @@
 # ใช้ก่อน deploy หรือทุกครั้งที่แก้ไฟล์ใน extension/
 set -e
 cd "$(dirname "$0")/.."
-cp node_modules/sweetalert2/dist/sweetalert2.all.min.js extension/sweetalert2.all.min.js
+# CI (GitHub Actions) ไม่มี node_modules → คงไฟล์ที่บันทึกไว้ใน extension/ ไว้ตามเดิม
+if [ -f node_modules/sweetalert2/dist/sweetalert2.all.min.js ]; then
+  cp node_modules/sweetalert2/dist/sweetalert2.all.min.js extension/sweetalert2.all.min.js
+fi
+test -f extension/sweetalert2.all.min.js || { echo " ขาด extension/sweetalert2.all.min.js"; exit 1; }
 
 OUT="public/extension.zip"
 ALIASES=("public/safe-browser-extension.zip" "public/school-safe-browser.zip")

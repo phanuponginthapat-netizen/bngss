@@ -136,3 +136,22 @@ describe("Linux installer defaults", () => {
     for (const f of shipped) expect(read(f).includes(DEAD_KEY), f).toBe(false);
   });
 });
+
+describe("Extension release pipeline", () => {
+  const wf = read(".github/workflows/build-extension.yml").toString("utf8");
+  const page = read("src/pages/ExtensionPage.tsx").toString("utf8");
+
+  it("publishes a new GitHub release whenever extension files change", () => {
+    expect(wf).toContain("branches: [main]");
+    expect(wf).toContain("'extension/**'");
+    // ตัวแพ็กเกจต้องถูกสร้างใหม่จาก sources ทุกครั้ง ไม่ปล่อยตามไฟล์ที่ commit มา
+    expect(wf).toContain("bash scripts/build-extension.sh");
+    expect(wf).toContain("scripts/ci/publish-release.sh extension ");
+  });
+
+  it("keeps the app's release link pointing at the tag this workflow publishes", () => {
+    const product = /publish-release\.sh (\S+)/.exec(wf)?.[1];
+    const tag = /releases\/tag\/([\w-]+)/.exec(page)?.[1];
+    expect(`${product}-latest`).toBe(tag);
+  });
+});
