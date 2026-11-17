@@ -403,7 +403,7 @@ async function logVisit(url, action, reason) {
 
 chrome.runtime.onInstalled.addListener(() => { refreshConfig(); ensureAgentTab(); });
 chrome.runtime.onStartup.addListener(() => { refreshConfig(); ensureAgentTab(); });
-chrome.alarms?.create?.("config-refresh", { periodInMinutes: 5 });
+chrome.alarms?.create?.("config-refresh", { periodInMinutes: 1 });
 chrome.alarms?.onAlarm.addListener(a => { if (a.name === "config-refresh") refreshConfig(); });
 
 // -------------------------------------------------------------

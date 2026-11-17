@@ -124,6 +124,11 @@
 
   // Relay Monitor Agent commands (จาก StudentAgentPage) → extension background
   window.addEventListener("message", (ev) => {
+    // ทางลัดในระบบเปลี่ยน → ให้รายการโปรดของส่วนขยายอัปเดตทันที
+    if (ev.source === window && ev.origin === location.origin && ev.data?.type === "SB_REFRESH_CONFIG") {
+      try { chrome.runtime.sendMessage({ type: "REFRESH_CONFIG" }); } catch {}
+      return;
+    }
     // ผู้ใช้กดปุ่มเปิดเว็บเอง (หน้า Safe Browser/ทางลัด) จากหน้าระบบโรงเรียนหน้าใดก็ได้
     if (ev.source === window && ev.origin === location.origin && ev.data && (ev.data.type === "SB_USER_OPEN" || (ev.data.type === "SB_OPEN_URL" && location.pathname !== "/dashboard/monitor/agent")) && typeof ev.data.url === "string") {
       // SB_OPEN_URL นอกหน้า agent = หน้าเว็บรุ่นเก่ากดเปิดเว็บเอง → ถือเป็นการเปิดของผู้ใช้

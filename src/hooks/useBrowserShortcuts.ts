@@ -45,7 +45,11 @@ export function useBrowserShortcuts() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "browser_shortcuts" },
-        () => qc.invalidateQueries({ queryKey: ["browser_shortcuts"] }),
+        () => {
+          qc.invalidateQueries({ queryKey: ["browser_shortcuts"] });
+          // แจ้งส่วนขยาย Safe Browser ให้ดึงรายการโปรดใหม่ทันที
+          window.postMessage({ type: "SB_REFRESH_CONFIG" }, window.location.origin);
+        },
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };

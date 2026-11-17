@@ -1,6 +1,7 @@
 import { swal } from "@/lib/swal";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useBrowserShortcuts } from "@/hooks/useBrowserShortcuts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import { getDeviceId } from "@/lib/deviceId";
  * - แชร์จอผ่าน WebRTC เมื่อครูขอ
  */
 export default function StudentAgentPage() {
+  useBrowserShortcuts(); // รับการเปลี่ยนทางลัดแบบสด → ส่งต่อให้รายการโปรดของส่วนขยาย
   const [status, setStatus] = useState<"idle" | "sharing" | "locked">("idle");
   const [locked, setLocked] = useState<{ msg: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
