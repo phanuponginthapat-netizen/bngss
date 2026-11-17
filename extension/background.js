@@ -131,16 +131,16 @@ async function extHeartbeat() {
       headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
         _device_id: extDeviceId,
-        _hostname: /Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromiumOS" : /Linux/.test(ua) ? "Linux" : "Chrome",
+        _hostname: (/Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromiumOS" : /Linux/.test(ua) ? "Linux" : "Chrome") + (_monDiag ? " · " + _monDiag : ""),
         _user_agent: ua, _status: "online", _kiosk_mode: "student",
         _extension_installed: true, _extension_version: chrome.runtime.getManifest().version,
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
       }),
     });
     ensureRealtime();
-    await resumeExtViewers();
-    await handlePendingMonitor(session);
-  } catch { /* ออฟไลน์ชั่วคราว ลองใหม่รอบหน้า */ }
+    resumeExtViewers().catch(() => {});
+    await withTimeout(handlePendingMonitor(session), 20000, "pending");
+  } catch (e) { _monDiag = "hb:" + String(e?.message || e).slice(0, 60); }
 }
 
 // ครูขอดูจอแต่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง)
@@ -255,6 +255,14 @@ async function resumeExtViewers() {
 }
 
 const _handledEvents = new Set();
+// สถานะการรับคำสั่งล่าสุด ส่งไปกับสถานะเครื่องเพื่อให้ตรวจปัญหาจากหลังบ้านได้
+let _monDiag = "";
+function withTimeout(p, ms, label) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + " timeout")), ms))]);
+}
+function jwtSub(token) {
+  try { return JSON.parse(atob(String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub || null; } catch { return null; }
+}
 function markHandled(id) {
   _handledEvents.add(id);
   if (_handledEvents.size > 300) _handledEvents.delete(_handledEvents.values().next().value);
@@ -262,17 +270,20 @@ function markHandled(id) {
 
 async function processMonitorEvent(session, id, ev) {
   if (!id || !ev?.from || _handledEvents.has(id)) return;
-  const me = session.user?.id;
-  if (ev.to !== me && ev.to !== "*") return;
+  // ยึดผู้ใช้จาก token จริง — ข้อมูลผู้ใช้ที่เก็บไว้อาจเก่าหรือว่าง
+  const me = jwtSub(session.access_token) || session.user?.id;
+  if (ev.to !== me && ev.to !== "*") { _monDiag = "skip:to"; return; }
   markHandled(id);
-  if (ev.to === me) sbRpc(session, "ack_monitor_event", { _id: id }).catch(() => {});
+  if (ev.to === me) await sbRpc(session, "ack_monitor_event", { _id: id }).catch((e) => { _monDiag = "ack:" + (e?.message || e); });
+  // ไม่รอคำสั่งให้เสร็จ — คำสั่งที่ค้าง (เช่นแท็บไม่ตอบ) ต้องไม่ขวางคำสั่งถัดไป
   if (ev.type === "stop-stream") stopExtFrames(ev.from);
   else if (ev.type === "request-stream") startExtFrames(ev.from);
-  else if (ev.type === "command") await runTeacherCommand(session, ev.from, ev.action, ev.payload || {});
+  else if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).catch((e) => { _monDiag = "cmd:" + (e?.message || e); });
+  _monDiag = "ok " + new Date().toISOString().slice(11, 19);
 }
 
 async function handlePendingMonitor(session) {
-  const rows = await sbRpc(session, "pending_monitor_events", {}).catch(() => null);
+  const rows = await sbRpc(session, "pending_monitor_events", {}).catch((e) => { _monDiag = "poll:" + (e?.message || e); return null; });
   if (!Array.isArray(rows)) return;
   // เก่าสุดก่อน เพื่อให้คำสั่งล่าสุดเป็นตัวตัดสิน
   for (const row of rows.slice().reverse()) await processMonitorEvent(session, row?.id, row?.event);
