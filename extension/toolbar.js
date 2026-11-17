@@ -19,6 +19,8 @@
       <span class="sb-user" title="ผู้ใช้งาน">👤 <b class="sb-user-name">—</b> <span class="sb-user-email" style="opacity:.75;font-weight:400;margin-left:6px"></span></span>
       <span class="sb-clock" title="เวลาปัจจุบัน">🕒 <b class="sb-clock-val">--:--:--</b></span>
       <button class="sb-btn sb-shot" title="แคปหน้าจอ">📸</button>
+      <button class="sb-btn sb-files" title="ไฟล์ที่ดาวน์โหลด">📂 ไฟล์</button>
+      <button class="sb-btn sb-send" title="ส่งไฟล์ให้ครู (แนบในการบ้าน)">📤 ส่งงาน</button>
       <button class="sb-btn sb-apps" title="รายการโปรด / ทางลัด" aria-label="apps">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
@@ -29,7 +31,12 @@
       <button class="sb-btn sb-home" title="กลับสู่ระบบ">🏠 ระบบ</button>
       <button class="sb-btn sb-close" title="ปิดแท็บ">✕ ปิด</button>
     </div>
-    <div class="sb-apps-panel" hidden>
+    <div class="sb-apps-panel sb-files-panel" hidden>
+      <div class="sb-apps-title">ไฟล์ที่ดาวน์โหลด</div>
+      <div class="sb-files-list"></div>
+      <button class="sb-files-send" type="button">📤 ส่งไฟล์ให้ครู</button>
+    </div>
+    <div class="sb-apps-panel sb-main-apps" hidden>
       <div class="sb-apps-title">รายการโปรด</div>
       <div class="sb-apps-grid"></div>
       <div class="sb-apps-empty" hidden>ยังไม่มีทางลัด — ให้แอดมินเพิ่มในระบบ</div>
@@ -64,7 +71,7 @@
 
   // Apps grid popup
   const appsBtn = bar.querySelector(".sb-apps");
-  const panel = bar.querySelector(".sb-apps-panel");
+  const panel = bar.querySelector(".sb-main-apps");
   const grid = bar.querySelector(".sb-apps-grid");
   const empty = bar.querySelector(".sb-apps-empty");
 
@@ -112,7 +119,45 @@
     e?.stopPropagation?.();
     panel.hidden = !panel.hidden;
   };
-  appsBtn.addEventListener("click", togglePanel);
+  appsBtn.addEventListener("click", (e) => { filesPanel.hidden = true; togglePanel(e); });
+
+  // ไฟล์ที่ดาวน์โหลด + ส่งงานให้ครู
+  const filesPanel = bar.querySelector(".sb-files-panel");
+  const filesList = bar.querySelector(".sb-files-list");
+  const fmtSize = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+  const fileIcon = (name) => /\.pdf$/i.test(name) ? "📕" : /\.(png|jpe?g|gif|webp)$/i.test(name) ? "🖼️" : /\.(docx?|odt)$/i.test(name) ? "📘" : /\.(xlsx?|csv)$/i.test(name) ? "📗" : /\.(pptx?)$/i.test(name) ? "📙" : "📄";
+  const loadFiles = () => {
+    filesList.textContent = "กำลังโหลด…";
+    chrome.runtime.sendMessage({ type: "SB_LIST_DOWNLOADS" }, (r) => {
+      filesList.innerHTML = "";
+      const items = (r && r.items) || [];
+      if (!items.length) { filesList.textContent = "ยังไม่มีไฟล์ที่ดาวน์โหลด"; return; }
+      for (const it of items) {
+        const row = document.createElement("button");
+        row.type = "button"; row.className = "sb-file";
+        const name = String(it.filename || "").split(/[\\/]/).pop();
+        row.innerHTML = `<span class="sb-file-ic"></span><span class="sb-file-tx"><b></b><small></small></span>`;
+        row.querySelector(".sb-file-ic").textContent = fileIcon(name);
+        row.querySelector("b").textContent = name;
+        row.querySelector("small").textContent = `${fmtSize(it.fileSize || 0)} · ${new Date(it.startTime).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}`;
+        row.addEventListener("click", () => chrome.runtime.sendMessage({ type: "SB_OPEN_DOWNLOAD", id: it.id }, (res) => {
+          if (!res?.ok) alert(res?.error || "เปิดไฟล์ไม่สำเร็จ");
+          else filesPanel.hidden = true;
+        }));
+        filesList.appendChild(row);
+      }
+    });
+  };
+  bar.querySelector(".sb-files").addEventListener("click", (e) => {
+    e.stopPropagation(); panel.hidden = true;
+    filesPanel.hidden = !filesPanel.hidden;
+    if (!filesPanel.hidden) loadFiles();
+  });
+  const openSend = () => { filesPanel.hidden = true; chrome.runtime.sendMessage({ type: "SB_OPEN_HOMEWORK" }); };
+  bar.querySelector(".sb-send").addEventListener("click", openSend);
+  bar.querySelector(".sb-files-send").addEventListener("click", openSend);
+  filesPanel.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", () => { filesPanel.hidden = true; });
   document.addEventListener("click", (e) => {
     if (panel.hidden) return;
     if (!panel.contains(e.target) && e.target !== appsBtn && !appsBtn.contains(e.target)) {

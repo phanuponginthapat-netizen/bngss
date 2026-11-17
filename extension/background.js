@@ -66,7 +66,7 @@ function notify(title, message) {
   try {
     chrome.notifications?.create?.({
       type: "basic",
-      iconUrl: chrome.runtime.getURL("icon.png"),
+      iconUrl: _brandIconData || chrome.runtime.getURL("icon.png"),
       title: title || "Safe Browser",
       message: message || "",
       priority: 2,
@@ -681,6 +681,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     });
     sendResponse({ ok: true });
+  } else if (msg?.type === "SB_LIST_DOWNLOADS") {
+    chrome.downloads.search({ state: "complete", exists: true, orderBy: ["-startTime"], limit: 30 }, (items) => {
+      sendResponse({ ok: true, items: (items || []).map((d) => ({ id: d.id, filename: d.filename, fileSize: d.fileSize, startTime: d.startTime, mime: d.mime })) });
+    });
+    return true;
+  } else if (msg?.type === "SB_OPEN_DOWNLOAD") {
+    openDownloadedFile(Number(msg.id)).then(sendResponse);
+    return true;
+  } else if (msg?.type === "SB_OPEN_HOMEWORK") {
+    getSystemHome().then((home) => chrome.tabs.create({ url: new URL("/dashboard/homework", home).toString(), active: true }));
+    sendResponse({ ok: true });
   } else if (msg?.type === "SB_MESSAGE") {
     // ครูส่งข้อความ → แสดงบนแท็บที่นักเรียนกำลังดูอยู่
     showTeacherMessage(String(msg.message || "").slice(0, 500));
@@ -881,3 +892,52 @@ async function autoBlockHit(host) {
 chrome.alarms?.create?.("auto-blocklist", { periodInMinutes: 360 });
 chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "auto-blocklist") refreshAutoBlocklist(false); });
 refreshAutoBlocklist(false);
+
+
+// ===== เปิดไฟล์ที่ดาวน์โหลด (ใช้ได้ทั้งโหมด kiosk) =====
+async function openDownloadedFile(id) {
+  const [d] = await chrome.downloads.search({ id });
+  if (!d || !d.exists) return { ok: false, error: "ไม่พบไฟล์ อาจถูกลบไปแล้ว" };
+  // PDF/รูป/ข้อความ เปิดในแท็บได้เลย (ไม่ต้องออกจากเบราว์เซอร์) ถ้าเปิดสิทธิ์ไฟล์ไว้
+  const viewable = /\.(pdf|png|jpe?g|gif|webp|txt|svg|mp4|webm|mp3)$/i.test(d.filename);
+  if (viewable && (await chrome.extension.isAllowedFileSchemeAccess())) {
+    const path = d.filename.replace(/\\/g, "/");
+    await chrome.tabs.create({ url: "file:///" + path.replace(/^\//, "").split("/").map(encodeURIComponent).join("/").replace(/^([A-Za-z])%3A/, "$1:"), active: true });
+    return { ok: true };
+  }
+  try { await chrome.downloads.open(id); return { ok: true }; } catch {}
+  try { chrome.downloads.show(id); return { ok: true }; } catch {}
+  return { ok: false, error: "เปิดไฟล์นี้ไม่ได้ กรุณาให้ครูเปิดสิทธิ์ \"อนุญาตให้เข้าถึง URL ของไฟล์\" ในหน้า chrome://extensions" };
+}
+
+// ===== ไอคอนส่วนขยายใช้โลโก้โรงเรียนจาก CMS =====
+let _brandIconData = null;
+let _brandIconSrc = null;
+async function applyBrandIcon() {
+  try {
+    const { config } = await chrome.storage.local.get(["config"]);
+    const src = /^https:\/\//.test(config?.school_logo || "") ? config.school_logo : null;
+    if (!src || src === _brandIconSrc) return;
+    const blob = await (await fetch(src, { signal: AbortSignal.timeout(15000) })).blob();
+    const bmp = await createImageBitmap(blob);
+    const imageData = {};
+    for (const size of [16, 32, 48, 128]) {
+      const c = new OffscreenCanvas(size, size); const g = c.getContext("2d");
+      const k = Math.min(size / bmp.width, size / bmp.height);
+      const w = bmp.width * k, h = bmp.height * k;
+      g.drawImage(bmp, (size - w) / 2, (size - h) / 2, w, h);
+      imageData[size] = g.getImageData(0, 0, size, size);
+      if (size === 128) {
+        const b = await c.convertToBlob({ type: "image/png" });
+        const buf = new Uint8Array(await b.arrayBuffer()); let bin = "";
+        for (const x of buf) bin += String.fromCharCode(x);
+        _brandIconData = "data:image/png;base64," + btoa(bin);
+      }
+    }
+    await chrome.action.setIcon({ imageData });
+    if (config?.school_name) chrome.action.setTitle({ title: `${config.school_name} — Safe Browser` }).catch(() => {});
+    _brandIconSrc = src;
+  } catch (e) { console.warn("[brand-icon]", e?.message); }
+}
+chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.config) applyBrandIcon(); });
+applyBrandIcon();
