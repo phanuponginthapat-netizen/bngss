@@ -309,6 +309,50 @@ const HomeworkPage = () => {
     await qc.refetchQueries({ queryKey: ["homework-list"] });
   };
 
+  // ครู/ผู้ดูแลระบบ: รวมการบ้าน + ใบงาน (Liveworksheet) เป็นรายการเดียว เรียงงานรอตรวจขึ้นก่อน
+  const teacherRows = useMemo<HomeworkRow[]>(() => {
+    if (isStudentLike) return [];
+    const rows: HomeworkRow[] = [];
+    (list || []).forEach((hw: any) => {
+      const subs = (hw.submissions as SubmissionsMap) || {};
+      const values = Object.values(subs);
+      const due = hw.due_date ? String(hw.due_date).slice(0, 10) : null;
+      rows.push({
+        key: `t-${hw.id}`, kind: "task", id: hw.id, title: hw.title || "(ไม่มีชื่อ)",
+        subjectLabel: hw.subjects?.name_th || hw.subjects?.code || "",
+        classLabel: hw.classrooms?.name || "", due,
+        total: values.length,
+        pending: values.filter((s: any) => s.status === "submitted").length,
+        graded: values.filter((s: any) => s.status === "graded").length,
+        overdue: !!due && new Date(due) < new Date(),
+        raw: hw,
+        canEdit: isAdmin || isDirector || hw.assigned_by === userId,
+      });
+    });
+    (richList || []).forEach((a: any) => {
+      const due = a.due_date ? String(a.due_date).slice(0, 10) : null;
+      rows.push({
+        key: `r-${a.id}`, kind: "rich", id: a.id, title: a.title || "(ไม่มีชื่อ)",
+        subjectLabel: "", classLabel: "", due,
+        total: 0, pending: 0, graded: 0,
+        overdue: !!due && new Date(due) < new Date(),
+        raw: a,
+        canEdit: isAdmin || isDirector || a.created_by === userId,
+      });
+    });
+    rows.sort((a, b) =>
+      (b.pending - a.pending)
+      || (Number(b.overdue) - Number(a.overdue))
+      || (a.due || "9999-12-31").localeCompare(b.due || "9999-12-31"));
+    return rows;
+  }, [list, richList, isStudentLike, isAdmin, isDirector, userId]);
+
+  const teacherTotals = useMemo(() => ({
+    pending: teacherRows.reduce((n, r) => n + r.pending, 0),
+    submitted: teacherRows.reduce((n, r) => n + r.total, 0),
+    overdue: teacherRows.filter((r) => r.overdue).length,
+  }), [teacherRows]);
+
   const fullName = useMemo(() => [me?.first_name, me?.last_name].filter(Boolean).join(" ") || "ไม่ระบุ", [me]);
 
   const handleDelete = async (hw: any) => {
@@ -322,38 +366,14 @@ const HomeworkPage = () => {
     await qc.refetchQueries({ queryKey: ["homework-list"] });
   };
 
-  // Selected subject for dashboard drill-down
-  const [selectedSubjectKey, setSelectedSubjectKey] = useState<string | null>(null);
+  const [rowFilter, setRowFilter] = useState<"all" | "pending" | "overdue">("all");
+  const [toolsOpen, setToolsOpen] = useState(false);
 
-  // Count of active students per classroom (for teacher stats)
-  const classroomIds = useMemo(
-    () => Array.from(new Set(list.map((h: any) => h.classroom_id).filter(Boolean))),
-    [list],
-  );
-  const { data: classroomCounts = {} } = useQuery({
-    queryKey: ["hw-classroom-student-counts", classroomIds.sort().join(",")],
-    enabled: !isStudentLike && classroomIds.length > 0,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("students")
-        .select("classroom_id")
-        .in("classroom_id", classroomIds)
-        .eq("status", "active");
-      const m: Record<string, number> = {};
-      (data || []).forEach((r: any) => { m[r.classroom_id] = (m[r.classroom_id] || 0) + 1; });
-      return m;
-    },
-  });
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          {selectedSubjectKey && !isStudentLike && (
-            <Button variant="ghost" size="sm" onClick={() => setSelectedSubjectKey(null)} className="gap-1">
-              <ArrowLeft className="w-4 h-4" /> แดชบอร์ด
-            </Button>
-          )}
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-elevated">
@@ -362,7 +382,7 @@ const HomeworkPage = () => {
               การบ้าน
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isParent ? "การบ้านของลูก" : isStudent ? "การบ้านของห้องคุณ" : isTeacher ? "แดชบอร์ดการบ้านรายวิชา" : "การบ้านทั้งหมด"}
+              {isParent ? "การบ้านของลูก" : isStudent ? "การบ้านของห้องคุณ" : teacherRows.length ? `รอตรวจ ${teacherTotals.pending} · ส่งแล้ว ${teacherTotals.submitted} · เลยกำหนด ${teacherTotals.overdue}` : "ยังไม่มีการบ้าน"}
             </p>
           </div>
         </div>
@@ -518,48 +538,56 @@ const HomeworkPage = () => {
           );
         }
 
-        // Teacher / Admin — Dashboard mode
-        if (selectedSubjectKey) {
-          const g = groups.find((x) => x.key === selectedSubjectKey);
-          if (!g) {
-            return (
-              <Card><CardContent className="py-10 text-center text-muted-foreground">
-                ไม่พบข้อมูลวิชานี้ — กลับสู่แดชบอร์ด
-              </CardContent></Card>
-            );
-          }
-          return (
-            <div className="space-y-4">
-              <SubjectDetailHeader
-                subjectLabel={g.subjectLabel}
-                classLabel={g.classLabel}
-                items={g.items}
-                totalStudents={classroomCounts[g.items[0]?.classroom_id] || 0}
-              />
-              <div className="space-y-3">{g.items.map(renderCard)}</div>
-            </div>
-          );
-        }
-
+        // ครู / ผู้ดูแลระบบ — รายการเดียว เรียงงานที่ต้องตรวจขึ้นก่อน
+        const counts = {
+          all: teacherRows.length,
+          pending: teacherRows.filter((r) => r.pending > 0).length,
+          overdue: teacherRows.filter((r) => r.overdue).length,
+        };
+        const visible = teacherRows.filter((r) =>
+          rowFilter === "pending" ? r.pending > 0 : rowFilter === "overdue" ? r.overdue : true,
+        );
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groups.map((g) => (
-              <SubjectDashboardTile
-                key={g.key}
-                subjectLabel={g.subjectLabel}
-                classLabel={g.classLabel}
-                items={g.items}
-                totalStudents={classroomCounts[g.items[0]?.classroom_id] || 0}
-                onClick={() => setSelectedSubjectKey(g.key)}
-              />
-            ))}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
+                <FilterChip label="ทั้งหมด" value={counts.all} active={rowFilter === "all"} onClick={() => setRowFilter("all")} />
+                <FilterChip label="รอตรวจ" value={counts.pending} active={rowFilter === "pending"} onClick={() => setRowFilter("pending")} />
+                <FilterChip label="เลยกำหนด" value={counts.overdue} active={rowFilter === "overdue"} onClick={() => setRowFilter("overdue")} />
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setToolsOpen((v) => !v)}>
+                {toolsOpen ? "ซ่อนเครื่องมือในระบบ" : "เครื่องมือในระบบ"}
+              </Button>
+            </div>
+
+            {toolsOpen && (
+              <Card className="border-border/60"><CardContent className="p-3"><HomeworkToolsBar title="เครื่องมือในระบบ" /></CardContent></Card>
+            )}
+
+            {visible.length === 0 ? (
+              <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
+                {rowFilter === "pending" ? "ไม่มีงานรอตรวจ 🎉" : rowFilter === "overdue" ? "ไม่มีงานเลยกำหนด" : "ยังไม่มีการบ้าน — กด \"ส่งการบ้าน\" เพื่อเริ่ม"}
+              </CardContent></Card>
+            ) : (
+              <div className="space-y-2">
+                {visible.map((row) => (
+                  <HomeworkRowCard
+                    key={row.key}
+                    row={row}
+                    onCheckRich={(id) => { setSubsAssignmentId(id); setSubsOpen(true); }}
+                    onEditRich={(id) => { setRichEditingId(id); setRichOpen(true); }}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
       })()}
 
       {/* ===== Rich homework section ===== */}
       {(richError || listError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); }}>ลองใหม่</Button></div>}
-      {richList.length > 0 && (
+      {richList.length > 0 && isStudentLike && (
         <section className="space-y-2 border-t pt-5">
             <h2 className="text-base font-semibold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" /> ใบงาน / Liveworksheet ({richList.length})
