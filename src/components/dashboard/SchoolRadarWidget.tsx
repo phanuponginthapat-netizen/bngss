@@ -102,7 +102,7 @@ export default function SchoolRadarWidget() {
         const slot = acc.get(key);
         if (!slot) return;
         const v = Number(r.total_score) || 0;
-        if (r.academic_year === currentAcademicYear) {
+        if (r.academic_year === year) {
           slot.cs += v;
           slot.cn += 1;
         } else if (r.academic_year === prevYear) {
@@ -111,7 +111,7 @@ export default function SchoolRadarWidget() {
         }
       });
 
-      return SUBJECT_GROUPS.map((g) => {
+      const rows = SUBJECT_GROUPS.map((g) => {
         const s = acc.get(g.key) ?? {cs:0,cn:0,ps:0,pn:0};
         return {
           key: g.key,
@@ -122,6 +122,7 @@ export default function SchoolRadarWidget() {
           previousCount: s.pn,
         };
       });
+      return { rows, year, semester, fellBack };
     },
     staleTime: 5 * 60_000,
   });
