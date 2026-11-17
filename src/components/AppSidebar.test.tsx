@@ -13,6 +13,7 @@ vi.mock("@/hooks/useSystemSettings", () => ({ useSystemSettings: () => branding.
 vi.mock("@/hooks/useModuleToggles", () => ({ useModuleToggles: () => ({ isModuleEnabled: () => true }) }));
 vi.mock("./SidebarAccountFooter", () => ({ SidebarAccountFooter: () => null }));
 vi.mock("./ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
+vi.mock("@/components/dashboard/WidgetCustomizer", () => ({ default: () => null }));
 
 afterEach(cleanup);
 

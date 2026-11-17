@@ -37,7 +37,6 @@ import { useDashboardWidgets } from "@/hooks/useDashboardWidgets";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { COLOR_THEMES, SIZE_CLASSES, type WidgetColor } from "@/lib/dashboardWidgets";
-const WidgetCustomizer = lazy(() => import("@/components/dashboard/WidgetCustomizer"));
 
 const TeacherDashboard = lazy(() => import("@/components/dashboard/TeacherDashboard"));
 const StudentDashboard = lazy(() => import("@/components/dashboard/StudentDashboard"));
@@ -538,13 +537,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-10 [scrollbar-gutter:stable]">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground truncate">
-
-          {L("ภาพรวมโรงเรียน", "School overview")}
-        </p>
-        <Suspense fallback={null}><WidgetCustomizer /></Suspense>
-      </div>
 
       {(statsError || widgetsError) && <div role="alert" className="flex flex-wrap gap-3 items-center text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryWidgets(); }}>ลองใหม่</Button></div>}
       {!statsError && !widgetsError && ((widgetsLoading || isLoading) ? (
