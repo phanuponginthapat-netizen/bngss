@@ -72,6 +72,10 @@ export interface AgentPresence {
   room?: string | null;
   role?: string;
   online_at: string;
+  /** รุ่นส่วนขยายในเครื่องนักเรียน */
+  ext_version?: string | null;
+  /** รุ่นโปรแกรม BNG Safe Browser (null = ไม่ได้ใช้โปรแกรม) */
+  app_version?: string | null;
 }
 
 /** ยิงคำสั่งไปยัง local control daemon บนเครื่อง Kiosk (Student mode) */

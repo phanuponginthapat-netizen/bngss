@@ -446,6 +446,11 @@ export default function ClassroomMonitorPage() {
                     <span>{a.classroom || "—"}</span>
                     {(a as any).room && <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">📍 {(a as any).room}</Badge>}
                   </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 flex gap-1 flex-wrap">
+                    <span title="รุ่นส่วนขยาย">🧩 {a.ext_version ? `v${a.ext_version}` : "รุ่นเก่ากว่า 1.15.1 หรือไม่พบ"}</span>
+                    <span>·</span>
+                    <span title="รุ่นโปรแกรม Safe Browser">🖥️ {a.app_version ? `Safe Browser v${a.app_version}` : "Chrome ปกติ"}</span>
+                  </p>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {a.streaming || liveFrames[a.user_id] ? (

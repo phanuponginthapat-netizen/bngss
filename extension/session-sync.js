@@ -141,7 +141,7 @@
       try { chrome.runtime.sendMessage(ev.data); } catch {}
     }
     // คำสั่ งที่ตองได ้รบ ั คำตลบกลบั (screenshot / power) → สง่ ผลกลบั ไปหน้า agent
-    if (t === "SB_CAPTURE_TAB" || t === "SB_POWER") {
+    if (t === "SB_CAPTURE_TAB" || t === "SB_POWER" || t === "KIOSK_STATUS") {
       const id = ev.data.requestId;
       try {
         chrome.runtime.sendMessage(ev.data).then((result) => {
@@ -154,6 +154,7 @@
   });
 
   document.documentElement.setAttribute("data-school-safe-browser", "1");
+  document.documentElement.setAttribute("data-school-safe-browser-version", chrome.runtime.getManifest().version);
 
   // Floating "extension linked" badge (one-time)
   if (!document.getElementById("__sb_ext_badge")) {

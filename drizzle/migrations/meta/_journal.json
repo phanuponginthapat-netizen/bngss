@@ -435,6 +435,13 @@
       "when": 1794892270352,
       "tag": "0061_ict_unused_evidence_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794931628639,
+      "tag": "0062_kiosk_heartbeat_versions",
+      "breakpoints": true
     }
   ]
 }

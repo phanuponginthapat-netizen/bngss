@@ -43,6 +43,8 @@ export default function StudentAgentPage() {
   const [me, setMe] = useState<{ id: string; name: string; classroom: string | null; role: string; photo: string | null; email: string | null } | null>(null);
   const [room, setRoom] = useState<string | null>(null);
   const [extInstalled, setExtInstalled] = useState<boolean>(false);
+  const [extVersion, setExtVersion] = useState<string | null>(null);
+  const [launcherVersion, setLauncherVersion] = useState<string | null>(null);
   const [onlineSince] = useState<Date>(() => new Date());
   const [now, setNow] = useState<Date>(new Date());
   const kioskConfig = useKioskRuntimeConfig(true);
@@ -52,6 +54,8 @@ export default function StudentAgentPage() {
   
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const versionsRef = useRef<{ ext_version: string | null; app_version: string | null }>({ ext_version: null, app_version: null });
+  const presenceRef = useRef<AgentPresence | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
@@ -63,11 +67,32 @@ export default function StudentAgentPage() {
 
   // Detect extension (session-sync sets data-school-safe-browser="1" on <html>)
   useEffect(() => {
-    const check = () => setExtInstalled(document.documentElement.getAttribute("data-school-safe-browser") === "1");
+    const check = () => {
+      const root = document.documentElement;
+      setExtInstalled(root.getAttribute("data-school-safe-browser") === "1");
+      setExtVersion(root.getAttribute("data-school-safe-browser-version"));
+    };
     check();
     const iv = setInterval(check, 1500);
     return () => clearInterval(iv);
   }, []);
+
+  // รุ่นโปรแกรม Safe Browser (ถ้ามี) — ถามผ่านส่วนขยายทุก 5 นาที
+  useEffect(() => {
+    if (!extInstalled) { setLauncherVersion(null); return; }
+    let alive = true;
+    const ask = () => extCall("KIOSK_STATUS").then((r) => { if (alive) setLauncherVersion(r?.ok && typeof r.version === "string" ? r.version : null); });
+    ask();
+    const iv = setInterval(ask, 5 * 60 * 1000);
+    return () => { alive = false; clearInterval(iv); };
+  }, [extInstalled]);
+
+  // ส่งรุ่นส่วนขยาย/โปรแกรมให้หน้าครูเห็นบนการ์ด
+  useEffect(() => {
+    versionsRef.current = { ext_version: extVersion, app_version: launcherVersion };
+    const ch = channelRef.current, p = presenceRef.current;
+    if (ch && p) { presenceRef.current = { ...p, ...versionsRef.current }; ch.track(presenceRef.current).catch(() => {}); }
+  }, [extVersion, launcherVersion]);
 
   // ==== Heartbeat → ตาราง kiosk_devices ทุก 30 วิ ====
   useKioskHeartbeat({
@@ -76,6 +101,8 @@ export default function StudentAgentPage() {
     kioskMode: "student",
     configUpdatedAt: kioskConfig?.updated_at ?? null,
     extensionInstalled: extInstalled,
+    extensionVersion: extVersion,
+    agentVersion: launcherVersion,
     uptimeSec: Math.floor((now.getTime() - onlineSince.getTime()) / 1000),
   });
 
@@ -255,7 +282,8 @@ export default function StudentAgentPage() {
     ch.on("broadcast", { event: "monitor" }, onBroadcast);
     ch.subscribe(async (s) => {
       if (s === "SUBSCRIBED") {
-        const p: AgentPresence = { user_id: me.id, name: me.name, classroom: me.classroom, room, role: me.role, online_at: new Date().toISOString() };
+        const p: AgentPresence = { user_id: me.id, name: me.name, classroom: me.classroom, room, role: me.role, online_at: new Date().toISOString(), ...versionsRef.current };
+        presenceRef.current = p;
         await ch.track(p);
       }
     });

@@ -13,6 +13,8 @@ type HeartbeatInput = {
   kioskMode?: "door" | "student" | null;
   configUpdatedAt?: string | null;
   extensionInstalled?: boolean;
+  extensionVersion?: string | null;
+  agentVersion?: string | null;
   uptimeSec?: number;
 };
 
@@ -46,6 +48,8 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
     kioskMode = null,
     configUpdatedAt = null,
     extensionInstalled = false,
+    extensionVersion = null,
+    agentVersion = null,
     uptimeSec = 0,
   } = input;
 
@@ -87,6 +91,7 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
           _uptime_sec: Math.round(uptimeSec) || 0,
           _screen_resolution: payload.screen_resolution,
           _extension_installed: extensionInstalled,
+          ...(kioskMode === "student" ? { _extension_version: extensionVersion, _agent_version: agentVersion } : {}),
         });
         if (rpcErr && user) {
           // fallback สำหรับ backend ที่ยังไม่มีฟังก์ชัน
@@ -155,5 +160,5 @@ export function useKioskHeartbeat(input: HeartbeatInput) {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [enabled, status, kioskMode, configUpdatedAt, extensionInstalled, uptimeSec]);
+  }, [enabled, status, kioskMode, configUpdatedAt, extensionInstalled, extensionVersion, agentVersion, uptimeSec]);
 }

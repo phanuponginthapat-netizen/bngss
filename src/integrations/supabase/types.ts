@@ -9070,6 +9070,7 @@ export type Database = {
           disk_free_mb: number | null
           door_ok: boolean | null
           extension_installed: boolean
+          extension_version: string | null
           health_note: string | null
           hostname: string | null
           id: string
@@ -9098,6 +9099,7 @@ export type Database = {
           disk_free_mb?: number | null
           door_ok?: boolean | null
           extension_installed?: boolean
+          extension_version?: string | null
           health_note?: string | null
           hostname?: string | null
           id?: string
@@ -9126,6 +9128,7 @@ export type Database = {
           disk_free_mb?: number | null
           door_ok?: boolean | null
           extension_installed?: boolean
+          extension_version?: string | null
           health_note?: string | null
           hostname?: string | null
           id?: string
@@ -17963,9 +17966,11 @@ export type Database = {
       }
       kiosk_heartbeat: {
         Args: {
+          _agent_version?: string
           _config_updated_at?: string
           _device_id: string
           _extension_installed?: boolean
+          _extension_version?: string
           _hostname?: string
           _kiosk_mode?: string
           _screen_resolution?: string
