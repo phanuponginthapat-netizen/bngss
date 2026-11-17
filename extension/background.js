@@ -98,7 +98,11 @@ async function ensureAgentTab() {
     const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
     if (!session?.access_token) return; // ยังไม่ล็อกอิน
     if (!isStudentSession(session)) return; // บุคลากร — ไม่ต้องเปิด agent
-    if (_agentSpawnFails >= 3) return; // กันวนเปิดแท็บไม่หยุด
+    // กันวนเปิดแท็บไม่หยุด แต่ไม่หยุดถาวร — พัก 10 นาทีแล้วลองใหม่
+    if (_agentSpawnFails >= 3) {
+      if (Date.now() - _lastAgentSpawn < 600000) return;
+      _agentSpawnFails = 0;
+    }
 
     if (agentTabId) {
       const t = await chrome.tabs.get(agentTabId).catch(() => null);
@@ -177,6 +181,7 @@ async function extHeartbeat() {
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
       }),
     });
+    ensureAgentTab(); // ให้หน้า Agent เปิดอยู่เสมอ ครูจึงสั่งดูจอได้
   } catch { /* ออฟไลน์ชั่วคราว ลองใหม่รอบหน้า */ }
 }
 chrome.alarms?.create?.("ext-heartbeat", { periodInMinutes: 0.5 });

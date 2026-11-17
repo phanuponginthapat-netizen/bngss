@@ -178,7 +178,19 @@ export default function ClassroomMonitorPage() {
     if (!me) return;
     if (peersRef.current.has(userId)) { toast("กำลังดูอยู่แล้ว"); return; }
     if (!agentsRef.current[userId]) {
-      toast.error(`${name} ยังไม่ได้เปิดหน้า Agent — สั่งดูจอไม่ได้`);
+      // ส่วนขยายจะเปิดหน้า Agent ให้เองภายใน ~30 วินาที — ส่งคำขอซ้ำเมื่อ Agent ออนไลน์
+      toast(`กำลังรอเครื่อง ${name} เชื่อมต่อ… ระบบจะเปิดจอให้อัตโนมัติ`);
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries++;
+        if (agentsRef.current[userId]) {
+          window.clearInterval(timer);
+          send({ type: "request-stream", from: me.id, to: userId });
+        } else if (tries >= 30) {
+          window.clearInterval(timer);
+          toast.error(`${name} ยังไม่เชื่อมต่อ — ให้นักเรียนเปิดเว็บโรงเรียนหรืออัปเดตส่วนขยายเป็น 1.16.3`);
+        }
+      }, 3000);
       return;
     }
     send({ type: "request-stream", from: me.id, to: userId });
