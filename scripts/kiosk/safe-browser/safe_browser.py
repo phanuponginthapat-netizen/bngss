@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -51,6 +51,8 @@ CFG = load_env()
 HOME_URL = CFG.get("SAFEBROWSER_HOME_URL", "https://bngss.online")
 CLOUD_URL = CFG.get("SAFEBROWSER_CLOUD_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1").rstrip("/")
 KIOSK = CFG.get("SAFEBROWSER_KIOSK", "1") != "0"
+# auto = ใช้ Chrome ปกติของเครื่องถ้ามี (ส่วนขยายที่ติดตั้งจาก ZIP อยู่ในโปรไฟล์ปกติ) ไม่งั้นใช้ตัวที่แถมมา
+BROWSER_MODE = CFG.get("SAFEBROWSER_BROWSER", "auto").strip().lower()
 
 
 def load_device_key() -> str:
@@ -99,23 +101,58 @@ def cloud(route: str, body: dict, timeout: float = 15) -> tuple[int, dict]:
 
 
 # ── Browser ────────────────────────────────────────────────────────────────
-def chrome_path() -> Path | None:
+def system_chrome() -> Path | None:
+    roots = [os.environ.get(k) for k in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
+    for r in roots:
+        if r:
+            p = Path(r) / "Google" / "Chrome" / "Application" / "chrome.exe"
+            if p.exists():
+                return p
+    return None
+
+
+def bundled_chrome() -> Path | None:
     for p in (APP_DIR / "chrome" / "chrome.exe", BASE / "chrome" / "chrome.exe"):
         if p.exists():
             return p
     return None
 
 
+def chrome_path() -> Path | None:
+    if BROWSER_MODE == "bundled":
+        return bundled_chrome()
+    if BROWSER_MODE == "system":
+        return system_chrome()
+    return system_chrome() or bundled_chrome()
+
+
+def is_system(exe: Path) -> bool:
+    return exe == system_chrome()
+
+
+def profile_args(exe: Path) -> list[str]:
+    # Chrome ปกติใช้โปรไฟล์ปกติของผู้ใช้ เพื่อให้ส่วนขยายที่ติดตั้งจาก ZIP ทำงาน
+    return [] if is_system(exe) else [f"--user-data-dir={DATA_DIR / 'profile'}"]
+
+
+def close_running_chrome():
+    """Chrome ปกติที่เปิดค้างไว้จะรับคำสั่งแทนแล้วโปรแกรมนี้คุมไม่ได้ จึงปิดก่อนเปิดโหมด kiosk"""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True)
+        time.sleep(1)
+
+
 def browser_args(exe: Path) -> list[str]:
     ext = APP_DIR / "extension"
-    args = [str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"--load-extension={ext}",
-            f"--disable-extensions-except={ext}", "--no-first-run", "--no-default-browser-check",
+    args = [str(exe), *profile_args(exe)]
+    if not is_system(exe):
+        args += [f"--load-extension={ext}", f"--disable-extensions-except={ext}"]
+    args += ["--no-first-run", "--no-default-browser-check",
             "--disable-session-crashed-bubble", "--disable-infobars", "--noerrdialogs",
             "--disable-features=Translate,DownloadBubble,DisableLoadExtensionCommandLineSwitch", "--use-fake-ui-for-media-stream",
             "--autoplay-policy=no-user-gesture-required", "--disable-dev-tools", "--disable-print-preview"]
     if KIOSK:
-        # --auto-select-desktop-capture-source: ให້หน้า Monitor Agent จบั จอ/แชรจ์อดูได้
-        # โดยไม่ขึ้น dialog เลือกจอ (kiosk ไม่มีป่ ุ่มให ้เลือก)
+        # ให้หน้า Monitor Agent จับจอ/แชร์จอได้โดยไม่ขึ้น dialog เลือกจอ
         args += ["--kiosk", "--start-fullscreen",
                  "--auto-select-desktop-capture-source=Entire screen"]
     return args + [HOME_URL]
@@ -128,6 +165,9 @@ def browser_loop():
             state["last_error"] = "ไม่พบเบราว์เซอร์ในโฟลเดอร์โปรแกรม"
             log(state["last_error"]); time.sleep(10); continue
         try:
+            if is_system(exe):
+                close_running_chrome()
+            log("launch", exe)
             state["browser_start"] = time.time()
             state["proc"] = subprocess.Popen(browser_args(exe))
             state["proc"].wait()
@@ -141,7 +181,7 @@ def browser_loop():
 def open_control_page():
     exe = chrome_path()
     if exe:
-        subprocess.Popen([str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"http://127.0.0.1:{PORT}/exit"])
+        subprocess.Popen([str(exe), *profile_args(exe), f"http://127.0.0.1:{PORT}/exit"])
 
 
 _last_prompt = [0.0]
