@@ -19,6 +19,8 @@ export default {
       },
 
       colors: {
+        "chart-current": "hsl(var(--chart-year-current))",
+        "chart-previous": "hsl(var(--chart-year-previous))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

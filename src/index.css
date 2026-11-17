@@ -55,6 +55,15 @@ a[href*="lovable.dev"][href*="utm"] {
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --chart-year-current: 221 83% 53%;
+  --chart-year-previous: 174 78% 30%;
+}
+.dark {
+  --chart-year-current: 217 91% 68%;
+  --chart-year-previous: 172 66% 50%;
+}
+
 .dashboard-intro-merged .intro-row > div {
   position: relative;
   min-width: 0;
