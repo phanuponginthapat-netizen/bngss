@@ -114,7 +114,10 @@ def browser_args(exe: Path) -> list[str]:
             "--disable-features=Translate,DownloadBubble", "--use-fake-ui-for-media-stream",
             "--autoplay-policy=no-user-gesture-required", "--disable-dev-tools", "--disable-print-preview"]
     if KIOSK:
-        args += ["--kiosk", "--start-fullscreen"]
+        # --auto-select-desktop-capture-source: ให້หน้า Monitor Agent จบั จอ/แชรจ์อดูได้
+        # โดยไม่ขึ้น dialog เลือกจอ (kiosk ไม่มีป่ ุ่มให ้เลือก)
+        args += ["--kiosk", "--start-fullscreen",
+                 "--auto-select-desktop-capture-source=Entire screen"]
     return args + [HOME_URL]
 
 
