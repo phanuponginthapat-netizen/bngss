@@ -3,7 +3,7 @@ import type { BackgroundRemovalPipeline } from "@huggingface/transformers";
 let remover: Promise<BackgroundRemovalPipeline> | undefined;
 
 /** Flatten the portrait matte onto white without regenerating facial details. */
-export function flattenPortraitOnWhite(data: Uint8ClampedArray): Uint8ClampedArray {
+export function flattenPortraitOnWhite(data: Uint8Array | Uint8ClampedArray): Uint8ClampedArray {
   if (data.length % 4 !== 0) throw new Error("ข้อมูลรูปตัดพื้นหลังไม่สมบูรณ์");
   const result = new Uint8ClampedArray(data.length);
   for (let i = 0; i < data.length; i += 4) {
@@ -53,7 +53,9 @@ export async function removeIdPhotoBackground(canvas: HTMLCanvasElement, onProgr
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("เบราว์เซอร์ไม่รองรับการปรับรูป");
-    ctx.putImageData(new ImageData(flattenPortraitOnWhite(portrait.data), canvas.width, canvas.height), 0, 0);
+    const pixels = ctx.createImageData(canvas.width, canvas.height);
+    pixels.data.set(flattenPortraitOnWhite(portrait.data));
+    ctx.putImageData(pixels, 0, 0);
   } catch (error) {
     const detail = error instanceof Error ? error.message : "";
     throw new Error(`ตัดพื้นหลังไม่สำเร็จ รูปเดิมยังไม่ถูกเปลี่ยน กรุณาลองใหม่ หรือปิดการตัดพื้นหลัง${detail ? ` (${detail})` : ""}`);
