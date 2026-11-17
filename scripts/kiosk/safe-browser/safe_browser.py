@@ -29,7 +29,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.8.4"
+APP_VERSION = "1.8.5"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -669,7 +669,10 @@ def update_check(install: bool) -> str:
         with urllib.request.urlopen(UPDATE_BASE + "/safebrowser-version.json", timeout=20) as r:
             info = json.loads(r.read())
         latest, sha = str(info.get("version", "")).lstrip("v"), str(info.get("sha256", "")).lower()
-        if not latest or _ver(latest) <= _ver(APP_VERSION) or len(sha) != 64:
+        ext = str(info.get("extension", ""))
+        # ส่วนขยายรุ่นใหม่มากับตัวติดตั้งเลขรุ่นเดิมได้ — ติดตั้งเมื่อโปรแกรมหรือส่วนขยายใหม่กว่าในเครื่อง
+        newer = bool(latest) and (_ver(latest) > _ver(APP_VERSION) or (bool(ext) and _ver(ext) > _ver(BUNDLED_EXT_VERSION or "0")))
+        if not newer or len(sha) != 64:
             return "up-to-date"
         if not install:
             return latest

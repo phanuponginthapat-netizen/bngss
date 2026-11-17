@@ -79,5 +79,5 @@ jobs:
         run: |
           mkdir -p "$HOME/bin" && printf '#!/bin/sh\nexec python "$@"\n' > "$HOME/bin/python3" && chmod +x "$HOME/bin/python3"
           export PATH="$HOME/bin:$PATH" PYTHONUTF8=1 PYTHONIOENCODING=utf-8
-          python -c "import hashlib,json;b=open('dist-safebrowser/SafeBrowserSetup.exe','rb').read();json.dump({'version':'${{ steps.ver.outputs.version }}','sha256':hashlib.sha256(b).hexdigest(),'file':'SafeBrowserSetup.exe'},open('dist-safebrowser/safebrowser-version.json','w'))"
+          python -c "import hashlib,json;b=open('dist-safebrowser/SafeBrowserSetup.exe','rb').read();json.dump({'version':'${{ steps.ver.outputs.version }}','extension':json.load(open('extension/manifest.json'))['version'],'sha256':hashlib.sha256(b).hexdigest(),'file':'SafeBrowserSetup.exe'},open('dist-safebrowser/safebrowser-version.json','w'))"
           bash scripts/ci/publish-release.sh safebrowser-windows "BNG Safe Browser สำหรับ Windows (.exe)" "v${{ steps.ver.outputs.version }}" dist-safebrowser/SafeBrowserSetup.exe dist-safebrowser/safebrowser-version.json
