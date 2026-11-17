@@ -1,3 +1,4 @@
+import { clipUtf8 } from "./pushText.ts";
 // FCM (Firebase Cloud Messaging) sender for the Android APK via the HTTP v1 API.
 // Requires the secret FCM_SERVICE_ACCOUNT_JSON = Firebase service-account key JSON:
 //   { "project_id", "client_email", "private_key", ... }
@@ -109,7 +110,7 @@ export async function sendFcm(token: string, payload: FcmPayload): Promise<FcmRe
     const msg = {
       message: {
         token,
-        notification: { title: payload.title, body: payload.body ?? "" },
+        notification: { title: clipUtf8(payload.title, 300), body: clipUtf8(payload.body ?? "", 2400) },
         android: {
           priority: "high",
           ttl: "3600s",

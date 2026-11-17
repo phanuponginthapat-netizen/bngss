@@ -1,3 +1,4 @@
+import { clipUtf8 } from "./pushText.ts";
 // Shared Web Push sender using RFC 8291 (aes128gcm) via @negrel/webpush.
 // Replaces the previous hand-rolled VAPID flow that sent unencrypted payloads
 // (which push services silently dropped, so notifications never showed up).
@@ -90,9 +91,9 @@ export async function pushOne(sub: StoredSub, payload: PushPayload): Promise<Pus
     } as Parameters<typeof appServer.subscribe>[0]);
 
     const body = JSON.stringify({
-      title: payload.title.slice(0, 200),
+      title: clipUtf8(payload.title, 300),
       // Push services cap encrypted payloads at ~4KB (413 otherwise); long digests open in-app instead.
-      body: (payload.body ?? "").length > 1500 ? `${(payload.body ?? "").slice(0, 1500)}…` : (payload.body ?? ""),
+      body: clipUtf8(payload.body ?? "", 2400),
       url: payload.url ?? "/dashboard",
       tag: payload.tag ?? "general",
     });
