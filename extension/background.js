@@ -183,7 +183,7 @@ chrome.alarms?.onAlarm.addListener(async (a) => {
 
 
 async function getState() {
-  const s = await chrome.storage.local.get(["session", "config", "configAt", "configError", "systemHome", "logError"]);
+  const s = await chrome.storage.local.get(["session", "config", "configAt", "configError", "systemHome", "logError", "sessionError"]);
   return { ...s, session: s.session ? { user: s.session.user, role: s.session.role, connected: !!s.session.access_token } : null };
 }
 
@@ -307,6 +307,8 @@ async function refreshConfig() {
   _configRequest = (async () => { try {
     await loadBackend();
     const session = await getValidSession();
+    const { session: stored } = await chrome.storage.local.get(["session"]);
+    if (stored?.access_token && !session) throw new Error("เชื่อมต่อบัญชีไม่ได้ กรุณาลองใหม่");
     const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${session?.access_token || ANON_KEY}` }, signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`อ่านนโยบายไม่สำเร็จ (${r.status})`);
     const cfg = await r.json();
@@ -536,7 +538,8 @@ function wifiCall(payload) {
         finish({ ok: false, error: err });
       });
       port.postMessage(payload);
-      setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
+      const timer = setTimeout(() => finish({ ok: false, error: "timeout" }), 75000);
+      port.onDisconnect.addListener(() => clearTimeout(timer));
     } catch (e) {
       resolve({ ok: false, error: String(e?.message || e) });
     }
@@ -665,12 +668,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.captureVisibleTab(sender.tab?.windowId, { format: "png" }, (dataUrl) => {
       const error = chrome.runtime.lastError;
       if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
-      chrome.downloads?.download({
+      chrome.downloads.download({
         url: dataUrl,
         filename: `screenshot-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
         saveAs: false,
-      }).catch(() => {});
-      sendResponse({ ok: true });
+      }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, error: "บันทึกภาพไม่สำเร็จ" }));
     });
     return true;
   }
