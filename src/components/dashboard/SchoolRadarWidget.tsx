@@ -56,17 +56,35 @@ export default function SchoolRadarWidget() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["school_subject_group_scores", currentAcademicYear, currentSemester],
     enabled: isReady,
-    queryFn: async (): Promise<GroupRow[]> => {
-      const prevYear = currentAcademicYear - 1;
-
-      const [scores, subjects] = await Promise.all([
+    queryFn: async (): Promise<{ rows: GroupRow[]; year: number; semester: number; fellBack: boolean }> => {
+      const loadScores = (year: number, semester: number) =>
         fetchAllRows((from, to) => supabase.from("student_scores")
           .select("subject_id,total_score,academic_year")
-          .in("academic_year", [currentAcademicYear, prevYear])
-          .eq("semester", currentSemester)
-          .not("total_score", "is", null).order("id").range(from,to)),
-        fetchAllRows((from,to) => supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
-      ]);
+          .in("academic_year", [year, year - 1])
+          .eq("semester", semester)
+          .not("total_score", "is", null).order("id").range(from, to));
+
+      // เทอมปัจจุบันยังไม่มีคะแนน → ถอยไปเทอมล่าสุดที่มีข้อมูล
+      // (เทอม 2 ว่าง → เทอม 1 ปีเดียวกัน / เทอม 1 ว่าง → เทอม 2 ของปีก่อน)
+      let year = currentAcademicYear;
+      let semester = currentSemester;
+      let fellBack = false;
+      let scores = await loadScores(year, semester);
+      if (!scores.some((r) => r.academic_year === year)) {
+        const fbYear = semester === 1 ? year - 1 : year;
+        const fbSemester = semester === 1 ? 2 : 1;
+        const fbScores = await loadScores(fbYear, fbSemester);
+        if (fbScores.some((r) => r.academic_year === fbYear)) {
+          year = fbYear;
+          semester = fbSemester;
+          scores = fbScores;
+          fellBack = true;
+        }
+      }
+      const prevYear = year - 1;
+
+      const subjects = await fetchAllRows((from, to) =>
+        supabase.from("subjects").select("id,name_th").order("id").range(from, to));
 
       const subjectMap = new Map<string, SubjectGroup["key"]>();
       subjects.forEach((s) => {
