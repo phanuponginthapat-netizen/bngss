@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -66,7 +66,7 @@ def load_device_key() -> str:
 
 DEVICE_KEY = load_device_key()
 
-state = {"exiting": False, "proc": None, "last_error": ""}
+state = {"exiting": False, "proc": None, "last_error": "", "ext_ping": 0.0, "browser_start": 0.0}
 
 
 def log(*a):
@@ -111,7 +111,7 @@ def browser_args(exe: Path) -> list[str]:
     args = [str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"--load-extension={ext}",
             f"--disable-extensions-except={ext}", "--no-first-run", "--no-default-browser-check",
             "--disable-session-crashed-bubble", "--disable-infobars", "--noerrdialogs",
-            "--disable-features=Translate,DownloadBubble", "--use-fake-ui-for-media-stream",
+            "--disable-features=Translate,DownloadBubble,DisableLoadExtensionCommandLineSwitch", "--use-fake-ui-for-media-stream",
             "--autoplay-policy=no-user-gesture-required", "--disable-dev-tools", "--disable-print-preview"]
     if KIOSK:
         # --auto-select-desktop-capture-source: ให້หน้า Monitor Agent จบั จอ/แชรจ์อดูได้
@@ -128,6 +128,7 @@ def browser_loop():
             state["last_error"] = "ไม่พบเบราว์เซอร์ในโฟลเดอร์โปรแกรม"
             log(state["last_error"]); time.sleep(10); continue
         try:
+            state["browser_start"] = time.time()
             state["proc"] = subprocess.Popen(browser_args(exe))
             state["proc"].wait()
         except OSError as e:
@@ -371,6 +372,7 @@ class Bridge(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/status" and self._origin_ok():
+            state["ext_ping"] = time.time()
             return self._send(200, {"kiosk": KIOSK, "version": APP_VERSION, "device": bool(DEVICE_KEY)})
         if self.path == "/exit" and self._local_ok():
             return self._send_html(200, exit_page.render(APP_VERSION, KIOSK, bool(DEVICE_KEY)))
@@ -513,6 +515,24 @@ def single_instance() -> bool:
     return ctypes.GetLastError() != 183
 
 
+def extension_watchdog():
+    """Without the school extension the browser is just an unfiltered full-screen window
+    (no login enforcement, filters, toolbar, monitor). Restart the browser when the
+    extension has not contacted the launcher within 60 seconds of a launch."""
+    def run():
+        while not state["exiting"]:
+            time.sleep(15)
+            started = state["browser_start"]
+            if not started or time.time() - started < 60 or state["ext_ping"] >= started:
+                continue
+            state["last_error"] = "ส่วนขยายของโรงเรียนไม่ทำงาน — กำลังเปิดเบราว์เซอร์ใหม่"
+            log(state["last_error"], "extension dir exists:", (APP_DIR / "extension" / "manifest.json").exists())
+            proc = state["proc"]
+            if proc and proc.poll() is None:
+                proc.terminate()
+    threading.Thread(target=run, daemon=True).start()
+
+
 def main():
     if not single_instance():
         return
@@ -524,6 +544,7 @@ def main():
     session_guard()
     taskmgr_watchdog()
     keyboard_lock()
+    extension_watchdog()
     browser_loop()
 
 
