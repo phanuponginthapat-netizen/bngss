@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -434,12 +434,15 @@ def cloud_loop():
             code, res = cloud("power-command", {})
             cmd, cid = res.get("command"), res.get("command_id")
             if code == 200 and cmd and cid:
-                ok = power(cmd) if cmd in ("shutdown", "cancel", "sleep") else False
-                if cmd in ("screen_on", "screen_off", "live_view"):
-                    ok, detail = True, "เครื่องเบราว์เซอร์ไม่มีคำสั่งนี้ ข้ามแล้ว"
+                action = {"reboot": "restart"}.get(cmd, cmd)
+                ok = power(action) if action in ("shutdown", "cancel", "sleep", "restart") else False
+                if cmd == "live_view":
+                    ok, detail = True, "หน้า Monitor Agent แสด่งจอให้แล้ว"
+                elif cmd in ("screen_on", "screen_off"):
+                    ok, detail = False, "เครื่องเบราว์เซอร์ไม่มีคำสั่ งน้ี"
                 else:
-                    detail = "สั่งเครื่องแล้ว" if ok else "เครื่องทำคำสั่งไม่สำเร็จ"
-                cloud("command-result", {"id": cid, "status": "scheduled" if ok and cmd == "shutdown" else ("completed" if ok else "failed"), "detail": detail})
+                    detail = "สั่ งเครื่ องแล้ว" if ok else "เครื่ องทำคำสั่ งไม่ สำเร็จ"
+                cloud("command-result", {"id": cid, "status": "scheduled" if ok and action in ("shutdown", "restart") else ("completed" if ok else "failed"), "detail": detail})
                 log("remote command", cmd, ok)
         time.sleep(20)
 
