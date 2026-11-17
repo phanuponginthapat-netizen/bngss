@@ -72,7 +72,7 @@ export function openBrowserUrl(raw: string) {
     typeof document !== "undefined" &&
     document.documentElement.getAttribute("data-school-safe-browser") === "1";
   if (hasExt) {
-    window.postMessage({ type: "SB_OPEN_URL", url }, "*");
+    window.postMessage({ type: "SB_USER_OPEN", url }, window.location.origin);
     return;
   }
   window.open(url, "_blank", "noopener,noreferrer");

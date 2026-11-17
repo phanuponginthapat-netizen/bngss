@@ -651,6 +651,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   } else if (msg?.type === "GET_STATE") {
     getState().then((s) => sendResponse(s));
     return true;
+  } else if (msg?.type === "SB_USER_OPEN") {
+    // ผู้ใช้กดเปิดเว็บเองจากหน้าระบบโรงเรียน → เปิดแท็บใหม่ (ผ่าน filter/log ตามปกติ)
+    if (!school || !/^https?:\/\//i.test(msg.url || "")) { sendResponse({ ok: false }); return false; }
+    chrome.tabs.create({ url: msg.url, active: true });
+    sendResponse({ ok: true });
   } else if (msg?.type === "SB_OPEN_URL") {
     // ครูสั่งเปิดลิงก์ให้นักเรียน → เปิดแท็บใหม่ในเครื่องนักเรียน
     if (!/^https?:\/\//i.test(msg.url || "")) { sendResponse({ ok: false }); return false; }

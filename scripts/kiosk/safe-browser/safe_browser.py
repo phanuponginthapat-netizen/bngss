@@ -29,7 +29,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.7.1"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -608,10 +608,12 @@ def extension_watchdog():
                 continue
             if state["ext_ping"] >= started:
                 v = state["ext_version"]
-                if BUNDLED_EXT_VERSION and _ver(v or "0") < _ver(BUNDLED_EXT_VERSION):
-                    switch_to_bundled(f"ส่วนขยายใน Chrome รุ่น {v or 'เก่า'} เก่ากว่ารุ่นของโปรแกรม {BUNDLED_EXT_VERSION}")
+                # ส่วนขยายทำงานอยู่แล้ว: รุ่นเก่ากว่าแค่เตือน ไม่ปิด Chrome ปกติที่ใช้งานได้
+                if BUNDLED_EXT_VERSION and v and _ver(v) < _ver(BUNDLED_EXT_VERSION) and not warned[0]:
+                    warned[0] = True
+                    log("extension older than bundled — keep installed Chrome", v, BUNDLED_EXT_VERSION)
                 continue
-            if time.time() - started < 90:
+            if time.time() - started < 180:
                 continue
             if switch_to_bundled("ไม่พบส่วนขยายของโรงเรียนใน Chrome ของเครื่อง"):
                 continue

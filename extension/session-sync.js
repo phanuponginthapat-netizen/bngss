@@ -124,6 +124,11 @@
 
   // Relay Monitor Agent commands (จาก StudentAgentPage) → extension background
   window.addEventListener("message", (ev) => {
+    // ผู้ใช้กดปุ่มเปิดเว็บเอง (หน้า Safe Browser/ทางลัด) จากหน้าระบบโรงเรียนหน้าใดก็ได้
+    if (ev.source === window && ev.origin === location.origin && ev.data && ev.data.type === "SB_USER_OPEN" && typeof ev.data.url === "string") {
+      try { chrome.runtime.sendMessage({ type: "SB_USER_OPEN", url: ev.data.url }); } catch {}
+      return;
+    }
     if (ev.source !== window || ev.origin !== location.origin || location.pathname !== "/dashboard/monitor/agent" || !ev.data || typeof ev.data !== "object") return;
     const t = ev.data.type;
     if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_SCREENSHOT") {
