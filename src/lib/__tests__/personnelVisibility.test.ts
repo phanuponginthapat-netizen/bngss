@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { isVisibleSchoolPersonnel } from "../personnelVisibility";
 
 describe("school personnel presentation", () => {
+  it("hides the generic system admin but not a real administrator", () => {
+    expect(isVisibleSchoolPersonnel({ first_name: "Admin", last_name: "ระบบ" })).toBe(false);
+    expect(isVisibleSchoolPersonnel({ first_name: "ภานุพงศ์", last_name: "อินทะพาต" })).toBe(true);
+  });
   it("hides the scanner system account", () => {
     expect(isVisibleSchoolPersonnel({ first_name: "ตู้สแกนประตู", employee_code: "kiosk", department: "ระบบ" })).toBe(false);
   });

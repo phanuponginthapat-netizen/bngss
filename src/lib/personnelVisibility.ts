@@ -14,6 +14,8 @@ export function isVisibleSchoolPersonnel(person: PersonnelIdentity): boolean {
   const position = (person.position_title || person.position || "").trim();
   const observerAccount = person.first_name?.trim() === "ผู้สังเกตการณ์"
     && person.last_name?.trim() === "ศึกษานิเทศก์";
+  const adminAccount = person.first_name?.trim().toLowerCase() === "admin"
+    && person.last_name?.trim() === "ระบบ";
   return code !== "kiosk" && department !== "ระบบ"
-    && position !== "อุปกรณ์ระบบ" && !observerAccount;
+    && position !== "อุปกรณ์ระบบ" && !observerAccount && !adminAccount;
 }
