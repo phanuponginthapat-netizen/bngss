@@ -610,37 +610,7 @@ export async function notifyBusBoarding(opts: {
   } catch {}
 }
 
-// ---------------------------------------------------------------------------
-// 9) Kiosk offline
-// ---------------------------------------------------------------------------
-export async function notifyKioskOffline(opts: {
-  deviceId: string;
-  room?: string | null;
-  lastHeartbeat?: string | null;
-}): Promise<void> {
-  const user_ids = await resolveRoleUserIds(["admin", "director"]);
-  if (user_ids.length === 0) return;
-  const title = `📴 ตู้ Kiosk ออฟไลน์เกิน 10 นาที`;
-  const body = `${opts.deviceId}${opts.room ? ` • ${opts.room}` : ""}${opts.lastHeartbeat ? ` • last ${opts.lastHeartbeat}` : ""}`;
-  await safeInvokeFanout({
-    user_ids,
-    title,
-    body,
-    type: "kiosk_offline",
-    severity: "warning",
-    reference_type: "kiosk_devices",
-    reference_id: opts.deviceId,
-    url: "/dashboard/admin/kiosk-health",
-    channels: ["in_app", "push", "line", "gchat"] as TriggerChannel[],
-    gchat_categories: ["all"],
-    dedup_key: `kiosk-offline-${opts.deviceId}`,
-  });
-  try {
-    await supabase.functions.invoke("notify-fanout", {
-      body: { title, body, type: "kiosk_offline", user_ids, channels: ["in_app", "push", "gchat"] as TriggerChannel[] },
-    });
-  } catch {}
-}
+// 9) Kiosk offline — แจ้งจากฝั่งเซิร์ฟเวอร์ (kiosk-offline-alert) เท่านั้น กันแจ้งซ้ำ
 
 // ---------------------------------------------------------------------------
 // 10) Health check fail
