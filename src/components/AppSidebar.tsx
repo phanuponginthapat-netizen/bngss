@@ -4,6 +4,7 @@ import { GraduationCap, LayoutDashboard, User, Award, Megaphone, Users, Calendar
 import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { SidebarAccountFooter } from "@/components/SidebarAccountFooter";
 import { ViewModeSwitcher } from "@/components/ViewModeSwitcher";
+import WidgetCustomizer from "@/components/dashboard/WidgetCustomizer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -131,12 +132,12 @@ export function AppSidebar() {
   const toneByUrl = new Map<string, string>();
   areas.forEach(a => a.groups.forEach(g => g.items.forEach(i => { if (!toneByUrl.has(i.url)) toneByUrl.set(i.url, a.key); })));
   const menuItem = (item: { to: string; icon: NavigationItem["icon"]; label: string; tone?: string }, active = pathname === item.to) => (
-    <SidebarMenuItem key={item.to} className={item.tone ? `tone-${item.tone}` : undefined}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="side-item group/nav relative h-auto min-h-7 gap-2 rounded-md px-1.5 py-[3px]">
+    <><SidebarMenuItem key={item.to} className={item.tone ? `tone-${item.tone}` : undefined}><SidebarMenuButton asChild isActive={active} tooltip={item.label} className="side-item group/nav relative h-auto min-h-7 gap-2 rounded-md px-1.5 py-[3px]">
       <Link to={item.to} onClick={onNavigate} aria-current={active ? "page" : undefined}>
         <span className="side-chip flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px]"><item.icon className="h-3 w-3" /></span>
         <span className="min-w-0 flex-1 !whitespace-normal !overflow-visible break-words text-[12px] leading-[17px]">{item.label}</span>
       </Link>
-    </SidebarMenuButton></SidebarMenuItem>
+    </SidebarMenuButton></SidebarMenuItem>{item.to === "/dashboard/profile" && (role === "admin" || role === "observer") && <SidebarMenuItem><WidgetCustomizer sidebar /></SidebarMenuItem>}</>
   );
   const section = (key: string, label: string, Icon: NavigationItem["icon"], items: { to: string; icon: NavigationItem["icon"]; label: string; active?: boolean; tone?: string }[], tone?: string) => {
     if (!items.length) return null;

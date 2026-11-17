@@ -127,7 +127,7 @@ function SortableRow({ w, onChange, lang }: RowProps) {
   );
 }
 
-export default function WidgetCustomizer() {
+export default function WidgetCustomizer({ sidebar = false }: { sidebar?: boolean }) {
   const { lang } = useLanguage();
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const [open, setOpen] = useState(false);
@@ -152,9 +152,9 @@ export default function WidgetCustomizer() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-full shadow-sm">
+        <Button variant={sidebar ? "ghost" : "outline"} size="sm" className={sidebar ? "side-item h-auto min-h-7 w-full justify-start gap-2 rounded-md px-1.5 py-[3px] text-sidebar-foreground" : "gap-1.5 rounded-full shadow-sm"}>
           <Sliders className="w-3.5 h-3.5" />
-          {L("ปรับวิดเจ็ต", "Customize")}
+          <span className={sidebar ? "text-[12px] leading-[17px]" : undefined}>{L("ปรับวิดเจ็ต", "Customize")}</span>
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
