@@ -188,22 +188,24 @@ async function extHeartbeat() {
     await loadBackend();
     const st = await kioskLauncher("/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version)).catch(() => null);
     const ua = navigator.userAgent;
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/kiosk_heartbeat`, {
+    const hbRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/kiosk_heartbeat`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
         _device_id: extDeviceId,
-        _hostname: (/Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromiumOS" : /Linux/.test(ua) ? "Linux" : "Chrome") + (_monDiag ? " · " + _monDiag : ""),
+        _hostname: ((/Windows/.test(ua) ? "Windows" : /CrOS/.test(ua) ? "ChromiumOS" : /Linux/.test(ua) ? "Linux" : "Chrome") + " · " + (await monDiagText())).slice(0, 240),
         _user_agent: ua, _status: "online", _kiosk_mode: "student",
         _extension_installed: true, _extension_version: chrome.runtime.getManifest().version,
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
       }),
     });
+    noteServerClock(hbRes);
+    if (!hbRes.ok) setMonDiag("hb " + hbRes.status);
     ensureAgentTab();
     ensureRealtime();
     resumeExtViewers().catch(() => {});
     await withTimeout(handlePendingMonitor(session), 20000, "pending");
-  } catch (e) { _monDiag = "hb:" + String(e?.message || e).slice(0, 60); }
+  } catch (e) { setMonDiag("hb:" + String(e?.message || e).slice(0, 60)); }
 }
 
 // ครูขอดูจอแต่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง)
@@ -219,6 +221,7 @@ async function sbRpc(session, name, body) {
     headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${session.access_token}` },
     body: JSON.stringify(body || {}),
   });
+  noteServerClock(r);
   if (!r.ok) throw new Error(`${name} ${r.status}`);
   const t = await r.text();
   return t ? JSON.parse(t) : null;
@@ -319,7 +322,30 @@ async function resumeExtViewers() {
 
 const _handledEvents = new Set();
 // สถานะการรับคำสั่งล่าสุด ส่งไปกับสถานะเครื่องเพื่อให้ตรวจปัญหาจากหลังบ้านได้
+// เก็บใน storage เพราะ service worker ถูกปิด/เปิดใหม่บ่อย ค่าที่อยู่ในหน่วยความจำจะหาย
 let _monDiag = "";
+let _clockSkewMs = 0; // เวลาเครื่องนักเรียน - เวลาเซิร์ฟเวอร์
+function noteServerClock(res) {
+  try {
+    const d = res?.headers?.get?.("date");
+    const t = d ? Date.parse(d) : NaN;
+    if (Number.isFinite(t)) { _clockSkewMs = Date.now() - t; chrome.storage.local.set({ monClockSkew: _clockSkewMs }).catch?.(() => {}); }
+  } catch { /* ignore */ }
+}
+function setMonDiag(text) {
+  _monDiag = String(text || "").slice(0, 120);
+  chrome.storage.local.set({ monDiag: _monDiag, monDiagAt: new Date(Date.now() - _clockSkewMs).toISOString().slice(11, 19) }).catch?.(() => {});
+}
+async function monDiagText() {
+  try {
+    const { monDiag, monDiagAt, monClockSkew, agentTabId } = await chrome.storage.local.get(["monDiag", "monDiagAt", "monClockSkew", "agentTabId"]);
+    const t = agentTabId ? await chrome.tabs.get(agentTabId).catch(() => null) : null;
+    const u = t ? (t.url || t.pendingUrl || "") : "";
+    const agent = !t ? "agent:none" : u.startsWith(AGENT_URL) ? (t.discarded ? "agent:discarded" : t.frozen ? "agent:frozen" : "agent:ok") : /\/(login|auth)\b/.test(u) ? "agent:login" : "agent:other";
+    const skew = Math.round((monClockSkew ?? _clockSkewMs) / 1000);
+    return `v${chrome.runtime.getManifest().version} skew=${skew}s ${agent} ${monDiagAt || ""} ${monDiag || "-"}`;
+  } catch { return "diag?"; }
+}
 function withTimeout(p, ms, label) {
   return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + " timeout")), ms))]);
 }
@@ -335,29 +361,42 @@ async function processMonitorEvent(session, id, ev) {
   if (!id || !ev?.from || _handledEvents.has(id)) return;
   // ยึดผู้ใช้จาก token จริง — ข้อมูลผู้ใช้ที่เก็บไว้อาจเก่าหรือว่าง
   const me = jwtSub(session.access_token) || session.user?.id;
-  if (ev.to !== me && ev.to !== "*") { _monDiag = "skip:to"; return; }
+  if (ev.to !== me && ev.to !== "*") { setMonDiag("skip:to"); return; }
   markHandled(id);
-  if (ev.to === me) await sbRpc(session, "ack_monitor_event", { _id: id }).catch((e) => { _monDiag = "ack:" + (e?.message || e); });
+  if (ev.to === me) await sbRpc(session, "ack_monitor_event", { _id: id }).catch((e) => { setMonDiag("ack:" + (e?.message || e)); });
   // ไม่รอคำสั่งให้เสร็จ — คำสั่งที่ค้าง (เช่นแท็บไม่ตอบ) ต้องไม่ขวางคำสั่งถัดไป
   if (ev.type !== "stop-stream") wakeAgentTab();
   if (ev.type === "stop-stream") stopExtFrames(ev.from);
   else if (ev.type === "request-stream") startExtFrames(ev.from);
-  else if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).catch((e) => { _monDiag = "cmd:" + (e?.message || e); });
-  _monDiag = "ok " + new Date().toISOString().slice(11, 19);
+  else if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).then(() => setMonDiag("done " + (ev.action || ev.type)), (e) => { setMonDiag("cmd:" + (e?.message || e)); });
+  setMonDiag("got " + (ev.action || ev.type));
 }
 
 async function handlePendingMonitor(session) {
-  const rows = await sbRpc(session, "pending_monitor_events", {}).catch((e) => { _monDiag = "poll:" + (e?.message || e); return null; });
+  const rows = await sbRpc(session, "pending_monitor_events", {}).catch((e) => { setMonDiag("poll:" + (e?.message || e)); return null; });
   if (!Array.isArray(rows)) return;
   // เก่าสุดก่อน เพื่อให้คำสั่งล่าสุดเป็นตัวตัดสิน
   let wait = 0;
+  setMonDiag("poll " + rows.length);
+  // ไม่มีหน้า Agent ที่ใช้งานได้ → ไม่ต้องรอให้หน้า Agent รับก่อน
+  const agentAlive = await agentTabLooksAlive();
   for (const row of rows.slice().reverse()) {
-    const age = Date.now() - new Date(row?.created_at || 0).getTime();
+    // อายุคำสั่งคิดจากเวลาเซิร์ฟเวอร์ — นาฬิกาเครื่องนักเรียนที่เดินช้าทำให้รอจนคำสั่งหมดอายุ
+    const age = typeof row?.age_ms === "number" ? row.age_ms
+      : Date.now() - _clockSkewMs - new Date(row?.created_at || 0).getTime();
     // ให้หน้า Agent รับก่อน — ยังใหม่อยู่ก็รอตรวจซ้ำ
-    if (age < AGENT_GRACE_MS) { wait = Math.max(wait, AGENT_GRACE_MS - age + 500); continue; }
+    if (agentAlive && age >= 0 && age < AGENT_GRACE_MS) { wait = Math.max(wait, Math.min(AGENT_GRACE_MS, AGENT_GRACE_MS - age + 500)); continue; }
     await processMonitorEvent(session, row?.id, row?.event);
   }
   if (wait) schedulePendingCheck(wait);
+}
+
+async function agentTabLooksAlive() {
+  try {
+    const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+    const t = agentTabId ? await chrome.tabs.get(agentTabId).catch(() => null) : null;
+    return !!t && (t.url || "").startsWith(AGENT_URL) && t.status === "complete" && !t.discarded && !t.frozen;
+  } catch { return false; }
 }
 
 let _pendingTimer = 0;

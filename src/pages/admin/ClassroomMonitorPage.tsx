@@ -255,7 +255,7 @@ export default function ClassroomMonitorPage() {
           if (!peersRef.current.has(userId)) send({ type: "request-stream", from: me.id, to: userId });
         } else if (tries >= 40) {
           window.clearInterval(timer);
-          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.19.0 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
+          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.19.1 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
         } else if (tries % 8 === 0) {
           send({ type: "request-stream", from: me.id, to: userId }); // คำขอหมดอายุใน 1 นาที — ส่งใหม่
         }

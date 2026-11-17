@@ -18149,6 +18149,7 @@ export type Database = {
       pending_monitor_events: {
         Args: never
         Returns: {
+          age_ms: number
           created_at: string
           event: Json
           id: string
