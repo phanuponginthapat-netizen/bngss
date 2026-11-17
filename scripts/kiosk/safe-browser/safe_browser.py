@@ -2,8 +2,14 @@
 
 Runs a bundled Chromium (Chrome for Testing) full-screen with the school Safe Browser
 extension, relaunches it if closed, blocks common escape keys, and only quits or powers
-off after the school server confirms a staff/admin card QR. Remote shutdown arrives
-through the shared FaceGate power-command queue using this machine's device key.
+off after the school server confirms a staff/admin card QR. The staff-card control page
+is served by this launcher on 127.0.0.1 only (other machines on the network get 404).
+
+Device Key is optional: student loaner notebooks run without it. A machine can be
+registered later from the control page by scanning an admin/director card, which
+creates the device on the school server and stores the key locally; registered
+machines then report heartbeat and accept remote power commands through the shared
+FaceGate power-command queue.
 """
 from __future__ import annotations
 
@@ -19,7 +25,9 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-APP_VERSION = "1.1.0"
+import exit_page
+
+APP_VERSION = "1.2.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -42,8 +50,21 @@ def load_env() -> dict[str, str]:
 CFG = load_env()
 HOME_URL = CFG.get("SAFEBROWSER_HOME_URL", "https://bngss.online")
 CLOUD_URL = CFG.get("SAFEBROWSER_CLOUD_URL", "https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1").rstrip("/")
-DEVICE_KEY = CFG.get("SAFEBROWSER_DEVICE_KEY", "")
 KIOSK = CFG.get("SAFEBROWSER_KIOSK", "1") != "0"
+
+
+def load_device_key() -> str:
+    """Installer env wins; otherwise the key stored by in-program registration."""
+    key = CFG.get("SAFEBROWSER_DEVICE_KEY", "").strip()
+    if key:
+        return key
+    try:
+        return (DATA_DIR / "device.key").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+DEVICE_KEY = load_device_key()
 
 state = {"exiting": False, "proc": None, "last_error": ""}
 
@@ -58,10 +79,13 @@ def log(*a):
 
 
 def cloud(route: str, body: dict, timeout: float = 15) -> tuple[int, dict]:
-    if not DEVICE_KEY:
-        return 0, {"error": "ยังไม่ได้ตั้งรหัสเครื่อง (Device Key)"}
+    headers = {"Content-Type": "application/json"}
+    if DEVICE_KEY:
+        headers["x-device-key"] = DEVICE_KEY
+    elif route not in ("staff-card-check", "register-device-card"):
+        return 0, {"error": "ยังไม่ได้ลงทะเบียนเครื่อง (ไม่มี Device Key)"}
     req = urllib.request.Request(f"{CLOUD_URL}/kiosk-api/{route}", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json", "x-device-key": DEVICE_KEY}, method="POST")
+                                 headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.status, json.loads(r.read() or b"{}")
@@ -113,7 +137,7 @@ def browser_loop():
 def open_control_page():
     exe = chrome_path()
     if exe:
-        subprocess.Popen([str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"chrome-extension://{EXTENSION_ID}/exit.html"])
+        subprocess.Popen([str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"http://127.0.0.1:{PORT}/exit"])
 
 
 _last_prompt = [0.0]
@@ -223,7 +247,28 @@ def quit_program():
     threading.Timer(1.0, lambda: os._exit(0)).start()
 
 
-# ── Local bridge for the extension (loopback + extension origin only) ─────
+def verify_card(qr: str, purpose: str) -> tuple[int, dict]:
+    """Staff-card check: with a device key via staff-card, otherwise the public check route."""
+    if DEVICE_KEY:
+        return cloud("staff-card", {"qr": qr, "purpose": purpose})
+    return cloud("staff-card-check", {"qr": qr})
+
+
+def register_device(qr: str, name: str) -> tuple[int, dict]:
+    global DEVICE_KEY
+    code, res = cloud("register-device-card", {"qr": qr, "name": name})
+    if code == 200 and res.get("ok") and res.get("device_key"):
+        DEVICE_KEY = str(res["device_key"])
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            (DATA_DIR / "device.key").write_text(DEVICE_KEY, encoding="utf-8")
+        except OSError as e:
+            log("device key save failed", e)
+        log("device registered as", name)
+    return code, res
+
+
+# ── Local server: extension bridge + staff-card control page ──────────────
 class Bridge(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
@@ -235,8 +280,25 @@ class Bridge(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
         self.end_headers(); self.wfile.write(data)
 
+    def _send_html(self, code: int, data: bytes, content_type: str = "text/html; charset=utf-8"):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers(); self.wfile.write(data)
+
     def _origin_ok(self) -> bool:
         return self.headers.get("Origin") == ALLOWED_ORIGIN
+
+    def _local_ok(self) -> bool:
+        """Control page is served only to a browser on this very machine."""
+        host = (self.headers.get("Host") or "").split(":")[0].lower()
+        return self.client_address[0] == "127.0.0.1" and host in ("127.0.0.1", "localhost")
+
+    def _body(self) -> dict:
+        try:
+            return json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4096)) or b"{}")
+        except ValueError:
+            return {}
 
     def do_OPTIONS(self):
         if not self._origin_ok():
@@ -248,30 +310,44 @@ class Bridge(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path != "/status" or not self._origin_ok():
-            return self._send(404, {"error": "not found"})
-        self._send(200, {"kiosk": KIOSK, "version": APP_VERSION, "device": bool(DEVICE_KEY)})
+        if self.path == "/status" and self._origin_ok():
+            return self._send(200, {"kiosk": KIOSK, "version": APP_VERSION, "device": bool(DEVICE_KEY)})
+        if self.path == "/exit" and self._local_ok():
+            return self._send_html(200, exit_page.render(APP_VERSION, KIOSK, bool(DEVICE_KEY)))
+        if self.path == "/jsqr.js" and self._local_ok():
+            jsqr = APP_DIR / "extension" / "jsQR.js"
+            if jsqr.exists():
+                return self._send_html(200, jsqr.read_bytes(), "application/javascript; charset=utf-8")
+        self._send(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path != "/action" or not self._origin_ok():
-            return self._send(404, {"error": "not found"})
-        try:
-            body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4096)) or b"{}")
-        except ValueError:
-            return self._send(400, {"error": "คำสั่งไม่ถูกต้อง"})
-        action, qr = body.get("action"), str(body.get("qr") or "")[:500]
-        if action not in ("exit", "shutdown", "restart") or not qr:
-            return self._send(400, {"error": "คำสั่งไม่ถูกต้อง"})
-        code, res = cloud("staff-card", {"qr": qr, "purpose": "exit" if action == "exit" else "shutdown"})
-        if code != 200 or not res.get("ok"):
-            log("card denied", action, code)
-            return self._send(403 if code == 403 else 502, {"error": res.get("error") or "ตรวจสอบบัตรไม่สำเร็จ"})
-        log("card accepted", action, res.get("name"))
-        self._send(200, {"ok": True, "name": res.get("name")})
-        if action == "exit":
-            quit_program()
-        else:
-            power(action)
+        if self.path == "/verify" and self._local_ok():
+            body = self._body()
+            action, qr = body.get("action"), str(body.get("qr") or "")[:500]
+            if action not in ("exit", "shutdown", "restart") or not qr:
+                return self._send(400, {"error": "คำสั่งไม่ถูกต้อง"})
+            code, res = verify_card(qr, "exit" if action == "exit" else "shutdown")
+            if code != 200 or not res.get("ok"):
+                log("card denied", action, code)
+                return self._send(403 if code == 403 else 502, {"error": res.get("error") or "ตรวจสอบบัตรไม่สำเร็จ"})
+            log("card accepted", action, res.get("name"))
+            self._send(200, {"ok": True, "name": res.get("name")})
+            if action == "exit":
+                quit_program()
+            else:
+                power(action)
+            return
+        if self.path == "/register-local" and self._local_ok():
+            body = self._body()
+            qr, name = str(body.get("qr") or "")[:500], str(body.get("name") or "").strip()[:60]
+            if not qr or not name:
+                return self._send(400, {"error": "กรุณาตั้งชื่อเครื่องและสแกนบัตร"})
+            code, res = register_device(qr, name)
+            if code != 200 or not res.get("ok"):
+                log("register denied", code)
+                return self._send(403 if code == 403 else 502, {"error": res.get("error") or "ลงทะเบียนไม่สำเร็จ"})
+            return self._send(200, {"ok": True})
+        self._send(404, {"error": "not found"})
 
 
 # ── Heartbeat + remote power commands (shared FaceGate queue) ──────────────

@@ -51,24 +51,14 @@ var
 
 procedure InitializeWizard();
 begin
-  KeyPage := CreateInputQueryPage(wpSelectDir, 'รหัสเครื่อง',
-    'ใส่รหัสเครื่อง (Device Key) จากหน้า ตั้งค่าเครื่องสแกน ในระบบหลังบ้าน',
-    'จำเป็นสำหรับการสแกนบัตรบุคลากรเพื่อออกจากโปรแกรม และการสั่งปิดเครื่องจากระบบหลัก');
-  KeyPage.Add('Device Key:', False);
+  KeyPage := CreateInputQueryPage(wpSelectDir, 'รหัสเครื่อง (ไม่บังคับ)',
+    'ใส่รหัสเครื่อง (Device Key) จากหน้า ตั้งค่าเครื่องสแกน ในระบบหลังบ้าน — หรือเว้นว่างไว้',
+    'เครื่องนักเรียนที่ยืมไปใช้งานไม่ต้องใส่: ลงทะเบียนทีหลังได้จากหน้าสแกนบัตรในโปรแกรม ด้วยบัตรผู้บริหาร/ผู้ดูแลระบบ');
+  KeyPage.Add('Device Key (เว้นว่างได้):', False);
   ModePage := CreateInputOptionPage(KeyPage.ID, 'รูปแบบการเปิด', 'เลือกการแสดงผล', '', True, False);
   ModePage.Add('โหมดคีออส เต็มจอ ล็อกปุ่มลัด (แนะนำสำหรับเครื่องนักเรียน)');
   ModePage.Add('หน้าต่างปกติ (สำหรับทดสอบ)');
   ModePage.SelectedValueIndex := 0;
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  if (CurPageID = KeyPage.ID) and (Trim(KeyPage.Values[0]) = '') and not FileExists(ExpandConstant('{app}\safebrowser.env')) then
-  begin
-    MsgBox('กรุณาใส่ Device Key — หากไม่มีจะออกจากโปรแกรมด้วยบัตรไม่ได้', mbError, MB_OK);
-    Result := False;
-  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -78,11 +68,12 @@ var
 begin
   if CurStep = ssInstall then
     Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM SafeBrowser.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
-  if (CurStep = ssPostInstall) and (Trim(KeyPage.Values[0]) <> '') then
+  if CurStep = ssPostInstall then
   begin
     Body := 'SAFEBROWSER_HOME_URL=https://bngss.online' + #13#10 +
-            'SAFEBROWSER_CLOUD_URL=https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1' + #13#10 +
-            'SAFEBROWSER_DEVICE_KEY=' + Trim(KeyPage.Values[0]) + #13#10;
+            'SAFEBROWSER_CLOUD_URL=https://dlkyxvhnnffblerwedjz.supabase.co/functions/v1' + #13#10;
+    if Trim(KeyPage.Values[0]) <> '' then
+      Body := Body + 'SAFEBROWSER_DEVICE_KEY=' + Trim(KeyPage.Values[0]) + #13#10;
     if ModePage.SelectedValueIndex = 1 then Body := Body + 'SAFEBROWSER_KIOSK=0' + #13#10;
     SaveStringToFile(ExpandConstant('{app}\safebrowser.env'), Body, False);
   end;

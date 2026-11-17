@@ -565,16 +565,10 @@ async function kioskLauncher(path, body) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "KIOSK_STATUS") { kioskLauncher("/status").then(sendResponse); return true; }
   if (msg?.type === "KIOSK_OPEN_CONTROL") {
-    chrome.tabs.create({ url: chrome.runtime.getURL("exit.html") }).catch(() => {});
+    // The staff-card control page is served by the launcher itself (127.0.0.1 only),
+    // so it also works on machines where the extension control page cannot be reached.
+    chrome.tabs.create({ url: KIOSK_LAUNCHER + "/exit" }).catch(() => {});
     sendResponse({ ok: true }); return false;
-  }
-  if (msg?.type === "KIOSK_ACTION") {
-    // Only the bundled control page may forward a card scan; the launcher re-verifies with the school server.
-    if (sender.url !== chrome.runtime.getURL("exit.html") || !["exit", "shutdown", "restart"].includes(msg.action)
-        || typeof msg.qr !== "string" || !msg.qr || msg.qr.length > 500) {
-      sendResponse({ ok: false, error: "คำสั่งไม่ถูกต้อง" }); return false;
-    }
-    kioskLauncher("/action", { action: msg.action, qr: msg.qr }).then(sendResponse); return true;
   }
   return false;
 });
