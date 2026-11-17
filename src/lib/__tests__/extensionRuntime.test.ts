@@ -20,6 +20,17 @@ function runtime(fetcher?: any) {
   return { ctx, listeners, data };
 }
 describe("extension trust and domain policies", () => {
+  it("loads public branding and policy without presenting an anonymous key as a user token", async () => {
+    let headers: any;
+    const { ctx, data } = runtime(async (_url: string, options: any) => {
+      headers = options.headers;
+      return { ok: true, json: async () => ({ school_name: "School", browser_blocklist: "blocked.example" }) };
+    });
+    expect((await vm.runInContext("refreshConfig()", ctx)).ok).toBe(true);
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers.apikey).toBeTruthy();
+    expect(data.config.browser_blocklist).toBe("blocked.example");
+  });
   it("preserves expired credentials during an offline refresh for retry", async () => {
     const { ctx, data } = runtime(async () => { throw new Error("offline"); });
     data.session = { access_token: "old", refresh_token: "refresh", expires_at: 1 };

@@ -309,7 +309,7 @@ async function refreshConfig() {
     const session = await getValidSession();
     const { session: stored } = await chrome.storage.local.get(["session"]);
     if (stored?.access_token && !session) throw new Error("เชื่อมต่อบัญชีไม่ได้ กรุณาลองใหม่");
-    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, Authorization: `Bearer ${session?.access_token || ANON_KEY}` }, signal: AbortSignal.timeout(15000) });
+    const r = await fetch(fnUrl("ext-config"), { headers: { apikey: ANON_KEY, ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) }, signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error(`อ่านนโยบายไม่สำเร็จ (${r.status})`);
     const cfg = await r.json();
     if (!cfg || typeof cfg !== "object" || Array.isArray(cfg) || cfg.error) throw new Error("นโยบายไม่ถูกต้อง");
