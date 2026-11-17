@@ -27,7 +27,7 @@ import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
 import { useModuleToggles } from "@/hooks/useModuleToggles";
 import EmbedRenderer, { isFullHtml } from "@/components/cms/EmbedRenderer";
-import WallFeed from "@/components/social/WallFeed";
+import SocialWallWidget from "@/components/social/SocialWallWidget";
 import PublicAttendanceSummary from "@/components/attendance/PublicAttendanceSummary";
 import { BE_OFFSET } from "@/lib/dateBE";
 import {
@@ -698,13 +698,13 @@ const Index = () => {
 
               social: socialFeedEnabled ? (
                 <section aria-label="ประชาสัมพันธ์ออนไลน์" className="bg-background border-b border-border py-10 sm:py-14">
-                <div className="max-w-3xl mx-auto px-4">
+                <div className="max-w-5xl mx-auto px-4">
                   <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
                     <div>
                       <h2 className="text-2xl sm:text-3xl font-bold text-foreground">ประชาสัมพันธ์ออนไลน์</h2>
                     </div>
                   </div>
-                  <WallFeed readOnly />
+                  <SocialWallWidget variant="bare" />
                 </div>
                 </section>
               ) : null,
