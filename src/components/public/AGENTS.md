@@ -1,1 +1,2 @@
 - PageMetadata owns route titles, descriptions, self-referencing canonicals and public JSON-LD through one HelmetProvider, including AR; CMS branding and cached loader branding must not overwrite titles and session-only news remains protected because SEO must never expand access.
+- Public contact pages reuse SchoolContactDetails from the shared CMS settings query for address, telephone and email; do not snapshot these values into page HTML, so CMS edits remain authoritative.
