@@ -119,7 +119,10 @@ export function AppSidebar() {
 
   // Concise main items
 
-  const compact = role === "parent" ? parentSidebar : role === "alumni" ? alumniSidebar : null;
+  // เครื่องมือและไฟล์ต่อจากโปรไฟล์ของฉันทุกบทบาท
+  const compactBase = role === "parent" ? parentSidebar : role === "alumni" ? alumniSidebar : null;
+  const compact = compactBase ? [compactBase[0], ...compactBase.filter(g => g.tone === "tools"), ...compactBase.slice(1).filter(g => g.tone !== "tools")] : null;
+  const toolsArea = areas.find(a => a.key === "tools");
   const q = search.trim().toLowerCase();
   const shownAreas = areas.filter(a => `${a.label} ${a.groups.flatMap(g => g.items.map(i => i.title)).join(" ")}`.toLowerCase().includes(q));
   const dailyItems = dailyNavigationItems(areas).filter(i => i.title.toLowerCase().includes(q));
@@ -158,10 +161,10 @@ export function AppSidebar() {
     </SidebarHeader>
     <SidebarContent className="gap-0.5 px-2 py-2"><ViewModeSwitcher collapsed={false} />
       {compact ? compact.map((group, index) => section(`compact-${index}`, group.label, group.icon ?? FolderOpen, group.items.filter(i => i.label.toLowerCase().includes(q)), group.tone)) : <>
-        <SidebarGroup className="px-0 pb-1 pt-0"><SidebarGroupContent><SidebarMenu className="gap-0.5">{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard, tone: "academic" }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox, tone: "teaching" }, { to: "/dashboard/profile", label: L("โปรไฟล์ของฉัน", "My Profile"), icon: User, tone: "academic" }].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
+        <SidebarGroup className="px-0 pb-1 pt-0"><SidebarGroupContent><SidebarMenu className="gap-0.5">{[{ to: "/dashboard", label: L("หน้าหลัก", "Dashboard"), icon: LayoutDashboard, tone: "academic" }, { to: "/dashboard/inbox", label: L("กล่องข้อความ", "Inbox"), icon: Inbox, tone: "teaching" }, { to: "/dashboard/profile", label: L("โปรไฟล์ของฉัน", "My Profile"), icon: User, tone: "academic" }, ...(toolsArea ? [{ to: areaUrl("tools"), label: toolsArea.label, icon: toolsArea.icon, tone: "tools" }] : [])].filter(i => i.label.toLowerCase().includes(q)).map(i => menuItem(i))}</SidebarMenu></SidebarGroupContent></SidebarGroup>
         {q ? section("search", L("ผลการค้นหา", "Search results"), Search, searchResults.map(i => ({ to: i.url, label: i.title, icon: i.icon, tone: toneByUrl.get(i.url) }))) : <>
           {section("daily", L("ใช้งานประจำวัน", "Daily work"), Sun, dailyItems.map(i => ({ to: i.url, label: i.title, icon: i.icon, tone: toneByUrl.get(i.url) })), "daily")}
-          {section("departments", L("ฝ่ายงานและบริการ", "Departments & services"), BriefcaseBusiness, shownAreas.map(a => ({ to: areaUrl(a.key), label: a.label, icon: a.icon, tone: a.key, active: activeArea?.key === a.key })), "academic")}
+          {section("departments", L("ฝ่ายงานและบริการ", "Departments & services"), BriefcaseBusiness, shownAreas.filter(a => a.key !== "tools").map(a => ({ to: areaUrl(a.key), label: a.label, icon: a.icon, tone: a.key, active: activeArea?.key === a.key })), "academic")}
         </>}
         {!shownAreas.length && !dailyItems.length && q && ![L("หน้าหลัก", "Dashboard"), L("กล่องข้อความ", "Inbox"), L("โปรไฟล์ของฉัน", "My Profile")].some(label => label.toLowerCase().includes(q)) && <p role="status" className="p-3 text-center text-[11px] leading-4 text-sidebar-foreground/60">{L("ไม่พบเมนูที่ตรงกับคำค้น", "No matching menus")}</p>}
       </>}
