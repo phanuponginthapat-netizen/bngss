@@ -1,6 +1,6 @@
 # BNG Safe Browser (Windows)
 
-Kiosk browser program = bundled Chrome for Testing + `extension/` + `safe_browser.py` launcher.
+Kiosk browser program = installed Google Chrome (extension loaded from ZIP in the normal profile; set `SAFEBROWSER_BROWSER=bundled` to force the bundled Chrome for Testing) + `extension/` + `safe_browser.py` launcher.
 
 - Starts full-screen at every Windows sign-in (Startup folder), relaunches if closed.
 - Exit / shutdown / restart: ⏻ button (bottom-left) or Ctrl+Shift+Q → the launcher serves a
