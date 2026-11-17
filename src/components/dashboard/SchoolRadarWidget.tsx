@@ -186,7 +186,7 @@ export default function SchoolRadarWidget() {
                 />
                 {/* ปีก่อน — overlay สีอ่อน */}
                 <Radar
-                  name={`ปี ${currentAcademicYear + 542}`}
+                  name={`ปี ${displayYear + 542}`}
                   dataKey="previous"
                   stroke="hsl(var(--primary))"
                   strokeOpacity={0.35}
@@ -196,7 +196,7 @@ export default function SchoolRadarWidget() {
                 />
                 {/* ปีปัจจุบัน — สีเข้ม */}
                 <Radar
-                  name={`ปี ${currentAcademicYear + BE_OFFSET}`}
+                  name={`ปี ${displayYear + BE_OFFSET}`}
                   dataKey="current"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
@@ -221,6 +221,12 @@ export default function SchoolRadarWidget() {
         {/* รายละเอียดสรุป */}
         {hasData && (
           <div className="border-t pt-3 space-y-2">
+            {fellBack && (
+              <p className="text-[11px] text-muted-foreground">
+                เทอม {currentSemester} ปี {currentAcademicYear + BE_OFFSET} ยังไม่มีคะแนน —
+                แสดงข้อมูลเทอม {displaySemester} ปี {displayYear + BE_OFFSET} ล่าสุดแทน
+              </p>
+            )}
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-muted/40 p-2">
                 <div className="text-muted-foreground">เฉลี่ยรวม</div>
