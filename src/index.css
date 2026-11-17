@@ -56,6 +56,54 @@ a[href*="lovable.dev"][href*="utm"] {
 @tailwind utilities;
 
 :root {
+  --intro-mask-solid: hsl(0 0% 0%);
+  --intro-mask-clear: transparent;
+}
+.dashboard-intro-merged > div {
+  position: relative;
+  min-width: 0;
+}
+.dashboard-intro-merged > div:first-child,
+.dashboard-intro-merged > div:first-child > .gradient-hero {
+  min-height: 220px;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.dashboard-intro-merged .gradient-hero > .absolute {
+  mask-image: linear-gradient(to bottom, var(--intro-mask-solid) 55%, var(--intro-mask-clear) 100%);
+}
+.dashboard-intro-merged > div + div {
+  margin-top: -28px;
+}
+.dashboard-intro-merged .mascot-hero-panel {
+  min-height: 320px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.dashboard-intro-merged .mascot-hero-panel > div {
+  min-height: 320px;
+}
+.dashboard-intro-merged .mascot-scene {
+  mask-image: linear-gradient(to bottom, var(--intro-mask-clear), var(--intro-mask-solid) 28%);
+}
+.dashboard-intro-merged .mascot-hero-panel > div > .absolute:not(.mascot-scene) {
+  mask-image: linear-gradient(to bottom, var(--intro-mask-clear), var(--intro-mask-solid) 28%);
+}
+.dashboard-intro-merged .mascot-hero-panel .relative.flex.h-full {
+  min-height: 320px;
+  padding-top: 40px;
+}
+@media (min-width: 768px) {
+  .dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child {
+    justify-self: end;
+    width: 320px;
+  }
+}
+
+:root {
   --loader-background: 210 45% 6%;
   --loader-foreground: 0 0% 98%;
   --loader-track: 210 22% 24%;
