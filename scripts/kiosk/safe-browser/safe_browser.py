@@ -27,7 +27,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -559,12 +559,21 @@ def extension_watchdog():
     """Without the school extension the browser is just an unfiltered full-screen window
     (no login enforcement, filters, toolbar, monitor). Restart the browser when the
     extension has not contacted the launcher within 60 seconds of a launch."""
+    misses, warned = [0], [False]
+
     def run():
         while not state["exiting"]:
             time.sleep(15)
             started = state["browser_start"]
-            if not started or time.time() - started < 60 or state["ext_ping"] >= started:
+            if not started or time.time() - started < 90 or state["ext_ping"] >= started:
                 continue
+            if state["ext_ping"] or misses[0] >= 2:
+                # เคยได้สัญญาณแล้ว หรือเปิดใหม่ครบ 2 รอบแล้ว: ไม่ปิด-เปิดวนซ้ำ (ส่วนขยายรุ่นเก่า/ไม่ได้ติดตั้ง)
+                if not warned[0]:
+                    warned[0] = True
+                    log("extension not pinging — stop auto-restart; reinstall extension ZIP")
+                continue
+            misses[0] += 1
             state["last_error"] = "ส่วนขยายของโรงเรียนไม่ทำงาน — กำลังเปิดเบราว์เซอร์ใหม่"
             log(state["last_error"], "extension dir exists:", (APP_DIR / "extension" / "manifest.json").exists())
             proc = state["proc"]
