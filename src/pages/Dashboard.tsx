@@ -236,9 +236,6 @@ const Dashboard = () => {
   const widgetRenderers: Record<string, (color: WidgetColor) => React.ReactNode> = {
     hero: () => (
       <div className="gradient-hero rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 text-primary-foreground relative overflow-hidden min-h-[180px] sm:min-h-[220px] h-full shadow-elevated">
-        <Suspense fallback={null}>
-          <DynamicHeroBackground weatherCode={weather.weatherCode} isRainy={weather.isRainy} temperature={weather.temperature} />
-        </Suspense>
         <div className="absolute inset-0 opacity-100 pointer-events-none">
           <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/15 blur-2xl" />
           <div className="absolute right-12 top-6 w-16 h-16 rounded-full bg-white/20 blur-xl animate-pulse" />

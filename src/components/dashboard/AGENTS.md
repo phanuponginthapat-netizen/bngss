@@ -1,1 +1,1 @@
-- DashboardIntroGrid combines greeting and mascot into one full-width scene with background-only fade masks at their seam; preserve role content, CMS imagery and stored widget toggles while grouping admin intro widgets for the same presentation.
+- DashboardIntroGrid aligns greeting and mascot in one responsive row over one static CMS mascot background; rotating location images are not mounted. Preserve all role data, actions, radar content and stored widget toggles; admin groups enabled intro widgets in the same wrapper.

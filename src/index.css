@@ -55,51 +55,72 @@ a[href*="lovable.dev"][href*="utm"] {
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --intro-mask-solid: hsl(0 0% 0%);
-  --intro-mask-clear: transparent;
-}
-.dashboard-intro-merged > div {
+.dashboard-intro-merged .intro-row > div {
   position: relative;
   min-width: 0;
+  grid-column: auto;
 }
-.dashboard-intro-merged > div:first-child,
-.dashboard-intro-merged > div:first-child > .gradient-hero {
-  min-height: 220px;
+.dashboard-intro-merged .gradient-hero {
+  min-height: 0;
+  height: auto;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+  color: hsl(var(--foreground));
+  padding: 24px;
 }
 .dashboard-intro-merged .gradient-hero > .absolute {
-  mask-image: linear-gradient(to bottom, var(--intro-mask-solid) 55%, var(--intro-mask-clear) 100%);
+  display: none;
 }
-.dashboard-intro-merged > div + div {
-  margin-top: -28px;
+.dashboard-intro-merged h1 {
+  font-size: 24px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.dashboard-intro-merged .gradient-hero .flex {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.dashboard-intro-merged .gradient-hero p {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .dashboard-intro-merged .mascot-hero-panel {
-  min-height: 320px;
+  min-height: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 .dashboard-intro-merged .mascot-hero-panel > div {
-  min-height: 320px;
+  min-height: 0;
 }
-.dashboard-intro-merged .mascot-scene {
-  mask-image: linear-gradient(to bottom, var(--intro-mask-clear), var(--intro-mask-solid) 28%);
-}
-.dashboard-intro-merged .mascot-hero-panel > div > .absolute:not(.mascot-scene) {
-  mask-image: linear-gradient(to bottom, var(--intro-mask-clear), var(--intro-mask-solid) 28%);
+.dashboard-intro-merged .mascot-hero-panel > div > .absolute {
+  display: none;
 }
 .dashboard-intro-merged .mascot-hero-panel .relative.flex.h-full {
-  min-height: 320px;
-  padding-top: 40px;
+  min-height: 0;
+  padding: 20px;
 }
-@media (min-width: 768px) {
-  .dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child {
-    justify-self: end;
-    width: 320px;
+.dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child {
+  justify-self: center;
+  width: 100%;
+  max-width: 320px;
+}
+@media (max-width: 639px) {
+  .dashboard-intro-merged .gradient-hero { padding: 14px 0 14px 14px; }
+  .dashboard-intro-merged h1 { font-size: 16px; }
+  .dashboard-intro-merged .gradient-hero p { font-size: 11px; }
+  .dashboard-intro-merged .gradient-hero [data-student-photo] { width: 40px; height: 40px; }
+  .dashboard-intro-merged .mascot-hero-panel .relative.flex.h-full { padding: 12px 10px; }
+  .dashboard-intro-merged .mascot-hero-panel img { width: 64px; height: 64px; }
+  .dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child { gap: 12px; }
+  .dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child p { font-size: 11px; }
+  .dashboard-intro-merged .mascot-hero-panel .grid > .flex:last-child > .relative {
+    padding: 8px;
   }
 }
 
