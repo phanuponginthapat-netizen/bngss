@@ -223,13 +223,6 @@ const StudentDashboard = () => {
       {/* Hero */}
       <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
-        <Suspense fallback={null}>
-          <DynamicHeroBackground
-            weatherCode={weather.weatherCode}
-            isRainy={weather.isRainy}
-            temperature={weather.temperature}
-          />
-        </Suspense>
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/20" />
           <div className="absolute -left-4 -bottom-4 w-28 h-28 rounded-full bg-white/10" />
