@@ -56,17 +56,35 @@ export default function SchoolRadarWidget() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["school_subject_group_scores", currentAcademicYear, currentSemester],
     enabled: isReady,
-    queryFn: async (): Promise<GroupRow[]> => {
-      const prevYear = currentAcademicYear - 1;
-
-      const [scores, subjects] = await Promise.all([
+    queryFn: async (): Promise<{ rows: GroupRow[]; year: number; semester: number; fellBack: boolean }> => {
+      const loadScores = (year: number, semester: number) =>
         fetchAllRows((from, to) => supabase.from("student_scores")
           .select("subject_id,total_score,academic_year")
-          .in("academic_year", [currentAcademicYear, prevYear])
-          .eq("semester", currentSemester)
-          .not("total_score", "is", null).order("id").range(from,to)),
-        fetchAllRows((from,to) => supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
-      ]);
+          .in("academic_year", [year, year - 1])
+          .eq("semester", semester)
+          .not("total_score", "is", null).order("id").range(from, to));
+
+      // เทอมปัจจุบันยังไม่มีคะแนน → ถอยไปเทอมล่าสุดที่มีข้อมูล
+      // (เทอม 2 ว่าง → เทอม 1 ปีเดียวกัน / เทอม 1 ว่าง → เทอม 2 ของปีก่อน)
+      let year = currentAcademicYear;
+      let semester = currentSemester;
+      let fellBack = false;
+      let scores = await loadScores(year, semester);
+      if (!scores.some((r) => r.academic_year === year)) {
+        const fbYear = semester === 1 ? year - 1 : year;
+        const fbSemester = semester === 1 ? 2 : 1;
+        const fbScores = await loadScores(fbYear, fbSemester);
+        if (fbScores.some((r) => r.academic_year === fbYear)) {
+          year = fbYear;
+          semester = fbSemester;
+          scores = fbScores;
+          fellBack = true;
+        }
+      }
+      const prevYear = year - 1;
+
+      const subjects = await fetchAllRows((from, to) =>
+        supabase.from("subjects").select("id,name_th").order("id").range(from, to));
 
       const subjectMap = new Map<string, SubjectGroup["key"]>();
       subjects.forEach((s) => {
@@ -84,7 +102,7 @@ export default function SchoolRadarWidget() {
         const slot = acc.get(key);
         if (!slot) return;
         const v = Number(r.total_score) || 0;
-        if (r.academic_year === currentAcademicYear) {
+        if (r.academic_year === year) {
           slot.cs += v;
           slot.cn += 1;
         } else if (r.academic_year === prevYear) {
@@ -93,7 +111,7 @@ export default function SchoolRadarWidget() {
         }
       });
 
-      return SUBJECT_GROUPS.map((g) => {
+      const rows = SUBJECT_GROUPS.map((g) => {
         const s = acc.get(g.key) ?? {cs:0,cn:0,ps:0,pn:0};
         return {
           key: g.key,
@@ -104,12 +122,16 @@ export default function SchoolRadarWidget() {
           previousCount: s.pn,
         };
       });
+      return { rows, year, semester, fellBack };
     },
     staleTime: 5 * 60_000,
   });
 
   const readError = error || calendarError;
-  const rows = readError || !isReady ? [] : data ?? [];
+  const rows = readError || !isReady ? [] : data?.rows ?? [];
+  const displayYear = data?.year ?? currentAcademicYear;
+  const displaySemester = data?.semester ?? currentSemester;
+  const fellBack = data?.fellBack ?? false;
   const hasData = rows.some(r => r.currentCount > 0 || r.previousCount > 0);
   const withScores = rows.filter((r): r is typeof r & {current:number} => r.current !== null);
   const top = [...withScores].sort((a,b)=>b.current-a.current)[0];
@@ -124,16 +146,16 @@ export default function SchoolRadarWidget() {
         <div className="flex items-start justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" />
-            คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {currentSemester}
+            คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {displaySemester}
           </CardTitle>
           <div className="flex items-center gap-2 text-xs">
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + BE_OFFSET}</span>
+              <span className="text-muted-foreground">ปี {displayYear + BE_OFFSET}</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded-sm bg-primary/25" />
-              <span className="text-muted-foreground">ปี {currentAcademicYear + 542}</span>
+              <span className="text-muted-foreground">ปี {displayYear + 542}</span>
             </span>
           </div>
         </div>
@@ -164,7 +186,7 @@ export default function SchoolRadarWidget() {
                 />
                 {/* ปีก่อน — overlay สีอ่อน */}
                 <Radar
-                  name={`ปี ${currentAcademicYear + 542}`}
+                  name={`ปี ${displayYear + 542}`}
                   dataKey="previous"
                   stroke="hsl(var(--primary))"
                   strokeOpacity={0.35}
@@ -174,7 +196,7 @@ export default function SchoolRadarWidget() {
                 />
                 {/* ปีปัจจุบัน — สีเข้ม */}
                 <Radar
-                  name={`ปี ${currentAcademicYear + BE_OFFSET}`}
+                  name={`ปี ${displayYear + BE_OFFSET}`}
                   dataKey="current"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
@@ -199,6 +221,12 @@ export default function SchoolRadarWidget() {
         {/* รายละเอียดสรุป */}
         {hasData && (
           <div className="border-t pt-3 space-y-2">
+            {fellBack && (
+              <p className="text-[11px] text-muted-foreground">
+                เทอม {currentSemester} ปี {currentAcademicYear + BE_OFFSET} ยังไม่มีคะแนน —
+                แสดงข้อมูลเทอม {displaySemester} ปี {displayYear + BE_OFFSET} ล่าสุดแทน
+              </p>
+            )}
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-lg bg-muted/40 p-2">
                 <div className="text-muted-foreground">เฉลี่ยรวม</div>
