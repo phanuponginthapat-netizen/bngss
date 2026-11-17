@@ -143,7 +143,7 @@ export default function SchoolRadarWidget() {
   return (
     <Card className="glass-card">
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" />
             คะแนนเฉลี่ยตามกลุ่มสาระ · เทอม {displaySemester}
@@ -160,8 +160,8 @@ export default function SchoolRadarWidget() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="h-[260px]">
+      <CardContent className="grid grid-cols-1 items-center gap-5 lg:grid-cols-2">
+        <div className="h-[320px] min-w-0 lg:h-[380px]">
           {readError ? (<div role="alert" className="text-destructive text-sm">อ่านข้อมูลคะแนนไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>) : isLoading || !isReady ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
               กำลังโหลด...
@@ -220,7 +220,7 @@ export default function SchoolRadarWidget() {
 
         {/* รายละเอียดสรุป */}
         {hasData && (
-          <div className="border-t pt-3 space-y-2">
+          <div className="min-w-0 space-y-3 border-t pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
             {fellBack && (
               <p className="text-[11px] text-muted-foreground">
                 เทอม {currentSemester} ปี {currentAcademicYear + BE_OFFSET} ยังไม่มีคะแนน —
