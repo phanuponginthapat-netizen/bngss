@@ -85,11 +85,9 @@ export default function IctLoanStationPage() {
     const act = await fetchAllRows<Loan>((from,to) => supabase.from("ict_loans")
       .select(sel)
       .eq("status", "active").order("borrowed_at", { ascending: false }).order("id").range(from,to));
-    setActiveLoans((act as any) || []);
     const { data: rec, error: recError } = await supabase.from("ict_loans")
       .select(sel)
       .order("created_at", { ascending: false }).limit(20);
-    setRecent((rec as any) || []);
     if (recError) throw recError;
     const devs = await fetchAllRows<Device>((from,to) => supabase.from("ict_devices").select("id,asset_code,name,serial_number,status,brand,model").order("id").range(from,to));
     const stats = { available: 0, borrowed: 0, maintenance: 0, lost: 0, total: 0 };
@@ -98,6 +96,8 @@ export default function IctLoanStationPage() {
       if (d.status in stats) (stats as any)[d.status]++;
     });
     setDeviceStats(stats);
+    setActiveLoans(act);
+    setRecent((rec as any) || []);
     setAvailableDevices(((devs || []) as any).filter((d: any) => d.status === "available"));
     setListError(null);
     } catch (error) { setListError(saveErrorMessage(error)); }
@@ -132,6 +132,9 @@ export default function IctLoanStationPage() {
 
   // Load teacher schedules for selected date when personnel changes (bulk mode)
   useEffect(() => {
+    let alive = true;
+    setTeacherSchedules([]);
+    setBulkScheduleId("");
     const run = async () => {
       if (!calendar.isReady || !personnel || mode !== "bulk") { setTeacherSchedules([]); return; }
       const dow = new Date(bulkDate + "T00:00:00").getDay(); // 0=Sun..6=Sat
@@ -144,11 +147,13 @@ export default function IctLoanStationPage() {
         .eq("day_of_week", dow)
         .or(`teacher_id.eq.${personnel.id},teacher_name.eq.${fullName}`)
         .order("period", { ascending: true });
+      if (!alive) return;
       if (error) { setTeacherSchedules([]); toast.error(saveErrorMessage(error)); return; }
       setTeacherSchedules(data || []);
       setBulkScheduleId("");
     };
     run();
+    return () => { alive = false; };
   }, [personnel?.id, bulkDate, mode, calendar.isReady, calendar.currentAcademicYear, calendar.currentSemester]);
 
   const applySchedule = (id: string) => {
@@ -242,6 +247,7 @@ export default function IctLoanStationPage() {
   };
 
   const returnBatch = async (batchId: string) => {
+    if (busy) return;
     const ok = await swal.confirm({ title: "ยืนยันการคืนอุปกรณ์ทั้งกลุ่ม?", danger: false });
     if (!ok) return;
     setBusy(true);
@@ -264,6 +270,7 @@ export default function IctLoanStationPage() {
   };
 
   const returnSingle = async (loanId: string) => {
+    if (busy) return;
     const ok = await swal.confirm({ title: "ยืนยันการคืนอุปกรณ์นี้?", danger: false });
     if (!ok) return;
     setBusy(true);
@@ -289,6 +296,7 @@ export default function IctLoanStationPage() {
   const resolveBorrower = async (code: string) => {
     const cleaned = code.trim();
     if (!cleaned) return;
+    setActiveLoan(null); setStudent(null); setPersonnel(null);
     if (borrowerType === "student") {
       // รองรับ QR บัตร (URL /p/, /sdq-assess/) + student_code ตรงๆ
       let data: any = null;
@@ -317,6 +325,7 @@ export default function IctLoanStationPage() {
       const r1 = await supabase.from("personnel")
         .select("id,employee_code,prefix,first_name,last_name,department")
         .eq("employee_code", cleaned).maybeSingle();
+      if (r1.error) { toast.error(saveErrorMessage(r1.error)); return; }
       data = r1.data;
       if (!data) {
         const q = cleaned.replace(/[%,]/g, " ");
@@ -325,6 +334,7 @@ export default function IctLoanStationPage() {
           .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
           .eq("status", "active")
           .limit(2);
+        if (r2.error) { toast.error(saveErrorMessage(r2.error)); return; }
         if (r2.data && r2.data.length === 1) data = r2.data[0];
         else if (r2.data && r2.data.length > 1) { toast.error("พบหลายคน กรุณาเลือกจากรายการ"); return; }
       }
@@ -382,9 +392,10 @@ export default function IctLoanStationPage() {
     // Return mode: find loan by device
     if (mode === "return" && !activeLoan) {
       const sel = "id,status,borrowed_at,returned_at,expected_return_at,ict_devices(id,asset_code,name,serial_number,status),students(id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)),personnel(id,employee_code,prefix,first_name,last_name,department)";
-      const { data: loan } = await supabase.from("ict_loans")
+      const { data: loan, error: loanError } = await supabase.from("ict_loans")
         .select(sel)
         .eq("device_id", (data as any).id).eq("status", "active").maybeSingle();
+      if (loanError) { toast.error(saveErrorMessage(loanError)); return; }
       if (loan) {
         setActiveLoan(loan as any);
         if ((loan as any).students) { setStudent((loan as any).students); setBorrowerType("student"); }
@@ -402,7 +413,8 @@ export default function IctLoanStationPage() {
       setCameraOpen(true);
       setTimeout(async () => {
         if (videoRef.current) {
-          await attachStreamToVideo(videoRef.current, stream);
+            try { await attachStreamToVideo(videoRef.current, stream); }
+            catch (error) { stopCamera(); toast.error(saveErrorMessage(error, "เปิดภาพกล้องไม่สำเร็จ")); }
         }
       }, 50);
     } catch (e: any) {
@@ -417,6 +429,7 @@ export default function IctLoanStationPage() {
   const capture = () => {
     if (!videoRef.current) return;
     const v = videoRef.current;
+    if (!v.videoWidth || !v.videoHeight) { toast.error("กล้องยังไม่พร้อม กรุณารอสักครู่"); return; }
     const canvas = document.createElement("canvas");
     const size = Math.min(v.videoWidth, v.videoHeight) || 480;
     canvas.width = size; canvas.height = size;

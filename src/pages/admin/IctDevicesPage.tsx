@@ -144,6 +144,10 @@ export default function IctDevicesPage() {
       toast.error("กรุณากรอกรหัสครุภัณฑ์อย่างน้อย 1 รายการ");
       return;
     }
+    if (!editing && bulkItems.some(it => !it.asset_code.trim())) {
+      toast.error("กรุณากรอกรหัสทุกแถว หรือลบแถวที่ไม่ต้องการ");
+      return;
+    }
     const codes = items.map((i) => i.asset_code);
     if (new Set(codes).size !== codes.length) {
       toast.error("รหัสครุภัณฑ์ซ้ำกันในรายการ");
