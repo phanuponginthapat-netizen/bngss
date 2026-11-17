@@ -127,8 +127,7 @@
     {
       "resources": [
         "blocked.html",
-        "wifi.html",
-        "exit.html"
+        "wifi.html"
       ],
       "matches": [
         "<all_urls>"
