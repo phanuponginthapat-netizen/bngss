@@ -1,0 +1,3 @@
+- The Windows Safe Browser bundles Chrome for Testing (branded Chrome ignores --load-extension) with the unchanged extension/ directory and stable manifest key; the launcher bridge on 127.0.0.1 accepts only that extension origin.
+- Exit, shutdown and restart require a card QR that kiosk-api staff-card resolves server-side to active personnel or an admin/director/teacher/staff role via the machine device key; students and parents are always rejected and no local password bypass exists.
+- Remote power reuses the FaceGate kiosk_commands power queue and browser-heartbeat device status, so the machine appears with existing FaceGate machine controls instead of a parallel command system.
