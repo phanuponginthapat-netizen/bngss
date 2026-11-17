@@ -165,6 +165,39 @@ Deno.serve(async (req) => {
   try {
     if (route === "ping") return json({ ok: true, service: "kiosk-api", server_time: new Date().toISOString() });
 
+    // ── Public card routes (no device key): Safe Browser notebooks without a key ──
+    if (route === "staff-card-check" || route === "register-device-card") {
+      const pub = await req.json().catch(() => ({} as any));
+      const ip = (req.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+      if (!staffCardRateOk(`pub:${ip}`)) return json({ error: "rate_limited" }, 429);
+      const raw = typeof pub?.qr === "string" ? pub.qr.trim() : "";
+      if (!raw || raw.length > 500) return json({ error: "invalid card" }, 400);
+      const staff = await resolveStaffCard(db, raw);
+      if (route === "staff-card-check") {
+        // Confirms only that a card belongs to active staff — the exit guard on
+        // unregistered student notebooks. Returns no data beyond the staff name.
+        console.log("[kiosk-api] staff-card-check", ip, staff ? "allowed" : "denied");
+        if (!staff) return json({ ok: false, error: "not_staff" }, 403);
+        return json({ ok: true, name: staff.name });
+      }
+      // register-device-card: only an admin/director card may register a machine.
+      if (!staff || !["admin", "director"].includes(staff.role)) {
+        return json({ ok: false, error: "ลงทะเบียนเครื่องต้องใช้บัตรผู้บริหารหรือผู้ดูแลระบบ" }, 403);
+      }
+      const machineName = String(pub?.name || "").trim().slice(0, 60);
+      if (!machineName) return json({ error: "กรุณาตั้งชื่อเครื่อง" }, 400);
+      const deviceKey = crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
+      const { data: dev, error: derr } = await db.from("kiosk_devices").insert({
+        device_id: `safe-${Date.now().toString(36)}`,
+        device_key: deviceKey,
+        name: `SAFE-${machineName}`,
+        platform: "Safe Browser (Windows)",
+      }).select("id, device_id").single();
+      if (derr || !dev) throw derr ?? new Error("device insert failed");
+      console.log("[kiosk-api] register-device-card", dev.device_id, machineName, "by", staff.name);
+      return json({ ok: true, device_key: deviceKey, device_id: dev.device_id });
+    }
+
     const device = await authDevice(req, db);
     if (!device) return json({ error: "invalid device key" }, 401);
 
