@@ -44,3 +44,4 @@ scripts/kiosk/facegate-agent/models/
 
 # Private signing keys must never be committed
 *.pem
+extension/_metadata/

@@ -29,7 +29,7 @@ from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.7.1"
+APP_VERSION = "1.8.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -81,9 +81,19 @@ def _ver(v: str) -> tuple[int, ...]:
         return ()
 
 
+def extension_dir() -> Path:
+    """Shared, user-writable copy (ProgramData) used by both installed Chrome ("Load unpacked")
+    and the bundled browser; Chrome writes ruleset indexes into it, which Program Files forbids."""
+    shared = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "BNG Safe Browser" / "extension"
+    return shared if (shared / "manifest.json").exists() else APP_DIR / "extension"
+
+
+EXT_DIR = extension_dir()
+
+
 def bundled_extension_version() -> str:
     try:
-        return str(json.loads((APP_DIR / "extension" / "manifest.json").read_text(encoding="utf-8")).get("version") or "")
+        return str(json.loads((EXT_DIR / "manifest.json").read_text(encoding="utf-8")).get("version") or "")
     except (OSError, ValueError):
         return ""
 
@@ -164,7 +174,7 @@ def close_running_chrome():
 
 
 def browser_args(exe: Path) -> list[str]:
-    ext = APP_DIR / "extension"
+    ext = EXT_DIR
     args = [str(exe), *profile_args(exe)]
     if not is_system(exe):
         args += [f"--load-extension={ext}", f"--disable-extensions-except={ext}"]
@@ -620,7 +630,7 @@ def extension_watchdog():
             if not restarted[0] and not state["ext_ping"]:
                 restarted[0] = True
                 state["last_error"] = "ส่วนขยายของโรงเรียนไม่ทำงาน — กำลังเปิดเบราว์เซอร์ใหม่"
-                log(state["last_error"], "extension dir exists:", (APP_DIR / "extension" / "manifest.json").exists())
+                log(state["last_error"], "extension dir exists:", (EXT_DIR / "manifest.json").exists())
                 kill_browser()
             elif not warned[0]:
                 warned[0] = True
@@ -628,7 +638,43 @@ def extension_watchdog():
     threading.Thread(target=run, daemon=True).start()
 
 
+UPDATE_BASE = "https://github.com/phanuponginthapat-netizen/bngss/releases/download/safebrowser-windows-latest"
+
+
+def update_check(install: bool) -> str:
+    """Self-update: read the release version file, download the installer, verify SHA-256, then
+    (as the SYSTEM scheduled task) install silently and relaunch the program in the user's session."""
+    import hashlib
+    try:
+        with urllib.request.urlopen(UPDATE_BASE + "/safebrowser-version.json", timeout=20) as r:
+            info = json.loads(r.read())
+        latest, sha = str(info.get("version", "")).lstrip("v"), str(info.get("sha256", "")).lower()
+        if not latest or _ver(latest) <= _ver(APP_VERSION) or len(sha) != 64:
+            return "up-to-date"
+        if not install:
+            return latest
+        with urllib.request.urlopen(UPDATE_BASE + "/SafeBrowserSetup.exe", timeout=300) as r:
+            body = r.read()
+        if hashlib.sha256(body).hexdigest() != sha:
+            log("update checksum mismatch", latest); return "bad-checksum"
+        target = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "BNG Safe Browser" / "SafeBrowserSetup.exe"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(body)
+        log("installing update", APP_VERSION, "->", latest)
+        rc = subprocess.run([str(target), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]).returncode
+        log("update installer exit", rc)
+        if rc == 0:
+            subprocess.run(["schtasks", "/Run", "/TN", "BNG Safe Browser Relaunch"], capture_output=True)
+        return "installed" if rc == 0 else "failed"
+    except Exception as e:  # network/offline: try again next time
+        log("update check failed", e.__class__.__name__)
+        return "error"
+
+
 def main():
+    if "--update" in sys.argv:
+        log("update check", update_check(install=True))
+        return
     if not single_instance():
         return
     log("start", APP_VERSION, "extension", BUNDLED_EXT_VERSION, "browser-mode", BROWSER_MODE, "kiosk" if KIOSK else "window", "device" if DEVICE_KEY else "no-device-key")

@@ -24,7 +24,13 @@ CloseApplications=force
 [Files]
 Source: "..\..\..\..\dist-safebrowser\SafeBrowser\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\..\..\dist-safebrowser\chrome\*"; DestDir: "{app}\chrome"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\..\..\extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\..\..\extension\*"; DestDir: "{app}\extension"; Excludes: "_metadata,AGENTS.md"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Shared copy that installed Chrome loads once via "Load unpacked"; every update refreshes it in place
+Source: "..\..\..\..\extension\*"; DestDir: "{commonappdata}\BNG Safe Browser\extension"; Excludes: "_metadata,AGENTS.md"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "tasks.ps1"; DestDir: "{app}"; Flags: ignoreversion
+
+[Dirs]
+Name: "{commonappdata}\BNG Safe Browser"; Permissions: users-modify
 Source: "..\..\..\..\dist-safebrowser\WifiHelper\*"; DestDir: "{app}\wifi"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\wifi\com.bngss.wifi.json"; DestDir: "{app}\wifi"; Flags: ignoreversion
 
@@ -48,15 +54,24 @@ Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB
 Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0"; Flags: runhidden
 Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS UIBUTTON_ACTION 0"; Flags: runhidden
 Filename: "{sys}\powercfg.exe"; Parameters: "/setactive SCHEME_CURRENT"; Flags: runhidden
-Filename: "{app}\SafeBrowser.exe"; Description: "เปิด BNG Safe Browser ตอนนี้"; Flags: nowait postinstall
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\tasks.ps1"" -App ""{app}"""; Flags: runhidden
+Filename: "{win}\explorer.exe"; Parameters: """{commonappdata}\BNG Safe Browser\extension"""; Description: "เปิดโฟลเดอร์ส่วนขยาย (ติดตั้งใน Chrome ครั้งแรก: chrome://extensions → โหมดนักพัฒนาซอฟต์แวร์ → โหลดส่วนขยายที่แตกไฟล์แล้ว → เลือกโฟลเดอร์นี้)"; Flags: nowait postinstall skipifsilent runasoriginaluser; Check: UsesSystemChrome
+Filename: "{app}\SafeBrowser.exe"; Description: "เปิด BNG Safe Browser ตอนนี้"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\tasks.ps1"" -Remove"; Flags: runhidden; RunOnceId: "RemoveTasks"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /T /IM SafeBrowser.exe"; Flags: runhidden; RunOnceId: "KillSafeBrowser"
 
 [Code]
 var
   KeyPage: TInputQueryWizardPage;
   ModePage: TInputOptionWizardPage;
+  BrowserPage: TInputOptionWizardPage;
+
+function UsesSystemChrome(): Boolean;
+begin
+  Result := (BrowserPage <> nil) and (BrowserPage.SelectedValueIndex = 0);
+end;
 
 procedure InitializeWizard();
 begin
@@ -68,6 +83,10 @@ begin
   ModePage.Add('โหมดคีออส เต็มจอ ล็อกปุ่มลัด (แนะนำสำหรับเครื่องนักเรียน)');
   ModePage.Add('หน้าต่างปกติ (สำหรับทดสอบ)');
   ModePage.SelectedValueIndex := 0;
+  BrowserPage := CreateInputOptionPage(ModePage.ID, 'เบราว์เซอร์', 'เลือกเบราว์เซอร์ที่โปรแกรมใช้', '', True, False);
+  BrowserPage.Add('Google Chrome ของเครื่อง (แนะนำ — ติดตั้งส่วนขยายจากโฟลเดอร์ที่โปรแกรมเตรียมให้ครั้งเดียว อัปเดตเองหลังจากนั้น)');
+  BrowserPage.Add('Chrome ที่มากับโปรแกรม (โหลดส่วนขยายให้อัตโนมัติ)');
+  BrowserPage.SelectedValueIndex := 0;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -77,6 +96,9 @@ var
 begin
   if CurStep = ssInstall then
     Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM SafeBrowser.exe', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  // Silent self-update keeps the existing settings (device key, mode, browser)
+  if (CurStep = ssPostInstall) and WizardSilent() and FileExists(ExpandConstant('{app}\safebrowser.env')) then
+    Exit;
   if CurStep = ssPostInstall then
   begin
     Body := 'SAFEBROWSER_HOME_URL=https://bngss.online' + #13#10 +
@@ -84,6 +106,8 @@ begin
     if Trim(KeyPage.Values[0]) <> '' then
       Body := Body + 'SAFEBROWSER_DEVICE_KEY=' + Trim(KeyPage.Values[0]) + #13#10;
     if ModePage.SelectedValueIndex = 1 then Body := Body + 'SAFEBROWSER_KIOSK=0' + #13#10;
+    if BrowserPage.SelectedValueIndex = 0 then Body := Body + 'SAFEBROWSER_BROWSER=system' + #13#10
+    else Body := Body + 'SAFEBROWSER_BROWSER=bundled' + #13#10;
     SaveStringToFile(ExpandConstant('{app}\safebrowser.env'), Body, False);
   end;
 end;
