@@ -140,6 +140,21 @@ async function ensureAgentTab() {
   finally { _ensuringAgent = false; }
 }
 
+// หน้าต่างป๊อปอัป (ล็อกอิน Google/Microsoft ฯลฯ) — โหมด kiosk เปิดแล้วอาจไปอยู่หลังจอเต็ม
+// จึงดึงขึ้นมาด้านหน้าเสมอ และเมื่อปิดให้กลับไปหน้าต่างหลัก
+const _popupWindows = new Set();
+chrome.windows.onCreated.addListener((w) => {
+  if (!w?.id || w.type !== "popup") return;
+  _popupWindows.add(w.id);
+  const focus = () => chrome.windows.update(w.id, { focused: true, drawAttention: true }).catch(() => {});
+  focus(); setTimeout(focus, 400); setTimeout(focus, 1500);
+});
+chrome.windows.onRemoved.addListener(async (id) => {
+  if (!_popupWindows.delete(id)) return;
+  const main = (await chrome.windows.getAll({ windowTypes: ["normal"] }).catch(() => []))[0];
+  if (main?.id) chrome.windows.update(main.id, { focused: true }).catch(() => {});
+});
+
 // re-open ถ้านักเรียนปิด agent tab
 chrome.tabs.onRemoved.addListener(async (tabId, info) => {
   if (info.isWindowClosing) return;

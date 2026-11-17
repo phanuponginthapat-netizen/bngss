@@ -43,6 +43,8 @@ Root: HKLM; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.bngss.wifi
 
 ; อนุญาตกล้อง ไมค์ แชร์จอ และตำแหน่งทุกเว็บโดยไม่ถาม (นโยบายเบราว์เซอร์)
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "DefaultGeolocationSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "DefaultPopupsSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "BlockThirdPartyCookies"; ValueData: 0; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "AudioCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "VideoCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome"; ValueType: dword; ValueName: "ScreenCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
@@ -53,6 +55,8 @@ Root: HKLM; Subkey: "Software\Policies\Google\Chrome\VideoCaptureAllowedUrls"; V
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome\ScreenCaptureAllowedByOrigins"; ValueType: string; ValueName: "1"; ValueData: "https://*"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Policies\Google\Chrome\ScreenCaptureAllowedByOrigins"; ValueType: string; ValueName: "2"; ValueData: "http://*"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "DefaultGeolocationSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "DefaultPopupsSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "BlockThirdPartyCookies"; ValueData: 0; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "AudioCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "VideoCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Chromium"; ValueType: dword; ValueName: "ScreenCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
@@ -63,6 +67,8 @@ Root: HKLM; Subkey: "Software\Policies\Chromium\VideoCaptureAllowedUrls"; ValueT
 Root: HKLM; Subkey: "Software\Policies\Chromium\ScreenCaptureAllowedByOrigins"; ValueType: string; ValueName: "1"; ValueData: "https://*"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Policies\Chromium\ScreenCaptureAllowedByOrigins"; ValueType: string; ValueName: "2"; ValueData: "http://*"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "DefaultGeolocationSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "DefaultPopupsSetting"; ValueData: 1; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "BlockThirdPartyCookies"; ValueData: 0; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "AudioCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "VideoCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "Software\Policies\Microsoft\Edge"; ValueType: dword; ValueName: "ScreenCaptureAllowed"; ValueData: 1; Flags: uninsdeletevalue

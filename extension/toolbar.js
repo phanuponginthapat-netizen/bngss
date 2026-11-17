@@ -7,6 +7,9 @@
   bar.id = "__sb_toolbar";
   bar.innerHTML = `
     <div class="sb-inner">
+      <button class="sb-btn sb-back" title="ย้อนกลับ" aria-label="ย้อนกลับ">◀</button>
+      <button class="sb-btn sb-fwd" title="ไปข้างหน้า" aria-label="ไปข้างหน้า">▶</button>
+      <button class="sb-btn sb-reload" title="โหลดหน้านี้ใหม่" aria-label="โหลดใหม่">⟳</button>
       <span class="sb-brand">
         <img class="sb-logo" alt="" />
         <b class="sb-school">Safe Browser</b>
@@ -58,6 +61,15 @@
     location.href = v;
   });
   addr.addEventListener("focus", () => addr.select());
+
+  bar.querySelector(".sb-back").addEventListener("click", () => history.back());
+  bar.querySelector(".sb-fwd").addEventListener("click", () => history.forward());
+  bar.querySelector(".sb-reload").addEventListener("click", () => location.reload());
+  // หน้าต่างป๊อปอัป (เช่น ล็อกอิน Google) ปุ่มปิดจะปิดหน้าต่างและกลับหน้าเดิม
+  if (window.opener) {
+    const c = bar.querySelector(".sb-close");
+    c.textContent = "✕ ปิดหน้าต่างนี้"; c.title = "ปิดหน้าต่างล็อกอินแล้วกลับหน้าเดิม";
+  }
 
   bar.querySelector(".sb-home").addEventListener("click", () =>
     chrome.runtime.sendMessage({ type: "GO_HOME" })

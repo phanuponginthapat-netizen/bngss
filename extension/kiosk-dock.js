@@ -24,5 +24,15 @@
     h.onmouseleave = () => (h.style.opacity = ".75");
     h.onclick = () => chrome.runtime.sendMessage({ type: "GO_HOME" });
     document.documentElement.appendChild(h);
+    // ปุ่มย้อนกลับ: โหมด kiosk ไม่มีแถบของ Chrome
+    const k = document.createElement("button");
+    k.id = "__sb_kiosk_back"; k.type = "button";
+    k.title = "ย้อนกลับ"; k.setAttribute("aria-label", k.title);
+    k.textContent = "◀";
+    k.style.cssText = b.style.cssText.replace("left:12px", "left:108px");
+    k.onmouseenter = () => (k.style.opacity = "1");
+    k.onmouseleave = () => (k.style.opacity = ".75");
+    k.onclick = () => history.back();
+    document.documentElement.appendChild(k);
   });
 })();
