@@ -568,7 +568,7 @@ const Dashboard = () => {
                 const render = widgetRenderers[w.key];
                 if (!render) return null;
                 return (
-                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${w.def.group === "overview" ? "col-span-full" : w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
+                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${w.def.group === "overview" || w.key === "school_radar" ? "col-span-full" : w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
                     {render(w.color)}
                   </SortableWidget>
                 );
