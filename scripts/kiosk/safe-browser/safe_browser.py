@@ -19,7 +19,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -116,6 +116,80 @@ def open_control_page():
         subprocess.Popen([str(exe), f"--user-data-dir={DATA_DIR / 'profile'}", f"chrome-extension://{EXTENSION_ID}/exit.html"])
 
 
+_last_prompt = [0.0]
+
+
+def request_exit_card(reason: str):
+    """Any attempt to leave (Start, Alt+F4, log off, power button) opens the staff-card page."""
+    if state["exiting"] or time.time() - _last_prompt[0] < 3:
+        return
+    _last_prompt[0] = time.time()
+    log("exit attempt blocked:", reason)
+    threading.Thread(target=open_control_page, daemon=True).start()
+
+
+POLICY_KEYS = {  # HKCU policies: hide Task Manager / lock / log off / sign-out paths while kiosk runs
+    r"Software\Microsoft\Windows\CurrentVersion\Policies\System": ("DisableTaskMgr", "DisableLockWorkstation", "DisableChangePassword", "DisableSwitchUserOption"),
+    r"Software\Microsoft\Windows\CurrentVersion\Policies\Explorer": ("NoLogoff", "NoClose", "StartMenuLogOff"),
+}
+
+
+def set_lock_policies(on: bool):
+    if os.name != "nt" or not KIOSK:
+        return
+    import winreg
+    for path, names in POLICY_KEYS.items():
+        try:
+            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
+                for n in names:
+                    if on:
+                        winreg.SetValueEx(key, n, 0, winreg.REG_DWORD, 1)
+                    else:
+                        try: winreg.DeleteValue(key, n)
+                        except OSError: pass
+        except OSError as e:
+            log("policy write failed", path, e)
+
+
+def session_guard():
+    """Hidden window that vetoes log off / shutdown / power-button requests unless a staff card authorized them."""
+    if os.name != "nt" or not KIOSK:
+        return
+    from ctypes import wintypes
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    user32.DefWindowProcW.restype = ctypes.c_ssize_t
+
+    class WNDCLASS(ctypes.Structure):
+        _fields_ = [("style", wintypes.UINT), ("proc", WNDPROC), ("cls", ctypes.c_int), ("wnd", ctypes.c_int),
+                    ("inst", wintypes.HINSTANCE), ("icon", wintypes.HANDLE), ("cursor", wintypes.HANDLE),
+                    ("bg", wintypes.HANDLE), ("menu", wintypes.LPCWSTR), ("name", wintypes.LPCWSTR)]
+
+    def proc(h, m, w, l):
+        if m == 0x11 and not state["exiting"] and not state.get("power_ok"):  # WM_QUERYENDSESSION
+            request_exit_card("end session")
+            return 0  # veto
+        return user32.DefWindowProcW(h, m, w, l)
+
+    def run():
+        cb = WNDPROC(proc); state["_guard_cb"] = cb
+        wc = WNDCLASS(); wc.proc = cb; wc.name = "BNGSafeBrowserGuard"
+        wc.inst = ctypes.WinDLL("kernel32").GetModuleHandleW(None)
+        user32.RegisterClassW(ctypes.byref(wc))
+        hwnd = user32.CreateWindowExW(0, "BNGSafeBrowserGuard", "BNG Safe Browser", 0, 0, 0, 0, 0, None, None, wc.inst, None)
+        try:
+            user32.ShutdownBlockReasonCreate(hwnd, "ต้องสแกนบัตรบุคลากรก่อนออกจากโปรแกรม")
+            ctypes.WinDLL("kernel32").SetProcessShutdownParameters(0x4FF, 0)  # asked first
+        except Exception as e:
+            log("block reason failed", e)
+        msg = wintypes.MSG()
+        while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            user32.TranslateMessage(ctypes.byref(msg)); user32.DispatchMessageW(ctypes.byref(msg))
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def kill_browser():
     p = state.get("proc")
     if p and p.poll() is None:
@@ -133,12 +207,17 @@ def power(action: str) -> bool:
            "sleep": ["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"]}.get(action)
     if not cmd:
         return False
+    if action in ("shutdown", "restart"):
+        state["power_ok"] = True; set_lock_policies(False)
+    elif action == "cancel":
+        state["power_ok"] = False
     return subprocess.run(cmd, capture_output=True).returncode == 0
 
 
 def quit_program():
     state["exiting"] = True
     keyboard_unlock()
+    set_lock_policies(False)
     kill_browser()
     log("exit authorized")
     threading.Timer(1.0, lambda: os._exit(0)).start()
@@ -249,14 +328,17 @@ def keyboard_lock():
             k = ctypes.cast(l, ctypes.POINTER(KBD)).contents
             alt = k.flags & 0x20
             ctrl = pressed(0x11)
-            if k.vk in (0x5B, 0x5C, 0x5D):  # Win keys, Apps
+            down = w in (0x100, 0x104)
+            # Start/Win, Apps, Alt+F4/Tab/Esc/Space, Ctrl+Esc, Ctrl+W/Q, sleep/power keys,
+            # Ctrl+Shift+Q: block and ask for a staff card instead of leaving the program.
+            exit_try = (k.vk in (0x5B, 0x5C, 0x5D, 0x5F)
+                        or (alt and k.vk in (0x09, 0x73, 0x1B, 0x20))
+                        or (ctrl and k.vk in (0x1B, 0x57, 0x51))
+                        or (ctrl and pressed(0x10) and k.vk == 0x51))
+            if exit_try:
+                if down:
+                    request_exit_card("key %d" % k.vk)
                 return 1
-            if alt and k.vk in (0x09, 0x73, 0x1B, 0x20):  # Alt+Tab/F4/Esc/Space
-                return 1
-            if ctrl and k.vk == 0x1B:  # Ctrl+Esc, Ctrl+Shift+Esc
-                return 1
-            if ctrl and pressed(0x10) and k.vk == 0x51 and w == 0x100:  # Ctrl+Shift+Q → control page
-                threading.Thread(target=open_control_page, daemon=True).start(); return 1
             if k.vk == 0x7B and ctrl:  # Ctrl+F12 devtools fallback
                 return 1
         return user32.CallNextHookEx(None, n, w, l)
@@ -291,6 +373,8 @@ def main():
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Bridge)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     threading.Thread(target=cloud_loop, daemon=True).start()
+    set_lock_policies(True)
+    session_guard()
     keyboard_lock()
     browser_loop()
 
