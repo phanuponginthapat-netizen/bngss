@@ -5,7 +5,8 @@ import { LineLinkQR } from "@/components/LineLinkQR";
 import type { IdCardSettings } from "@/hooks/useIdCardSettings";
 import AutoFitText from "@/components/AutoFitText";
 import { BE_OFFSET } from "@/lib/dateBE";
-import { useCmsValue } from "@/hooks/useCmsSettings";
+import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
+import { resolveDirectorSignature } from "@/lib/signatureImage";
 import { IdCardPhoto } from "@/components/IdCardPhoto";
 
 interface CardPersonData {
@@ -343,7 +344,9 @@ interface IdCardBackProps {
 
 export const IdCardBack = ({ cs, person, width = 360, className = "", id }: IdCardBackProps) => {
   const radius = `${cs.card_border_radius}px`;
-  const directorTitle = useCmsValue("director_title") || "ผู้อำนวยการโรงเรียน";
+  const { data: branding } = useCmsSettingsBulk();
+  const directorTitle = branding?.director_title || "ผู้อำนวยการโรงเรียน";
+  const directorSignature = resolveDirectorSignature(branding);
 
   return (
     <ScaledCard width={width} id={id} className={className}>
@@ -395,7 +398,10 @@ export const IdCardBack = ({ cs, person, width = 360, className = "", id }: IdCa
 
         <div className="pt-1.5 mt-0.5 border-t border-dashed border-border">
           <div className="text-center space-y-0.5">
-            <div className="w-20 mx-auto border-b border-dotted border-foreground/30 pb-4"></div>
+            <div className="w-28 h-8 mx-auto border-b border-dotted border-foreground/30">
+              {directorSignature && <img src={directorSignature} alt="ลายเซ็นผู้อำนวยการ" className="w-full h-full object-contain" />}
+            </div>
+            {branding?.director_name && <p className="text-[9px] text-foreground">({branding.director_name})</p>}
             <p className="text-[9px] text-muted-foreground">ลงชื่อ {directorTitle}</p>
           </div>
         </div>

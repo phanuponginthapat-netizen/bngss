@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
+import { resolveDirectorSignature } from "@/lib/signatureImage";
 
 interface DocumentHeaderProps {
   showGaruda?: boolean;
@@ -29,7 +30,7 @@ export const useSchoolInfo = (): SchoolInfo => {
     garuda_emblem: map?.garuda_emblem || "",
     director_name: map?.director_name || "",
     director_title: map?.director_title || "",
-    director_signature: map?.director_signature || "",
+    director_signature: resolveDirectorSignature(map),
   }), [map]);
 };
 

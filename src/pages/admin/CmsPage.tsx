@@ -22,6 +22,9 @@ import ConfigBackupCard from "@/components/admin/ConfigBackupCard";
 import { cn } from "@/lib/utils";
 import { swal } from "@/lib/swal";
 import { saveErrorMessage } from "@/lib/saveError";
+import { uploadDirectorSignature } from "@/lib/directorSignature";
+import { resolveDirectorSignature } from "@/lib/signatureImage";
+import { applyDynamicBranding } from "@/lib/dynamicManifest";
 
 // ---- Pages Tab with Rich Editor ----
 const PagesTab = () => {
@@ -279,6 +282,17 @@ const useCmsSettings = () => {
     }
   };
   const uploadImage = async (file: File, prefix: string, key: string, successText = 'อัปโหลดสำเร็จ') => {
+    if (key === "director_signature") {
+      const url = await uploadDirectorSignature(file);
+      updateSetting("director_signature", url);
+      updateSetting("director_signature_url", url);
+      await qc.invalidateQueries({ queryKey: ["cms_settings_bulk"] });
+      await qc.invalidateQueries({ queryKey: ["cms_branding_sig"] });
+      await applyDynamicBranding();
+      await fetchSettings();
+      toast.success("บันทึกลายเซ็นพื้นหลังโปร่งใสแล้ว");
+      return;
+    }
     // Preserve animation for GIFs — do not re-encode
     const isGif = file.type === 'image/gif' || /\.gif$/i.test(file.name);
     const payload: Blob = isGif ? file : await compressImage(file, { maxWidth: 1600, maxSizeKB: 200 });
@@ -426,6 +440,7 @@ const IdentitySection = () => {
 // ---- Section: โลโก้ & ตรา ----
 const BrandingSection = () => {
   const { settings, uploadImage } = useCmsSettings();
+  const [uploadingSignature, setUploadingSignature] = useState(false);
   return (
     <div className="space-y-8">
       <div>
@@ -454,19 +469,24 @@ const BrandingSection = () => {
           {[
             { key: 'school_seal', label: 'ตราโรงเรียน', prefix: 'seal' },
             { key: 'garuda_emblem', label: 'ตราครุฑ', prefix: 'garuda' },
-            { key: 'director_signature', label: 'ลายเซ็นผู้อำนวยการ', prefix: 'signature', hint: 'PNG พื้นหลังโปร่งใส ใช้ลงเอกสารทุกฉบับ' },
+            { key: 'director_signature', label: 'ลายเซ็นผู้อำนวยการ', prefix: 'signature' },
           ].map(({ key, label, prefix, hint }: any) => (
             <div key={key}>
               <Label className="text-sm mb-2 block">{label}</Label>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
-                  {settings[key]?.value ? <img src={settings[key].value} alt={label} className="w-full h-full object-contain" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+                  {(key === 'director_signature' ? resolveDirectorSignature(Object.fromEntries(Object.entries(settings).map(([k, s]) => [k, s.value]))) : settings[key]?.value) ? <img src={key === 'director_signature' ? resolveDirectorSignature(Object.fromEntries(Object.entries(settings).map(([k, s]) => [k, s.value]))) : settings[key].value} alt={label} className="w-full h-full object-contain" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
                 </div>
                 <label className="cursor-pointer">
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                    const f = e.target.files?.[0]; if (!f) return; await uploadImage(f, prefix, key);
+                  <input type="file" aria-label={label} accept={key === 'director_signature' ? 'image/png,image/jpeg,image/webp' : 'image/*'} disabled={key === 'director_signature' && uploadingSignature} className="hidden" onChange={async (e) => {
+                    const input = e.currentTarget;
+                    const f = input.files?.[0]; if (!f) return;
+                    if (key === 'director_signature') setUploadingSignature(true);
+                    try { await uploadImage(f, prefix, key); }
+                    catch (error) { toast.error(saveErrorMessage(error)); }
+                    finally { setUploadingSignature(false); input.value = ''; }
                   }} />
-                  <Button size="sm" variant="outline" asChild><span><Upload className="w-3 h-3 mr-1" /> อัปโหลด</span></Button>
+                  <Button size="sm" variant="outline" disabled={key === 'director_signature' && uploadingSignature} asChild><span><Upload className="w-3 h-3 mr-1" /> {key === 'director_signature' && uploadingSignature ? 'กำลังลบพื้นหลัง...' : 'อัปโหลด'}</span></Button>
                 </label>
               </div>
               {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
