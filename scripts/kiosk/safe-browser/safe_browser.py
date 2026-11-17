@@ -119,13 +119,10 @@ def open_control_page():
 def kill_browser():
     p = state.get("proc")
     if p and p.poll() is None:
-        p.terminate()
-        try:
-            p.wait(5)
-        except subprocess.TimeoutExpired:
-            p.kill()
-    if os.name == "nt":  # child renderer processes from our private profile
-        subprocess.run(["taskkill", "/F", "/T", "/IM", "chrome.exe", "/FI", f"WINDOWTITLE ne x"], capture_output=True)
+        if os.name == "nt":  # whole process tree of our own browser only
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
+        else:
+            p.terminate()
 
 
 def power(action: str) -> bool:
