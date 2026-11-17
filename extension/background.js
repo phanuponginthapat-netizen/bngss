@@ -80,25 +80,87 @@ function notify(title, message) {
 // เมื่อ extension detect ว่ามี session แล้ว และคอย re-open ถ้านักเรียนปิด
 // (เพื่อให้ครูสั่ง lock/message/screenshot/screen-share/shutdown ได้เสมอ)
 // -------------------------------------------------------------
-let _ensuringAgent = false;
-let _lastAgentSpawn = 0;
-let _agentSpawnFails = 0;
-
 // เปิดเฉพาะ role นักเรียนเท่านั้น — บุคลากร/ครู ใช้ extension แบบบันทึก log ปกติ
 function isStudentSession(session) {
   const r = session?.role;
   return r === "student";
 }
 
-// ตั้งแต่ 1.18.0 ส่วนขยายทำหน้าที่ Agent เองทั้งหมด (ไม่โดน Chrome พักแท็บ) — ปิดแท็บ Agent เก่าที่ค้างอยู่
+// หน้า Agent (แท็บปักหมุด) เป็นตัวหลักรับคำสั่งครู — ทางที่ใช้งานได้ดีมาตลอด
+// ส่วนขยายเป็นตัวสำรอง: รับคำสั่งเองเฉพาะเมื่อหน้า Agent ไม่รับภายใน AGENT_GRACE_MS (เช่น Chrome พักแท็บ)
+const AGENT_GRACE_MS = 6000;
+let _ensuringAgent = false;
+let _lastAgentSpawn = 0;
+let _agentSpawnFails = 0;
+
 async function ensureAgentTab() {
+  if (_ensuringAgent) return;
+  _ensuringAgent = true;
   try {
     await loadAppOrigin();
+    const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
+    if (!session?.access_token || !isStudentSession(session)) return;
+    if (_agentSpawnFails >= 3) {
+      if (Date.now() - _lastAgentSpawn < 600000) return;
+      _agentSpawnFails = 0;
+    }
+    if (agentTabId) {
+      const t = await chrome.tabs.get(agentTabId).catch(() => null);
+      if (t) {
+        const u = t.url || t.pendingUrl || "";
+        if (u && !u.startsWith(AGENT_URL)) {
+          if (/\/(login|auth)\b/.test(u)) { await chrome.storage.local.remove(["agentTabId"]); return; }
+        } else {
+          _agentSpawnFails = 0;
+          chrome.tabs.update(t.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
+          return;
+        }
+      }
+    }
     const tabs = await chrome.tabs.query({});
-    for (const t of tabs || []) if (t.id && (t.url || t.pendingUrl || "").startsWith(AGENT_URL)) chrome.tabs.remove(t.id).catch(() => {});
-    await chrome.storage.local.remove(["agentTabId"]);
+    const existing = (tabs || []).filter((t) => (t.url || t.pendingUrl || "").startsWith(AGENT_URL));
+    if (existing.length > 0) {
+      const keep = existing[0];
+      for (let i = 1; i < existing.length; i++) chrome.tabs.remove(existing[i].id).catch(() => {});
+      await chrome.storage.local.set({ agentTabId: keep.id });
+      _agentSpawnFails = 0;
+      chrome.tabs.update(keep.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
+      return;
+    }
+    if (Date.now() - _lastAgentSpawn < 60000) return;
+    _lastAgentSpawn = Date.now();
+    _agentSpawnFails++;
+    const tab = await chrome.tabs.create({ url: AGENT_URL, pinned: true, active: false });
+    if (tab?.id) {
+      await chrome.storage.local.set({ agentTabId: tab.id });
+      chrome.tabs.update(tab.id, { muted: true, autoDiscardable: false }).catch(() => {});
+    }
+  } catch { /* ignore */ }
+  finally { _ensuringAgent = false; }
+}
+
+// หน้า Agent ไม่รับคำสั่ง (ถูกพัก/แช่แข็ง) → โหลดใหม่ให้กลับมารับคำสั่งถัดไปเอง
+let _lastAgentWake = 0;
+async function wakeAgentTab() {
+  if (Date.now() - _lastAgentWake < 120000) return;
+  _lastAgentWake = Date.now();
+  try {
+    const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
+    const t = agentTabId ? await chrome.tabs.get(agentTabId).catch(() => null) : null;
+    if (t?.id && (t.url || t.pendingUrl || "").startsWith(AGENT_URL)) chrome.tabs.reload(t.id).catch(() => {});
+    else ensureAgentTab();
   } catch { /* ignore */ }
 }
+
+// นักเรียนปิดแท็บ Agent → เปิดกลับมา
+chrome.tabs.onRemoved.addListener(async (tabId, info) => {
+  if (info.isWindowClosing) return;
+  const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
+  if (agentTabId !== tabId) return;
+  await chrome.storage.local.remove(["agentTabId"]);
+  if (!session?.access_token || !isStudentSession(session)) return;
+  setTimeout(() => { ensureAgentTab(); }, 1500);
+});
 
 // หน้าต่างป๊อปอัป (ล็อกอิน Google/Microsoft ฯลฯ) — โหมด kiosk เปิดแล้วอาจไปอยู่หลังจอเต็ม
 // จึงดึงขึ้นมาด้านหน้าเสมอ และเมื่อปิดให้กลับไปหน้าต่างหลัก
@@ -137,6 +199,7 @@ async function extHeartbeat() {
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
       }),
     });
+    ensureAgentTab();
     ensureRealtime();
     resumeExtViewers().catch(() => {});
     await withTimeout(handlePendingMonitor(session), 20000, "pending");
@@ -276,6 +339,7 @@ async function processMonitorEvent(session, id, ev) {
   markHandled(id);
   if (ev.to === me) await sbRpc(session, "ack_monitor_event", { _id: id }).catch((e) => { _monDiag = "ack:" + (e?.message || e); });
   // ไม่รอคำสั่งให้เสร็จ — คำสั่งที่ค้าง (เช่นแท็บไม่ตอบ) ต้องไม่ขวางคำสั่งถัดไป
+  if (ev.type !== "stop-stream") wakeAgentTab();
   if (ev.type === "stop-stream") stopExtFrames(ev.from);
   else if (ev.type === "request-stream") startExtFrames(ev.from);
   else if (ev.type === "command") withTimeout(runTeacherCommand(session, ev.from, ev.action, ev.payload || {}), 15000, ev.action).catch((e) => { _monDiag = "cmd:" + (e?.message || e); });
@@ -286,7 +350,23 @@ async function handlePendingMonitor(session) {
   const rows = await sbRpc(session, "pending_monitor_events", {}).catch((e) => { _monDiag = "poll:" + (e?.message || e); return null; });
   if (!Array.isArray(rows)) return;
   // เก่าสุดก่อน เพื่อให้คำสั่งล่าสุดเป็นตัวตัดสิน
-  for (const row of rows.slice().reverse()) await processMonitorEvent(session, row?.id, row?.event);
+  let wait = 0;
+  for (const row of rows.slice().reverse()) {
+    const age = Date.now() - new Date(row?.created_at || 0).getTime();
+    // ให้หน้า Agent รับก่อน — ยังใหม่อยู่ก็รอตรวจซ้ำ
+    if (age < AGENT_GRACE_MS) { wait = Math.max(wait, AGENT_GRACE_MS - age + 500); continue; }
+    await processMonitorEvent(session, row?.id, row?.event);
+  }
+  if (wait) schedulePendingCheck(wait);
+}
+
+let _pendingTimer = 0;
+function schedulePendingCheck(ms = AGENT_GRACE_MS + 500) {
+  clearTimeout(_pendingTimer);
+  _pendingTimer = setTimeout(async () => {
+    const s = await getValidSession().catch(() => null);
+    if (s?.access_token && isStudentSession(s)) withTimeout(handlePendingMonitor(s), 20000, "pending").catch(() => {});
+  }, ms);
 }
 
 async function unlockAllTabs() {
@@ -361,7 +441,12 @@ async function ensureRealtime() {
       if (typeof receipt !== "string" || _handledEvents.has(receipt)) return;
       const s = await getValidSession(); if (!s) return;
       const ev = await sbRpc(s, "read_monitor_event", { _id: receipt }).catch(() => null);
-      if (ev && ev.type !== "screenshot-image") await processMonitorEvent(s, receipt, ev);
+      if (!ev || ev.type === "screenshot-image") return;
+      const me = jwtSub(s.access_token) || s.user?.id;
+      if (ev.to !== me) return;
+      // หยุดดูจอทำได้ทันทีเสมอ (ไม่ซ้ำซ้อน) ส่วนคำสั่งอื่นรอให้หน้า Agent รับก่อน แล้วค่อยตรวจว่ายังค้างไหม
+      if (ev.type === "stop-stream") stopExtFrames(ev.from);
+      schedulePendingCheck();
     };
     ws.onclose = () => { clearInterval(_rtHb); if (_rtWs === ws) { _rtWs = null; setTimeout(ensureRealtime, 5000); } };
     ws.onerror = () => { try { ws.close(); } catch {} };
@@ -377,7 +462,7 @@ if (typeof WebSocket !== "undefined") extHeartbeat();
 // watchdog — เช็คทุก 2 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
 chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 2 });
 chrome.alarms?.onAlarm.addListener(async (a) => {
-  if (a.name === "agent-watchdog") ensureRealtime();
+  if (a.name === "agent-watchdog") { ensureAgentTab(); ensureRealtime(); }
   if (a.name === "policy-sweep") {
     await refreshConfig();          // ดึง rule ล่าสุดก่อนกวาด
     await getValidSession({ force: true }); // เช็ค logout/หมดอายุ

@@ -270,9 +270,12 @@ export default function StudentAgentPage() {
       const payload = await readMonitorEvent(raw).catch(() => null);
       if (!payload) return;
       if (payload.to !== me.id && payload.to !== "*") return;
+      // แจ้งระบบว่าหน้า Agent รับคำสั่งแล้ว ส่วนขยายจะได้ไม่ทำซ้ำ
+      if (payload.to === me.id && (payload.type === "request-stream" || payload.type === "stop-stream" || payload.type === "command")) {
+        supabase.rpc("ack_monitor_event", { _id: raw.receipt }).then(() => {}, () => {});
+      }
       switch (payload.type) {
         case "request-stream":
-          supabase.rpc("ack_monitor_event", { _id: raw.receipt }).then(() => {}, () => {});
           startSharing(payload.from); break;
         case "stop-stream":    stopPeer(payload.from); break;
         case "answer":         onAnswer(payload.from, payload.sdp); break;
@@ -300,6 +303,7 @@ export default function StudentAgentPage() {
         await supabase.rpc("ack_monitor_event", { _id: row.id });
         if (row.event?.type === "request-stream" && row.event?.from) startSharing(row.event.from);
         else if (row.event?.type === "stop-stream" && row.event?.from) stopPeer(row.event.from);
+        else if (row.event?.type === "command" && row.event?.from) handleCommand(row.event.from, row.event.action, row.event.payload);
       }
     };
     const onWake = () => { if (document.visibilityState !== "hidden") checkPending().catch(() => {}); };
@@ -538,7 +542,8 @@ export default function StudentAgentPage() {
     // ส่งภาพผ่านส่วนขยายก่อนเสมอ ครูเห็นภาพทันที แล้วค่อยลองอัปเกรดเป็นวิดีโอ (โหมด kiosk)
     const framesOk = await startLiveFrames(viewerId);
     if (kioskConfig?.mode !== "student" && !streamRef.current && framesOk) return;
-    const stream = kioskConfig?.mode === "student" || streamRef.current ? await ensureStream() : null;
+    // ส่วนขยายจับภาพไม่ได้ (ไม่มี/รุ่นเก่า) → ขอแชร์จอแบบเดิม นักเรียนกดแชร์แล้วครูเห็นจอ
+    const stream = kioskConfig?.mode === "student" || streamRef.current || !framesOk ? await ensureStream() : null;
     if (!stream) { if (!framesOk) await startLiveFrames(viewerId); return; }
     peersRef.current.get(viewerId)?.close();
     const pc = new RTCPeerConnection(RTC_CONFIG);
