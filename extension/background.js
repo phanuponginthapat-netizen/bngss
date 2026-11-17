@@ -90,58 +90,14 @@ function isStudentSession(session) {
   return r === "student";
 }
 
+// ตั้งแต่ 1.18.0 ส่วนขยายทำหน้าที่ Agent เองทั้งหมด (ไม่โดน Chrome พักแท็บ) — ปิดแท็บ Agent เก่าที่ค้างอยู่
 async function ensureAgentTab() {
-  if (_ensuringAgent) return;
-  _ensuringAgent = true;
   try {
     await loadAppOrigin();
-    const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
-    if (!session?.access_token) return; // ยังไม่ล็อกอิน
-    if (!isStudentSession(session)) return; // บุคลากร — ไม่ต้องเปิด agent
-    // กันวนเปิดแท็บไม่หยุด แต่ไม่หยุดถาวร — พัก 10 นาทีแล้วลองใหม่
-    if (_agentSpawnFails >= 3) {
-      if (Date.now() - _lastAgentSpawn < 600000) return;
-      _agentSpawnFails = 0;
-    }
-
-    if (agentTabId) {
-      const t = await chrome.tabs.get(agentTabId).catch(() => null);
-      if (t) {
-        const u = t.url || t.pendingUrl || "";
-        // ถ้าโดน redirect ออกจาก agent (เช่นหน้า login) = ล็อกเอาต์แล้ว → หยุดวนเปิด
-        if (u && !u.startsWith(AGENT_URL)) {
-          if (/\/(login|auth)\b/.test(u)) {
-            await chrome.storage.local.remove(["session", "agentTabId"]);
-            return;
-          }
-        } else {
-          chrome.tabs.update(t.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
-          return;
-        }
-      }
-    }
-
     const tabs = await chrome.tabs.query({});
-    const existing = (tabs || []).filter((t) => (t.url || t.pendingUrl || "").startsWith(AGENT_URL));
-    if (existing.length > 0) {
-      const keep = existing[0];
-      for (let i = 1; i < existing.length; i++) chrome.tabs.remove(existing[i].id).catch(() => {});
-      await chrome.storage.local.set({ agentTabId: keep.id });
-      chrome.tabs.update(keep.id, { pinned: true, muted: true, autoDiscardable: false }).catch(() => {});
-      return;
-    }
-
-    // rate limit: เปิดใหม่ได้ไม่เกิน 1 ครั้ง/นาที
-    if (Date.now() - _lastAgentSpawn < 60000) return;
-    _lastAgentSpawn = Date.now();
-    _agentSpawnFails++;
-    const tab = await chrome.tabs.create({ url: AGENT_URL, pinned: true, active: false });
-    if (tab?.id) {
-      await chrome.storage.local.set({ agentTabId: tab.id });
-      chrome.tabs.update(tab.id, { muted: true, autoDiscardable: false }).catch(() => {});
-    }
+    for (const t of tabs || []) if (t.id && (t.url || t.pendingUrl || "").startsWith(AGENT_URL)) chrome.tabs.remove(t.id).catch(() => {});
+    await chrome.storage.local.remove(["agentTabId"]);
   } catch { /* ignore */ }
-  finally { _ensuringAgent = false; }
 }
 
 // หน้าต่างป๊อปอัป (ล็อกอิน Google/Microsoft ฯลฯ) — โหมด kiosk เปิดแล้วอาจไปอยู่หลังจอเต็ม
@@ -181,7 +137,7 @@ async function extHeartbeat() {
         _agent_version: st?.ok && typeof st.version === "string" ? st.version : null,
       }),
     });
-    ensureAgentTab(); // ให้หน้า Agent เปิดอยู่เสมอ ครูจึงสั่งดูจอได้
+    ensureRealtime();
     await resumeExtViewers();
     await handlePendingMonitor(session);
   } catch { /* ออฟไลน์ชั่วคราว ลองใหม่รอบหน้า */ }
@@ -189,7 +145,6 @@ async function extHeartbeat() {
 
 // ครูขอดูจอแต่หน้า Agent ไม่รับ (Chrome พัก/แช่แข็งแท็บเบื้องหลัง)
 // → ส่วนขยายรับคำขอเองและส่งภาพจอให้ครูโดยตรง ไม่ต้องรอหน้า Agent แล้วค่อยปลุกหน้า Agent ไว้ใช้งานอื่น
-let _lastAgentWake = 0;
 const MONITOR_TOPIC = "classroom-monitor";
 const EXT_FRAME_MS = 2500;
 const EXT_FRAME_TTL = 5 * 60 * 1000; // ครูต่ออายุเองทุกนาทีขณะเปิดดู ปิดหน้าไปแล้วหยุดเองใน 5 นาที
@@ -275,7 +230,7 @@ function startExtFrames(viewerId, until = Date.now() + EXT_FRAME_TTL) {
       const session = await getValidSession();
       if (!session?.access_token || !isStudentSession(session)) { stopExtFrames(viewerId); return; }
       // เช็คคำสั่งหยุดดูจอเป็นระยะ
-      if (++st.ticks % 4 === 0) await handlePendingMonitor(session, { quiet: true });
+      if (++st.ticks % 4 === 0) await handlePendingMonitor(session);
       if (!_extFrames.has(viewerId)) return;
       const raw = await captureStudentScreen(70);
       if (!raw) return;
@@ -299,74 +254,119 @@ async function resumeExtViewers() {
   } catch { /* ignore */ }
 }
 
-async function handlePendingMonitor(session, { quiet = false } = {}) {
+const _handledEvents = new Set();
+function markHandled(id) {
+  _handledEvents.add(id);
+  if (_handledEvents.size > 300) _handledEvents.delete(_handledEvents.values().next().value);
+}
+
+async function processMonitorEvent(session, id, ev) {
+  if (!id || !ev?.from || _handledEvents.has(id)) return;
+  const me = session.user?.id;
+  if (ev.to !== me && ev.to !== "*") return;
+  markHandled(id);
+  if (ev.to === me) sbRpc(session, "ack_monitor_event", { _id: id }).catch(() => {});
+  if (ev.type === "stop-stream") stopExtFrames(ev.from);
+  else if (ev.type === "request-stream") startExtFrames(ev.from);
+  else if (ev.type === "command") await runTeacherCommand(session, ev.from, ev.action, ev.payload || {});
+}
+
+async function handlePendingMonitor(session) {
   const rows = await sbRpc(session, "pending_monitor_events", {}).catch(() => null);
-  if (!Array.isArray(rows) || rows.length === 0) return;
-  let needWake = false;
-  // เก่าสุดก่อน เพื่อให้คำสั่งล่าสุด (ขอดู/หยุด) เป็นตัวตัดสิน
-  for (const row of rows.slice().reverse()) {
-    const ev = row?.event, from = ev?.from;
-    if (!row?.id || !from) continue;
-    const age = Date.now() - Date.parse(row.created_at || "");
-    if (ev.type === "stop-stream") {
-      await sbRpc(session, "ack_monitor_event", { _id: row.id }).catch(() => {});
-      stopExtFrames(from);
-    } else if (ev.type === "request-stream") {
-      // ให้หน้า Agent ที่ยังทำงานอยู่รับก่อน 5 วินาที (ได้วิดีโอใน Safe Browser)
-      if (!_extFrames.has(from) && age < 5000) continue;
-      await sbRpc(session, "ack_monitor_event", { _id: row.id }).catch(() => {});
-      startExtFrames(from);
-      needWake = true;
-    }
-  }
-  if (!needWake || quiet) return;
-  if (Date.now() - _lastAgentWake < 120000) return;
-  _lastAgentWake = Date.now();
-  const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
-  const t = agentTabId ? await chrome.tabs.get(agentTabId).catch(() => null) : null;
-  if (t && (t.url || t.pendingUrl || "").startsWith(AGENT_URL)) {
-    await chrome.tabs.update(t.id, { autoDiscardable: false }).catch(() => {});
-    await chrome.tabs.reload(t.id).catch(() => {});
-  } else {
-    _lastAgentSpawn = 0; _agentSpawnFails = 0;
-    await ensureAgentTab();
+  if (!Array.isArray(rows)) return;
+  // เก่าสุดก่อน เพื่อให้คำสั่งล่าสุดเป็นตัวตัดสิน
+  for (const row of rows.slice().reverse()) await processMonitorEvent(session, row?.id, row?.event);
+}
+
+async function unlockAllTabs() {
+  await chrome.storage.local.set({ locked: false });
+  for (const t of await chrome.tabs.query({})) {
+    if (!t.id) continue;
+    chrome.tabs.update(t.id, { muted: false }).catch(() => {});
+    chrome.scripting.executeScript({ target: { tabId: t.id }, func: () => { document.getElementById("__sb_lock")?.remove(); } }).catch(() => {});
   }
 }
+
+async function powerAction(action) {
+  if (action === "logout") { await clearSession("teacher"); return { ok: true }; }
+  const r = await kioskLauncher("/power", { action });
+  if (r?.ok || action === "sleep") return r;
+  const n = await wifiCall({ cmd: "power", action });
+  return n?.ok ? n : { ok: false, error: r?.error || n?.error || "สั่งเครื่องไม่สำเร็จ" };
+}
+
+// คำสั่งจากครู (หน้า Classroom Monitor) — ทำในส่วนขยายโดยตรง
+async function runTeacherCommand(session, teacherId, action, payload) {
+  const reply = (extra) => sendMonitorFromExt(session, { type: "screenshot-image", from: session.user?.id, to: teacherId, image: "", ...extra }).catch(() => {});
+  try {
+    if (action === "lock") {
+      await chrome.storage.local.set({ locked: true, lockMsg: String(payload.message || "ครูล็อกจอ").slice(0, 300) });
+      await applyLockAll();
+    } else if (action === "unlock") {
+      await unlockAllTabs();
+    } else if (action === "message") {
+      await showTeacherMessage(String(payload.message || "").slice(0, 500));
+    } else if (action === "open-url") {
+      if (/^https?:\/\//i.test(payload.url || "")) await chrome.tabs.create({ url: payload.url, active: true });
+    } else if (action === "shutdown" || action === "reboot" || action === "logout") {
+      const r = await powerAction(action === "reboot" ? "restart" : action);
+      if (!r?.ok) reply({ error: (r?.error || "สั่งเครื่องไม่สำเร็จ") + " (ต้องใช้โปรแกรม BNG Safe Browser)" });
+    } else if (action === "screenshot") {
+      const raw = await captureStudentScreen(80);
+      if (raw) reply({ image: await shrinkShot(raw) }); else reply({ error: "จับภาพไม่สำเร็จ (หน้าต่าง Chrome ถูกย่ออยู่)" });
+    }
+  } catch (e) { reply({ error: "ทำคำสั่งไม่สำเร็จ: " + (e?.message || e) }); }
+}
+
+// ===== Realtime ในส่วนขยาย — รับคำสั่งครูทันที (WebSocket ทำให้ service worker ตื่นอยู่) =====
+let _rtWs = null, _rtHb = 0, _rtRef = 0, _rtToken = "", _rtOpenedAt = 0;
+async function ensureRealtime() {
+  try {
+    const session = await getValidSession();
+    if (!session?.access_token || !isStudentSession(session)) { closeRealtime(); return; }
+    if (_rtWs && _rtWs.readyState <= 1) {
+      if (_rtToken !== session.access_token && _rtWs.readyState === 1) {
+        _rtToken = session.access_token;
+        _rtWs.send(JSON.stringify({ topic: "realtime:" + MONITOR_TOPIC, event: "access_token", payload: { access_token: _rtToken }, ref: String(++_rtRef) }));
+      }
+      return;
+    }
+    await loadBackend();
+    _rtToken = session.access_token;
+    _rtOpenedAt = Date.now();
+    const ws = new WebSocket(`${SUPABASE_URL.replace(/^http/, "ws")}/realtime/v1/websocket?apikey=${encodeURIComponent(ANON_KEY)}&vsn=1.0.0`);
+    _rtWs = ws;
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ topic: "realtime:" + MONITOR_TOPIC, event: "phx_join", ref: String(++_rtRef),
+        payload: { config: { broadcast: { self: false }, presence: { key: "" }, private: false }, access_token: _rtToken } }));
+      clearInterval(_rtHb);
+      _rtHb = setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ topic: "phoenix", event: "heartbeat", payload: {}, ref: String(++_rtRef) })); }, 20000);
+      getValidSession().then((s) => s && handlePendingMonitor(s));
+    };
+    ws.onmessage = async (m) => {
+      let msg; try { msg = JSON.parse(m.data); } catch { return; }
+      if (msg.event !== "broadcast" || msg.payload?.event !== "monitor") return;
+      const receipt = msg.payload?.payload?.receipt;
+      if (typeof receipt !== "string" || _handledEvents.has(receipt)) return;
+      const s = await getValidSession(); if (!s) return;
+      const ev = await sbRpc(s, "read_monitor_event", { _id: receipt }).catch(() => null);
+      if (ev && ev.type !== "screenshot-image") await processMonitorEvent(s, receipt, ev);
+    };
+    ws.onclose = () => { clearInterval(_rtHb); if (_rtWs === ws) { _rtWs = null; setTimeout(ensureRealtime, 5000); } };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+  } catch { /* ลองใหม่รอบหน้า */ }
+}
+function closeRealtime() { clearInterval(_rtHb); const w = _rtWs; _rtWs = null; try { w?.close(); } catch {} }
+if (typeof WebSocket !== "undefined") ensureRealtime();
+
 chrome.alarms?.create?.("ext-heartbeat", { periodInMinutes: 0.5 });
 chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "ext-heartbeat") extHeartbeat(); });
-extHeartbeat();
-
-// re-open ถ้านักเรียนปิด agent tab
-chrome.tabs.onRemoved.addListener(async (tabId, info) => {
-  if (info.isWindowClosing) return;
-  const { session, agentTabId } = await chrome.storage.local.get(["session", "agentTabId"]);
-  if (agentTabId === tabId) await chrome.storage.local.remove(["agentTabId"]);
-  if (!session?.access_token || !isStudentSession(session)) return;
-  setTimeout(() => { ensureAgentTab(); }, 1500);
-});
-
-// กัน user กด "unpin" agent tab + จับกรณีโดนเด้งไปหน้า login
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  const url = tab?.url || "";
-  const { agentTabId } = await chrome.storage.local.get(["agentTabId"]);
-  if (agentTabId === tabId && url && !url.startsWith(AGENT_URL) && /\/(login|auth)\b/.test(url)) {
-    // ล็อกเอาต์ → เคลียร์ session แล้วปิดแท็บ agent กันวนซ้ำ
-    await chrome.storage.local.remove(["session", "agentTabId"]);
-    chrome.tabs.remove(tabId).catch(() => {});
-    return;
-  }
-  if (!url.startsWith(AGENT_URL)) return;
-  _agentSpawnFails = 0;
-  if (changeInfo.pinned === false) chrome.tabs.update(tabId, { pinned: true }).catch(() => {});
-  if (changeInfo.mutedInfo && changeInfo.mutedInfo.muted === false) {
-    chrome.tabs.update(tabId, { muted: true }).catch(() => {});
-  }
-});
+if (typeof WebSocket !== "undefined") extHeartbeat();
 
 // watchdog — เช็คทุก 2 นาทีว่ามี agent tab อยู่ (กันโดน crash/discard)
 chrome.alarms?.create?.("agent-watchdog", { periodInMinutes: 2 });
 chrome.alarms?.onAlarm.addListener(async (a) => {
-  if (a.name === "agent-watchdog") ensureAgentTab();
+  if (a.name === "agent-watchdog") ensureRealtime();
   if (a.name === "policy-sweep") {
     await refreshConfig();          // ดึง rule ล่าสุดก่อนกวาด
     await getValidSession({ force: true }); // เช็ค logout/หมดอายุ
@@ -823,7 +823,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // เมื่อล็อกอินสำเร็จ → เปิด agent tab อัตโนมัติ (เฉพาะนักเรียน)
     await chrome.storage.local.remove(["config", "configAt"]);
     await refreshConfig();
-    if (msg.session?.access_token) await ensureAgentTab();
+    if (msg.session?.access_token) { await ensureAgentTab(); ensureRealtime(); }
     sendResponse({ ok: true }); })().catch(() => sendResponse({ ok: false }));
     return true;
   } else if (msg?.type === "CLEAR_SESSION") {

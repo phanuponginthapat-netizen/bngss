@@ -234,7 +234,7 @@ export default function ClassroomMonitorPage() {
     if (peersRef.current.has(agent.user_id)) { toast("กำลังดูอยู่แล้ว"); return; }
     stoppedAtRef.current.delete(agent.user_id);
     send({ type: "request-stream", from: me.id, to: agent.user_id });
-    toast(agent.viaExtension ? `ขอดูจอ ${agent.name}… ภาพจะขึ้นภายในประมาณ 30 วินาที` : `ขอดูจอ ${agent.name}…`);
+    toast(agent.viaExtension ? `ขอดูจอ ${agent.name}… ภาพจะขึ้นภายในไม่กี่วินาที` : `ขอดูจอ ${agent.name}…`);
   }
 
   function viewById(userId: string, name: string) {
@@ -243,7 +243,7 @@ export default function ClassroomMonitorPage() {
     stoppedAtRef.current.delete(userId);
     if (!agentsRef.current[userId]) {
       // หน้า Agent อาจถูก Chrome พักไว้ — ส่งคำขอไว้ก่อน ส่วนขยายจะรับคำขอและส่งภาพเอง (~30 วินาที)
-      toast(`กำลังขอดูจอ ${name}… ภาพจะขึ้นภายในประมาณ 30 วินาที`);
+      toast(`กำลังขอดูจอ ${name}… ภาพจะขึ้นภายในไม่กี่วินาที`);
       send({ type: "request-stream", from: me.id, to: userId });
       setTimeout(() => document.getElementById(`agent-card-${userId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
       let tries = 0;
@@ -255,7 +255,7 @@ export default function ClassroomMonitorPage() {
           if (!peersRef.current.has(userId)) send({ type: "request-stream", from: me.id, to: userId });
         } else if (tries >= 40) {
           window.clearInterval(timer);
-          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.17.0 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
+          toast.error(`${name} ยังไม่ส่งภาพ — ให้นักเรียนอัปเดตส่วนขยายเป็น 1.18.0 และเปิด Chrome ไว้ (ไม่ย่อหน้าต่าง)`);
         } else if (tries % 8 === 0) {
           send({ type: "request-stream", from: me.id, to: userId }); // คำขอหมดอายุใน 1 นาที — ส่งใหม่
         }
@@ -534,7 +534,7 @@ export default function ClassroomMonitorPage() {
                     <span title="รุ่นส่วนขยาย">🧩 {a.ext_version ? `v${a.ext_version}` : "รุ่นเก่ากว่า 1.15.1 หรือไม่พบ"}</span>
                     <span>·</span>
                     <span title="รุ่นโปรแกรม Safe Browser">🖥️ {a.app_version ? `Safe Browser v${a.app_version}` : "Chrome ปกติ"}</span>
-                    {a.viaExtension && <><span>·</span><span title="หน้า Agent ถูก Chrome พักไว้ ดูจอผ่านส่วนขยายได้ คำสั่งอื่นจะทำงานเมื่อหน้า Agent กลับมา">ผ่านส่วนขยาย</span></>}
+                    {a.viaExtension && <><span>·</span><span title="ควบคุมผ่านส่วนขยายโดยตรง: ดูจอ ภาพหน้าจอ ข้อความ ล็อก เปิดเว็บ ปิดเครื่อง">ผ่านส่วนขยาย</span></>}
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-1">

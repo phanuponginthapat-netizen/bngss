@@ -7,16 +7,21 @@ function runtime(fetcher?: any) {
   const listeners: any[] = [];
   const data: Record<string, any> = {};
   const event = { addListener: () => {} };
-  const chrome = {
-    runtime: { getURL: (p: string) => `chrome-extension://test/${p}`, onMessage: { addListener: (f: any) => listeners.push(f) }, onInstalled: event, onStartup: event },
+  const stub = (): any => new Proxy(function () { return Promise.resolve(undefined); }, { get: (_t, k) => (k === "then" ? undefined : stub()) });
+  const fill = (o: any): any => new Proxy(o, { get: (t, k) => (k in t ? (t[k] && typeof t[k] === "object" && !Array.isArray(t[k]) ? fill(t[k]) : t[k]) : stub()) });
+  const chromeBase = {
+    runtime: { getManifest: () => ({ version: "test" }), getURL: (p: string) => `chrome-extension://test/${p}`, onMessage: { addListener: (f: any) => listeners.push(f) }, onInstalled: event, onStartup: event },
     storage: { local: { get: async () => data, set: async (v: any) => Object.assign(data, v), remove: async (keys: string[]) => keys.forEach(k => delete data[k]) } },
     tabs: { onRemoved: event, onUpdated: event, query: async () => [], create: async () => ({ id: 1 }), update: async () => {} },
     alarms: { create: () => {}, onAlarm: event },
+    windows: { onCreated: event, onRemoved: event, getAll: async () => [], update: async () => ({}), getLastFocused: async () => null },
     webNavigation: { onBeforeNavigate: event, onCommitted: event, onHistoryStateUpdated: event },
   };
+  const chrome = fill(chromeBase);
   const ctx = vm.createContext({ chrome, URL, Date, Intl, AbortSignal, setTimeout: () => {}, setInterval: () => {}, self: {}, fetch: fetcher || (async () => ({ ok: true, status: 200, json: async () => ({}) })) });
   ctx.importScripts = (...files: string[]) => files.forEach(f => vm.runInContext(fs.readFileSync(`extension/${f}`, "utf8"), ctx));
   vm.runInContext(fs.readFileSync("extension/background.js", "utf8"), ctx);
+  listeners.reverse(); // main message handler is registered last
   return { ctx, listeners, data };
 }
 describe("extension trust and domain policies", () => {
@@ -44,8 +49,8 @@ describe("extension trust and domain policies", () => {
   });
   it("refreshes concurrent requests once and returns the same renewed token", async () => {
     let requests = 0;
-    const { ctx, data } = runtime(async () => {
-      requests++;
+    const { ctx, data } = runtime(async (url: string) => {
+      if (String(url).includes("token")) requests++;
       return { ok: true, json: async () => ({ access_token: "renewed", refresh_token: "rotated", expires_in: 3600 }) };
     });
     data.session = { access_token: "old", refresh_token: "refresh" };
