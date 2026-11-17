@@ -49,7 +49,7 @@ function AnimatedMascot({ src, alt }: { src: string; alt: string }) {
     <div className="relative pointer-events-none select-none">
       <img src={failed ? MASCOT_DEFAULTS.happy : src} alt={alt} width={160} height={160}
         decoding="async" onError={() => setFailed(true)}
-        className="w-28 h-28 md:w-36 md:h-36 object-contain drop-shadow-2xl relative z-10" />
+        className="w-24 h-24 object-contain drop-shadow-xl relative z-10" />
       <div className="absolute left-1/2 -translate-x-1/2 bottom-[-10px] w-32 h-3 rounded-full bg-black/40 blur-md opacity-30" />
     </div>
   );
@@ -391,7 +391,7 @@ export default function MascotHeroWidget() {
       >
         <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/40 to-white/80 dark:from-black/30 dark:via-black/50 dark:to-black/80" />
 
-        <div className="relative flex h-full flex-col justify-center gap-3 p-3 md:p-4">
+        <div className="relative flex h-full flex-col justify-center gap-2 p-3">
 
           <div className={`grid grid-cols-1 gap-3 md:gap-4 items-center ${isGroupRadar ? "xl:grid-cols-[1.4fr_1fr]" : ""}`}>
             <div className={`relative w-full rounded-lg bg-transparent p-2 md:p-3 ${isGroupRadar ? "" : "hidden"}`}>
@@ -478,13 +478,13 @@ export default function MascotHeroWidget() {
               )}
             </div>
 
-            <div className="flex flex-col items-center justify-center gap-3 md:gap-4">
+            <div className="flex flex-col items-center justify-center gap-3">
               {currentBubble && (
                 <div
-                  className="relative w-full max-w-[320px] min-h-[88px] flex items-center justify-center bg-white text-foreground border-[3px] border-foreground rounded-2xl px-4 py-3 shadow-[6px_6px_0_hsl(var(--foreground))]"
+                  className="relative w-full max-w-[320px] min-h-16 flex items-center justify-center bg-card text-foreground border-2 border-foreground rounded-lg px-3 py-2 shadow-sm"
                   style={{ fontFamily: "'Comic Sans MS', 'IBM Plex Sans Thai', sans-serif" }}
                 >
-                  <p className="text-sm font-semibold leading-snug text-center">{currentBubble}</p>
+                  <p className="text-xs font-semibold leading-snug text-center">{currentBubble}</p>
                   <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[12px] border-x-transparent border-t-[14px] border-t-foreground" />
                   <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-0 h-0 border-x-[9px] border-x-transparent border-t-[11px] border-t-white" />
                 </div>
