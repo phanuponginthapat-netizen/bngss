@@ -31,6 +31,14 @@ Name: "{autodesktop}\BNG Safe Browser"; Filename: "{app}\SafeBrowser.exe"; Worki
 Name: "{commonstartup}\BNG Safe Browser"; Filename: "{app}\SafeBrowser.exe"; WorkingDir: "{app}"
 
 [Run]
+; Power/sleep buttons do nothing; the program asks for a staff card instead
+Filename: "{sys}\powercfg.exe"; Parameters: "/setacvalueindex SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setacvalueindex SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setacvalueindex SCHEME_CURRENT SUB_BUTTONS UIBUTTON_ACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS PBUTTONACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS SBUTTONACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS UIBUTTON_ACTION 0"; Flags: runhidden
+Filename: "{sys}\powercfg.exe"; Parameters: "/setactive SCHEME_CURRENT"; Flags: runhidden
 Filename: "{app}\SafeBrowser.exe"; Description: "เปิด BNG Safe Browser ตอนนี้"; Flags: nowait postinstall
 
 [UninstallRun]
