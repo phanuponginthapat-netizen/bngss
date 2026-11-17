@@ -12,6 +12,8 @@ import { Plus, Pencil, Trash2, Laptop, Smartphone, Camera, Tablet, Projector, Pa
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { saveErrorMessage } from "@/lib/saveError";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { IdCardPhoto } from "@/components/IdCardPhoto";
 
 type Device = {
   id: string;
@@ -46,6 +48,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
 export default function IctDevicesPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Device | null>(null);
   const [search, setSearch] = useState("");
@@ -58,10 +61,11 @@ export default function IctDevicesPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("ict_devices").select("*").order("created_at", { ascending: false });
-    if (error) toast.error(saveErrorMessage(error));
-    setDevices(data || []);
-    setLoading(false);
+    try {
+      const data = await fetchAllRows<Device>((from, to) => supabase.from("ict_devices").select("*").order("created_at", { ascending: false }).order("id").range(from, to));
+      setDevices(data); setLoadError(null);
+    } catch (error) { setLoadError(saveErrorMessage(error)); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -128,14 +132,15 @@ export default function IctDevicesPage() {
 
 
   const save = async () => {
-    if (!form.name) {
+    if (uploading) return;
+    if (!form.name?.trim()) {
       toast.error("กรุณากรอกชื่ออุปกรณ์");
       return;
     }
     const items = editing
       ? [{ asset_code: (form.asset_code || "").trim(), serial_number: (form.serial_number || "").trim() }]
       : bulkItems.map((b) => ({ asset_code: b.asset_code.trim(), serial_number: b.serial_number.trim() })).filter((b) => b.asset_code);
-    if (items.length === 0) {
+    if (items.length === 0 || items.some(it => !it.asset_code)) {
       toast.error("กรุณากรอกรหัสครุภัณฑ์อย่างน้อย 1 รายการ");
       return;
     }
@@ -145,7 +150,8 @@ export default function IctDevicesPage() {
       return;
     }
     setUploading(true);
-    let photo_url: string | null | undefined = editing?.photo_url || null;
+    try {
+    let photo_url: string | null | undefined = form.photo_url || null;
     if (photoFile) {
       const url = await uploadPhoto(photoFile);
       if (!url) { setUploading(false); return; }
@@ -167,7 +173,7 @@ export default function IctDevicesPage() {
         ...base,
         asset_code: items[0].asset_code,
         serial_number: items[0].serial_number || null,
-      }).eq("id", editing.id);
+      }).eq("id", editing.id).select("id").single();
       if (error) { setUploading(false); return toast.error(saveErrorMessage(error)); }
       toast.success("อัปเดตอุปกรณ์เรียบร้อย");
     } else {
@@ -178,12 +184,15 @@ export default function IctDevicesPage() {
     }
     setUploading(false);
     setOpen(false);
-    load();
+    await load();
+    } catch (error) { toast.error(saveErrorMessage(error)); }
+    finally { setUploading(false); }
   };
 
   const remove = async (d: Device) => {
     if (!(await swal.confirm({ title: `ลบอุปกรณ์ "${d.name}"?`, danger: true }))) return;
-    const { error } = await supabase.from("ict_devices").delete().eq("id", d.id);
+    const { error, data } = await supabase.from("ict_devices").delete().eq("id", d.id).select("id");
+    if (!error && !data?.length) return toast.error("ไม่พบอุปกรณ์หรือไม่มีสิทธิ์ลบ");
     if (error) return toast.error(saveErrorMessage(error));
     toast.success("ลบเรียบร้อย");
     load();
@@ -211,6 +220,7 @@ export default function IctDevicesPage() {
         <Button onClick={openNew}><Plus className="w-4 h-4 mr-1" /> เพิ่มอุปกรณ์</Button>
       </div>
 
+      {loadError && <div role="alert" className="text-destructive">{loadError} <Button variant="outline" onClick={load}>ลองใหม่</Button></div>}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">ทั้งหมด</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">พร้อมยืม</div><div className="text-2xl font-bold text-emerald-400">{stats.available}</div></CardContent></Card>
@@ -252,7 +262,7 @@ export default function IctDevicesPage() {
                   <TableRow key={d.id}>
                     <TableCell>
                       {d.photo_url ? (
-                        <img loading="lazy" decoding="async" src={d.photo_url} alt={d.name} className="w-12 h-12 rounded-md object-cover border border-border" />
+                        <div className="w-12 h-12 rounded-md overflow-hidden border border-border"><IdCardPhoto url={d.photo_url} name={d.name} bucket="asset-photos" /></div>
                       ) : (
                         <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground"><Icon className="w-5 h-5" /></div>
                       )}
@@ -276,17 +286,17 @@ export default function IctDevicesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(value) => { if (!uploading) setOpen(value); }}>
         <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "แก้ไขอุปกรณ์" : "เพิ่มอุปกรณ์ ICT"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>รูปภาพอุปกรณ์</Label>
               <div className="mt-1 flex items-start gap-3">
                 <div className="relative w-28 h-28 rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden">
                   {photoPreview ? (
                     <>
-                      <img loading="lazy" decoding="async" src={photoPreview} alt="preview" className="w-full h-full object-cover" />
+                      <IdCardPhoto url={photoPreview} name="รูปอุปกรณ์" bucket="asset-photos" />
                       <button type="button" onClick={resetPhoto} className="absolute top-1 right-1 p-0.5 rounded-full bg-background/80 hover:bg-background border border-border">
                         <X className="w-3 h-3" />
                       </button>
@@ -306,17 +316,17 @@ export default function IctDevicesPage() {
             </div>
             {editing ? (
               <>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Label>รหัสครุภัณฑ์ *</Label>
                   <Input value={form.asset_code || ""} onChange={(e) => setForm({ ...form, asset_code: e.target.value })} placeholder="เช่น ICT-NB-001" />
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <Label>ชื่ออุปกรณ์ *</Label>
                   <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น Notebook Lenovo ThinkPad" />
                 </div>
               </>
             ) : (
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Label>ชื่ออุปกรณ์ / รุ่น *</Label>
                 <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น Notebook Lenovo ThinkPad" />
               </div>
@@ -330,10 +340,10 @@ export default function IctDevicesPage() {
             </div>
             <div>
               <Label>สถานะ</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <Select disabled={editing?.status === "borrowed"} value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(STATUS_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                  {Object.entries(STATUS_LABEL).filter(([k]) => k !== "borrowed" || editing?.status === "borrowed").map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -346,12 +356,12 @@ export default function IctDevicesPage() {
               <Input value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
             </div>
             {editing ? (
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Label>Serial Number (S/N)</Label>
                 <Input value={form.serial_number || ""} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} placeholder="ใช้สแกนตอนยืม-คืน" />
               </div>
             ) : (
-              <div className="col-span-2 space-y-2">
+              <div className="sm:col-span-2 space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>รายการเครื่อง (รหัสครุภัณฑ์ + S/N) *</Label>
                   <Button type="button" variant="outline" size="sm" onClick={() => setBulkItems([...bulkItems, { asset_code: "", serial_number: "" }])}>
@@ -396,7 +406,7 @@ export default function IctDevicesPage() {
                 </div>
               </div>
             )}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>หมายเหตุ</Label>
               <Input value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
