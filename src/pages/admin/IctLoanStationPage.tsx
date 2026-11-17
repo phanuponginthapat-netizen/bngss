@@ -17,6 +17,8 @@ import { saveErrorMessage } from "@/lib/saveError";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
 type Student = { id: string; student_code: string; prefix: string; first_name: string; last_name: string; classrooms?: { name: string } | null };
@@ -34,6 +36,8 @@ type Loan = {
 };
 
 export default function IctLoanStationPage() {
+  const calendar = useAcademicYear();
+  const [listError, setListError] = useState<string | null>(null);
   const [mode, setMode] = useState<"borrow" | "return" | "bulk">("borrow");
   const [borrowerType, setBorrowerType] = useState<"student" | "personnel">("student");
   const [scanOpen, setScanOpen] = useState<null | "borrower" | "device">(null);
@@ -77,15 +81,17 @@ export default function IctLoanStationPage() {
 
   const loadLists = async () => {
     const sel = "id,status,borrowed_at,returned_at,expected_return_at,period_number,teaching_topic,batch_id,subjects(code,name_th),classrooms!ict_loans_classroom_id_fkey(name),ict_devices(id,asset_code,name,serial_number,status),students(id,student_code,prefix,first_name,last_name,classrooms!students_classroom_id_fkey(name)),personnel(id,employee_code,prefix,first_name,last_name,department)";
-    const { data: act } = await supabase.from("ict_loans")
+    try {
+    const act = await fetchAllRows<Loan>((from,to) => supabase.from("ict_loans")
       .select(sel)
-      .eq("status", "active").order("borrowed_at", { ascending: false }).limit(50);
+      .eq("status", "active").order("borrowed_at", { ascending: false }).order("id").range(from,to));
     setActiveLoans((act as any) || []);
-    const { data: rec } = await supabase.from("ict_loans")
+    const { data: rec, error: recError } = await supabase.from("ict_loans")
       .select(sel)
       .order("created_at", { ascending: false }).limit(20);
     setRecent((rec as any) || []);
-    const { data: devs } = await supabase.from("ict_devices").select("id,asset_code,name,serial_number,status,brand,model");
+    if (recError) throw recError;
+    const devs = await fetchAllRows<Device>((from,to) => supabase.from("ict_devices").select("id,asset_code,name,serial_number,status,brand,model").order("id").range(from,to));
     const stats = { available: 0, borrowed: 0, maintenance: 0, lost: 0, total: 0 };
     (devs || []).forEach((d: any) => {
       stats.total++;
@@ -93,17 +99,21 @@ export default function IctLoanStationPage() {
     });
     setDeviceStats(stats);
     setAvailableDevices(((devs || []) as any).filter((d: any) => d.status === "available"));
+    setListError(null);
+    } catch (error) { setListError(saveErrorMessage(error)); }
   };
 
   const loadRefs = async () => {
-    const [{ data: subs }, { data: cls }, { data: pers }] = await Promise.all([
-      supabase.from("subjects").select("id,code,name_th").order("code"),
-      supabase.from("classrooms").select("id,name").order("name"),
-      supabase.from("personnel").select("id,employee_code,prefix,first_name,last_name,department").eq("status", "active").order("first_name"),
+    try {
+    const [subs, cls, pers] = await Promise.all([
+      fetchAllRows<Subject>((from,to) => supabase.from("subjects").select("id,code,name_th").order("code").order("id").range(from,to)),
+      fetchAllRows<Classroom>((from,to) => supabase.from("classrooms").select("id,name").order("name").order("id").range(from,to)),
+      fetchAllRows<Personnel>((from,to) => supabase.from("personnel").select("id,employee_code,prefix,first_name,last_name,department").eq("status", "active").order("first_name").order("id").range(from,to)),
     ]);
     setSubjects((subs as any) || []);
     setClassrooms((cls as any) || []);
     setPersonnelList((pers as any) || []);
+    } catch (error) { toast.error(saveErrorMessage(error)); }
   };
 
 
@@ -111,30 +121,35 @@ export default function IctLoanStationPage() {
     loadLists();
     loadRefs();
     const ch = supabase
-      .channel("ict-station-rt")
+      .channel(`ict-station-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "ict_devices" }, () => loadLists())
       .on("postgres_changes", { event: "*", schema: "public", table: "ict_loans" }, () => loadLists())
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const timer = window.setInterval(loadLists, 30000);
+    window.addEventListener("focus", loadLists);
+    return () => { supabase.removeChannel(ch); window.clearInterval(timer); window.removeEventListener("focus", loadLists); streamRef.current?.getTracks().forEach(t => t.stop()); };
   }, []);
 
   // Load teacher schedules for selected date when personnel changes (bulk mode)
   useEffect(() => {
     const run = async () => {
-      if (!personnel || mode !== "bulk") { setTeacherSchedules([]); return; }
+      if (!calendar.isReady || !personnel || mode !== "bulk") { setTeacherSchedules([]); return; }
       const dow = new Date(bulkDate + "T00:00:00").getDay(); // 0=Sun..6=Sat
       const fullName = `${personnel.first_name} ${personnel.last_name}`.trim();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("schedules")
         .select("id, period, start_time, end_time, classroom_id, subject_id, classrooms(name), subjects(code, name_th)")
+        .eq("academic_year", calendar.currentAcademicYear - 543)
+        .eq("semester", calendar.currentSemester)
         .eq("day_of_week", dow)
         .or(`teacher_id.eq.${personnel.id},teacher_name.eq.${fullName}`)
         .order("period", { ascending: true });
+      if (error) { setTeacherSchedules([]); toast.error(saveErrorMessage(error)); return; }
       setTeacherSchedules(data || []);
       setBulkScheduleId("");
     };
     run();
-  }, [personnel?.id, bulkDate, mode]);
+  }, [personnel?.id, bulkDate, mode, calendar.isReady, calendar.currentAcademicYear, calendar.currentSemester]);
 
   const applySchedule = (id: string) => {
     setBulkScheduleId(id);
@@ -177,7 +192,8 @@ export default function IctLoanStationPage() {
     if (!bulkSubjectId) return toast.error("ไม่พบรายวิชาในคาบที่เลือก");
     if (!bulkClassroomId) return toast.error("ไม่พบห้องเรียนในคาบที่เลือก");
     if (!bulkTopic.trim()) return toast.error("ระบุหัวข้อการสอน");
-    if (bulkQty < 1) return toast.error("จำนวนต้องมากกว่า 0");
+    if (busy || listError) return;
+    if (!Number.isInteger(bulkQty) || bulkQty < 1) return toast.error("จำนวนต้องมากกว่า 0");
     const group = modelGroups.find((g) => g.key === bulkModel);
     if (!group) return toast.error("ไม่พบรุ่นที่เลือก");
     if (group.available.length < bulkQty) return toast.error(`ว่างเพียง ${group.available.length} เครื่อง`);
@@ -187,12 +203,14 @@ export default function IctLoanStationPage() {
       const batchId = (crypto as any).randomUUID();
       const sch = teacherSchedules.find((x) => x.id === bulkScheduleId);
       const dueIso = sch?.end_time
-        ? new Date(`${bulkDate}T${sch.end_time}`).toISOString()
+        ? new Date(`${bulkDate}T${sch.end_time}+07:00`).toISOString()
         : new Date(Date.now() + bulkDurationMin * 60000).toISOString();
+      if (new Date(dueIso).getTime() <= Date.now()) throw new Error("คาบที่เลือกสิ้นสุดแล้ว กรุณาเลือกคาบที่ยังไม่สิ้นสุด");
       const picked = group.available.slice(0, bulkQty);
       // Re-validate availability
-      const { data: fresh } = await supabase.from("ict_devices")
+      const { data: fresh, error: freshError } = await supabase.from("ict_devices")
         .select("id,status").in("id", picked.map((d) => d.id));
+      if (freshError) throw freshError;
       const stillFree = (fresh || []).filter((d: any) => d.status === "available").map((d: any) => d.id);
       if (stillFree.length < bulkQty) throw new Error("อุปกรณ์บางเครื่องถูกยืมไปแล้ว กรุณารีเฟรช");
       const rows = stillFree.slice(0, bulkQty).map((id) => ({
@@ -206,6 +224,7 @@ export default function IctLoanStationPage() {
         batch_id: batchId,
         quantity: bulkQty,
         period_number: bulkPeriod,
+        session_date: bulkDate,
         subject_id: bulkSubjectId,
         classroom_id: bulkClassroomId,
         teaching_topic: bulkTopic,
@@ -228,11 +247,12 @@ export default function IctLoanStationPage() {
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("ict_loans").update({
+      const { error, data: updated } = await supabase.from("ict_loans").update({
         status: "returned",
         returned_at: new Date().toISOString(),
         returned_by: user?.id || null,
-      }).eq("batch_id", batchId).eq("status", "active");
+      }).eq("batch_id", batchId).eq("status", "active").select("id");
+      if (!error && !updated?.length) throw new Error("ไม่มีรายการที่ยังค้างคืนในกลุ่มนี้");
       if (error) throw error;
       toast.success("คืนอุปกรณ์ทั้งกลุ่มเรียบร้อย");
       loadLists();
@@ -249,11 +269,12 @@ export default function IctLoanStationPage() {
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("ict_loans").update({
+      const { error, data: updated } = await supabase.from("ict_loans").update({
         status: "returned",
         returned_at: new Date().toISOString(),
         returned_by: user?.id || null,
-      }).eq("id", loanId).eq("status", "active");
+      }).eq("id", loanId).eq("status", "active").select("id");
+      if (!error && !updated?.length) throw new Error("รายการนี้ถูกคืนแล้วหรือไม่มีสิทธิ์คืน");
       if (error) throw error;
       toast.success("คืนเรียบร้อย");
       loadLists();
@@ -321,7 +342,9 @@ export default function IctLoanStationPage() {
     let q = supabase.from("ict_loans").select(sel).eq("status", "active");
     if (filter.student_id) q = q.eq("student_id", filter.student_id);
     if (filter.personnel_id) q = q.eq("personnel_id", filter.personnel_id);
-    const { data: loans } = await q.order("borrowed_at", { ascending: false }).limit(1);
+    setActiveLoan(null); setDevice(null);
+    const { data: loans, error } = await q.order("borrowed_at", { ascending: false }).limit(1);
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     const loan = loans && loans[0];
     if (loan) {
       setActiveLoan(loan as any);
@@ -340,10 +363,12 @@ export default function IctLoanStationPage() {
       return;
     }
     const safe = cleaned.replace(/,/g, "");
-    const { data } = await supabase.from("ict_devices")
+    setDevice(null);
+    const { data, error } = await supabase.from("ict_devices")
       .select("id,asset_code,name,serial_number,status,brand,model")
       .or(`serial_number.eq.${safe},asset_code.eq.${safe}`)
       .maybeSingle();
+    if (error) { toast.error(saveErrorMessage(error)); return; }
     if (!data) {
       toast.error("ไม่พบอุปกรณ์รหัส/SN: " + cleaned);
       return;
@@ -433,6 +458,7 @@ export default function IctLoanStationPage() {
   };
 
   const submit = async () => {
+    if (busy || listError) return;
     const borrower = borrowerType === "student" ? student : personnel;
     if (!borrower) return toast.error(borrowerType === "student" ? "กรุณาสแกนบัตรนักเรียน" : "กรุณาเลือก/สแกนรหัสบุคลากร");
     if (!device) return toast.error("กรุณาสแกน S/N อุปกรณ์");
@@ -443,30 +469,35 @@ export default function IctLoanStationPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (mode === "borrow") {
         // Idempotent re-validation against latest DB state
-        const { data: freshDev } = await supabase.from("ict_devices")
+        const { data: freshDev, error: deviceError } = await supabase.from("ict_devices")
           .select("id,status").eq("id", device.id).maybeSingle();
+        if (deviceError) throw deviceError;
         if (!freshDev) throw new Error("ไม่พบอุปกรณ์ในระบบ");
         if (freshDev.status !== "available") {
           throw new Error(`อุปกรณ์ไม่พร้อมยืม (สถานะปัจจุบัน: ${freshDev.status})`);
         }
         // Guard double-borrow on the same device (race condition)
-        const { count: dupDev } = await supabase.from("ict_loans")
+        const { count: dupDev, error: dupDevError } = await supabase.from("ict_loans")
           .select("id", { count: "exact", head: true })
           .eq("device_id", device.id).eq("status", "active");
+        if (dupDevError) throw dupDevError;
+        if (dupDev === null) throw new Error("ตรวจรายการยืมอุปกรณ์ไม่สำเร็จ");
         if ((dupDev || 0) > 0) throw new Error("อุปกรณ์นี้มีรายการยืมค้างอยู่แล้ว");
         // Optional: limit one active loan per borrower
         const borrowerCol = borrowerType === "student" ? "student_id" : "personnel_id";
-        const borrowerId = borrowerType === "student" ? student!.id : personnel!.id;
-        const { count: dupBor } = await supabase.from("ict_loans")
+        const borrowerId = borrower.id;
+        const { count: dupBor, error: dupBorError } = await supabase.from("ict_loans")
           .select("id", { count: "exact", head: true })
           .eq(borrowerCol, borrowerId).eq("status", "active");
+        if (dupBorError) throw dupBorError;
+        if (dupBor === null) throw new Error("ตรวจรายการค้างคืนไม่สำเร็จ");
         if ((dupBor || 0) > 0) throw new Error("ผู้ยืมมีรายการค้างคืนอยู่ กรุณาคืนก่อนยืมใหม่");
-        const due = dueDate ? new Date(dueDate + "T23:59:59").toISOString() : null;
+        const due = dueDate ? new Date(dueDate + "T23:59:59+07:00").toISOString() : null;
         if (due && new Date(due) < new Date()) throw new Error("กำหนดคืนต้องเป็นวันที่ในอนาคต");
         const { error } = await supabase.from("ict_loans").insert({
           device_id: device.id,
-          student_id: borrowerType === "student" ? student!.id : null,
-          personnel_id: borrowerType === "personnel" ? personnel!.id : null,
+          student_id: borrowerType === "student" ? borrower.id : null,
+          personnel_id: borrowerType === "personnel" ? borrower.id : null,
           borrow_photo_url: photoUrl,
           borrow_notes: notes || null,
           borrowed_by: user?.id || null,
@@ -478,9 +509,10 @@ export default function IctLoanStationPage() {
       } else {
         if (!activeLoan) throw new Error("ไม่พบรายการยืมที่ค้างอยู่");
         // Idempotent: verify the active loan still matches scanned borrower & device
-        const { data: freshLoan } = await supabase.from("ict_loans")
+        const { data: freshLoan, error: loanError } = await supabase.from("ict_loans")
           .select("id,status,device_id,student_id,personnel_id")
           .eq("id", activeLoan.id).maybeSingle();
+        if (loanError) throw loanError;
         if (!freshLoan) throw new Error("ไม่พบรายการยืมในระบบ");
         if (freshLoan.status !== "active") throw new Error("รายการนี้ถูกคืนไปแล้ว");
         if (freshLoan.device_id !== device.id) {
@@ -488,7 +520,7 @@ export default function IctLoanStationPage() {
         }
         const expectedBorrowerId = borrowerType === "student" ? student?.id : personnel?.id;
         const actualBorrowerId = borrowerType === "student" ? freshLoan.student_id : freshLoan.personnel_id;
-        if (expectedBorrowerId && actualBorrowerId && expectedBorrowerId !== actualBorrowerId) {
+        if (expectedBorrowerId !== actualBorrowerId) {
           throw new Error("ผู้คืนไม่ตรงกับผู้ที่ยืม");
         }
         const { error, data: updated } = await supabase.from("ict_loans").update({
@@ -568,6 +600,7 @@ export default function IctLoanStationPage() {
         <Button variant="outline" size="sm" onClick={() => { loadLists(); }}><RefreshCw className="w-4 h-4 mr-1" /> รีเฟรช</Button>
       </div>
 
+      {listError && <div role="alert" className="text-destructive">{listError} <Button variant="outline" onClick={loadLists}>ลองใหม่</Button></div>}
       {/* Real-time device status */}
       <Card>
         <CardHeader className="pb-2">
