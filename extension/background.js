@@ -743,3 +743,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, ci) => {
     args: [lockMsg || "ครูล็อกจอ"],
   }).catch(() => {});
 });
+
+// Fallback: บางหน้า (โหมด kiosk/เว็บที่โหลดช้า/SPA) content script ไม่ขึ้น → ฉีดแถบเครื่องมือและปุ่มลอยซ้ำ
+// toolbar.js/kiosk-dock.js มีตัวกันซ้ำ (getElementById) จึงฉีดซ้ำได้ปลอดภัย
+chrome.tabs.onUpdated.addListener((tabId, ci, tab) => {
+  if (ci.status !== "complete" || !/^https?:/i.test(tab?.url || "")) return;
+  let trusted = false;
+  try { trusted = !!self.sbTrustedSchoolUrl?.(tab.url) || new URL(tab.url).hostname === "127.0.0.1"; } catch {}
+  const files = trusted ? ["kiosk-dock.js"] : ["toolbar.js", "kiosk-dock.js"];
+  if (!trusted) chrome.scripting.insertCSS({ target: { tabId }, files: ["toolbar.css"] }).catch(() => {});
+  chrome.scripting.executeScript({ target: { tabId }, files }).catch(() => {});
+});

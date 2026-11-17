@@ -14,5 +14,15 @@
     b.onmouseleave = () => (b.style.opacity = ".75");
     b.onclick = () => chrome.runtime.sendMessage({ type: "KIOSK_OPEN_CONTROL" });
     document.documentElement.appendChild(b);
+    // ปุ่มกลับหน้าระบบ: แสดงเสมอในโปรแกรม แม้เว็บปลายทางจะบังแถบด้านบน
+    const h = document.createElement("button");
+    h.id = "__sb_kiosk_home"; h.type = "button";
+    h.title = "กลับหน้าระบบโรงเรียน"; h.setAttribute("aria-label", h.title);
+    h.textContent = "🏠";
+    h.style.cssText = b.style.cssText.replace("left:12px", "left:60px");
+    h.onmouseenter = () => (h.style.opacity = "1");
+    h.onmouseleave = () => (h.style.opacity = ".75");
+    h.onclick = () => chrome.runtime.sendMessage({ type: "GO_HOME" });
+    document.documentElement.appendChild(h);
   });
 })();
