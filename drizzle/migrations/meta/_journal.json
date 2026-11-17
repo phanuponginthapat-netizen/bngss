@@ -414,6 +414,13 @@
       "when": 1794817629241,
       "tag": "0058_task_attachment_recipient_read",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1794891836160,
+      "tag": "0059_ict_device_loan_integrity",
+      "breakpoints": true
     }
   ]
 }
