@@ -90,6 +90,7 @@ const FaceRegisterTab = () => {
 
   const registeredIds = new Set(existing.map((r: any) => r.student_id));
   const withAvatar = students.filter((s: any) => s.photo_url);
+  const withoutAvatar = students.filter(s => !s.photo_url);
   const pending = withAvatar.filter((s: any) => !registeredIds.has(s.id));
   const removePortrait = async (id: string) => {
     const student = students.find(s => s.id === id);
@@ -583,11 +584,19 @@ const FaceRegisterTab = () => {
       )}
 
       {/* Students without avatar warning */}
-      {students.length - withAvatar.length > 0 && (
+      {withoutAvatar.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-4 text-sm">
-            <p className="font-semibold mb-1">⚠️ มีนักเรียน {students.length - withAvatar.length} คนยังไม่มีรูปโปรไฟล์</p>
-            <p className="text-muted-foreground text-xs">โปรดอัปโหลดรูปในเมนู "ข้อมูลนักเรียน" หรือใช้กล้องถ่ายเพิ่มด้านล่าง</p>
+            <p className="font-semibold mb-1">⚠️ มีนักเรียน {withoutAvatar.length} คนยังไม่มีรูปโปรไฟล์</p>
+            <p className="text-muted-foreground text-xs">โปรดอัปโหลดรูปในเมนู "ข้อมูลนักเรียน" หรือใช้กล้องถ่ายเพิ่มในส่วนลงทะเบียนด้านบน</p>
+            <ul aria-label="รายชื่อนักเรียนที่ยังไม่มีรูปโปรไฟล์" className="mt-3 max-h-72 overflow-y-auto divide-y divide-border">
+              {withoutAvatar.map(s => (
+                <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+                  <span className="min-w-0 break-words font-medium">{s.prefix || ''}{s.first_name} {s.last_name}</span>
+                  <span className="text-xs text-muted-foreground">รหัส {s.student_code || 'ไม่ระบุ'} · {s.classrooms?.name || s.classrooms?.grade_level || 'ยังไม่จัดห้องเรียน'}</span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}
