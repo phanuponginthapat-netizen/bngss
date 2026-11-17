@@ -1,7 +1,8 @@
 """BNG Safe Browser for Windows — kiosk launcher.
 
-Runs a bundled Chromium (Chrome for Testing) full-screen with the school Safe Browser
-extension, relaunches it if closed, blocks common escape keys, and only quits or powers
+Runs installed Google Chrome (school extension from the ZIP) or, automatically when that
+extension is missing or older, the bundled Chrome for Testing that loads the extension shipped
+with this installer — full-screen, relaunches it if closed, blocks common escape keys, and only quits or powers
 off after the school server confirms a staff/admin card QR. The staff-card control page
 is served by this launcher on 127.0.0.1 only (other machines on the network get 404).
 
@@ -21,13 +22,14 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import exit_page
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.7.0"
 PORT = 47831
 EXTENSION_ID = "pmkbhlpecjcgmcmbfiaggbockmmfpbig"
 ALLOWED_ORIGIN = f"chrome-extension://{EXTENSION_ID}"
@@ -68,7 +70,25 @@ def load_device_key() -> str:
 
 DEVICE_KEY = load_device_key()
 
-state = {"exiting": False, "proc": None, "last_error": "", "ext_ping": 0.0, "browser_start": 0.0}
+state = {"exiting": False, "proc": None, "last_error": "", "ext_ping": 0.0, "browser_start": 0.0,
+         "ext_version": "", "exe": None, "force_bundled": False}
+
+
+def _ver(v: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(x) for x in str(v).split(".")[:4])
+    except ValueError:
+        return ()
+
+
+def bundled_extension_version() -> str:
+    try:
+        return str(json.loads((APP_DIR / "extension" / "manifest.json").read_text(encoding="utf-8")).get("version") or "")
+    except (OSError, ValueError):
+        return ""
+
+
+BUNDLED_EXT_VERSION = bundled_extension_version()
 
 
 def log(*a):
@@ -119,8 +139,9 @@ def bundled_chrome() -> Path | None:
 
 
 def chrome_path() -> Path | None:
-    if BROWSER_MODE == "bundled":
-        return bundled_chrome()
+    if BROWSER_MODE == "bundled" or state["force_bundled"]:
+        # ตัวที่แถมมาโหลดส่วนขยายรุ่นเดียวกับโปรแกรมเองทุกครั้ง (ไม่ต้องติดตั้งเอง)
+        return bundled_chrome() or (system_chrome() if BROWSER_MODE != "bundled" else None)
     if BROWSER_MODE == "system":
         return system_chrome()
     return system_chrome() or bundled_chrome()
@@ -169,6 +190,7 @@ def browser_loop():
                 close_running_chrome()
             log("launch", exe)
             state["browser_start"] = time.time()
+            state["exe"] = exe
             state["proc"] = subprocess.Popen(browser_args(exe))
             state["proc"].wait()
         except OSError as e:
@@ -411,9 +433,15 @@ class Bridge(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path == "/status" and self._origin_ok():
+        url = urllib.parse.urlsplit(self.path)
+        if url.path == "/status" and self._origin_ok():
             state["ext_ping"] = time.time()
-            return self._send(200, {"kiosk": KIOSK, "version": APP_VERSION, "device": bool(DEVICE_KEY)})
+            v = (urllib.parse.parse_qs(url.query).get("v") or [""])[0][:20]
+            if v and v != state["ext_version"]:
+                state["ext_version"] = v
+                log("extension connected", v, "bundled", BUNDLED_EXT_VERSION)
+            return self._send(200, {"kiosk": KIOSK, "version": APP_VERSION, "device": bool(DEVICE_KEY),
+                                    "expected_extension": BUNDLED_EXT_VERSION})
         if self.path == "/exit" and self._local_ok():
             return self._send_html(200, exit_page.render(APP_VERSION, KIOSK, bool(DEVICE_KEY)))
         if self.path == "/jsqr.js" and self._local_ok():
@@ -557,35 +585,51 @@ def single_instance() -> bool:
 
 def extension_watchdog():
     """Without the school extension the browser is just an unfiltered full-screen window
-    (no login enforcement, filters, toolbar, monitor). Restart the browser when the
-    extension has not contacted the launcher within 60 seconds of a launch."""
-    misses, warned = [0], [False]
+    (no login enforcement, filters, toolbar, monitor). In auto mode, when installed Chrome has
+    no school extension (no ping within 90s) or an older one, switch once to the bundled
+    browser, which always loads the extension shipped with this installer. Never loops."""
+    restarted, warned = [False], [False]
+
+    def switch_to_bundled(reason: str) -> bool:
+        exe = state["exe"]
+        if BROWSER_MODE != "auto" or state["force_bundled"] or not exe or not is_system(exe) or not bundled_chrome():
+            return False
+        state["force_bundled"] = True
+        state["last_error"] = reason
+        log("switch to bundled browser:", reason)
+        kill_browser()
+        return True
 
     def run():
         while not state["exiting"]:
-            time.sleep(15)
+            time.sleep(10)
             started = state["browser_start"]
-            if not started or time.time() - started < 90 or state["ext_ping"] >= started:
+            if not started:
                 continue
-            if state["ext_ping"] or misses[0] >= 2:
-                # เคยได้สัญญาณแล้ว หรือเปิดใหม่ครบ 2 รอบแล้ว: ไม่ปิด-เปิดวนซ้ำ (ส่วนขยายรุ่นเก่า/ไม่ได้ติดตั้ง)
-                if not warned[0]:
-                    warned[0] = True
-                    log("extension not pinging — stop auto-restart; reinstall extension ZIP")
+            if state["ext_ping"] >= started:
+                v = state["ext_version"]
+                if BUNDLED_EXT_VERSION and _ver(v or "0") < _ver(BUNDLED_EXT_VERSION):
+                    switch_to_bundled(f"ส่วนขยายใน Chrome รุ่น {v or 'เก่า'} เก่ากว่ารุ่นของโปรแกรม {BUNDLED_EXT_VERSION}")
                 continue
-            misses[0] += 1
-            state["last_error"] = "ส่วนขยายของโรงเรียนไม่ทำงาน — กำลังเปิดเบราว์เซอร์ใหม่"
-            log(state["last_error"], "extension dir exists:", (APP_DIR / "extension" / "manifest.json").exists())
-            proc = state["proc"]
-            if proc and proc.poll() is None:
-                proc.terminate()
+            if time.time() - started < 90:
+                continue
+            if switch_to_bundled("ไม่พบส่วนขยายของโรงเรียนใน Chrome ของเครื่อง"):
+                continue
+            if not restarted[0] and not state["ext_ping"]:
+                restarted[0] = True
+                state["last_error"] = "ส่วนขยายของโรงเรียนไม่ทำงาน — กำลังเปิดเบราว์เซอร์ใหม่"
+                log(state["last_error"], "extension dir exists:", (APP_DIR / "extension" / "manifest.json").exists())
+                kill_browser()
+            elif not warned[0]:
+                warned[0] = True
+                log("extension still not pinging — stop auto-restart")
     threading.Thread(target=run, daemon=True).start()
 
 
 def main():
     if not single_instance():
         return
-    log("start", APP_VERSION, "kiosk" if KIOSK else "window", "device" if DEVICE_KEY else "no-device-key")
+    log("start", APP_VERSION, "extension", BUNDLED_EXT_VERSION, "browser-mode", BROWSER_MODE, "kiosk" if KIOSK else "window", "device" if DEVICE_KEY else "no-device-key")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Bridge)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     threading.Thread(target=cloud_loop, daemon=True).start()

@@ -31,6 +31,15 @@ jobs:
             --distpath ../../../dist-safebrowser --workpath ../../../build-safebrowser
           test -f ../../../dist-safebrowser/SafeBrowser/SafeBrowser.exe
 
+      - name: Build WifiHelper.exe (Native Messaging host)
+        shell: bash
+        working-directory: scripts/kiosk/safe-browser/wifi
+        run: |
+          python test_wifi_host_win.py
+          python -m PyInstaller wifi_host_win.py --name WifiHelper --onedir --console --noconfirm \
+            --distpath ../../../../dist-safebrowser --workpath ../../../../build-wifihelper
+          test -f ../../../../dist-safebrowser/WifiHelper/WifiHelper.exe
+
       - name: Download Chrome for Testing (stable, win64)
         shell: bash
         run: |

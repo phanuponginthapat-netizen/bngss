@@ -1,0 +1,7 @@
+{
+  "name": "com.bngss.wifi",
+  "description": "BNGSS Wi-Fi Helper (Windows netsh bridge)",
+  "path": "WifiHelper.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://pmkbhlpecjcgmcmbfiaggbockmmfpbig/"]
+}

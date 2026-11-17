@@ -14,3 +14,7 @@ Kiosk browser program = installed Google Chrome (extension loaded from ZIP in th
   (shared `kiosk_commands` power queue).
 - Local bridge: `127.0.0.1:47831`, extension API accepts only the extension origin.
 - Ctrl+Alt+Del cannot be blocked by any program; use a standard (non-admin) Windows account for students.
+
+## 1.7.0 — ทำงานร่วมกับส่วนขยายอัตโนมัติ
+- โปรแกรมเปิด Chrome ปกติก่อน ถ้าส่วนขยายใน Chrome ไม่ตอบภายใน 90 วินาที หรือเป็นรุ่นเก่ากว่ารุ่นที่มากับโปรแกรม จะสลับไปใช้เบราว์เซอร์ที่แถมมาซึ่งโหลดส่วนขยายรุ่นล่าสุดเองทันที (ไม่ต้องติดตั้งส่วนขยายเอง)
+- ติดตั้งตัวช่วย Wi-Fi สำหรับ Windows (WifiHelper.exe ผ่าน netsh) และลงทะเบียนให้ Chrome/Edge อัตโนมัติ หน้า Wi-Fi ของส่วนขยายจึงใช้บน Windows ได้

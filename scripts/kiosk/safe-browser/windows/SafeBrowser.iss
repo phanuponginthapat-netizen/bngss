@@ -1,5 +1,5 @@
 ; BNG Safe Browser for Windows — built by .github/workflows/build-safe-browser.yml
-; Bundles Chrome for Testing + the school extension; kiosk full-screen at every Windows sign-in.
+; Uses installed Chrome (extension from ZIP) or bundled Chrome for Testing + the shipped extension; Wi-Fi native helper; kiosk full-screen at every Windows sign-in.
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -25,6 +25,15 @@ CloseApplications=force
 Source: "..\..\..\..\dist-safebrowser\SafeBrowser\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\..\..\dist-safebrowser\chrome\*"; DestDir: "{app}\chrome"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\..\..\extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\..\..\dist-safebrowser\WifiHelper\*"; DestDir: "{app}\wifi"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\wifi\com.bngss.wifi.json"; DestDir: "{app}\wifi"; Flags: ignoreversion
+
+[Registry]
+; Wi-Fi helper for the school extension (Native Messaging) — Chrome, Chrome for Testing, Edge
+Root: HKLM; Subkey: "Software\Google\Chrome\NativeMessagingHosts\com.bngss.wifi"; ValueType: string; ValueName: ""; ValueData: "{app}\wifi\com.bngss.wifi.json"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Google\Chrome for Testing\NativeMessagingHosts\com.bngss.wifi"; ValueType: string; ValueName: ""; ValueData: "{app}\wifi\com.bngss.wifi.json"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Chromium\NativeMessagingHosts\com.bngss.wifi"; ValueType: string; ValueName: ""; ValueData: "{app}\wifi\com.bngss.wifi.json"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\com.bngss.wifi"; ValueType: string; ValueName: ""; ValueData: "{app}\wifi\com.bngss.wifi.json"; Flags: uninsdeletekey
 
 [Icons]
 Name: "{autodesktop}\BNG Safe Browser"; Filename: "{app}\SafeBrowser.exe"; WorkingDir: "{app}"

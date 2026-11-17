@@ -563,7 +563,7 @@ async function kioskLauncher(path, body) {
   finally { clearTimeout(t); }
 }
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.type === "KIOSK_STATUS") { kioskLauncher("/status").then(sendResponse); return true; }
+  if (msg?.type === "KIOSK_STATUS") { kioskLauncher("/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version)).then(sendResponse); return true; }
   if (msg?.type === "KIOSK_OPEN_CONTROL") {
     // The staff-card control page is served by the launcher itself (127.0.0.1 only),
     // so it also works on machines where the extension control page cannot be reached.
@@ -757,5 +757,7 @@ chrome.tabs.onUpdated.addListener((tabId, ci, tab) => {
 
 // แจ้งโปรแกรม Safe Browser ว่าส่วนขยายทำงานอยู่ (ถ้าไม่ได้ยิน โปรแกรมจะเปิดเบราว์เซอร์ใหม่)
 chrome.alarms?.create?.("kiosk-ping", { periodInMinutes: 0.5 });
-chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "kiosk-ping") kioskLauncher("/status").catch(() => {}); });
-kioskLauncher("/status").catch(() => {});
+// ส่งเลขรุ่นไปด้วย: โปรแกรมจะสลับไปใช้ส่วนขยายที่มากับตัวติดตั้งเมื่อรุ่นใน Chrome เก่ากว่า
+const KIOSK_STATUS_PATH = "/status?v=" + encodeURIComponent(chrome.runtime.getManifest().version);
+chrome.alarms?.onAlarm.addListener((a) => { if (a.name === "kiosk-ping") kioskLauncher(KIOSK_STATUS_PATH).catch(() => {}); });
+kioskLauncher(KIOSK_STATUS_PATH).catch(() => {});
