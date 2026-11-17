@@ -1,3 +1,4 @@
+import DashboardIntroGrid from "./DashboardIntroGrid";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { IdCardPhoto } from "@/components/IdCardPhoto";
 import { useEffect, useState, lazy, Suspense } from "react";
@@ -219,10 +220,8 @@ const StudentDashboard = () => {
   return (
     <div className="space-y-6">
       {dashboardError && <p role="alert" className="text-sm text-destructive">โหลดข้อมูลนักเรียนไม่สำเร็จ กรุณาลองใหม่</p>}
-      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
-        <MascotHeroWidget />
-      </Suspense>
       {/* Hero */}
+      <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
         <Suspense fallback={null}>
           <DynamicHeroBackground
@@ -299,6 +298,8 @@ const StudentDashboard = () => {
           )}
         </div>
       </div>
+        <div><Suspense fallback={<Skeleton className="h-full w-full" />}><MascotHeroWidget /></Suspense></div>
+      </DashboardIntroGrid>
 
       {!data?.student && !isLoading && (
         <Card className="border border-border/50 shadow-elevated rounded-2xl">

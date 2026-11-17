@@ -1,3 +1,4 @@
+import DashboardIntroGrid from "./DashboardIntroGrid";
 import { lazy, Suspense } from "react";
 import { IdCardPhoto } from '@/components/IdCardPhoto';
 import DailyTaskBar from "./DailyTaskBar";
@@ -64,9 +65,7 @@ const AlumniDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
-        <MascotHeroWidget />
-      </Suspense>
+      <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
         <Suspense fallback={null}>
           <DynamicHeroBackground
@@ -97,6 +96,8 @@ const AlumniDashboard = () => {
           </div>
         </div>
       </div>
+        <div><Suspense fallback={<Skeleton className="h-full w-full" />}><MascotHeroWidget /></Suspense></div>
+      </DashboardIntroGrid>
 
       {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
       <DailyTaskBar />

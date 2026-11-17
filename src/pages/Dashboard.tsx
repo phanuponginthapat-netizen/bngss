@@ -568,7 +568,7 @@ const Dashboard = () => {
                 byGroup.get(g)?.push(w);
               });
               const GRID_CLASSES: Record<string, string> = {
-                overview: "grid grid-cols-1 gap-4",
+                overview: "grid grid-cols-1 md:grid-cols-2 gap-4",
                 kpi: "grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4",
                 chart: "grid grid-cols-1 xl:grid-cols-2 gap-4",
                 info: "grid grid-cols-1 xl:grid-cols-2 gap-4",
@@ -578,7 +578,7 @@ const Dashboard = () => {
                 const render = widgetRenderers[w.key];
                 if (!render) return null;
                 return (
-                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
+                  <SortableWidget key={w.key} id={w.key} className={`min-w-0 ${["hero", "mascot_hero"].includes(w.key) ? "aspect-square overflow-auto rounded-lg [&>div]:min-h-0 [&>div]:rounded-lg [&_h1]:text-xl [&_h1]:sm:text-2xl [&_h1]:tracking-normal" : w.key === "social_wall" || w.size === "xl" ? "xl:col-span-full" : ""}`}>
                     {render(w.color)}
                   </SortableWidget>
                 );

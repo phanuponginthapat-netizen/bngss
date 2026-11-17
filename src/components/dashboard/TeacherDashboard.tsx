@@ -1,3 +1,4 @@
+import DashboardIntroGrid from "./DashboardIntroGrid";
 import { resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 import { loadDashboardAttendance, attendanceRate } from "@/lib/dashboardAttendance";
 import { useState, lazy, Suspense } from "react";
@@ -431,6 +432,7 @@ const TeacherDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Hero */}
+      <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
         <Suspense fallback={null}>
           <DynamicHeroBackground
@@ -503,10 +505,8 @@ const TeacherDashboard = () => {
           )}
         </div>
       </div>
-
-      <Suspense fallback={<Skeleton className="h-72 rounded-2xl" />}>
-        <MascotHeroWidget />
-      </Suspense>
+        <div><Suspense fallback={<Skeleton className="h-full w-full" />}><MascotHeroWidget /></Suspense></div>
+      </DashboardIntroGrid>
 
       {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
       <DailyTaskBar />
