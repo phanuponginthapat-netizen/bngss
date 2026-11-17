@@ -300,7 +300,7 @@ export default function StudentAgentPage() {
       case "shutdown": {
         const sec = Math.max(3, Number(payload?.sec) || 10);
         startCountdown("shutdown", sec, async () => {
-          const ok = await callLocalCtl("/shutdown");
+          const ok = (await extCall("SB_POWER", { action: "shutdown" })).ok || (await callLocalCtl("/shutdown"));
           if (!ok) toast.error("สั่ง shutdown ไม่สำเร็จ (ไม่มี local daemon)");
         });
         break;
@@ -308,7 +308,7 @@ export default function StudentAgentPage() {
       case "reboot": {
         const sec = Math.max(3, Number(payload?.sec) || 10);
         startCountdown("reboot", sec, async () => {
-          const ok = await callLocalCtl("/reboot");
+          const ok = (await extCall("SB_POWER", { action: "reboot" })).ok || (await callLocalCtl("/reboot"));
           if (!ok) toast.error("สั่ง reboot ไม่สำเร็จ");
         });
         break;
@@ -317,7 +317,7 @@ export default function StudentAgentPage() {
         toast("ครูสั่ง logout — กำลังออกจากระบบ");
         await supabase.auth.signOut().catch(() => {});
         // และให้ daemon logout session Linux ด้วย (ถ้ามี)
-        callLocalCtl("/logout").catch(() => {});
+        extCall("SB_POWER", { action: "logout" }).catch(() => {});
         setTimeout(() => { (window as any).__kioskAllowUnload = true; window.location.href = "/"; }, 500);
         break;
       }
@@ -344,9 +344,29 @@ export default function StudentAgentPage() {
     }, 1000);
   }
 
+  /** ขอให້ extension ของโปรแกรม Safe Browser ทำคำสั่ งแล้วรอคำตอบ (ไม่มี dialog เลือกจอ) */
+  function extCall(type: string, extra: Record<string, unknown> = {}): Promise<any> {
+    return new Promise((resolve) => {
+      if (document.documentElement.getAttribute("data-school-safe-browser") !== "1") { resolve({ ok: false }); return; }
+      const requestId = Math.random().toString(36).slice(2);
+      const on = (ev: MessageEvent) => {
+        if (ev.source !== window || ev.origin !== location.origin) return;
+        if (ev.data?.type !== "SB_RESULT" || ev.data?.requestId !== requestId) return;
+        window.removeEventListener("message", on);
+        clearTimeout(timer);
+        resolve(ev.data.result || { ok: false });
+      };
+      const timer = setTimeout(() => { window.removeEventListener("message", on); resolve({ ok: false, error: "หมดเวลา" }); }, 25000);
+      window.addEventListener("message", on);
+      window.postMessage({ type, requestId, ...extra }, location.origin);
+    });
+  }
+
   async function captureScreenshot(): Promise<string | null> {
     try {
       // ถ้ากำลังแชร์จออยู่แล้ว → capture จาก stream
+      const viaExt = await extCall("SB_CAPTURE_TAB");
+      if (viaExt?.ok && viaExt.image) return viaExt.image;
       const stream = streamRef.current ?? (await navigator.mediaDevices.getDisplayMedia({ video: true }));
       const track = stream.getVideoTracks()[0];
       // @ts-ignore ImageCapture ยังไม่ standard
@@ -495,7 +515,7 @@ export default function StudentAgentPage() {
 
   async function selfShutdown() {
     if (!(await swal.confirm({ title: "ปิดเครื่องเลย?" }))) return;
-    const ok = await callLocalCtl("/shutdown");
+    const ok = (await extCall("SB_POWER", { action: "shutdown" })).ok || (await callLocalCtl("/shutdown"));
     if (!ok) toast.error("ไม่พบ local daemon (เครื่องนี้อาจไม่ใช่ Kiosk)");
   }
 
