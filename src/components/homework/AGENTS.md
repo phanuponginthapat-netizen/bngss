@@ -1,1 +1,2 @@
 - Worksheet PDF Storage access is limited to the exact saved assignment path and authenticated student's classroom/school; preserve owner/staff reads and private answer attachments because assignment listing alone must not authorize unrelated files.
+- Worksheet fullscreen resizes the same mounted answer dialog/player, with an independently scrolling document and fixed controls, so resizing never reloads answers or loses unsaved work.

@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eraser, Check, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Loader2, Eraser, Check, X, ZoomIn, ZoomOut, MoveHorizontal } from "lucide-react";
 import { renderPdfToImages, gradeField, isWorksheetGradable, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { supabase } from "@/integrations/supabase/client";
 import MediaCaptureButtons from "./MediaCaptureButtons";
@@ -17,9 +17,10 @@ interface Props {
   showResults?: boolean; // overlay ✓/✗
   studentId?: string | null;
   compact?: boolean;
+  workspace?: boolean;
 }
 
-export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersChange, readOnly, showResults, studentId, compact }: Props) {
+export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersChange, readOnly, showResults, studentId, compact, workspace }: Props) {
   const [zoom, setZoom] = useState(100);
   const [pages, setPages] = useState<WorksheetPageImage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,21 +52,22 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
   );
 
   return (
-    <div className="space-y-2 min-w-0">
-      <div className="flex items-center justify-between gap-2 border-b pb-2">
+    <div className={workspace ? "flex flex-col flex-1 min-h-0 min-w-0" : "space-y-2 min-w-0"}>
+      <div className={`flex items-center justify-between gap-2 border-b shrink-0 ${workspace ? "px-4 py-1 bg-background" : "pb-2"}`}>
         <span className="text-xs text-muted-foreground">{pages.length} หน้า · {fields.length} ช่องตอบ</span>
         <div className="flex items-center gap-1">
-          <Button type="button" variant="ghost" size="icon" title="ย่อใบงาน" aria-label="ย่อใบงาน" disabled={zoom <= 100} onClick={() => setZoom(z => z - 25)}><ZoomOut className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="ย่อใบงาน" aria-label="ย่อใบงาน" disabled={zoom <= 50} onClick={() => setZoom(z => z - 25)}><ZoomOut className="h-4 w-4" /></Button>
           <span className="text-xs tabular-nums w-10 text-center">{zoom}%</span>
-          <Button type="button" variant="ghost" size="icon" title="ขยายใบงาน" aria-label="ขยายใบงาน" disabled={zoom >= 200} onClick={() => setZoom(z => z + 25)}><ZoomIn className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="ขยายใบงาน" aria-label="ขยายใบงาน" disabled={zoom >= 300} onClick={() => setZoom(z => z + 25)}><ZoomIn className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="พอดีความกว้าง" aria-label="พอดีความกว้าง" onClick={() => setZoom(100)}><MoveHorizontal className="h-4 w-4" /></Button>
         </div>
       </div>
-      <div className={`${compact ? "p-2" : "p-3"} bg-muted rounded-md overflow-auto`}>
-      <div className="space-y-3" style={{ width: `${zoom}%` }}>
+      <div className={`${compact ? "p-2" : "p-3 sm:p-5"} bg-muted overflow-auto ${workspace ? "flex-1 min-h-0 overscroll-contain" : "rounded-md"}`}>
+      <div className="space-y-3 mx-auto" style={{ width: `${zoom}%`, maxWidth: 960 * zoom / 100, minWidth: 280 }}>
       {pages.map(p => (
         <div key={p.page} className="space-y-1">
           <div className="text-xs text-muted-foreground">หน้า {p.page}</div>
-          <div className="relative bg-card shadow-sm border mx-auto min-w-[280px]" style={{ width: "100%", maxWidth: p.width, aspectRatio: `${p.width} / ${p.height}` }}>
+          <div className="relative bg-card shadow-sm border mx-auto min-w-[280px]" style={{ width: "100%", aspectRatio: `${p.width} / ${p.height}` }}>
             <img src={p.dataUrl} alt={`page ${p.page}`} className="absolute inset-0 w-full h-full select-none pointer-events-none" draggable={false} />
             {fields.filter(f => f.page === p.page).map(f => {
               const result = showResults && isWorksheetGradable(f) ? gradeField(f, answers[f.id]) : null;

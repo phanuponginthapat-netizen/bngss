@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Send, Save, Paperclip, Trash2 } from "lucide-react";
+import { Loader2, Send, Save, Paperclip, Trash2, Maximize, Minimize } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notify } from "@/lib/notify";
@@ -44,6 +44,9 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryLoad, setRetryLoad] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [fullWindow, setFullWindow] = useState(true);
+
+  useEffect(() => { if (open) setFullWindow(true); }, [open]);
 
   const fields: EFormField[] = useMemo(() => (assignment?.answer_fields || []) as EFormField[], [assignment]);
   const worksheetFields: WorksheetField[] = useMemo(() => (assignment?.worksheet_fields || []) as WorksheetField[], [assignment]);
@@ -174,9 +177,12 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[100dvw] h-[100dvh] max-w-none rounded-none sm:w-auto sm:h-auto sm:max-w-4xl sm:max-h-[92vh] overflow-hidden flex flex-col p-3 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>{assignment?.title || "ทำใบงาน"}</DialogTitle>
+      <DialogContent aria-describedby={undefined} className={`w-full max-w-none overflow-hidden flex flex-col gap-0 p-0 sm:p-0 sm:pt-0 sm:pb-0 ${fullWindow ? "h-[100dvh] sm:h-[100dvh] sm:max-h-[100dvh] rounded-none sm:rounded-none" : "h-[100dvh] sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[92vw] sm:max-w-5xl"}`}>
+        <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3 pr-14 shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <DialogTitle className="min-w-0 text-left leading-snug line-clamp-2">{assignment?.title || "ทำใบงาน"}</DialogTitle>
+          <Button type="button" variant="ghost" size="icon" className="shrink-0 hidden sm:inline-flex" title={fullWindow ? "ย่อหน้าต่างใบงาน" : "เต็มจอ"} aria-label={fullWindow ? "ย่อหน้าต่างใบงาน" : "เต็มจอ"} onClick={() => setFullWindow(v => !v)}>
+            {fullWindow ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+          </Button>
         </DialogHeader>
 
         {loading ? (
@@ -184,7 +190,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
         ) : loadError ? (
           <div className="py-6 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={() => setRetryLoad(v => v + 1)}>ลองใหม่</Button></div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-auto space-y-4 px-1">
+          <div className={`flex-1 min-h-0 ${isPdfMode ? "flex flex-col overflow-hidden" : "overflow-auto space-y-4 p-4"}`}>
             {isPdfMode ? (
               pdfSignedUrl ? (
                 <PdfWorksheetPlayer
@@ -195,6 +201,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                   readOnly={readOnly}
                   showResults={status === "graded" || status === "submitted"}
                   studentId={studentId}
+                  workspace
                 />
               ) : (
                 <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
@@ -255,7 +262,9 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
             )}
 
             {/* File attachments */}
-            <div className="space-y-2 border-t pt-3">
+            <details className="border-t shrink-0 bg-background">
+              <summary className="cursor-pointer px-4 py-2 text-sm font-medium">ไฟล์แนบ{attachments.length > 0 ? ` (${attachments.length})` : ""}</summary>
+            <div className="space-y-2 px-4 pb-3 max-h-[25dvh] overflow-auto">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label className="text-sm font-semibold flex items-center gap-1"><Paperclip className="w-4 h-4" /> ไฟล์แนบ</Label>
                 {!readOnly && (
@@ -284,10 +293,11 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
                 </div>
               )}
             </div>
+            </details>
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 border-t pt-3 shrink-0">
+        <div className="flex flex-wrap justify-end gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 bg-background">
           {readOnly ? (
             <span className="text-sm text-muted-foreground self-center">{status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
           ) : (
