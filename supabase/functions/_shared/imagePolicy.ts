@@ -1,5 +1,5 @@
 // Daily image quotas and content rules for Lovable AI image generation in chat.
-export const STAFF_IMAGE_LIMIT = 10;
+export const STAFF_IMAGE_LIMIT = 5;
 export const STUDENT_IMAGE_LIMIT = 5;
 const STAFF_ROLES = new Set(["admin", "teacher", "director"]);
 

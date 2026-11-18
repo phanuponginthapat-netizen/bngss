@@ -29,6 +29,11 @@ Deno.serve(async req => {
   if (roleError) return json(503, "ตรวจสิทธิ์ไม่สำเร็จ");
   if (!canUseSchoolTool(tool, (roles || []).map(row => row.role))) return json(403, "บัญชีนี้ไม่มีสิทธิ์ใช้เครื่องมือนี้");
   try {
+    if (["worksheet", "lesson", "quiz"].includes(tool)) {
+      const { data: slot, error: slotError } = await db.rpc("claim_ai_creative_slot", { _user_id: userId, _prompt: body.topic.trim(), _kind: tool });
+      if (slotError) return json(503, "ตรวจโควต้างานสร้างสรรค์ไม่สำเร็จ");
+      if (!slot) return json(429, "วันนี้สร้างงานครบ 5 ชิ้นแล้ว กรุณากลับมาใหม่พรุ่งนี้");
+    }
     const quota = await checkDailyChatQuota(db, userId, 30);
     if (quota === "unavailable") return json(503, "ตรวจโควต้า AI ไม่สำเร็จ");
     if (quota === "limited") return json(429, "วันนี้ใช้ AI ครบ 30 ข้อความแล้ว กรุณากลับมาใหม่พรุ่งนี้");

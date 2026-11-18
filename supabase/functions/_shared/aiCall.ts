@@ -191,6 +191,7 @@ async function logUsage(opts: {
 
 export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   let providers = await loadProviders(!!opts.vision);
+  if (isChat(opts.functionName)) providers = providers.filter(p => ["groq", "gemini", "google"].includes(p.provider_type));
 
   // Hard fallback if DB empty or no providers configured (Standalone: ไม่ใช้ Lovable AI)
   if (providers.length === 0) {
@@ -302,7 +303,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
 
   // === Final fallback: Key Pool (openai → gemini → groq → openrouter) ===
-  const poolOrder: PoolProvider[] = ["openai", "gemini", "groq", "openrouter"];
+  const poolOrder: PoolProvider[] = isChat(opts.functionName) ? ["groq", "gemini"] : ["openai", "gemini", "groq", "openrouter"];
   for (const p of poolOrder) {
     try {
       const r = await callWithPool(p, {
@@ -321,9 +322,6 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       continue;
     }
   }
-
-  const fallback = await lovableChatFallback(opts);
-  if (fallback) return fallback;
 
   // สรุป error ให้ผู้ใช้อ่านเข้าใจ (ภาษาไทย) พร้อมรายละเอียดสำหรับ admin
   const joined = errors.join(" | ");
@@ -365,8 +363,8 @@ export interface CouncilResult extends AIResult {
 }
 
 export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
-  const providers = opts.providers || ["openai", "gemini", "groq", "openrouter"];
-  const synth = opts.synthesizer || "openai";
+  const providers = isChat(opts.functionName) ? ["groq", "gemini"] as PoolProvider[] : opts.providers || ["openai", "gemini", "groq", "openrouter"];
+  const synth = isChat(opts.functionName) ? "gemini" : opts.synthesizer || "openai";
 
   const results = await Promise.all(providers.map(async (p) => {
     try {
@@ -388,8 +386,6 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
   const successes = results.filter((r) => r.ok);
   if (successes.length === 0) {
     if (results.some(r => r.error?.includes("AI ใช้เวลาตอบนานเกินไป"))) {
-      const fallback = await lovableChatFallback(opts);
-      if (fallback) return { ...fallback, panel: results };
       throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
     }
     const single = await aiCall(opts);
