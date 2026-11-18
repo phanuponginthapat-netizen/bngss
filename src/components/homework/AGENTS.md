@@ -1,0 +1,1 @@
+- Worksheet PDF Storage access is limited to the exact saved assignment path and authenticated student's classroom/school; preserve owner/staff reads and private answer attachments because assignment listing alone must not authorize unrelated files.

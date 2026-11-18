@@ -519,6 +519,13 @@
       "when": 1794976460308,
       "tag": "0073_homework_live_publication",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794981891647,
+      "tag": "0074_homework_assigned_student_pdf_read",
+      "breakpoints": true
     }
   ]
 }
