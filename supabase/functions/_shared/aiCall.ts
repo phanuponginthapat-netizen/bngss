@@ -192,6 +192,11 @@ async function logUsage(opts: {
 export async function aiCall(opts: AICallOpts): Promise<AIResult> {
   let providers = await loadProviders(!!opts.vision);
   if (isChat(opts.functionName)) providers = providers.filter(p => ["groq", "gemini", "google"].includes(p.provider_type));
+  // Speed: for text chat try Groq first, then lighter Gemini models (flash often stalls under load).
+  if (isChat(opts.functionName) && !opts.vision) {
+    const rank = (p: any) => (p.provider_type === "groq" ? 0 : /lite/i.test(String(p.model || "")) ? 1 : 2);
+    providers = [...providers].sort((x, y) => rank(x) - rank(y));
+  }
 
   // Hard fallback if DB empty or no providers configured (Standalone: ไม่ใช้ Lovable AI)
   if (providers.length === 0) {
@@ -232,7 +237,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         const r = await fetch(p.base_url, {
           method: "POST",
-          signal: isChat(opts.functionName) ? AbortSignal.timeout(20000) : undefined,
+          signal: isChat(opts.functionName) ? AbortSignal.timeout(10000) : undefined,
           headers,
           body: JSON.stringify(body),
         });

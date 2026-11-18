@@ -355,8 +355,10 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
     let factsContext = "";
     try {
       const { shouldGround, groundWithGemini } = await import("../_shared/webGround.ts");
-      if (shouldGround(lastUser) && !hasImageInMessages) {
-        const facts = await groundWithGemini(lastUser, { lang: hasThai ? "th" : "en", signal: AbortSignal.timeout(8000) });
+      // Speed: web search only for clearly current-events questions, with a short bound.
+      const needsWeb = /ข่าว|ล่าสุด|วันนี้|ปัจจุบัน|ตอนนี้|ราคา|อัตรา|ผลบอล|ผลการแข่ง|เลือกตั้ง|ประกาศ|ปี\s?25[6-9]\d|ปี\s?20[2-9]\d|latest|today|current|news|price/i.test(lastUser);
+      if (needsWeb && shouldGround(lastUser) && !hasImageInMessages) {
+        const facts = await groundWithGemini(lastUser, { lang: hasThai ? "th" : "en", signal: AbortSignal.timeout(4000) });
         if (facts.text) {
           const srcBlock = facts.sources.length
             ? `\nแหล่งอ้างอิง:\n${facts.sources.map((u, i) => `[${i + 1}] ${u}`).join("\n")}`
@@ -436,10 +438,9 @@ async function handleChat(req: Request, onReply?: (text: string) => void) {
     const characterPolicy = buildCharacterPolicy(persona, botName, responseMode);
 
     // Auto-detect "hard" question → use Council mode (multi-model + synthesizer)
-    const isHard =
-      lastUserText.length > 300 ||
-      /วิเคราะห์|เปรียบเทียบ|สรุป|อธิบายละเอียด|ทำไม|เพราะอะไร|แผน|กลยุทธ์|พิสูจน์|แสดงวิธี|step|analyz|compare|explain in detail|strategy/i.test(lastUserText) ||
-      hasImageInMessages;
+    // Speed: chat answers use one fast provider call; multi-model council (wait-for-all + synthesis)
+    // made ordinary "why/summarize" questions take 30-60s.
+    const isHard = false;
 
     const result = isHard
       ? await aiCouncil({
