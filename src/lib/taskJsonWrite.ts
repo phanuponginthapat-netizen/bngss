@@ -14,8 +14,11 @@ const store: Store = {
     return { value: data ? (data as unknown as Record<string, JsonValue>)[column] : null, error };
   },
   async compareWrite(taskId, column, expected, next) {
-    return await supabase.from("task_assignments").update({ [column]: next } as never)
-      .eq("id", taskId).eq(column, JSON.stringify(expected)).select("id");
+    // Compare-and-swap runs in the database so large JSON never travels in the URL (URL limits returned 400).
+    const { data, error } = await supabase.rpc("compare_write_task_json", {
+      _task_id: taskId, _column: column, _expected: expected as never, _next: next as never,
+    });
+    return { data: Array.isArray(data) ? data.map((id) => ({ id })) : null, error };
   },
 };
 

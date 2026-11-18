@@ -17518,6 +17518,15 @@ export type Database = {
         Returns: string
       }
       cleanup_expired_line_sessions: { Args: never; Returns: undefined }
+      compare_write_task_json: {
+        Args: {
+          _column: string
+          _expected: Json
+          _next: Json
+          _task_id: string
+        }
+        Returns: string[]
+      }
       create_next_year_periods: {
         Args: { closing_year_be: number }
         Returns: undefined

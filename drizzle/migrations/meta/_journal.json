@@ -505,6 +505,13 @@
       "when": 1794974295311,
       "tag": "0071_remove_screen_view_monitor_events",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1794975012648,
+      "tag": "0072_task_json_compare_write",
+      "breakpoints": true
     }
   ]
 }
