@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import HomeworkToolsBar from "./HomeworkToolsBar";
 import HomeworkEditor from "./HomeworkEditor";
-import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2 } from "lucide-react";
+import { Send, Undo2, CheckCircle2, RotateCcw, History, Paperclip, MessageSquare, Pencil, FileCheck2, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,45 +36,57 @@ const actionMeta: Record<HistoryEntry["action"], { label: string; icon: any; col
   commented:    { label: "คอมเมนต์",        icon: MessageSquare, color: "bg-slate-100 text-slate-700 border-slate-200" },
 };
 
+function TimelineItem({ h, latest }: { h: HistoryEntry; latest: boolean }) {
+  const [open, setOpen] = useState(false);
+  const meta = actionMeta[h.action];
+  const Icon = meta?.icon || FileCheck2;
+  const preview = (h.text || h.feedback || "").replace(/\s+/g, " ").trim();
+  const hasDetail = !!(h.text || h.feedback || h.attachments?.length);
+  return (
+    <li className="rounded-md border bg-background">
+      <button type="button" disabled={!hasDetail} onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-[11px] disabled:cursor-default">
+        <Badge variant="outline" className={`shrink-0 ${meta?.color || ""}`}><Icon className="w-3 h-3 mr-1" />{meta?.label || h.action}</Badge>
+        {latest && <Badge className="shrink-0 bg-primary/10 text-primary border-primary/20">ล่าสุด</Badge>}
+        {typeof h.grade === "number" && <Badge className="shrink-0 bg-emerald-100 text-emerald-700">คะแนน {h.grade}</Badge>}
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{preview || (h.attachments?.length ? `ไฟล์แนบ ${h.attachments.length} ไฟล์` : "")}</span>
+        <span className="shrink-0 text-muted-foreground">
+          {h.by === "teacher" ? "ครู" : "นักเรียน"} · {new Date(h.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+        </span>
+        {hasDetail && <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />}
+      </button>
+      {open && (
+        <div className="px-2 pb-2 space-y-1">
+          {h.text && <p className="text-xs whitespace-pre-wrap bg-muted/40 rounded px-2 py-1">{h.text}</p>}
+          {h.feedback && (
+            <p className="text-xs whitespace-pre-wrap bg-muted/40 rounded px-2 py-1 border border-amber-200">
+              <MessageSquare className="w-3 h-3 inline mr-1" />{h.feedback}
+            </p>
+          )}
+          {h.attachments && h.attachments.length > 0 && <AttachmentList attachments={h.attachments} dense />}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function SubmissionTimeline({ history }: { history?: HistoryEntry[] }) {
+  const [open, setOpen] = useState(false);
   if (!history || history.length === 0) return null;
   const sorted = [...history].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   return (
-    <div className="border rounded-md p-2 bg-muted/20 space-y-2">
-      <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+    <div className="border rounded-md bg-muted/20">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
         <History className="w-3.5 h-3.5" /> ประวัติการส่ง/แก้ไข/คอมเมนต์ ({history.length})
-      </div>
-      <ol className="relative border-l-2 border-border ml-2 space-y-2">
-        {sorted.map((h, i) => {
-          const meta = actionMeta[h.action];
-          const Icon = meta?.icon || FileCheck2;
-          return (
-            <li key={i} className="ml-3 pl-2">
-              <span className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full bg-background border-2 border-primary" />
-              <div className="flex items-center gap-1 flex-wrap text-[11px]">
-                <Badge variant="outline" className={meta?.color || ""}><Icon className="w-3 h-3 mr-1" />{meta?.label || h.action}</Badge>
-                <span className="text-muted-foreground">
-                  · {h.by === "teacher" ? "ครู" : "นักเรียน"}
-                  · {new Date(h.at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                </span>
-                {typeof h.grade === "number" && <Badge className="bg-emerald-100 text-emerald-700">คะแนน {h.grade}</Badge>}
-              </div>
-              {h.text && <p className="text-xs mt-1 whitespace-pre-wrap bg-background/60 rounded px-2 py-1 border">{h.text}</p>}
-              {h.feedback && (
-                <p className="text-xs mt-1 whitespace-pre-wrap bg-background/60 rounded px-2 py-1 border border-amber-200">
-                  <MessageSquare className="w-3 h-3 inline mr-1" />{h.feedback}
-                </p>
-              )}
-              {h.attachments && h.attachments.length > 0 && (
-                <div className="mt-1">
-                  <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Paperclip className="w-3 h-3" />ไฟล์แนบ ({h.attachments.length})</div>
-                  <AttachmentList attachments={h.attachments} dense />
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+        <span className="ml-auto font-normal">{open ? "ซ่อน" : "กดเพื่อดู"}</span>
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ol className="space-y-1 px-2 pb-2">
+          {sorted.map((h, i) => <TimelineItem key={`${h.at}-${i}`} h={h} latest={i === 0} />)}
+        </ol>
+      )}
     </div>
   );
 }
@@ -212,9 +224,15 @@ export function StudentSubmissionPanel({
           </span>
         </div>
         {mine.feedback && <p className="bg-muted/40 p-2 rounded text-foreground">ครู: {mine.feedback}</p>}
+        {mine.text && (
+          <div className="space-y-1">
+            <div className="text-[11px] text-muted-foreground">งานที่ส่งล่าสุด</div>
+            <p className="whitespace-pre-wrap rounded border bg-background p-2 text-foreground">{mine.text}</p>
+          </div>
+        )}
         {mine.attachments && mine.attachments.length > 0 && (
           <div className="space-y-1">
-            <div className="text-[11px] text-muted-foreground">งานที่ส่ง</div>
+            <div className="text-[11px] text-muted-foreground">ไฟล์ที่ส่งล่าสุด</div>
             <AttachmentList attachments={mine.attachments} dense />
           </div>
         )}
@@ -604,7 +622,7 @@ function StudentSubmissionRow({
 
           {submission.text && (
             <div className="rounded-2xl border bg-card p-4">
-              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">ข้อความจากนักเรียน</div>
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">ข้อความจากนักเรียน (ล่าสุด)</div>
               <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{submission.text}</p>
             </div>
           )}
