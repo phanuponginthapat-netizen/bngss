@@ -8,6 +8,8 @@ import { renderPdfToImages, gradeField, isWorksheetGradable, type WorksheetField
 import { supabase } from "@/integrations/supabase/client";
 import MediaCaptureButtons from "./MediaCaptureButtons";
 import WorksheetPaint from "./WorksheetPaint";
+import WorksheetInteractiveControl from "./WorksheetInteractiveControl";
+import { hasWorksheetAnswer } from "@/lib/worksheetGrading";
 
 interface Props {
   pdfUrl: string;
@@ -55,7 +57,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
   return (
     <div className={workspace ? "flex flex-col flex-1 min-h-0 min-w-0" : "space-y-2 min-w-0"}>
       <div className={`flex items-center justify-between gap-2 border-b shrink-0 ${workspace ? "px-4 py-1 bg-background" : "pb-2"}`}>
-        <span className="text-xs text-muted-foreground">{pages.length} หน้า · {fields.length} ช่องตอบ</span>
+        <span className="text-xs text-muted-foreground">{pages.length} หน้า · ตอบแล้ว {fields.filter(f => hasWorksheetAnswer(f, answers[f.id])).length}/{fields.length}</span>
         <div className="flex items-center gap-1">
           <Button type="button" variant="ghost" size="icon" title="ย่อใบงาน" aria-label="ย่อใบงาน" disabled={zoom <= 50} onClick={() => setZoom(z => z - 25)}><ZoomOut className="h-4 w-4" /></Button>
           <span className="text-xs tabular-nums w-10 text-center">{zoom}%</span>
@@ -103,8 +105,9 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
 function FieldControl({ field, value, onChange, readOnly, studentId }: {
   field: WorksheetField; value: any; onChange: (v: any) => void; readOnly?: boolean; studentId?: string | null;
 }) {
+  if (["select", "multiselect", "match", "order", "number"].includes(field.type)) return <WorksheetInteractiveControl field={field} value={value} onChange={onChange} readOnly={readOnly} />;
   if (field.type === "text") {
-    return <Input className="w-full h-full text-sm bg-background/95 border-primary/50" disabled={readOnly}
+    return <Input aria-label={field.label || "เติมคำ"} className="w-full h-full text-sm bg-background/95 border-primary/50" disabled={readOnly}
       placeholder={field.placeholder || field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} />;
   }
   if (field.type === "textarea") {

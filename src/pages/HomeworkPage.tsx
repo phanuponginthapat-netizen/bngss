@@ -1,5 +1,7 @@
 import { swal } from "@/lib/swal";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 import { useParentChildren } from "@/hooks/useParentChildren";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +44,7 @@ function TeacherAttachmentsList({ items }: { items: Attachment[] }) {
 const HomeworkPage = () => {
   const { role, userId, isTeacher, isStudent, isParent, isAdmin, isDirector } = useUserRole();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canCreate = isTeacher || isAdmin || isDirector;
   const isStudentLike = isStudent || isParent; // parent views child's homework
 
@@ -204,18 +207,45 @@ const HomeworkPage = () => {
   const [subsOpen, setSubsOpen] = useState(false);
   const [subsAssignmentId, setSubsAssignmentId] = useState<string | null>(null);
 
-  const { data: richList = [], error: richError, refetch: retryRich } = useQuery({
+  const { data: richList = [], isLoading: richLoading, error: richError, refetch: retryRich } = useQuery({
     queryKey: ["hw-assignments", role, userId, studentRow?.classroom_id],
     enabled: !!role && !!userId && (!isStudentLike || !!studentRow?.classroom_id),
     queryFn: async () => {
-      let q = supabase.from("homework_assignments").select("*").order("created_at", { ascending: false });
+      const rows = await fetchAllRows((from, to) => {
+      let q = supabase.from("homework_assignments").select("*,subjects(name_th,code),classrooms(name)").order("created_at", { ascending: false }).order("id").range(from, to);
       if (isStudentLike && studentRow?.classroom_id) q = q.eq("classroom_id", studentRow.classroom_id);
       else if (isTeacher && !isAdmin && !isDirector) q = q.eq("created_by", userId!);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []).filter((a: any) => !!a.content_html || !!a.pdf_path);
+      return q;
+      });
+      return rows.filter((a: any) => !!a.content_html || !!a.pdf_path);
     },
   });
+
+  const { data: richSubmissions = [], error: richSubmissionsError, refetch: retryRichSubmissions } = useQuery({
+    queryKey: ["hw-submissions", "cards", userId, studentRow?.id, richList.map((a: any) => a.id).join(",")],
+    enabled: !!userId && richList.length > 0 && (!isStudentLike || !!studentRow?.id),
+    queryFn: async () => {
+      const rows: any[] = [];
+      for (let offset = 0; offset < richList.length; offset += 100) {
+        const chunk = richList.slice(offset, offset + 100).map((a: any) => a.id);
+        rows.push(...await fetchAllRows((from, to) => {
+          let query = supabase.from("homework_submissions").select("id,assignment_id,student_id,status,score,final_score,feedback,submitted_at").in("assignment_id", chunk).order("id").range(from, to);
+          if (isStudentLike && studentRow?.id) query = query.eq("student_id", studentRow.id);
+          return query;
+        }));
+      }
+      return rows;
+    },
+  });
+
+  useEffect(() => {
+    const id = searchParams.get("worksheet");
+    if (!id || !richList.some((a: any) => a.id === id)) return;
+    if (canCreate) { setSubsAssignmentId(id); setSubsOpen(true); }
+    else if (isStudentLike && studentRow?.id) { setAnswerAssignmentId(id); setAnswerOpen(true); }
+    else return;
+    const next = new URLSearchParams(searchParams); next.delete("worksheet"); setSearchParams(next, { replace: true });
+  }, [searchParams, richList, canCreate, isStudentLike, studentRow?.id, setSearchParams]);
 
 
   // Homework list
@@ -330,11 +360,12 @@ const HomeworkPage = () => {
       });
     });
     (richList || []).forEach((a: any) => {
+      const submissions = richSubmissions.filter(s => s.assignment_id === a.id);
       const due = a.due_date ? String(a.due_date).slice(0, 10) : null;
       rows.push({
         key: `r-${a.id}`, kind: "rich", id: a.id, title: a.title || "(ไม่มีชื่อ)",
-        subjectLabel: "", classLabel: "", due,
-        total: 0, pending: 0, graded: 0,
+        subjectLabel: a.subjects?.name_th || a.subjects?.code || "", classLabel: a.classrooms?.name || "", due,
+        total: submissions.filter(s => s.status !== "draft").length, pending: submissions.filter(s => s.status === "submitted").length, graded: submissions.filter(s => s.status === "graded").length,
         overdue: !!due && new Date(due) < new Date(),
         raw: a,
         canEdit: isAdmin || isDirector || a.created_by === userId,
@@ -345,7 +376,7 @@ const HomeworkPage = () => {
       || (Number(b.overdue) - Number(a.overdue))
       || (a.due || "9999-12-31").localeCompare(b.due || "9999-12-31"));
     return rows;
-  }, [list, richList, isStudentLike, isAdmin, isDirector, userId]);
+  }, [list, richList, richSubmissions, isStudentLike, isAdmin, isDirector, userId]);
 
   const teacherTotals = useMemo(() => ({
     pending: teacherRows.reduce((n, r) => n + r.pending, 0),
@@ -358,12 +389,14 @@ const HomeworkPage = () => {
   const handleDelete = async (hw: any) => {
     if (!(await swal.confirm({ title: `ลบการบ้าน "${hw.title}" ?` }))) return;
     const tid = toast.loading("กำลังลบ...");
-    const { error } = await supabase.from("task_assignments").delete().eq("id", hw.id);
+    const table = hw.content_html || hw.pdf_path ? "homework_assignments" : "task_assignments";
+    const { error } = await supabase.from(table).delete().eq("id", hw.id).select("id").single();
     toast.dismiss(tid);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("ลบแล้ว");
     await qc.invalidateQueries({ queryKey: ["homework-list"] });
     await qc.refetchQueries({ queryKey: ["homework-list"] });
+    await qc.invalidateQueries({ queryKey: ["hw-assignments"] });
   };
 
   const [rowFilter, setRowFilter] = useState<"all" | "pending" | "overdue">("all");
@@ -479,7 +512,7 @@ const HomeworkPage = () => {
             })
           : list;
 
-        if (filtered.length === 0) {
+        if (filtered.length === 0 && richList.length === 0 && !richLoading) {
           return (
             <Card><CardContent className="py-16 text-center text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -585,7 +618,7 @@ const HomeworkPage = () => {
       })()}
 
       {/* ===== Rich homework section ===== */}
-      {(richError || listError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); }}>ลองใหม่</Button></div>}
+      {(richError || listError || richSubmissionsError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านหรือการส่งใบงานไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); retryRichSubmissions(); }}>ลองใหม่</Button></div>}
       {richList.length > 0 && isStudentLike && (
         <section className="space-y-2 border-t pt-5">
             <h2 className="text-base font-semibold flex items-center gap-2">
@@ -593,38 +626,18 @@ const HomeworkPage = () => {
             </h2>
           <div className="space-y-2">
             {richList.map((a: any) => (
-              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b py-3">
-                <div className="min-w-0">
-                  <div className="font-medium text-sm break-words">{a.title}</div>
-                  {a.due_date && <div className="text-xs text-muted-foreground">กำหนดส่ง: {new Date(a.due_date).toLocaleDateString("th-TH")}</div>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  {isStudent && !isParent && studentRow?.id && (
-                    <Button size="sm" onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}>
-                      <FileEdit className="w-3.5 h-3.5 mr-1" /> ทำใบงาน
-                    </Button>
-                  )}
-                  {(isTeacher || isAdmin || isDirector) && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => { setSubsAssignmentId(a.id); setSubsOpen(true); }}>
-                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> ตรวจ
-                      </Button>
-                      {(isAdmin || isDirector || a.created_by === userId) && (
-                        <Button size="sm" variant="ghost" title="แก้ไขใบงาน" aria-label="แก้ไขใบงาน" onClick={() => { setRichEditingId(a.id); setRichOpen(true); }}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
+              <Card key={a.id} data-notif-id={a.id} className="overflow-hidden border-border/60 scroll-mt-24">
+                <div className={`h-1 ${richSubmissions.find(s => s.assignment_id === a.id)?.status === "graded" ? "bg-success/70" : "bg-primary/40"}`} />
+                <CardHeader className="pb-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><CardTitle className="text-lg break-words">{a.title}</CardTitle><CardDescription className="flex flex-wrap gap-2 items-center mt-2"><Badge variant="outline"><Sparkles className="h-3 w-3 mr-1" />ใบงานออนไลน์</Badge>{a.subjects?.name_th && <span>{a.subjects.name_th}</span>}{a.classrooms?.name && <Badge variant="outline">{a.classrooms.name}</Badge>}</CardDescription></div><Badge variant="secondary">{({ draft: "บันทึกร่าง", submitted: "ส่งแล้ว · รอตรวจ", graded: "ตรวจแล้ว", needs_revision: "แก้ไขแล้วส่งใหม่" } as Record<string, string>)[richSubmissions.find(s => s.assignment_id === a.id)?.status] || "ยังไม่ได้ส่ง"}</Badge></div></CardHeader>
+                <CardContent className="space-y-3"><div className="flex gap-3 flex-wrap text-sm text-muted-foreground">{a.due_date && <span className="flex gap-1 items-center"><CalendarDays className="h-4 w-4" />กำหนดส่ง {new Date(a.due_date).toLocaleDateString("th-TH")}</span>}<span>{(a.pdf_path ? a.worksheet_fields || [] : a.answer_fields || []).length} ช่องตอบ</span>{a.total_score !== null && <span>เต็ม {a.total_score} คะแนน</span>}{richSubmissions.find(s => s.assignment_id === a.id)?.status === "graded" && richSubmissions.find(s => s.assignment_id === a.id)?.score != null && <span className="font-semibold text-success">ได้ {richSubmissions.find(s => s.assignment_id === a.id)?.score} คะแนน</span>}</div>{a.description && <p className="text-sm whitespace-pre-wrap">{a.description}</p>}{richSubmissions.find(s => s.assignment_id === a.id)?.feedback && <p className="text-sm border-l-2 border-primary pl-3">{richSubmissions.find(s => s.assignment_id === a.id)?.feedback}</p>}<div className="flex justify-end"><Button size="sm" variant={isParent ? "outline" : "default"} disabled={!studentRow?.id || !!richSubmissionsError} onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}><FileEdit className="h-4 w-4 mr-1" />{isParent ? "ดูใบงานของลูก" : ["submitted", "graded"].includes(richSubmissions.find(s => s.assignment_id === a.id)?.status) ? "ดูงานที่ส่ง" : richSubmissions.find(s => s.assignment_id === a.id)?.status === "draft" ? "ทำต่อ" : "ทำใบงาน"}</Button></div></CardContent>
+              </Card>
             ))}
           </div>
         </section>
       )}
 
       <HomeworkRichDesignerDialog open={richOpen} onOpenChange={setRichOpen} editingId={richEditingId} />
-      <HomeworkAnswerDialog open={answerOpen} onOpenChange={setAnswerOpen} assignmentId={answerAssignmentId} studentId={studentRow?.id || null} />
+      <HomeworkAnswerDialog open={answerOpen} onOpenChange={setAnswerOpen} assignmentId={answerAssignmentId} studentId={studentRow?.id || null} viewOnly={isParent} />
       <HomeworkSubmissionsDialog open={subsOpen} onOpenChange={setSubsOpen} assignmentId={subsAssignmentId} />
     </div>
   );
@@ -769,13 +782,13 @@ function HomeworkRowCard({ row, onCheckRich, onEditRich, onDelete }: {
         </div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-        {row.kind === "task" && row.pending > 0 && (
+        {row.pending > 0 && (
           <Badge variant="outline" className="border-warning/40 text-warning">รอตรวจ {row.pending}</Badge>
         )}
-        {row.kind === "task" && row.graded > 0 && (
+        {row.graded > 0 && (
           <Badge variant="outline" className="border-success/40 text-success">ตรวจแล้ว {row.graded}</Badge>
         )}
-        {row.kind === "task" && row.total === 0 && (
+        {row.total === 0 && (
           <Badge variant="outline" className="text-muted-foreground">ยังไม่มีคนส่ง</Badge>
         )}
         {row.kind === "task" ? (

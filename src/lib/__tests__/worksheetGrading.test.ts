@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { gradeField, isWorksheetGradable } from "../worksheetGrading";
 import type { WorksheetField } from "../pdfWorksheet";

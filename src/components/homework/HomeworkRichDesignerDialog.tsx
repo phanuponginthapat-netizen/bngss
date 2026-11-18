@@ -14,6 +14,7 @@ import EFormTemplateDesigner from "@/components/eform/EFormTemplateDesigner";
 import PdfWorksheetDesigner from "@/components/homework/PdfWorksheetDesigner";
 import { isWorksheetGradable, type WorksheetField } from "@/lib/pdfWorksheet";
 import type { EFormField } from "@/lib/eformTemplate";
+import { notifyWorksheetClass } from "@/lib/worksheetNotifications";
 
 const EMPTY = `<h2 style="text-align:center;">ใบงาน</h2><p>คำสั่ง: ...</p>`;
 
@@ -257,14 +258,20 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
         school_id: prof?.school_id || null,
         created_by: user.id,
       };
+      let savedId = editingId;
       if (editingId) {
         const { error } = await supabase.from("homework_assignments").update(payload).eq("id", editingId).select("id").single();
         if (error) throw error;
         toast.success("บันทึกใบงานแล้ว");
       } else {
-        const { error } = await supabase.from("homework_assignments").insert(payload);
+        const { data: created, error } = await supabase.from("homework_assignments").insert(payload).select("id").single();
         if (error) throw error;
+        savedId = created.id;
         toast.success("สร้างใบงานใหม่แล้ว");
+      }
+      if (savedId) {
+        try { await notifyWorksheetClass(editingId ? "updated" : "created", savedId, title, classroomId, dueDate); }
+        catch (error) { console.warn("worksheet notification failed", error); toast.warning("บันทึกใบงานแล้ว แต่ส่งแจ้งเตือนไม่สำเร็จ"); }
       }
       qc.invalidateQueries({ queryKey: ["hw-assignments"] });
       onOpenChange(false);

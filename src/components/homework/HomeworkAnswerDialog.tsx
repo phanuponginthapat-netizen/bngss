@@ -21,17 +21,20 @@ import { uploadHomeworkFile, type Attachment } from "@/lib/homeworkStorage";
 import AttachmentList from "./AttachmentList";
 import MediaCaptureButtons from "./MediaCaptureButtons";
 import { saveErrorMessage } from "@/lib/saveError";
+import { hasWorksheetAnswer } from "@/lib/worksheetGrading";
+import { worksheetNotice } from "@/lib/worksheetNotifications";
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   assignmentId: string | null;
   studentId: string | null;
+  viewOnly?: boolean;
 }
 
 type AttachmentItem = Attachment;
 
-export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, studentId }: Props) {
+export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, studentId, viewOnly }: Props) {
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,7 +85,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   }, [open, assignmentId, studentId, retryLoad]);
 
   const upsert = async (nextStatus: "draft" | "submitted") => {
-    if (!assignmentId || !studentId || loading || loadError || !assignment) throw new Error("ยังอ่านใบงานไม่สำเร็จ กรุณาลองใหม่");
+    if (viewOnly || !assignmentId || !studentId || loading || loadError || !assignment) throw new Error("ยังอ่านใบงานไม่สำเร็จหรือไม่มีสิทธิ์ส่งงาน");
     const { data: student, error: studentError } = await supabase.from("students").select("school_id").eq("id", studentId).single();
     if (studentError) throw studentError;
     const payload: any = {
@@ -132,6 +135,10 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   };
 
   const submit = async () => {
+    if (isPdfMode) {
+      const missing = worksheetFields.find(f => f.required && !hasWorksheetAnswer(f, answers[f.id]));
+      if (missing) { toast.error(`กรอก "${missing.label || "ช่องคำตอบ"}" ก่อนส่ง`); return; }
+    }
     if (!isPdfMode) {
       for (const f of fields) {
         if (f.required && (answers[f.key] === undefined || answers[f.key] === null || answers[f.key] === false || String(answers[f.key]).trim() === "")) { toast.error(`กรอก "${f.label}" ก่อนส่ง`); return; }
@@ -143,12 +150,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
       setStatus("submitted");
       // notify teacher
       if (assignment?.created_by) {
-        await notify({
-          user_ids: [assignment.created_by],
-          title: "นักเรียนส่งการบ้าน",
-          body: `ใบงาน "${assignment.title}" มีผู้ส่งใหม่`,
-          url: "/dashboard/homework",
-        }).catch(() => {});
+        await notify(worksheetNotice("submitted", assignmentId || assignment.id, assignment.title, [assignment.created_by], `มีนักเรียนส่งใบงานใหม่`));
       }
       toast.success("ส่งงานสำเร็จ");
       qc.invalidateQueries({ queryKey: ["hw-submissions"] });
@@ -173,7 +175,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
     setAttachments((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const readOnly = status === "submitted" || status === "graded";
+  const readOnly = viewOnly || status === "submitted" || status === "graded";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -299,7 +301,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
 
         <div className="flex flex-wrap justify-end gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 bg-background">
           {readOnly ? (
-            <span className="text-sm text-muted-foreground self-center">{status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
+            <span className="text-sm text-muted-foreground self-center">{viewOnly ? "ดูใบงานของลูก" : status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
           ) : (
             <>
               <Button variant="outline" onClick={saveDraft} disabled={loading || !!loadError || saving || submitting || uploading}>

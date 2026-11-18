@@ -9,6 +9,11 @@ export type WorksheetFieldType =
   | "textarea"
   | "mc"
   | "checkbox"
+  | "select"
+  | "multiselect"
+  | "match"
+  | "order"
+  | "number"
   | "draw"
   | "audio";
 
@@ -28,6 +33,9 @@ export interface WorksheetField {
   score?: number;
   caseSensitive?: boolean;
   trim?: boolean;
+  required?: boolean;
+  tolerance?: number;
+  pairs?: { left: string; right: string }[];
 }
 
 export interface WorksheetPageImage {
@@ -98,10 +106,14 @@ export function newField(
     trim: true,
     ...partial,
   };
-  if (type === "mc") {
+  if (["mc", "select", "multiselect", "order"].includes(type)) {
     base.options = base.options || ["ตัวเลือก 1", "ตัวเลือก 2", "ตัวเลือก 3"];
     base.h = 12;
     base.w = 35;
+  }
+  if (type === "match") {
+    base.pairs = base.pairs || [{ left: "คำถาม 1", right: "คำตอบ 1" }, { left: "คำถาม 2", right: "คำตอบ 2" }];
+    base.w = 50; base.h = 16;
   }
   if (type === "checkbox") {
     base.w = 4;

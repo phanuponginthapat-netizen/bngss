@@ -5,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Upload, Trash2, Type, AlignLeft, ListChecks, CheckSquare, Pencil, Mic, MousePointer2 } from "lucide-react";
+import { Loader2, Upload, Trash2, Type, AlignLeft, ListChecks, CheckSquare, Pencil, Mic, MousePointer2, Copy, Undo2, Redo2, Eye, ArrowDownUp, Link2, Hash, ChevronDown } from "lucide-react";
 import { renderPdfToImages, newField, isWorksheetGradable, type WorksheetField, type WorksheetFieldType, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
+import PdfWorksheetPlayer from "./PdfWorksheetPlayer";
 
 interface Props {
   initialPdfUrl?: string | null;
@@ -24,6 +25,11 @@ const TOOLS: { type: WorksheetFieldType; label: string; Icon: any }[] = [
   { type: "checkbox", label: "ติ๊ก", Icon: CheckSquare },
   { type: "draw", label: "วาดรูป", Icon: Pencil },
   { type: "audio", label: "อัดเสียง", Icon: Mic },
+  { type: "select", label: "เลือกจากรายการ", Icon: ChevronDown },
+  { type: "multiselect", label: "เลือกหลายคำตอบ", Icon: ListChecks },
+  { type: "match", label: "จับคู่", Icon: Link2 },
+  { type: "order", label: "เรียงลำดับ", Icon: ArrowDownUp },
+  { type: "number", label: "ตัวเลข", Icon: Hash },
 ];
 
 export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onPdfChange, onFieldsChange }: Props) {
@@ -36,6 +42,13 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
   const [fields, setFields] = useState<WorksheetField[]>(initialFields || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<WorksheetFieldType | null>(null);
+  const [preview, setPreview] = useState(false);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, unknown>>({});
+  const [past, setPast] = useState<WorksheetField[][]>([]);
+  const [future, setFuture] = useState<WorksheetField[][]>([]);
+  const snapshot = () => { setPast(arr => [...arr.slice(-29), structuredClone(fields)]); setFuture([]); };
+  const undo = () => { const previous = past.at(-1); if (!previous) return; setFuture(arr => [structuredClone(fields), ...arr]); setFields(previous); setPast(arr => arr.slice(0, -1)); };
+  const redo = () => { const next = future[0]; if (!next) return; setPast(arr => [...arr, structuredClone(fields)]); setFields(next); setFuture(arr => arr.slice(1)); };
   const dragCleanupRef = useRef<(() => void) | null>(null);
 
   // กันมี listener ค้างถ้าผู้ใช้ปิด dialog กลางทาง drag
@@ -79,14 +92,17 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
       x: Math.max(0, Math.min(100 - template.w, x - 5)),
       y: Math.max(0, Math.min(100 - template.h, y - 2)),
     });
-    setFields(arr => [...arr, f]);
+    snapshot(); setFields(arr => [...arr, f]);
     setSelectedId(f.id);
     setActiveTool(null);
   };
 
-  const updateField = (id: string, patch: Partial<WorksheetField>) =>
+  const updateField = (id: string, patch: Partial<WorksheetField>, record = true) => {
+    if (record) snapshot();
     setFields(arr => arr.map(f => f.id === id ? { ...f, ...patch } : f));
+  };
   const removeField = (id: string) => {
+    snapshot();
     setFields(arr => arr.filter(f => f.id !== id));
     if (selectedId === id) setSelectedId(null);
   };
@@ -101,6 +117,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
     const startX = e.clientX, startY = e.clientY;
     const startField = fields.find(f => f.id === id);
     if (!startField) return;
+    snapshot();
     const parentRect = parent.getBoundingClientRect();
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -110,7 +127,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
       updateField(id, {
         x: Math.max(0, Math.min(100 - startField.w, startField.x + dx)),
         y: Math.max(0, Math.min(100 - startField.h, startField.y + dy)),
-      });
+      }, false);
     };
     const cleanup = () => {
       window.removeEventListener("pointermove", onMove);
@@ -132,6 +149,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
     const startX = e.clientX, startY = e.clientY;
     const startField = fields.find(f => f.id === id);
     if (!startField) return;
+    snapshot();
     const parentRect = parent.getBoundingClientRect();
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -143,7 +161,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
       updateField(id, {
         w: Math.max(Math.min(3, maxW), Math.min(maxW, startField.w + dw)),
         h: Math.max(Math.min(2, maxH), Math.min(maxH, startField.h + dh)),
-      });
+      }, false);
     };
     const cleanup = () => {
       window.removeEventListener("pointermove", onMove);
@@ -159,6 +177,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
 
   const selected = fields.find(f => f.id === selectedId) || null;
 
+  if (preview && initialPdfUrl) return <div className="h-full min-h-0 flex flex-col"><div className="flex items-center justify-between border-b p-2"><h3 className="font-semibold">ทดลองทำใบงาน</h3><Button variant="outline" onClick={() => setPreview(false)}>กลับไปแก้ไข</Button></div><PdfWorksheetPlayer pdfUrl={initialPdfUrl} fields={fields} answers={previewAnswers} onAnswersChange={setPreviewAnswers} workspace /></div>;
   return (
     <div className="flex flex-col md:flex-row gap-3 h-full min-h-[70dvh] md:min-h-0">
       {/* LEFT: toolbar + pages */}
@@ -183,6 +202,9 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
                 <t.Icon className="w-3.5 h-3.5 mr-1" />{t.label}
               </Button>
             ))}
+            <Button type="button" size="icon" variant="ghost" aria-label="ย้อนกลับ" title="ย้อนกลับ" disabled={!past.length} onClick={undo}><Undo2 className="h-4 w-4" /></Button>
+            <Button type="button" size="icon" variant="ghost" aria-label="ทำซ้ำ" title="ทำซ้ำ" disabled={!future.length} onClick={redo}><Redo2 className="h-4 w-4" /></Button>
+            <Button type="button" size="sm" variant="outline" disabled={!initialPdfUrl} onClick={() => setPreview(true)}><Eye className="h-4 w-4" />ทดลองทำ</Button>
             <Button type="button" size="sm" variant="ghost" className="ml-auto" disabled={loading} onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4" />เปลี่ยน PDF</Button>
           </div>
         )}
@@ -223,6 +245,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
         {selected && (
           <>
             <div className="text-xs text-muted-foreground">ชนิด: {TOOLS.find(t => t.type === selected.type)?.label} · หน้า {selected.page}</div>
+            <label className="flex gap-2 items-center text-xs"><Checkbox checked={!!selected.required} onCheckedChange={c => updateField(selected.id, { required: !!c })} />ต้องตอบก่อนส่ง</label>
             <div>
               <Label className="text-xs">ป้ายชื่อ</Label>
               <Input className="h-8 text-sm" value={selected.label || ""} onChange={(e) => updateField(selected.id, { label: e.target.value })} />
@@ -243,14 +266,14 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
                 </div>
               </>
             )}
-            {selected.type === "mc" && (
+            {["mc", "select", "multiselect", "order"].includes(selected.type) && (
               <>
                 <Label className="text-xs">ตัวเลือก</Label>
                 {(selected.options || []).map((opt, i) => (
                   <div key={i} className="flex gap-1 items-center">
                     <Input className="h-8 text-sm" value={opt} onChange={(e) => {
                       const next = [...(selected.options || [])]; next[i] = e.target.value;
-                      updateField(selected.id, { options: next });
+                      updateField(selected.id, { options: next, correct: undefined });
                     }} />
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
                       const next = (selected.options || []).filter((_, idx) => idx !== i);
@@ -259,7 +282,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
                   </div>
                 ))}
                 <Button size="sm" variant="outline" onClick={() => updateField(selected.id, { options: [...(selected.options || []), "ตัวเลือกใหม่"] })}>เพิ่มตัวเลือก</Button>
-                <div>
+                {selected.type === "multiselect" ? <div className="space-y-2"><Label className="text-xs">เฉลย (เลือกได้หลายข้อ)</Label>{(selected.options || []).map((opt, i) => <label key={i} className="flex gap-2 text-xs items-center"><Checkbox checked={Array.isArray(selected.correct) && selected.correct.includes(i)} onCheckedChange={checked => updateField(selected.id, { correct: checked ? [...(Array.isArray(selected.correct) ? selected.correct : []), i] : (Array.isArray(selected.correct) ? selected.correct : []).filter((v: number) => v !== i) })} />{opt}</label>)}</div> : selected.type === "order" ? <p className="text-xs text-muted-foreground">เฉลยเรียงตามรายการด้านบน</p> : <div>
                   <Label className="text-xs">เฉลย</Label>
                   <Select value={String(selected.correct ?? "")} onValueChange={(v) => updateField(selected.id, { correct: Number(v) })}>
                     <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="เลือกข้อถูก" /></SelectTrigger>
@@ -267,9 +290,11 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
                       {(selected.options || []).map((o, i) => <SelectItem key={i} value={String(i)}>{i + 1}. {o}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
+                </div>}
               </>
             )}
+            {selected.type === "match" && <div className="space-y-2"><Label className="text-xs">คู่คำถาม — คำตอบ</Label>{(selected.pairs || []).map((pair, i) => <div key={i} className="flex gap-1"><Input aria-label={`คำถามคู่ ${i + 1}`} value={pair.left} onChange={e => updateField(selected.id, { pairs: selected.pairs?.map((p, index) => index === i ? { ...p, left: e.target.value } : p) })} /><Input aria-label={`คำตอบคู่ ${i + 1}`} value={pair.right} onChange={e => updateField(selected.id, { pairs: selected.pairs?.map((p, index) => index === i ? { ...p, right: e.target.value } : p) })} /><Button size="icon" variant="ghost" title="ลบคู่" aria-label="ลบคู่" onClick={() => updateField(selected.id, { pairs: selected.pairs?.filter((_, index) => index !== i) })}><Trash2 className="h-3 w-3" /></Button></div>)}<Button size="sm" variant="outline" onClick={() => updateField(selected.id, { pairs: [...(selected.pairs || []), { left: "คำถาม", right: "คำตอบ" }] })}>เพิ่มคู่</Button></div>}
+            {selected.type === "number" && <div className="space-y-2"><Label className="text-xs">เฉลยตัวเลข</Label><Input aria-label="เฉลยตัวเลข" type="number" step="any" value={selected.correct ?? ""} onChange={e => updateField(selected.id, { correct: e.target.value })} /><Label className="text-xs">ค่าคลาดเคลื่อนที่ยอมรับ</Label><Input aria-label="ค่าคลาดเคลื่อน" type="number" min="0" step="any" value={selected.tolerance ?? 0} onChange={e => updateField(selected.id, { tolerance: Math.max(0, Number(e.target.value)) })} /></div>}
             {selected.type === "checkbox" && (
               <div className="flex items-center gap-2">
                 <Checkbox checked={!!selected.correct} onCheckedChange={(c) => updateField(selected.id, { correct: !!c })} />
@@ -284,6 +309,7 @@ export default function PdfWorksheetDesigner({ initialPdfUrl, initialFields, onP
             <Button size="sm" variant="destructive" onClick={() => removeField(selected.id)}>
               <Trash2 className="w-3.5 h-3.5 mr-1" />ลบกล่อง
             </Button>
+            <Button size="sm" variant="outline" onClick={() => { snapshot(); const next = { ...structuredClone(selected), id: crypto.randomUUID(), x: Math.min(100 - selected.w, selected.x + 3), y: Math.min(100 - selected.h, selected.y + 3) }; setFields(arr => [...arr, next]); setSelectedId(next.id); }}><Copy className="h-4 w-4" />ทำสำเนากล่อง</Button>
           </>
         )}
         {fields.length > 0 && (

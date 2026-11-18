@@ -10,11 +10,12 @@ import { toast } from "sonner";
 import { notify } from "@/lib/notify";
 import { SubmissionAttachmentPreview } from "./SubmissionAttachmentPreview";
 import PdfWorksheetPlayer from "./PdfWorksheetPlayer";
-import { type WorksheetField } from "@/lib/pdfWorksheet";
+import { gradeField, isWorksheetGradable, type WorksheetField } from "@/lib/pdfWorksheet";
 import { EFORM_PAGE_STYLE } from "@/lib/eformLayout";
 import DOMPurify from "dompurify";
 import { saveErrorMessage } from "@/lib/saveError";
 import { useQueryClient } from "@tanstack/react-query";
+import { worksheetNotice } from "@/lib/worksheetNotifications";
 
 interface Props {
   open: boolean;
@@ -84,7 +85,11 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
     const d: Record<string, { score: string; feedback: string }> = {};
     enriched.forEach((s: any) => {
       // ถ้ายังไม่เคยให้คะแนน ให้ใช้คะแนน auto (จากระบบตรวจอัตโนมัติ) เป็นค่าเริ่มต้นในช่อง
-      const suggested = (s.score != null && s.score !== "") ? s.score : (s.auto_score != null && s.status === "submitted" ? s.auto_score : "");
+      const gradable = ((a.worksheet_fields || []) as unknown as WorksheetField[]).filter(isWorksheetGradable);
+      const computed = gradable.length ? gradable.reduce((sum, field) => sum + gradeField(field, s.answers?.[field.id]).score, 0) : "";
+      // Student-owned score writes are intentionally guarded; recompute suggestions
+      // from the saved assignment and saved answers in the authorized teacher view.
+      const suggested = (s.score != null && s.score !== "") ? s.score : (s.status === "submitted" ? computed : "");
       d[s.id] = { score: suggested?.toString() ?? "", feedback: s.feedback || "" };
     });
     // New submissions must not erase scores/comments the teacher is typing.
@@ -119,12 +124,7 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
     }).eq("id", s.id);
     if (error) { toast.error(saveErrorMessage(error)); return; }
     toast.success("บันทึกคะแนนแล้ว");
-    notify({
-      user_ids: s._authUserId ? [s._authUserId] : [],
-      title: "ครูตรวจการบ้านแล้ว",
-      body: `${assignment?.title || "ใบงาน"}: ${score !== null ? `คะแนน ${score}` : "ดูฟีดแบ็ก"}`,
-      url: "/dashboard/homework",
-    }).catch(() => {});
+    if (assignmentId) notify(worksheetNotice("graded", assignmentId, assignment?.title || "ใบงาน", s._authUserId ? [s._authUserId] : [], score !== null ? `คะแนน ${score}` : "ดูข้อเสนอแนะจากครู"));
     load();
   };
 
