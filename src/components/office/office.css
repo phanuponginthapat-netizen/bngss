@@ -20,6 +20,7 @@
 .office-workspace .jodit-word-shell { padding: 0; }
 .office-workspace .jodit-container { border: 0; border-radius: 0; }
 .office-workspace .jodit-toolbar__box { border-bottom: 1px solid hsl(var(--border)); }
+.office-workspace .jodit-container.jodit_fullsize { height: 100dvh !important; min-height: 0 !important; }
 @media (max-width: 767px) {
   .office-workspace { height: calc(100dvh - 180px); min-height: 450px; }
   .office-titlebar .office-filename { flex-basis: calc(100% - 110px); }

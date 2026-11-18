@@ -1,5 +1,24 @@
 import { useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Jodit } from "jodit";
+// The package entry only registers basic plugins, not the complete ribbon.
+import "jodit/esm/plugins/clipboard/clipboard.js";
+import "jodit/esm/plugins/copy-format/copy-format.js";
+import "jodit/esm/plugins/file/file.js";
+import "jodit/esm/plugins/fullsize/fullsize.js";
+import "jodit/esm/plugins/hr/hr.js";
+import "jodit/esm/plugins/indent/indent.js";
+import "jodit/esm/plugins/justify/justify.js";
+import "jodit/esm/plugins/line-height/line-height.js";
+import "jodit/esm/plugins/paste/paste.js";
+import "jodit/esm/plugins/paste-from-word/paste-from-word.js";
+import "jodit/esm/plugins/preview/preview.js";
+import "jodit/esm/plugins/print/print.js";
+import "jodit/esm/plugins/search/search.js";
+import "jodit/esm/plugins/source/source.js";
+import "jodit/esm/plugins/spellcheck/spellcheck.js";
+import "jodit/esm/plugins/sticky/sticky.js";
+import "jodit/esm/plugins/symbols/symbols.js";
+import "jodit/esm/plugins/video/video.js";
 import "jodit/es2021/jodit.min.css";
 
 /**
@@ -71,6 +90,8 @@ export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function J
       toolbarButtonSize: "middle" as const,
       toolbarSticky: true,
       toolbarAdaptive: false,
+      sourceEditor: "area",
+      beautifyHTML: false,
       askBeforePasteHTML: false,
       askBeforePasteFromWord: false,
       defaultActionOnPaste: "insert_only_text" as any,
