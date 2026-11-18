@@ -299,9 +299,12 @@ const FaceRegisterTab = () => {
     if (error) throw error;
     const hit = Array.isArray(data) ? (data as any[])[0] : null;
     if (hit) {
-      throw new Error(
-        `ใบหน้าซ้ำกับ ${hit.match_name ?? ""} (${hit.match_code ?? "-"}) ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ไม่อนุญาตให้ลงทะเบียนซ้ำ`,
-      );
+      const ok = await swal.confirm({
+        title: `ใบหน้าคล้าย ${hit.match_name ?? ""} (${hit.match_code ?? "-"})`,
+        text: `ระยะห่าง ${Number(hit.min_distance).toFixed(3)} — ถ้าเป็นคนละคนจริง (เช่น ฝาแฝด/พี่น้อง) กดยืนยันเพื่อบันทึกต่อ ระบบตู้จะสแกนผ่านเฉพาะเมื่อแยกได้ชัด ถ้าไม่ชัดจะให้ใช้ QR บัตร`,
+        danger: true,
+      });
+      if (!ok) throw new Error("ยกเลิก: ใบหน้าซ้ำกับคนอื่น");
     }
   };
 
