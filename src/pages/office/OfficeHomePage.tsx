@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import "@/components/office/office.css";
 import { Button } from "@/components/ui/button";
 import { FileText, FileSpreadsheet, Presentation, FileType, RefreshCw, Cloud } from "lucide-react";
 import { listRecentOfficeFiles, editorRouteForMime, iconForMime, DriveFile } from "@/lib/office/driveFileIO";
@@ -8,10 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { isDriveCredentialMissingError } from "@/lib/googleDriveErrors";
 
 const APPS = [
-  { key: "docs", title: "เอกสาร", desc: "Word / .docx", icon: FileText, to: "/dashboard/office/docs", color: "from-blue-500 to-blue-600" },
-  { key: "sheets", title: "ตารางคำนวณ", desc: "Excel / .xlsx", icon: FileSpreadsheet, to: "/dashboard/office/sheets", color: "from-emerald-500 to-emerald-600" },
-  { key: "slides", title: "นำเสนอ", desc: "PowerPoint / .pptx", icon: Presentation, to: "/dashboard/office/slides", color: "from-orange-500 to-orange-600" },
-  { key: "pdf", title: "PDF Tools", desc: "แก้ไข / เซ็น / รวมไฟล์", icon: FileType, to: "/dashboard/office/pdf", color: "from-rose-500 to-rose-600" },
+  { key: "docs", title: "เอกสาร", desc: "Word / .docx", icon: FileText, to: "/dashboard/office/docs", color: "docs" },
+  { key: "sheets", title: "ตารางคำนวณ", desc: "Excel / .xlsx", icon: FileSpreadsheet, to: "/dashboard/office/sheets", color: "sheets" },
+  { key: "slides", title: "นำเสนอ", desc: "PowerPoint / .pptx", icon: Presentation, to: "/dashboard/office/slides", color: "slides" },
+  { key: "pdf", title: "PDF Tools", desc: "แก้ไข / เซ็น / รวมไฟล์", icon: FileType, to: "/dashboard/office/pdf", color: "pdf" },
 ];
 
 export default function OfficeHomePage() {
@@ -57,41 +57,25 @@ export default function OfficeHomePage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Office Suite</h1>
-          <p className="text-sm text-muted-foreground">สร้างและแก้ไขเอกสาร ตาราง สไลด์ และ PDF บันทึกลง Google Drive ของคุณ</p>
+          <p className="text-sm text-muted-foreground">พื้นที่ทำงานของคุณ</p>
         </div>
         <Button variant="outline" size="sm" onClick={load}>
           <RefreshCw className="w-4 h-4 mr-1" /> รีเฟรช
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        {APPS.map(a => (
-          <Link key={a.key} to={a.to} className="group">
-            <Card className="h-full overflow-hidden border-2 hover:border-primary transition-all hover:shadow-lg">
-              <div className={`h-2 bg-gradient-to-r ${a.color}`} />
-              <CardContent className="p-4 flex flex-col items-center text-center gap-2">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${a.color} flex items-center justify-center text-white`}>
-                  <a.icon className="w-6 h-6" />
-                </div>
-                <div className="font-semibold">{a.title}</div>
-                <div className="text-xs text-muted-foreground">{a.desc}</div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Cloud className="w-5 h-5 text-blue-500" />
-            ไฟล์ล่าสุดใน Google Drive
-          </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/dashboard/my-drive">เปิด Drive ทั้งหมด →</Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
+      <section className="space-y-3">
+        <h2 className="font-semibold">สร้างใหม่</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {APPS.map(a => <Button key={a.key} variant="outline" asChild className={`office-app-${a.color} h-auto justify-start p-4 whitespace-normal`}><Link to={a.to}><span className="office-app-icon p-3 rounded-md"><a.icon className="h-7 w-7" /></span><span className="text-left min-w-0"><span className="block font-semibold">{a.title}</span><span className="text-xs text-muted-foreground">{a.desc}</span></span></Link></Button>)}
+        </div>
+      </section>
+      <section className="border-t pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 className="flex items-center gap-2 font-semibold"><Cloud className="w-5 h-5 text-primary" />ไฟล์ล่าสุด</h2>
+          <Button variant="ghost" size="sm" asChild><Link to="/dashboard/my-drive">Google Drive →</Link></Button>
+        </div>
+        <div>
           {loading && <div className="text-center py-8 text-muted-foreground">กำลังโหลด…</div>}
           {!loading && connected === false && (
             <div className="text-center py-8 space-y-3">
@@ -124,8 +108,8 @@ export default function OfficeHomePage() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

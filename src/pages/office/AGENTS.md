@@ -1,0 +1,3 @@
+- Office editors share OfficeWorkspace for responsive title/ribbon/status bars and same-mounted fullscreen; source readiness gates every export/save so failed reads cannot replace originals.
+- Existing unsupported PowerPoint files are preview-only; editable suite exports carry versioned internal slide data inside the PPTX archive for lossless reopening without pretending to parse arbitrary PowerPoint features.
+- PDF viewer workers come from react-pdf's own installed pdfjs version and each Document receives a separate byte copy, preventing version mismatch and detached-array failures; transformations build from annotated output before merge/extract.

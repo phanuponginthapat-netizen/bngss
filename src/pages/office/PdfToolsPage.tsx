@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import pdfWorkerUrl from "../../../node_modules/react-pdf/node_modules/pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { ArrowLeft, Upload, Download, Type, Signature, Trash2, RotateCw, Merge, 
 import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
 import { swal } from "@/lib/swal";
+import { OfficeWorkspace } from "@/components/office/OfficeWorkspace";
+import { downloadOfficeBlob } from "@/lib/office/downloadBlob";
+import { requireOfficeSourceReady } from "@/lib/office/sourceReadState";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -58,7 +61,8 @@ export default function PdfToolsPage() {
   const [scale, setScale] = useState(1);
   const [dragAnnot, setDragAnnot] = useState<string | null>(null);
   // memo กัน react-pdf โหลดไฟล์ใหม่ทุกครั้งที่ re-render
-  const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes } : undefined), [pdfBytes]);
+  const pdfFile = useMemo(() => (pdfBytes ? { data: pdfBytes.slice() } : undefined), [pdfBytes]);
+  const thumbFile = useMemo(() => (pdfBytes ? { data: pdfBytes.slice() } : undefined), [pdfBytes]);
 
   useEffect(() => {
     const version = ++sourceVersion.current;
@@ -96,7 +100,7 @@ export default function PdfToolsPage() {
     try {
       const merged = await PDFDocument.create();
       if (pdfBytes) {
-        const cur = await PDFDocument.load(pdfBytes);
+        const cur = await PDFDocument.load(await (await buildPdf()).arrayBuffer());
         const copied = await merged.copyPages(cur, cur.getPageIndices());
         copied.forEach(p => merged.addPage(p));
       }
@@ -113,14 +117,13 @@ export default function PdfToolsPage() {
   const extractPage = async () => {
     if (!pdfBytes) return;
     try {
-      const src = await PDFDocument.load(pdfBytes);
+      const src = await PDFDocument.load(await (await buildPdf()).arrayBuffer());
       const out = await PDFDocument.create();
       const [p] = await out.copyPages(src, [pageIdx]);
       out.addPage(p);
       const bytes = await out.save();
       const blob = new Blob([bytes as BlobPart], { type: MIME.pdf });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-      a.download = `${fileName.replace(/\.pdf$/i, "")}-หน้า${pageIdx + 1}.pdf`; a.click();
+      downloadOfficeBlob(blob, `${fileName.replace(/\.pdf$/i, "")}-หน้า${pageIdx + 1}.pdf`);
     } catch (e: any) { swal.error("ดึงหน้าไม่สำเร็จ", String(e?.message ?? e)); }
   };
 
@@ -192,6 +195,7 @@ export default function PdfToolsPage() {
   const sigSave = () => { setSigDraft(sigCanvasRef.current?.toDataURL("image/png") ?? null); swal.toast.success("บันทึกลายเซ็นแล้ว"); };
 
   const buildPdf = async (): Promise<Blob> => {
+    requireOfficeSourceReady(loading, readError);
     if (!pdfBytes) throw new Error("ไม่มีไฟล์");
     const doc = await PDFDocument.load(pdfBytes);
     doc.registerFontkit(fontkit);
@@ -228,47 +232,24 @@ export default function PdfToolsPage() {
   };
 
   const download = async () => {
-    const blob = await buildPdf();
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`; a.click();
+    try { downloadOfficeBlob(await buildPdf(), fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`); }
+    catch (e) { swal.error("ส่งออก PDF ไม่สำเร็จ", e); }
   };
   const doPrint = async () => {
-    const blob = await buildPdf();
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url); if (w) setTimeout(() => w.print(), 500);
+    try {
+      const url = URL.createObjectURL(await buildPdf());
+      const w = window.open(url); if (!w) { URL.revokeObjectURL(url); throw new Error("กรุณาอนุญาตหน้าต่างพิมพ์"); }
+      w.addEventListener("load", () => w.print(), { once: true });
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { swal.error("พิมพ์ไม่สำเร็จ", e); }
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="flex items-center gap-2 p-2 flex-wrap">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/dashboard/office"><ArrowLeft className="w-4 h-4 mr-1" />กลับ</Link>
-          </Button>
-          <Input value={fileName} onChange={e => setFileName(e.target.value)} className="max-w-xs h-8" />
-          <Separator orientation="vertical" className="h-6" />
-          <label className="cursor-pointer">
-            <input type="file" accept=".pdf" className="hidden" onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-            <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-1" />เปิดไฟล์</span></Button>
-          </label>
-          <label className="cursor-pointer">
-            <input type="file" accept=".pdf" multiple className="hidden" onChange={e => e.target.files && handleMerge(e.target.files)} />
-            <Button variant="outline" size="sm" asChild><span><Merge className="w-4 h-4 mr-1" />รวม</span></Button>
-          </label>
-          <div className="ml-auto flex items-center gap-2">
-            {pdfBytes && !loading && !readError && (
-              <>
-                <Button variant="outline" size="sm" onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
-                <Button variant="outline" size="sm" onClick={download}><Download className="w-4 h-4 mr-1" />โหลด</Button>
-                <SaveToDriveButton fileId={fileId} fileName={fileName} defaultName="เอกสาร.pdf"
-                  mimeType={MIME.pdf} getBlob={buildPdf}
-                  onSaved={(id, name) => { setFileId(id); setFileName(name); }} />
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
+    <OfficeWorkspace app="pdf" name={fileName} onNameChange={setFileName} status={pdfBytes ? `หน้า ${pageIdx + 1} / ${numPages}` : "PDF"} actions={<>
+      <label className="cursor-pointer"><input aria-label="เปิด PDF" type="file" accept=".pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} /><Button variant="outline" size="sm" asChild><span><Upload />เปิดไฟล์</span></Button></label>
+      <label className="cursor-pointer"><input type="file" accept=".pdf" multiple className="hidden" onChange={e => { if (e.target.files) handleMerge(e.target.files); e.target.value = ""; }} /><Button variant="outline" size="sm" asChild><span><Merge />รวม</span></Button></label>
+      {pdfBytes && <><Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer />พิมพ์</Button><Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download />ดาวน์โหลด</Button><SaveToDriveButton disabled={loading || !!readError} fileId={fileId} fileName={fileName} defaultName="เอกสาร.pdf" mimeType={MIME.pdf} getBlob={buildPdf} onSaved={(id, name) => { setFileId(id); setFileName(name); }} /></>}
+    </>}>
       {loading ? <div className="text-center py-12 text-muted-foreground">กำลังอ่าน PDF…</div> : readError ? <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิด PDF ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p>{fileIdParam && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button>}</div> : !pdfBytes ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-3">
@@ -280,9 +261,9 @@ export default function PdfToolsPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 min-h-0 flex overflow-hidden">
           {/* Tools */}
-          <aside className="w-64 border-r bg-background overflow-y-auto p-3 space-y-3">
+          <aside className="w-36 sm:w-56 shrink-0 border-r bg-background overflow-y-auto p-3 space-y-3">
             <div className="space-y-2">
               <Button variant={tool === "text" ? "default" : "outline"} size="sm" className="w-full justify-start" onClick={() => setTool(tool === "text" ? "none" : "text")}>
                 <Type className="w-4 h-4 mr-2" />ใส่ข้อความ
@@ -310,7 +291,7 @@ export default function PdfToolsPage() {
               {tool === "signature" && (
                 <div className="space-y-2">
                   <canvas ref={sigCanvasRef} width={400} height={150}
-                    className="border rounded bg-white w-full touch-none"
+                    className="border rounded office-paper w-full touch-none"
                     onMouseDown={sigStart} onMouseMove={sigMove} onMouseUp={sigEnd} onMouseLeave={sigEnd}
                     onTouchStart={sigStart} onTouchMove={sigMove} onTouchEnd={sigEnd} />
                   <div className="flex gap-1">
@@ -349,10 +330,10 @@ export default function PdfToolsPage() {
             <div className="space-y-1 border-t pt-2">
               <div className="text-xs text-muted-foreground">หน้าทั้งหมด</div>
               <div className="max-h-96 overflow-y-auto space-y-1">
-                <Document file={pdfFile} loading={null}>
+                <Document file={thumbFile} loading={null}>
                   {Array.from({ length: numPages }, (_, i) => (
                     <button key={i} onClick={() => setPageIdx(i)}
-                      className={`w-full border-2 rounded overflow-hidden bg-white ${i === pageIdx ? "border-primary" : "border-border"}`}>
+                      className={`w-full border-2 rounded overflow-hidden office-paper ${i === pageIdx ? "border-primary" : "border-border"}`}>
                       <Page pageNumber={i + 1} width={180} rotate={rotations[i] ?? 0} renderTextLayer={false} renderAnnotationLayer={false} />
                     </button>
                   ))}
@@ -363,8 +344,8 @@ export default function PdfToolsPage() {
           </aside>
 
           {/* Viewer */}
-          <div className="flex-1 overflow-auto p-4 flex justify-center bg-slate-200">
-            <div ref={pageWrapRef} className={`relative inline-block shadow-2xl ${tool !== "none" ? "cursor-crosshair" : "cursor-default"}`}
+          <div className="flex-1 overflow-auto p-4 flex justify-center bg-muted">
+            <div ref={pageWrapRef} className={`relative inline-block shrink-0 self-start shadow-2xl ${tool !== "none" ? "cursor-crosshair" : "cursor-default"}`}
               onClick={handlePageClick}>
               <Document file={pdfFile} onLoadSuccess={({ numPages }) => setNumPages(numPages)}>
                 <Page pageNumber={pageIdx + 1} width={800 * scale} rotate={rotations[pageIdx] ?? 0} />
@@ -389,7 +370,7 @@ export default function PdfToolsPage() {
           </div>
         </div>
       )}
-    </div>
+    </OfficeWorkspace>
   );
 }
 

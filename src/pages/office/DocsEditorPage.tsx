@@ -3,13 +3,23 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Upload, Download, Printer, FileText } from "lucide-react";
+import { Upload, Download, Printer } from "lucide-react";
+import { OfficeWorkspace } from "@/components/office/OfficeWorkspace";
+import { downloadOfficeBlob } from "@/lib/office/downloadBlob";
 import mammoth from "mammoth";
 import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
 import { JoditDocEditor, type JoditDocEditorHandle } from "@/components/office/JoditDocEditor";
 import { swal } from "@/lib/swal";
 import { requireOfficeSourceReady } from "@/lib/office/sourceReadState";
+import { attachEditableSource, readEditableSource } from "@/lib/office/editableArchive";
+import DOMPurify from "dompurify";
+
+async function readDocx(buf: ArrayBuffer) {
+  const saved = await readEditableSource(buf, "docs");
+  if (saved !== null && typeof saved !== "string") throw new Error("ข้อมูลเอกสารไม่สมบูรณ์");
+  return DOMPurify.sanitize(typeof saved === "string" ? saved : (await mammoth.convertToHtml({ arrayBuffer: buf })).value);
+}
 
 export default function DocsEditorPage() {
   const [sp] = useSearchParams();
@@ -32,7 +42,7 @@ export default function DocsEditorPage() {
       try {
         const meta = await getFileMeta(fileIdParam);
         const buf = await downloadFile(fileIdParam);
-        const { value } = await mammoth.convertToHtml({ arrayBuffer: buf });
+        const value = await readDocx(buf);
         if (version !== sourceVersion.current) return;
         setInitialHtml(value || "<p><br/></p>");
         setFileName(meta.name);
@@ -48,7 +58,7 @@ export default function DocsEditorPage() {
     setLoading(true);
     try {
       const buf = await file.arrayBuffer();
-      const { value } = await mammoth.convertToHtml({ arrayBuffer: buf });
+      const value = await readDocx(buf);
       if (version !== sourceVersion.current) return;
       setInitialHtml(value || "<p><br/></p>");
       editorRef.current?.setHtml(value || "");
@@ -72,16 +82,13 @@ export default function DocsEditorPage() {
       </style></head><body>${body}</body></html>`;
     const { asBlob } = await import("html-docx-js-typescript");
     const out = await asBlob(html);
-    return out instanceof Blob ? out : new Blob([out as any], { type: MIME.docx });
+    return attachEditableSource(out instanceof Blob ? out : new Blob([out as any], { type: MIME.docx }), "docs", body);
   };
 
   const download = async () => {
     try {
       const blob = await buildDocx();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = fileName.endsWith(".docx") ? fileName : `${fileName}.docx`;
-      a.click();
+      downloadOfficeBlob(blob, fileName.endsWith(".docx") ? fileName : `${fileName}.docx`);
     } catch (e: any) {
       swal.error("Export ไม่สำเร็จ", String(e?.message ?? e));
     }
@@ -106,53 +113,14 @@ export default function DocsEditorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40 flex flex-col">
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b">
-        <div className="flex items-center gap-2 p-2 flex-wrap">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/dashboard/office"><ArrowLeft className="w-4 h-4 mr-1" />กลับ</Link>
-          </Button>
-          <FileText className="w-5 h-5 text-blue-600" />
-          <Input value={fileName} onChange={e => setFileName(e.target.value)} className="max-w-xs h-8" />
-          <select
-            value={pageSize}
-            onChange={e => setPageSize(e.target.value as "A4" | "Letter")}
-            className="h-8 text-xs border rounded px-2 bg-background"
-            title="ขนาดกระดาษ"
-          >
-            <option value="A4">A4 (21 × 29.7 ซม.)</option>
-            <option value="Letter">Letter (21.59 × 27.94 ซม.)</option>
-          </select>
-          <div className="ml-auto flex items-center gap-2">
-            <label className="cursor-pointer">
-              <input type="file" accept=".docx" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImportLocal(file); e.target.value = ""; }} />
-              <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-1" />นำเข้า</span></Button>
-            </label>
-            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
-            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download className="w-4 h-4 mr-1" />โหลด .docx</Button>
-            <SaveToDriveButton disabled={loading || !!readError}
-              fileId={fileId} fileName={fileName} defaultName="เอกสารใหม่.docx"
-              mimeType={MIME.docx} getBlob={buildDocx}
-              onSaved={(id, name) => { setFileId(id); setFileName(name); }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        {loading ? (
-          <div className="text-center py-16 text-muted-foreground">กำลังโหลดเอกสาร…</div>
-        ) : readError ? (
-          <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิดไฟล์ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p><Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div>
-        ) : (
-          <JoditDocEditor
-            ref={editorRef}
-            value={initialHtml}
-            pageSize={pageSize}
-            minHeight={900}
-          />
-        )}
-      </div>
-    </div>
+    <OfficeWorkspace app="docs" name={fileName} onNameChange={setFileName} status={loading ? "กำลังเปิด" : readError ? "เปิดไม่สำเร็จ" : `${pageSize} · Word .docx`} actions={<>
+      <select aria-label="ขนาดกระดาษ" value={pageSize} onChange={e => setPageSize(e.target.value as "A4" | "Letter")} className="h-9 text-sm border rounded-md px-2 bg-background"><option value="A4">A4</option><option value="Letter">Letter</option></select>
+      <label className="cursor-pointer"><input aria-label="นำเข้าไฟล์ Word" type="file" accept=".docx" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImportLocal(file); e.target.value = ""; }} /><Button variant="outline" size="sm" asChild><span><Upload />นำเข้า</span></Button></label>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer />พิมพ์</Button>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download />ดาวน์โหลด</Button>
+      <SaveToDriveButton disabled={loading || !!readError} fileId={fileId} fileName={fileName} defaultName="เอกสารใหม่.docx" mimeType={MIME.docx} getBlob={buildDocx} onSaved={(id, name) => { setFileId(id); setFileName(name); }} />
+    </>}>
+      {loading ? <div className="text-center py-16 text-muted-foreground">กำลังโหลดเอกสาร…</div> : readError ? <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิดไฟล์ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p><Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div> : <JoditDocEditor ref={editorRef} value={initialHtml} pageSize={pageSize} minHeight={900} />}
+    </OfficeWorkspace>
   );
 }

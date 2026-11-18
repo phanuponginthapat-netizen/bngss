@@ -10,6 +10,11 @@ import pptxgen from "pptxgenjs";
 import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
 import { swal } from "@/lib/swal";
+import { OfficeWorkspace } from "@/components/office/OfficeWorkspace";
+import { PptxPreview } from "@/components/office/PptxPreview";
+import { attachEditableSource, readEditableSource } from "@/lib/office/editableArchive";
+import { downloadOfficeBlob } from "@/lib/office/downloadBlob";
+import { requireOfficeSourceReady } from "@/lib/office/sourceReadState";
 
 type ElBase = { id: string; x: number; y: number; w: number; h: number };
 type Element =
@@ -81,25 +86,45 @@ export default function SlidesEditorPage() {
   const [presenting, setPresenting] = useState(false);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [driveOpenNotice, setDriveOpenNotice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!!fileIdParam);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [externalBytes, setExternalBytes] = useState<ArrayBuffer | null>(null);
+  const sourceVersion = useRef(0);
+  const decodeSource = async (bytes: ArrayBuffer) => {
+    const source = await readEditableSource(bytes, "slides");
+    if (source === null) return null;
+    if (!Array.isArray(source) || !source.length || !source.every(s => typeof s.id === "string" && typeof s.bg === "string" && Array.isArray(s.elements) && s.elements.every((e: any) => ["text", "image", "shape"].includes(e.type) && [e.x, e.y, e.w, e.h].every(Number.isFinite)))) throw new Error("ข้อมูลสไลด์ในไฟล์ไม่สมบูรณ์");
+    return source as Slide[];
+  };
 
-  // เมื่อเปิดจาก ?file= เรายังไม่มีตัวแปลง .pptx → Slide[] จึงโหลดชื่อไฟล์ได้เท่านั้น
-  // และสำคัญ: ไม่ set fileId จริง เพื่อกัน "บันทึก" ทับไฟล์ต้นฉบับด้วยสไลด์ว่าง
   useEffect(() => {
-    if (!fileIdParam) return;
-    let cancelled = false;
+    const version = ++sourceVersion.current;
+    setLoading(!!fileIdParam); setReadError(null); setFileId(null); setExternalBytes(null); setActive(0); setSelEl(null);
+    if (!fileIdParam) { setSlides([makeSlide(0), makeSlide(1)]); setFileName("สไลด์ใหม่.pptx"); return; }
     (async () => {
       try {
         const meta = await getFileMeta(fileIdParam);
-        if (cancelled) return;
+        const bytes = await downloadFile(fileIdParam);
+        const source = await decodeSource(bytes);
+        if (version !== sourceVersion.current) return;
         setFileName(meta.name);
-        setDriveOpenNotice("ยังไม่รองรับการเปิด .pptx เดิมกลับมาแก้ไขในตัวแก้ไขนี้ — กดปุ่ม \"บันทึกลง Drive\" เพื่อบันทึกเป็นไฟล์ใหม่ (ไฟล์ต้นฉบับไม่ถูกแก้ไข)");
-      } catch (e: any) {
-        if (!cancelled) swal.error("เปิดไฟล์ไม่สำเร็จ", String(e?.message ?? e));
-      }
+        if (source) { setSlides(source); setFileId(fileIdParam); } else setExternalBytes(bytes);
+      } catch (e: any) { if (version === sourceVersion.current) setReadError(String(e?.message || e)); }
+      finally { if (version === sourceVersion.current) setLoading(false); }
     })();
-    return () => { cancelled = true; };
-  }, [fileIdParam]);
+    return () => { sourceVersion.current += 1; };
+  }, [fileIdParam, retry]);
+  const importPptx = async (file: File) => {
+    const version = ++sourceVersion.current; setLoading(true);
+    try {
+      const bytes = await file.arrayBuffer(); const source = await decodeSource(bytes);
+      if (version !== sourceVersion.current) return;
+      setReadError(null); setFileName(file.name); setFileId(null); setActive(0); setSelEl(null);
+      if (source) { setSlides(source); setExternalBytes(null); } else setExternalBytes(bytes);
+    } catch (e: any) { swal.error("เปิดสไลด์ไม่สำเร็จ", String(e?.message || e)); }
+    finally { if (version === sourceVersion.current) setLoading(false); }
+  };
 
   const cur = slides[active];
   const selected = cur?.elements.find(e => e.id === selEl);
@@ -109,12 +134,12 @@ export default function SlidesEditorPage() {
     const compute = () => {
       const el = canvasWrapRef.current; if (!el) return;
       const w = el.clientWidth - 32, h = el.clientHeight - 32;
-      setScale(Math.min(w / SLIDE_W, h / SLIDE_H, 1));
+      setScale(Math.max(0.05, Math.min(w / SLIDE_W, h / SLIDE_H, 1)));
     };
     compute();
     const ro = new ResizeObserver(compute); if (canvasWrapRef.current) ro.observe(canvasWrapRef.current);
     return () => ro.disconnect();
-  }, [presenting]);
+  }, [presenting, loading, externalBytes]);
 
   // Present-mode keyboard nav
   useEffect(() => {
@@ -212,6 +237,8 @@ export default function SlidesEditorPage() {
   });
 
   const buildPptx = async (): Promise<Blob> => {
+    requireOfficeSourceReady(loading, readError);
+    if (externalBytes) return new Blob([externalBytes], { type: MIME.pptx });
     const pres = new pptxgen();
     pres.layout = "LAYOUT_WIDE";
     const PW = 13.333, PH = 7.5;
@@ -231,21 +258,20 @@ export default function SlidesEditorPage() {
           try {
             if (el.src.startsWith("data:")) slide.addImage({ data: el.src, x, y, w, h });
             else slide.addImage({ path: el.src, x, y, w, h });
-          } catch { /* ignore */ }
+          } catch { throw new Error("ส่งออกรูปภาพในสไลด์ไม่สำเร็จ"); }
         } else if (el.type === "shape") {
           const shape = el.shape === "circle" ? pres.ShapeType.ellipse : el.shape === "line" ? pres.ShapeType.rect : pres.ShapeType.rect;
           slide.addShape(shape, { x, y, w, h, fill: { color: el.fill.replace("#", "") }, line: el.stroke ? { color: el.stroke.replace("#", "") } : undefined });
         }
       }
     }
-    return await pres.write({ outputType: "blob" }) as Blob;
+    return attachEditableSource(await pres.write({ outputType: "blob" }) as Blob, "slides", slides);
   };
 
   const download = async () => {
     try {
       const blob = await buildPptx();
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-      a.download = fileName.endsWith(".pptx") ? fileName : `${fileName}.pptx`; a.click();
+      downloadOfficeBlob(blob, fileName.endsWith(".pptx") ? fileName : `${fileName}.pptx`);
     } catch (e: any) { swal.error("Export ไม่สำเร็จ", String(e?.message ?? e)); }
   };
 
@@ -277,27 +303,13 @@ export default function SlidesEditorPage() {
   }
 
   return (
-    <div className="h-screen bg-muted/30 flex flex-col">
-      {/* Top */}
-      <div className="bg-background/95 backdrop-blur border-b">
-        {driveOpenNotice && (
-          <div className="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs px-3 py-2 flex items-center gap-2">
-            <span>⚠️ {driveOpenNotice}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 p-2 flex-wrap">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/dashboard/office"><ArrowLeft className="w-4 h-4 mr-1" />กลับ</Link>
-          </Button>
-          <Input value={fileName} onChange={e => setFileName(e.target.value)} className="max-w-xs h-8" />
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={enterPresent}><Play className="w-4 h-4 mr-1" />นำเสนอ (F5)</Button>
-            <Button variant="outline" size="sm" onClick={download}><Download className="w-4 h-4 mr-1" />โหลด .pptx</Button>
-            <SaveToDriveButton fileId={fileId} fileName={fileName} defaultName="สไลด์ใหม่.pptx"
-              mimeType={MIME.pptx} getBlob={buildPptx}
-              onSaved={(id, name) => { setFileId(id); setFileName(name); }} />
-          </div>
-        </div>
+    <OfficeWorkspace app="slides" name={fileName} onNameChange={setFileName} status={externalBytes ? "ไฟล์ภายนอก · อ่านอย่างเดียว" : `สไลด์ ${active + 1} / ${slides.length}`} actions={<>
+      <label className="cursor-pointer"><input aria-label="นำเข้า PowerPoint" type="file" accept=".pptx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importPptx(f); e.target.value = ""; }} /><Button variant="outline" size="sm" asChild><span><ImageIcon />เปิดไฟล์</span></Button></label>
+      <Button variant="outline" size="sm" disabled={loading || !!readError || !!externalBytes} onClick={enterPresent}><Play />นำเสนอ</Button>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download />ดาวน์โหลด</Button>
+      <SaveToDriveButton disabled={loading || !!readError} fileId={fileId} fileName={fileName} defaultName="สไลด์ใหม่.pptx" mimeType={MIME.pptx} getBlob={buildPptx} onSaved={(id, name) => { if (!externalBytes) setFileId(id); setFileName(name); }} />
+    </>}>
+      {loading ? <div className="p-12 text-center">กำลังเปิดสไลด์…</div> : readError ? <div className="p-12 text-center space-y-3"><p className="text-destructive">{readError}</p><Button onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div> : externalBytes ? <><p className="px-4 py-2 text-sm bg-muted border-b">ไฟล์ PowerPoint ภายนอกเปิดดูได้เท่านั้น · ดาวน์โหลดและบันทึกสำเนาจะคงไฟล์ต้นฉบับ</p><PptxPreview bytes={externalBytes} /></> : <>
         {/* Toolbar */}
         <div className="flex items-center gap-1 px-2 py-1 border-t flex-wrap">
           <Button variant="ghost" size="sm" onClick={addText}><Type className="w-4 h-4 mr-1" />ข้อความ</Button>
@@ -305,7 +317,7 @@ export default function SlidesEditorPage() {
             <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && addImageFile(e.target.files[0])} />
             <Button variant="ghost" size="sm" asChild><span><ImageIcon className="w-4 h-4 mr-1" />รูป</span></Button>
           </label>
-          <Button variant="ghost" size="sm" onClick={addImageUrl}>URL</Button>
+
           <Separator orientation="vertical" className="h-6" />
           <Button variant="ghost" size="sm" onClick={() => addShape("rect")}><Square className="w-4 h-4" /></Button>
           <Button variant="ghost" size="sm" onClick={() => addShape("circle")}><Circle className="w-4 h-4" /></Button>
@@ -321,11 +333,10 @@ export default function SlidesEditorPage() {
             <button key={t.name} title={t.name} onClick={() => applyTheme(t)} className="w-5 h-5 rounded border-2 border-border" style={{ background: t.bg }} />
           ))}
         </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-[320px] flex overflow-hidden">
         {/* Slide list */}
-        <aside className="w-52 border-r bg-background overflow-y-auto p-2 space-y-2">
+        <aside className="w-24 sm:w-44 shrink-0 border-r bg-background overflow-y-auto p-2 space-y-2">
           {slides.map((s, i) => (
             <div key={s.id} className="relative group">
               <button
@@ -357,8 +368,8 @@ export default function SlidesEditorPage() {
         </aside>
 
         {/* Canvas */}
-        <div ref={canvasWrapRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 bg-slate-200">
-          <div className="relative shadow-2xl origin-center"
+        <div ref={canvasWrapRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 bg-muted">
+          <div className="relative shadow-2xl origin-center shrink-0"
             style={{ width: SLIDE_W, height: SLIDE_H, background: cur.bg, transform: `scale(${scale})` }}
             onClick={() => setSelEl(null)}>
             {cur.elements.map(el => renderEl(el, selEl === el.id,
@@ -370,12 +381,12 @@ export default function SlidesEditorPage() {
         </div>
 
         {/* Properties */}
-        <aside className="w-64 border-l bg-background overflow-y-auto p-3 space-y-3">
+        <aside className="w-52 shrink-0 hidden lg:block border-l bg-background overflow-y-auto p-3 space-y-3">
           <div>
             <label className="text-xs text-muted-foreground">พื้นหลังสไลด์</label>
             <Input type="color" value={cur.bg} onChange={e => setSlides(p => p.map((s, i) => i === active ? { ...s, bg: e.target.value } : s))} />
           </div>
-          {!selected && <p className="text-xs text-muted-foreground">แตะที่อ็อบเจกต์เพื่อแก้ไข · ใช้ลูกศรเลื่อน · Del ลบ</p>}
+
           {selected?.type === "text" && (
             <>
               <Separator />
@@ -428,7 +439,8 @@ export default function SlidesEditorPage() {
           )}
         </aside>
       </div>
-    </div>
+    </>}
+    </OfficeWorkspace>
   );
 }
 

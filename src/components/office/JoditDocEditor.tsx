@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import JoditEditor from "jodit-react";
+import { Jodit } from "jodit";
 import "jodit/es2021/jodit.min.css";
 
 /**
@@ -29,6 +29,7 @@ interface Props {
 
 const A4 = { w: "21cm", h: "29.7cm", pad: "2.54cm" };
 const LT = { w: "21.59cm", h: "27.94cm", pad: "2.54cm" };
+const EMPTY_BUTTONS: any[] = [];
 
 /** Word-like Ribbon layout condensed into Jodit's flat toolbar. Ordered for familiarity. */
 const RIBBON_BUTTONS = [
@@ -52,10 +53,13 @@ const RIBBON_BUTTONS = [
 ];
 
 export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function JoditDocEditor(
-  { value = "", onChange, pageSize = "A4", minHeight = 800, placeholder, extraButtons = [] },
+  { value = "", onChange, pageSize = "A4", minHeight = 800, placeholder, extraButtons = EMPTY_BUTTONS },
   ref,
 ) {
   const editorRef = useRef<any>(null);
+  const sourceRef = useRef<HTMLTextAreaElement>(null);
+  const changeRef = useRef(onChange);
+  changeRef.current = onChange;
   const page = pageSize === "A4" ? A4 : LT;
 
   const config = useMemo(
@@ -134,6 +138,17 @@ export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function J
     return `<div class="page">${html || "<p><br/></p>"}</div>`;
   }, [value]);
 
+  useEffect(() => {
+    if (!sourceRef.current) return;
+    const current = sourceRef.current.value;
+    const editor = Jodit.make(sourceRef.current, config as any);
+    editorRef.current = editor;
+    editor.value = current || wrapped;
+    const change = () => changeRef.current?.(editor.value);
+    editor.events.on("blur", change);
+    return () => { const latest = editor.value; editor.events.off("blur", change); editor.destruct(); if (sourceRef.current) sourceRef.current.value = latest; editorRef.current = null; };
+  }, [config]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -162,15 +177,7 @@ export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function J
 
   return (
     <div className="jodit-word-shell">
-      <JoditEditor
-        ref={editorRef}
-        value={wrapped}
-        config={config as any}
-        onBlur={(newContent) => onChange?.(newContent)}
-        onChange={() => {
-          /* keep uncontrolled between renders; onBlur flushes */
-        }}
-      />
+      <textarea ref={sourceRef} aria-label="เอกสาร" />
       <style>{`
         .jodit-word-shell .jodit-container { border-radius: 8px; overflow: hidden; }
         .jodit-word-shell .jodit-toolbar__box { background: hsl(var(--card)); }

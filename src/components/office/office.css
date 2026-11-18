@@ -1,0 +1,26 @@
+:root {
+  --office-docs: 211 85% 39%;
+  --office-sheets: 151 64% 29%;
+  --office-slides: 15 74% 43%;
+  --office-pdf: 350 72% 43%;
+  --office-paper: 0 0% 100%;
+  --office-paper-ink: 240 6% 10%;
+}
+.office-app-docs { --office-app: var(--office-docs); }
+.office-app-sheets { --office-app: var(--office-sheets); }
+.office-app-slides { --office-app: var(--office-slides); }
+.office-app-pdf { --office-app: var(--office-pdf); }
+.office-app-icon { color: hsl(var(--office-app)); background: hsl(var(--office-app) / .09); }
+.office-workspace { height: calc(100dvh - 160px); min-height: 480px; display: flex; flex-direction: column; overflow: hidden; background: hsl(var(--muted)); }
+.office-workspace.office-expanded { position: fixed; inset: 0; z-index: 60; height: 100dvh; min-height: 0; }
+.office-titlebar { border-top: 3px solid hsl(var(--office-app)); }
+.office-titlebar > div { min-width: 0; }
+.office-ribbon { background: hsl(var(--background)); border-bottom: 1px solid hsl(var(--border)); }
+.office-paper { background: hsl(var(--office-paper)); color: hsl(var(--office-paper-ink)); }
+.office-workspace .jodit-word-shell { padding: 0; }
+.office-workspace .jodit-container { border: 0; border-radius: 0; }
+.office-workspace .jodit-toolbar__box { border-bottom: 1px solid hsl(var(--border)); }
+@media (max-width: 767px) {
+  .office-workspace { height: calc(100dvh - 180px); min-height: 450px; }
+  .office-titlebar .office-filename { flex-basis: calc(100% - 110px); }
+}

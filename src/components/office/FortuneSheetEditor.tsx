@@ -40,7 +40,7 @@ export function workbookToSheets(data: ArrayBuffer | Uint8Array): Sheet[] {
           v: {
             v: cell.v,
             m: cell.w ?? String(cell.v ?? ""),
-            ct: { fa: "General", t: cell.t === "n" ? "n" : cell.t === "b" ? "b" : "s" },
+            ct: { fa: cell.z ?? "General", t: cell.t === "n" ? "n" : cell.t === "b" ? "b" : "s" },
             f: cell.f ? `=${cell.f}` : undefined,
           },
         });
@@ -64,7 +64,7 @@ export function workbookToSheets(data: ArrayBuffer | Uint8Array): Sheet[] {
       celldata,
       row: Math.max(100, range.e.r + 20),
       column: Math.max(30, range.e.c + 5),
-      config: { columnlen, rowlen },
+      config: { columnlen, rowlen, merge: Object.fromEntries((ws["!merges"] ?? []).map(m => [`${m.s.r}_${m.s.c}`, { r: m.s.r, c: m.s.c, rs: m.e.r - m.s.r + 1, cs: m.e.c - m.s.c + 1 }])) },
     } as unknown as Sheet;
   });
 }
@@ -83,11 +83,13 @@ export function sheetsToXlsxBlob(sheets: Sheet[]): Blob {
     let maxC = 0;
     for (const cell of celldata) {
       const v = cell.v?.v;
-      if (v === undefined || v === null) continue;
+      const formula = cell.v?.f;
+      if ((v === undefined || v === null) && !formula) continue;
       const addr = XLSX.utils.encode_cell({ r: cell.r, c: cell.c });
       const t = typeof v === "number" ? "n" : typeof v === "boolean" ? "b" : "s";
       if (t === "s" && v === "") continue;
-      ws[addr] = { v, t };
+      ws[addr] = { v: v ?? 0, t: formula && v == null ? "n" : t };
+      if (cell.v?.ct?.fa && cell.v.ct.fa !== "General") ws[addr].z = cell.v.ct.fa;
       const f = cell.v?.f;
       if (typeof f === "string" && f.startsWith("=")) ws[addr].f = f.slice(1);
       maxR = Math.max(maxR, cell.r);
@@ -98,6 +100,11 @@ export function sheetsToXlsxBlob(sheets: Sheet[]): Blob {
     const columnlen: Record<string, number> = ((s as any).config?.columnlen ?? {}) as any;
     for (const [k, v] of Object.entries(columnlen)) cols[+k] = { wpx: v };
     if (cols.length) ws["!cols"] = cols;
+    const rowlen = (s as any).config?.rowlen ?? {};
+    const rows: any[] = [];
+    for (const [k, v] of Object.entries(rowlen)) rows[+k] = { hpx: v };
+    if (rows.length) ws["!rows"] = rows;
+    ws["!merges"] = Object.values((s as any).config?.merge ?? {}).map((m: any) => ({ s: { r: m.r, c: m.c }, e: { r: m.r + m.rs - 1, c: m.c + m.cs - 1 } }));
     XLSX.utils.book_append_sheet(wb, ws, (s.name ?? "Sheet1").substring(0, 31));
   }
   const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -144,7 +151,7 @@ export const FortuneSheetEditor = forwardRef<FortuneSheetHandle, Props>(function
         key={key}
         ref={wbRef}
         data={source.map(sheet => ({ ...sheet, luckysheet_select_save: sheet.luckysheet_select_save?.length ? sheet.luckysheet_select_save : [{row: [0,0], column: [0,0], row_focus: 0, column_focus: 0}] })) as any}
-        lang="zh" // FortuneSheet ships zh/en — zh is closer to MS Excel button layout
+        lang="en"
         onChange={(sheets) => {
           dataRef.current = sheets as Sheet[];
           onChange?.(sheets as Sheet[]);

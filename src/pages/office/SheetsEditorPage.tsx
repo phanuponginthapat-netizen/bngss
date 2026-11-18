@@ -3,7 +3,9 @@ import { escapeHtml } from "@/lib/escapeHtml";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Upload, Download, Printer, Sheet as SheetIcon } from "lucide-react";
+import { Upload, Download, Printer, FileDown } from "lucide-react";
+import { OfficeWorkspace } from "@/components/office/OfficeWorkspace";
+import { downloadOfficeBlob } from "@/lib/office/downloadBlob";
 import * as XLSX from "xlsx";
 import { downloadFile, getFileMeta, MIME } from "@/lib/office/driveFileIO";
 import { SaveToDriveButton } from "@/components/office/SaveToDriveButton";
@@ -69,10 +71,7 @@ export default function SheetsEditorPage() {
   const download = async () => {
     try {
       const blob = await buildXlsx();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`;
-      a.click();
+      downloadOfficeBlob(blob, fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`);
     } catch (e: any) {
       swal.error("Export ไม่สำเร็จ", String(e?.message ?? e));
     }
@@ -85,10 +84,7 @@ export default function SheetsEditorPage() {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const csv = XLSX.utils.sheet_to_csv(ws);
       const out = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(out);
-      a.download = fileName.replace(/\.[^.]+$/, "") + ".csv";
-      a.click();
+      downloadOfficeBlob(out, fileName.replace(/\.[^.]+$/, "") + ".csv");
     } catch (e: any) {
       swal.error("CSV ไม่สำเร็จ", String(e?.message ?? e));
     }
@@ -122,44 +118,14 @@ export default function SheetsEditorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="flex items-center gap-2 p-2 flex-wrap">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/dashboard/office"><ArrowLeft className="w-4 h-4 mr-1" />กลับ</Link>
-          </Button>
-          <SheetIcon className="w-5 h-5 text-emerald-600" />
-          <Input value={fileName} onChange={e => setFileName(e.target.value)} className="max-w-xs h-8" />
-          <div className="ml-auto flex items-center gap-2">
-            <label className="cursor-pointer">
-              <input type="file" accept=".xlsx,.xls,.csv,.ods" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImport(file); e.target.value = ""; }} />
-              <Button variant="outline" size="sm" asChild><span><Upload className="w-4 h-4 mr-1" />นำเข้า</span></Button>
-            </label>
-            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={exportCsv}>CSV</Button>
-            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer className="w-4 h-4 mr-1" />พิมพ์</Button>
-            <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download className="w-4 h-4 mr-1" />โหลด .xlsx</Button>
-            <SaveToDriveButton disabled={loading || !!readError}
-              fileId={fileId} fileName={fileName} defaultName="ตารางใหม่.xlsx"
-              mimeType={MIME.xlsx} getBlob={buildXlsx}
-              onSaved={(id, name) => { setFileId(id); setFileName(name); }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        {loading ? (
-          <div className="text-center py-16 text-muted-foreground">กำลังโหลด…</div>
-        ) : readError ? (
-          <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิดไฟล์ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p><Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div>
-        ) : (
-          <FortuneSheetEditor
-            ref={sheetRef}
-            initialSheets={sheets}
-            className="w-full h-[calc(100vh-64px)]"
-          />
-        )}
-      </div>
-    </div>
+    <OfficeWorkspace app="sheets" name={fileName} onNameChange={setFileName} status={loading ? "กำลังเปิด" : readError ? "เปิดไม่สำเร็จ" : `${sheets.length} แผ่นงาน · Excel .xlsx`} actions={<>
+      <label className="cursor-pointer"><input aria-label="นำเข้าไฟล์ตาราง" type="file" accept=".xlsx,.xls,.csv,.ods" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) handleImport(file); e.target.value = ""; }} /><Button variant="outline" size="sm" asChild><span><Upload />นำเข้า</span></Button></label>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={exportCsv}><FileDown />CSV</Button>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={doPrint}><Printer />พิมพ์</Button>
+      <Button variant="outline" size="sm" disabled={loading || !!readError} onClick={download}><Download />ดาวน์โหลด</Button>
+      <SaveToDriveButton disabled={loading || !!readError} fileId={fileId} fileName={fileName} defaultName="ตารางใหม่.xlsx" mimeType={MIME.xlsx} getBlob={buildXlsx} onSaved={(id, name) => { setFileId(id); setFileName(name); }} />
+    </>}>
+      {loading ? <div className="text-center py-16 text-muted-foreground">กำลังโหลด…</div> : readError ? <div className="text-center py-12 space-y-3"><p className="text-destructive">เปิดไฟล์ไม่สำเร็จ</p><p className="text-sm text-muted-foreground">{readError}</p><Button variant="outline" onClick={() => setRetry(v => v + 1)}>ลองใหม่</Button></div> : <FortuneSheetEditor ref={sheetRef} initialSheets={sheets} className="w-full h-full min-h-[420px]" />}
+    </OfficeWorkspace>
   );
 }
