@@ -42,16 +42,37 @@ const moodColor: Record<Mood, string> = {
   worried: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
+const MASCOT_ACTIONS = ["wave", "jump", "spin", "nod", "dance"] as const;
+type MascotAction = typeof MASCOT_ACTIONS[number];
+const ACTION_MS: Record<MascotAction, number> = { wave: 1400, jump: 900, spin: 1000, nod: 1000, dance: 1500 };
+
 function AnimatedMascot({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
+  const [action, setAction] = useState<MascotAction | null>("wave");
   useEffect(() => setFailed(false), [src]);
+  useEffect(() => {
+    if (!action) return;
+    const t = window.setTimeout(() => setAction(null), ACTION_MS[action]);
+    return () => window.clearTimeout(t);
+  }, [action]);
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (document.hidden) return;
+      setAction((cur) => cur ?? MASCOT_ACTIONS[Math.floor(Math.random() * MASCOT_ACTIONS.length)]);
+    }, 7000);
+    return () => window.clearInterval(t);
+  }, []);
+  const play = () => setAction(MASCOT_ACTIONS[Math.floor(Math.random() * MASCOT_ACTIONS.length)]);
   return (
-    <div className="relative pointer-events-none select-none">
-      <img src={failed ? MASCOT_DEFAULTS.happy : src} alt={alt} width={160} height={160}
-        decoding="async" onError={() => setFailed(true)}
-        className="w-24 h-24 object-contain drop-shadow-xl relative z-10" />
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-[-10px] w-32 h-3 rounded-full bg-black/40 blur-md opacity-30" />
-    </div>
+    <button type="button" onClick={play} aria-label={alt} title="แตะเพื่อให้มาสคอตทำท่าทาง"
+      className="relative select-none cursor-pointer bg-transparent border-0 p-0 [perspective:400px]">
+      <div className="mascot-idle relative z-10">
+        <img key={action ?? "idle"} src={failed ? MASCOT_DEFAULTS.happy : src} alt={alt} width={160} height={160}
+          decoding="async" onError={() => setFailed(true)} draggable={false}
+          className={`w-24 h-24 object-contain drop-shadow-xl ${action ? `mascot-${action}` : ""}`} />
+      </div>
+      <div className="mascot-shadow absolute left-1/2 bottom-[-10px] w-32 h-3 rounded-full bg-foreground/40 blur-md" />
+    </button>
   );
 }
 
