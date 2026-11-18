@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { callLocalCtl } from "@/lib/monitorSignal";
 import { toast } from "sonner";
-import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { bkkDateISO } from "@/lib/dateBE";
 import { isMobileSession } from "@/lib/mobileSession";
 
 export type KioskRuntimeConfig = {
