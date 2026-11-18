@@ -98,6 +98,8 @@ export const JoditDocEditor = forwardRef<JoditDocEditorHandle, Props>(function J
       processPasteFromWord: true,
       enter: "P" as const,
       minHeight,
+      // A fixed viewport lets the iframe scroll; auto height hides its scrollbar.
+      height: minHeight,
       iframe: true,
       iframeStyle: `
         html, body { background:#f3f4f6; margin:0; padding:0; }

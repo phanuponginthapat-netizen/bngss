@@ -20,7 +20,11 @@
 .office-workspace .jodit-word-shell { padding: 0; }
 .office-workspace .jodit-container { border: 0; border-radius: 0; }
 .office-workspace .jodit-toolbar__box { border-bottom: 1px solid hsl(var(--border)); }
-.office-workspace .jodit-container.jodit_fullsize { height: 100dvh !important; min-height: 0 !important; }
+.office-workspace .jodit-container.jodit_fullsize { height: 100dvh !important; min-height: 0 !important; display: flex; flex-direction: column; }
+.office-workspace .jodit-container.jodit_fullsize > .jodit-toolbar__box,
+.office-workspace .jodit-container.jodit_fullsize > .jodit-status-bar { flex-shrink: 0; }
+.office-workspace .jodit-container.jodit_fullsize .jodit-workplace { flex: 1; min-height: 0 !important; overflow: hidden; }
+.office-workspace .jodit-container.jodit_fullsize .jodit-workplace iframe { min-height: 0 !important; height: 100% !important; }
 @media (max-width: 767px) {
   .office-workspace { height: calc(100dvh - 180px); min-height: 450px; }
   .office-titlebar .office-filename { flex-basis: calc(100% - 110px); }
