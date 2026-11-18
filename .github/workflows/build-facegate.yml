@@ -142,7 +142,7 @@ jobs:
             --hidden-import local_voice --hidden-import localdb --hidden-import local_rules \
             --hidden-import power_profile --hidden-import cloud_config --hidden-import power_schedule --hidden-import voice_prepare --hidden-import qrcode.image.svg \
             --hidden-import qr_reader \
-            --hidden-import native_admin --hidden-import native_admin_ui --hidden-import enrollment_quality --hidden-import native_settings --hidden-import face_memory \
+            --hidden-import native_admin --hidden-import native_admin_ui --hidden-import enrollment_quality --hidden-import native_settings --hidden-import face_memory --hidden-import twin_pair \
             --collect-submodules uvicorn --collect-data onnxruntime --collect-all webview --hidden-import clr
           test -f ../../../dist-facegate/FaceGate/FaceGate.exe
 
