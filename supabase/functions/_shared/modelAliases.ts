@@ -23,13 +23,21 @@ export const MODEL_ALIASES: Record<string, string> = {
   "gemini-3.6-flash": "gemini-3.8-flash",
   "gemini-3.1-flash-lite": "gemini-3.5-flash-lite",
 
-  // Groq — llama-3.3-70b-versatile ถูกปลดจากหลาย account แล้ว
-  "llama-3.3-70b-versatile": "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama3-70b-8192": "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama3-8b-8192": "llama-3.1-8b-instant",
-  "llama-3.2-90b-vision-preview": "meta-llama/llama-4-scout-17b-16e-instruct",
-  "llama-3.2-11b-vision-preview": "meta-llama/llama-4-scout-17b-16e-instruct",
-  "mixtral-8x7b-32768": "llama-3.1-8b-instant",
+  // Groq — รุ่น llama ทั้งหมดถูกปลดออกแล้ว (scout ปิด 17 ก.ค. 2026, 3.3/3.1 ปิด 16 ส.ค. 2026)
+  // รุ่น production ปัจจุบัน: openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b
+  "meta-llama/llama-4-scout-17b-16e-instruct": "openai/gpt-oss-120b",
+  "meta-llama/llama-4-maverick-17b-128e-instruct": "openai/gpt-oss-120b",
+  "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+  "llama3-70b-8192": "openai/gpt-oss-120b",
+  "llama3-8b-8192": "openai/gpt-oss-20b",
+  "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+  "llama-3.2-90b-vision-preview": "openai/gpt-oss-120b",
+  "llama-3.2-11b-vision-preview": "openai/gpt-oss-120b",
+  "mixtral-8x7b-32768": "openai/gpt-oss-20b",
+  "qwen/qwen3-32b": "qwen/qwen3.8-27b",
+  "qwen/qwen3.6-27b": "qwen/qwen3.8-27b",
+  "moonshotai/kimi-k2-instruct": "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct-0905": "openai/gpt-oss-120b",
 
   // DeepSeek — deepseek-chat เป็น alias ของ V3.1; รุ่นใหม่คือ V4.1 Flash
   "deepseek-chat": "deepseek-flash",
@@ -46,9 +54,9 @@ export const PROVIDER_FALLBACK_MODELS: Record<string, string[]> = {
   gemini: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
   google: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
   groq: [
-    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
-    "llama-3.1-8b-instant",
+    "qwen/qwen3.8-27b",
   ],
   openai: ["gpt-5-mini", "gpt-4.1-mini"],
   deepseek: ["deepseek-flash", "deepseek-chat"],

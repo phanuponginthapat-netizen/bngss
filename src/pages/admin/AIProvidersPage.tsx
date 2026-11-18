@@ -43,7 +43,7 @@ type PresetDef = {
 const PRESETS: Record<string, PresetDef> = {
   // ---- Free tier (ฟรีถาวร / จำกัดปริมาณ) ----
   gemini:      { label: "Google Gemini (ฟรี 1,500 req/วัน)", base_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: "gemini-3.8-flash", type: "openai_compatible", vision: true, hint: "aistudio.google.com/apikey" },
-  groq:        { label: "Groq (ฟรี, เร็วมาก)", base_url: "https://api.groq.com/openai/v1/chat/completions", model: "meta-llama/llama-4-scout-17b-16e-instruct", type: "openai_compatible", hint: "console.groq.com/keys" },
+  groq:        { label: "Groq (ฟรี, เร็วมาก)", base_url: "https://api.groq.com/openai/v1/chat/completions", model: "openai/gpt-oss-120b", type: "openai_compatible", hint: "console.groq.com/keys" },
   cerebras:    { label: "Cerebras (ฟรี, เร็วสุดใน list)", base_url: "https://api.cerebras.ai/v1/chat/completions", model: "llama-3.3-70b", type: "openai_compatible", hint: "cloud.cerebras.ai" },
   openrouter:  { label: "OpenRouter (โมเดล :free)", base_url: "https://openrouter.ai/api/v1/chat/completions", model: "deepseek/deepseek-chat-v3.1:free", type: "openrouter", hint: "openrouter.ai/keys" },
   glm:         { label: "ZhipuAI GLM-4-Flash (ฟรีถาวร)", base_url: "https://open.bigmodel.cn/api/paas/v4/chat/completions", model: "glm-4-flash", type: "openai_compatible", hint: "bigmodel.cn" },

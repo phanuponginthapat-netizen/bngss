@@ -55,8 +55,8 @@ const PROVIDER_CFG: Record<PoolProvider, {
   },
   groq: {
     url: "https://api.groq.com/openai/v1/chat/completions",
-    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
-    visionModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    defaultModel: "openai/gpt-oss-120b",
+    visionModel: "openai/gpt-oss-120b",
     buildHeaders: (key) => ({ "Content-Type": "application/json", Authorization: `Bearer ${key}` }),
     buildBody: (model, messages, opts) => {
       const body: any = { model, messages, temperature: opts.temperature ?? 0.7 };
