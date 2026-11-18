@@ -15,4 +15,4 @@
 - Persist every scan to ScanOutbox before local acknowledgement; one uploader retains original timestamps and removes only Cloud-confirmed lines without holding the append lock during network waits, preventing restart loss and blocked scanning.
 - Receive data-free device-authorized SSE doorbells and re-read canonical receipts on events, heartbeat, reconnect and upload confirmation; an independent fallback handles day rollover/lost events, keeps pending separate, and mirrors capture identity/time/photo without remote door or speech actions.
 
-- Keep adaptive exemplars local, bounded and anchored to unchanged Cloud enrollment; reject close identities and use QR instead, never train the model or delete attendance evidence. Sync all enrollment crops outside the live camera loop.
+- Keep adaptive exemplars local, bounded and anchored to unchanged Cloud enrollment; identity_clear requires a .12 original-sample cosine lead over every other person before scanning or learning, unaffected by geometry/adaptation. Use QR for lookalikes, never train the model or delete attendance evidence. Sync all enrollment crops outside the live camera loop.

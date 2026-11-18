@@ -1,4 +1,5 @@
 import * as faceapi from "@vladmandic/face-api";
+import { faceIdentityClear } from "./faceMatchSafety";
 import {
   loadArcFace,
   computeArcFaceEmbedding,
@@ -918,6 +919,7 @@ export interface KnownFace {
 
 export interface MatchResult {
   studentId: string | null;
+  ambiguous: boolean;
   distance: number;
   confidence: number; // 0..1 (higher = better)
   secondDistance: number; // ระยะของผู้สมัครอันดับสอง — ใช้ตรวจความชัดของตัวตน
@@ -936,6 +938,7 @@ export function matchDescriptor(
 ): MatchResult {
   let best: { id: string | null; d: number } = { id: null, d: Infinity };
   let second: { id: string | null; d: number } = { id: null, d: Infinity };
+  const rawScores = new Map<string, number>();
   for (const k of known) {
     const dists: number[] = [];
     for (const d of k.descriptors) {
@@ -945,6 +948,7 @@ export function matchDescriptor(
     if (dists.length === 0) continue;
     dists.sort((a, b) => a - b);
     const minD = dists[0];
+    rawScores.set(k.studentId, Math.max(rawScores.get(k.studentId) ?? -Infinity, 1 - minD));
     const median = dists[Math.floor(dists.length / 2)];
     const secondMin = dists.length > 1 ? dists[1] : minD;
     const score = minD * 0.6 + secondMin * 0.25 + median * 0.15;
@@ -956,8 +960,10 @@ export function matchDescriptor(
     }
   }
   const matched = best.d < threshold ? best.id : null;
+  const ambiguous = matched !== null && !faceIdentityClear(matched, rawScores);
   return {
-    studentId: matched,
+    studentId: ambiguous ? null : matched,
+    ambiguous,
     distance: best.d,
     confidence: Math.max(0, 1 - best.d),
     secondDistance: second.d === Infinity ? 1 : second.d,

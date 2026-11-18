@@ -1369,7 +1369,7 @@ const FaceKioskPage = () => {
               const guide = faceGuideStatus(box, { cx: vw / 2, cy: vh * 0.46, w: gTargetW, h: gTargetH });
               const inGuide = guide.ok;
               const m = matchDescriptor(det.descriptor, matchKnown, threshold);
-              const ambiguous = m.studentId != null && m.margin < MIN_MARGIN;
+              const ambiguous = m.ambiguous || (m.studentId != null && m.margin < MIN_MARGIN);
               const lowConfidence = m.studentId != null && m.confidence < MIN_CONFIDENCE;
               // tier 1: แน่นพอ → ยืนยันอัตโนมัติ (เหมือนเดิม)
               const tier1 = m.studentId != null && m.distance <= AUTO_DIST && !ambiguous && !lowConfidence;
@@ -1385,7 +1385,7 @@ const FaceKioskPage = () => {
               // Zkteco ไม่ใช้ sticky lock — ยืนยันทันทีเฟรมเดียว ไม่ล็อกค้าง
               const kLock = ZKTECO ? null : kioskLockRef.current;
               if (!ZKTECO && !matchedId && kLock && tNow < kLock.until && m.studentId === kLock.studentId
-                  && !tooSmall && m.confidence >= MIN_CONFIDENCE * 0.88) {
+                  && !ambiguous && inGuide && !tooSmall && !tooBlurry && geo.ok && m.confidence >= MIN_CONFIDENCE * 0.88) {
                 matchedId = kLock.studentId;
               }
               const found = matchedId ? matchKnown.find((k: any) => k.studentId === matchedId) as any : null;
@@ -1410,7 +1410,7 @@ const FaceKioskPage = () => {
                 : tooBlurry ? "ภาพเบลอ ให้นิ่งสักครู่"
                 : tooDark ? "แสงมืดเกินไป หาที่สว่างขึ้น"
                 : tooBright ? "แสงจ้า/ย้อนแสง หลีกหน้าต่าง"
-                : ambiguous ? "กำลังยืนยันตัวตน..."
+                : ambiguous ? "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียน"
                 : lowConfidence ? `มั่นใจ ${Math.round(m.confidence * 100)}% • ต้อง ≥ ${Math.round(MIN_CONFIDENCE * 100)}%`
                 : "ไม่พบในระบบ";
               const sublabel = found
@@ -1423,7 +1423,7 @@ const FaceKioskPage = () => {
                 : tooBlurry ? `ความคมชัด ${Math.round(sharpness)} • ต้อง ≥ ${MIN_SHARPNESS}`
                 : tooDark ? `ความสว่าง ${Math.round(brightness)}`
                 : tooBright ? `ความสว่าง ${Math.round(brightness)}`
-                : ambiguous ? `ห่าง ${m.margin.toFixed(2)} • ต้อง ≥ ${MIN_MARGIN}`
+                : ambiguous ? "ยังไม่บันทึกการมาโรงเรียน"
                 : lowConfidence ? "ขยับเข้าใกล้/หันตรงกล้อง"
                 : "กรุณาลงทะเบียน";
 

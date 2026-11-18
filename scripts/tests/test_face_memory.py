@@ -2,12 +2,20 @@ import sys
 import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parents[1]/'kiosk'/'facegate-agent'))
-from face_memory import learn, prune, enrollment_anchors
+from face_memory import learn, prune, enrollment_anchors, identity_clear
 
 def vec(x=1., y=0.):
     return [x, y]+[0.]*510
 
 class FaceMemoryTests(unittest.TestCase):
+    def test_high_confidence_lookalike_requires_card(self):
+        self.assertFalse(identity_clear('a', {'a': .96, 'b': .87}))
+    def test_clear_identity_can_scan(self):
+        self.assertTrue(identity_clear('a', {'a': .90, 'b': .65}))
+    def test_adaptive_winner_cannot_override_original_rival(self):
+        self.assertFalse(identity_clear('a', {'a': .80, 'b': .91}))
+    def test_invalid_anchor_fails_closed(self):
+        self.assertFalse(identity_clear('a', {'a': .9, 'b': float('nan')}))
     def setUp(self):
         self.anchors={'student':{'vectors':[vec()], 'version':'a'},
                       'other':{'vectors':[vec(0,1)], 'version':'b'}}

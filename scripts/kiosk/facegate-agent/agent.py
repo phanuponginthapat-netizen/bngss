@@ -24,7 +24,7 @@ import time
 from typing import Any
 import sys
 from native_settings import Settings as NativeSettings
-from face_memory import enrollment_anchors, learn as learn_face, prune as prune_memory
+from face_memory import enrollment_anchors, learn as learn_face, prune as prune_memory, identity_clear
 local_memory = {}
 
 # Windows installer (FaceGateSetup.exe): settings live in a config file instead of a .bat launcher.
@@ -118,7 +118,7 @@ CLOUD_URL = (
 DEVICE_KEY = os.environ.get("FACEGATE_DEVICE_KEY", "local") if STANDALONE else os.environ.get("FACEGATE_DEVICE_KEY", "")
 SYNC_SECONDS = int(os.environ.get("FACEGATE_SYNC_SECONDS", "30"))
 PORT = int(os.environ.get("FACEGATE_PORT", "8899"))
-AGENT_VERSION = "1.14.2"
+AGENT_VERSION = "1.14.3"
 
 
 def default_cache_dir() -> str:
@@ -1900,11 +1900,11 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
         anchored_scores[sid] = max(anchored_scores.get(sid, -1.), float(score))
     own_anchor = anchored_scores.get(student_id, -1.)
     other_anchor = max((v for sid, v in anchored_scores.items() if sid != student_id), default=-1.)
-    if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or own_anchor-other_anchor < .08:
+    if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or not identity_clear(student_id, anchored_scores):
         return {
             "result": "denied",
             "message": "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียนแทน",
-            "speak": "กรุณามองกล้องอีกครั้ง",
+            "speak": "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียนแทน",
             "next_delay_seconds": 2,
             "face_detection": visual,
         }

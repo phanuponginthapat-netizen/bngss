@@ -4,6 +4,17 @@ import time
 
 MAX_SAMPLES = 6
 MAX_AGE = 30 * 86400
+IDENTITY_MARGIN = .12
+
+
+def identity_clear(sid, scores):
+    """Closest original sample per distinct person; never geometry/adaptation."""
+    own = scores.get(sid)
+    if own is None or not math.isfinite(own):
+        return False
+    return all(math.isfinite(score) and
+               (owner == sid or own - score >= IDENTITY_MARGIN)
+               for owner, score in scores.items())
 
 
 def cosine(a, b):
@@ -31,7 +42,7 @@ def learn(memory, anchors, sid, query, sharpness, detection, now=None):
               for owner, a in anchors.items()}
     own = scores[sid]
     rival = max((v for owner, v in scores.items() if owner != sid), default=-1.)
-    if own < .8 or own-rival < .12:
+    if own < .8 or not identity_clear(sid, scores):
         return False
     samples = memory.setdefault(sid, [])
     # Repeated frames are inspected but not retained, reducing writes and drift.
