@@ -14,6 +14,7 @@ import { type WorksheetField } from "@/lib/pdfWorksheet";
 import { EFORM_PAGE_STYLE } from "@/lib/eformLayout";
 import DOMPurify from "dompurify";
 import { saveErrorMessage } from "@/lib/saveError";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   open: boolean;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: Props) {
+  const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [assignment, setAssignment] = useState<any>(null);
@@ -31,11 +33,14 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
   const loadVersion = useRef(0);
   
 
-  const load = async () => {
+  const load = async (background = false) => {
     if (!assignmentId) return;
     const version = ++loadVersion.current;
-    setLoading(true);
-    setLoadError(null); setRows([]); setAssignment(null); setAssignmentPdfUrl("");
+    if (!background) {
+      setLoading(true);
+      setRows([]); setAssignment(null); setAssignmentPdfUrl("");
+    }
+    setLoadError(null);
     try {
     const { data: a, error: assignmentError } = await supabase.from("homework_assignments").select("*").eq("id", assignmentId).single();
     if (assignmentError) throw assignmentError;
@@ -82,15 +87,26 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
       const suggested = (s.score != null && s.score !== "") ? s.score : (s.auto_score != null && s.status === "submitted" ? s.auto_score : "");
       d[s.id] = { score: suggested?.toString() ?? "", feedback: s.feedback || "" };
     });
-    setDrafts(d);
+    // New submissions must not erase scores/comments the teacher is typing.
+    setDrafts(previous => background ? { ...d, ...previous } : d);
+    qc.setQueryData(["hw-submissions", assignmentId, "live-grading"], Date.now());
     } catch (error) { if (version === loadVersion.current) setLoadError(saveErrorMessage(error)); }
     finally { if (version === loadVersion.current) setLoading(false); }
   };
 
   useEffect(() => {
     if (open && assignmentId) load();
-    return () => { loadVersion.current += 1; };
-  }, [open, assignmentId]);
+    if (!open || !assignmentId) return;
+    // Global Realtime coalesces table events and invalidates this shared key.
+    qc.setQueryData(["hw-submissions", assignmentId, "live-grading"], Date.now());
+    const unsubscribe = qc.getQueryCache().subscribe(event => {
+      if (event.type === "updated" && event.action.type === "invalidate" &&
+          event.query.queryKey[0] === "hw-submissions" && event.query.queryKey[1] === assignmentId) {
+        void load(true);
+      }
+    });
+    return () => { loadVersion.current += 1; unsubscribe(); };
+  }, [open, assignmentId, qc]);
 
 
   const grade = async (s: any) => {
@@ -145,7 +161,7 @@ export function HomeworkSubmissionsDialog({ open, onOpenChange, assignmentId }: 
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : loadError ? (
-          <div className="py-6 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={load}>ลองใหม่</Button></div>
+          <div className="py-6 space-y-2"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={() => load()}>ลองใหม่</Button></div>
         ) : rows.length === 0 ? (
           <p className="text-center text-muted-foreground py-10">ยังไม่มีนักเรียนส่งงาน</p>
         ) : (

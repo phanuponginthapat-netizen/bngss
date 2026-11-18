@@ -18,8 +18,10 @@ export function useAuthSession() {
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let receivedEvent = false;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
+      receivedEvent = true;
       setState({
         isReady: true,
         session,
@@ -27,13 +29,9 @@ export function useAuthSession() {
       });
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      setState({
-        isReady: true,
-        session,
-        user: session?.user ?? null,
-      });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active || receivedEvent) return;
+      setState({ isReady: true, session, user: session?.user ?? null });
     });
 
     return () => {

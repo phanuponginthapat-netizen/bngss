@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { setReadOnly } from "@/lib/readOnlyMode";
+import { authRoleRead } from "@/lib/authRoleRead";
 
 export type AppRole =
   | "admin"
@@ -21,8 +22,7 @@ async function fetchUserRoles(userId: string): Promise<AppRole[]> {
     .select("role")
     .eq("user_id", userId);
 
-  if (error || !data) return [];
-  return data.map((r) => r.role as AppRole);
+  return authRoleRead({ data, error }).map((r) => r.role as AppRole);
 }
 
 function readOverride(): "admin" | "teacher" | null {
@@ -48,8 +48,12 @@ export function useUserRole() {
   const rolesQuery = useQuery({
     queryKey: ["user-roles", userId],
     enabled: isReady && !!userId,
-    queryFn: async () => fetchUserRoles(userId!),
+    queryFn: async () => {
+      if (!userId) throw new Error("ไม่พบบัญชีผู้ใช้");
+      return fetchUserRoles(userId);
+    },
     staleTime: 5 * 60 * 1000,
+    retryOnMount: false, // Shared guards must not restart a failed read on every mount.
   });
 
   const roles: AppRole[] = userId && rolesQuery.isSuccess ? rolesQuery.data : [];
@@ -144,6 +148,8 @@ export function useUserRole() {
     realRole,
     isTeacherAdmin,
     loading,
+    rolesError: rolesQuery.error,
+    retryRoles: rolesQuery.refetch,
     userId,
     isAdmin,
     isDirector,

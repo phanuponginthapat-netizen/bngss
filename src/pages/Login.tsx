@@ -15,6 +15,7 @@ import { GraduationCap, Lock, User, Calendar, Users, ScanLine } from "lucide-rea
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { resolvePostLoginRedirect } from "@/lib/postLoginRedirect";
+import { authRoleRead } from "@/lib/authRoleRead";
 
 const Login = () => {
   const navigateEarly = useNavigate();
@@ -28,27 +29,36 @@ const Login = () => {
   // between /login and /dashboard forever (login loop).
   useEffect(() => {
     let busy = false;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const go = async () => {
       if (busy) return;
       busy = true;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const { data: roles, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-        if (error || !roles || roles.length === 0) {
+        const result = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+        const roles = authRoleRead(result);
+        if (!active) return;
+        if (roles.length === 0) {
           await supabase.auth.signOut().catch(() => {});
           toast.error("บัญชีนี้ยังไม่ได้กำหนดสิทธิ์ผู้ใช้ (นักเรียน/ครู) — กรุณาแจ้งผู้ดูแลระบบ", { duration: 8000 });
           return;
         }
         const t = await resolvePostLoginRedirect(postLoginTarget);
-        navigateEarly(t, { replace: true });
+        if (active) navigateEarly(t, { replace: true });
+      } catch {
+        if (active) toast.error("อ่านข้อมูลบัญชีไม่สำเร็จ กรุณาลองเข้าสู่ระบบอีกครั้ง โดยไม่ต้องออกจากระบบ");
       } finally {
         busy = false;
       }
     };
     supabase.auth.getSession().then(({ data: { session } }) => { if (session) go(); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((e, session) => { if (session && e === "SIGNED_IN") go(); });
-    return () => subscription.unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((e, session) => {
+      // Auth callbacks must return before making further Auth requests.
+      if (session && e === "SIGNED_IN") timer = setTimeout(() => { if (active) void go(); }, 0);
+    });
+    return () => { active = false; clearTimeout(timer); subscription.unsubscribe(); };
   }, [navigateEarly, postLoginTarget]);
 
 

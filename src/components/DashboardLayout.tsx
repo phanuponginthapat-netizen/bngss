@@ -85,7 +85,7 @@ const DashboardLayout = () => {
   const [fullName, setFullName] = useState("");
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [studentClassroom, setStudentClassroom] = useState<string | null>(null);
-  const { role, userId, loading: roleLoading } = useUserRole();
+  const { role, userId, loading: roleLoading, rolesError, retryRoles } = useUserRole();
   const { appName, schoolLogo } = useSystemSettings();
   useGlobalRealtime();
   useIdlePrefetch();
@@ -218,6 +218,13 @@ const DashboardLayout = () => {
     alumni: { label: lang === "th" ? "ศิษย์เก่า" : "Alumni", variant: "outline" },
     
   };
+
+  if (isReady && session && rolesError) {
+    return <div className="flex min-h-screen flex-col items-center justify-center gap-3" role="alert">
+      <p>อ่านข้อมูลบัญชีไม่สำเร็จ คุณยังไม่ได้ออกจากระบบ</p>
+      <Button variant="outline" onClick={() => { void retryRoles(); }}>ลองใหม่</Button>
+    </div>;
+  }
 
   if (!isReady || roleLoading || (!!userId && !!role && needsSetup === null)) {
     return <SystemLoader />;

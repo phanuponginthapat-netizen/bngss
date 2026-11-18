@@ -512,6 +512,13 @@
       "when": 1794975012648,
       "tag": "0072_task_json_compare_write",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1794976460308,
+      "tag": "0073_homework_live_publication",
+      "breakpoints": true
     }
   ]
 }

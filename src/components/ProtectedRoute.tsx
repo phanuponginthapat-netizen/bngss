@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import SystemLoader from "@/components/SystemLoader";
 import { taskLoginUrl } from "@/lib/navigation/taskEntry";
+import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,7 +15,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { isReady, session } = useAuthSession();
-  const { role, realRole, loading, userId, isTeacherAdmin } = useUserRole();
+  const { role, realRole, loading, userId, isTeacherAdmin, rolesError, retryRoles } = useUserRole();
   const location = useLocation();
 
   // If a teacher-admin previewing as "teacher" enters an admin-only route,
@@ -33,7 +34,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
 
   // Check if user has linked their account (only matters for OAuth users)
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, error: profileError, refetch: retryProfile } = useQuery({
     queryKey: ["profile-link-status", userId],
     enabled: isReady && !!userId,
     queryFn: async () => {
@@ -55,6 +56,13 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
   if (!session || !userId) {
     return <Navigate to={taskLoginUrl(location.pathname + location.search)} replace />;
+  }
+
+  if (rolesError || profileError) {
+    return <div className="flex min-h-[300px] flex-col items-center justify-center gap-3" role="alert">
+      <p>อ่านข้อมูลบัญชีไม่สำเร็จ คุณยังไม่ได้ออกจากระบบ</p>
+      <Button variant="outline" onClick={() => { void retryRoles(); void retryProfile(); }}>ลองใหม่</Button>
+    </div>;
   }
 
   // Admin-level roles bypass account linking requirement

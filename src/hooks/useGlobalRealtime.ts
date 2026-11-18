@@ -8,6 +8,7 @@ import { routeForNotification } from "@/lib/notificationRoute";
 import { showLiveNotification } from "@/lib/liveNotification";
 import { notificationEventTag } from "@/lib/notificationIdentity";
 import { clearCurrentPeriodCache } from "@/lib/ppImportChecks";
+import { homeworkRealtimeKeys } from "@/lib/homeworkRealtime";
 
 
 /**
@@ -47,6 +48,7 @@ export function useGlobalRealtime() {
       "students", "classrooms", "personnel",
       "attendance", "face_scan_logs", "student_leaves", "behavior_records",
       "student_scores", "schedules", "homework_assignments", "task_assignments",
+      "homework_submissions",
       "documents", "staff_leaves", "admissions", "teacher_assignments", "enrollments", "subjects",
     ];
 
@@ -72,7 +74,7 @@ export function useGlobalRealtime() {
     const parentTables = [
       "attendance", "behavior_records", "student_leaves",
       "student_scores", "student_column_scores", "homework_assignments", "homework_submissions",
-      "schedules",
+      "schedules", "task_assignments",
     ];
 
 
@@ -115,9 +117,9 @@ export function useGlobalRealtime() {
       subjects: [["subjects"]],
       schedules: [["schedules"], ["subject_dashboard"], ["teacher_daily_briefing"], ["student_dashboard"]],
       teacher_assignments: [["subject_dashboard"], ["teacher_daily_briefing"]],
-      task_assignments: [["homework-list"], ["teacher-tasks"], ["student-tasks"]],
-      homework_assignments: [["homework-list"], ["homework_assignments"], ["subject_score_columns"], ["student_column_scores"]],
-      homework_submissions: [["hw-submissions"], ["homework_submissions"], ["student_column_scores"]],
+      task_assignments: homeworkRealtimeKeys("task_assignments"),
+      homework_assignments: homeworkRealtimeKeys("homework_assignments"),
+      homework_submissions: homeworkRealtimeKeys("homework_submissions"),
       documents: [["documents"]],
       assets: [["assets"]],
       asset_damage_reports: [["asset_damage_reports"], ["damage_reports"]],
@@ -136,7 +138,10 @@ export function useGlobalRealtime() {
       academic_periods: [["academic-periods"], ["academic-period-date-editor"], ["academic-calendar-term-dates"], ["semester-config"], ["academic_events"], ["dashboard_stats_v2"]],
     };
 
-    let channel = supabase.channel(`role-rt-${role}-${userId}`);
+    let channel = supabase.channel(`role-rt-${role}-${userId}-${Math.random().toString(36).slice(2)}`);
+    // Isolate homework: one unpublished unrelated table otherwise rejects the
+    // entire PostgreSQL subscription, even though its channel appears joined.
+    let homeworkChannel = supabase.channel(`homework-rt-${userId}-${Math.random().toString(36).slice(2)}`);
 
     // ── Coalesce invalidations ── ป้องกัน refetch พายุ เมื่อมี insert หลาย row ติดกัน
     // (เช่น import DMC 500 คน หรือ face scan รัวๆ ตอนเข้าแถว 8:00)
@@ -169,7 +174,9 @@ export function useGlobalRealtime() {
           ? { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` }
           : { event: "*", schema: "public", table };
 
-      channel = channel.on(
+      const isHomework = homeworkRealtimeKeys(table).length > 0;
+      const targetChannel = isHomework ? homeworkChannel : channel;
+      const subscribedChannel = targetChannel.on(
         "postgres_changes" as any,
         filter,
         (payload: any) => {
@@ -264,14 +271,28 @@ export function useGlobalRealtime() {
 
         }
       );
+      if (isHomework) homeworkChannel = subscribedChannel;
+      else channel = subscribedChannel;
     }
 
     let didFirstSubscribe = false;
     let disposed = false;
     let reconnectTimer: number | null = null;
+    homeworkChannel.subscribe(status => {
+      if (status === "SUBSCRIBED") scheduleInvalidate(tables.flatMap(homeworkRealtimeKeys));
+      if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && !disposed && reconnectTimer === null) {
+        reconnectTimer = window.setTimeout(() => {
+          reconnectTimer = null;
+          if (!disposed) setReconnectKey(k => k + 1);
+        }, 3000);
+      }
+    });
     channel.subscribe((status) => {
       // On reconnect only: invalidate the hot user-scoped queries, not the whole cache.
       // (Blanket invalidateQueries() with 500+ users online = refetch storm)
+      if (status === "SUBSCRIBED") {
+         scheduleInvalidate(tables.flatMap(homeworkRealtimeKeys));
+      }
       if (status === "SUBSCRIBED" && didFirstSubscribe) {
          scheduleInvalidate([["notifications"], ["inbox_items"], ["my_notifications", userId], ["my_inbox_items", userId], ["dashboard_stats_v2"]]);
       }
@@ -292,6 +313,7 @@ export function useGlobalRealtime() {
       if (now - lastResync < 5000) return; // ≤ 1 resync ต่อ 5 วิ
       lastResync = now;
        scheduleInvalidate([["notifications"], ["inbox_items"], ["my_notifications", userId], ["my_inbox_items", userId]]);
+       scheduleInvalidate(tables.flatMap(homeworkRealtimeKeys));
        void import("@/lib/fcmPush").then(({ flushPendingFcmToken }) => flushPendingFcmToken()).catch(() => {});
     };
     const onVisible = () => {
@@ -319,6 +341,7 @@ export function useGlobalRealtime() {
       document.removeEventListener("visibilitychange", onVisible);
       if (invalidationTimer !== null) clearTimeout(invalidationTimer);
       supabase.removeChannel(channel);
+      supabase.removeChannel(homeworkChannel);
     };
   }, [qc, role, userId, navigate, reconnectKey]);
 }
