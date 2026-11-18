@@ -861,6 +861,7 @@ export type Database = {
           prompt: string
           storage_path: string | null
           user_id: string
+          work_kind: string
         }
         Insert: {
           created_at?: string
@@ -870,6 +871,7 @@ export type Database = {
           prompt: string
           storage_path?: string | null
           user_id: string
+          work_kind?: string
         }
         Update: {
           created_at?: string
@@ -879,6 +881,7 @@ export type Database = {
           prompt?: string
           storage_path?: string | null
           user_id?: string
+          work_kind?: string
         }
         Relationships: []
       }
@@ -17496,6 +17499,10 @@ export type Database = {
           match_student_id: string
           min_distance: number
         }[]
+      }
+      claim_ai_creative_slot: {
+        Args: { _kind: string; _prompt: string; _user_id: string }
+        Returns: string
       }
       claim_ai_image_slot: {
         Args: {
