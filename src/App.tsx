@@ -39,6 +39,7 @@ import IdleScreensaver from "./components/IdleScreensaver";
 
 // Lazy-loaded pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ObecPresentationPage = lazy(() => import("./pages/ObecPresentationPage"));
 
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
@@ -360,6 +361,7 @@ const App = () => {
               />
 
               <Route path="/setup" element={<SetupGuard><SetupWizardPage /></SetupGuard>} />
+              <Route path="/obec-presentation" element={<ObecPresentationPage />} />
               <Route path="/page/:slug" element={<PublicLayout />} />
               <Route path="/org-chart" element={<PublicOrgChartPage />} />
               <Route path="/sdq-assess/:studentId" element={<PublicSDQPage />} />
