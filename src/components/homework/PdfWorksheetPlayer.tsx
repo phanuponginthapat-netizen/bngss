@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Loader2, Eraser, Check, X, ZoomIn, ZoomOut, MoveHorizontal } from "lucide-react";
+import { Loader2, Check, X, ZoomIn, ZoomOut, MoveHorizontal } from "lucide-react";
 import { renderPdfToImages, gradeField, isWorksheetGradable, type WorksheetField, type WorksheetPageImage } from "@/lib/pdfWorksheet";
 import { supabase } from "@/integrations/supabase/client";
 import MediaCaptureButtons from "./MediaCaptureButtons";
+import WorksheetPaint from "./WorksheetPaint";
 
 interface Props {
   pdfUrl: string;
@@ -73,7 +74,7 @@ export default function PdfWorksheetPlayer({ pdfUrl, fields, answers, onAnswersC
               const result = showResults && isWorksheetGradable(f) ? gradeField(f, answers[f.id]) : null;
               return (
                 <div key={f.id}
-                  className="absolute"
+                  className={f.type === "draw" ? "absolute pointer-events-none" : "absolute"}
                   style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
                 >
                   <FieldControl
@@ -130,82 +131,12 @@ function FieldControl({ field, value, onChange, readOnly, studentId }: {
     );
   }
   if (field.type === "draw") {
-    return <DrawCanvas value={value} onChange={onChange} readOnly={readOnly} />;
+    return <WorksheetPaint value={value} onChange={onChange} readOnly={readOnly} label={field.label} />;
   }
   if (field.type === "audio") {
     return <AudioRecorder value={value} onChange={onChange} readOnly={readOnly} studentId={studentId} />;
   }
   return null;
-}
-
-function DrawCanvas({ value, onChange, readOnly }: { value: any; onChange: (v: string) => void; readOnly?: boolean }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawing = useRef(false);
-  const [drawError, setDrawError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext("2d"); if (!ctx) return;
-    ctx.clearRect(0, 0, c.width, c.height);
-    if (value && typeof value === "string") {
-      const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, c.width, c.height);
-      img.onerror = () => {};
-      img.src = value;
-    }
-  }, [value]);
-
-  const pos = (e: React.PointerEvent) => {
-    const r = canvasRef.current!.getBoundingClientRect();
-    return {
-      x: ((e.clientX - r.left) / r.width) * canvasRef.current!.width,
-      y: ((e.clientY - r.top) / r.height) * canvasRef.current!.height,
-    };
-  };
-
-  const commit = () => {
-    if (!drawing.current) return;
-    drawing.current = false;
-    try {
-      onChange(canvasRef.current!.toDataURL("image/png"));
-    } catch (e: any) {
-      setDrawError(String(e?.message ?? e));
-    }
-  };
-
-  return (
-    <div className="w-full h-full bg-background/95 border border-primary/50 rounded relative">
-      <canvas ref={canvasRef} width={600} height={300} className="w-full h-full touch-none"
-        onPointerDown={(e) => {
-          if (readOnly) return;
-          e.preventDefault();
-          canvasRef.current?.setPointerCapture?.(e.pointerId);
-          drawing.current = true;
-          const ctx = canvasRef.current!.getContext("2d")!;
-          const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineWidth = 2; ctx.strokeStyle = "#111";
-        }}
-        onPointerMove={(e) => {
-          if (!drawing.current) return;
-          const ctx = canvasRef.current!.getContext("2d")!;
-          const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke();
-        }}
-        onPointerUp={(e) => {
-          if (canvasRef.current?.hasPointerCapture?.(e.pointerId)) canvasRef.current.releasePointerCapture(e.pointerId);
-          commit();
-        }}
-        onPointerCancel={(e) => {
-          if (canvasRef.current?.hasPointerCapture?.(e.pointerId)) canvasRef.current.releasePointerCapture(e.pointerId);
-          commit();
-        }}
-      />
-      {drawError && <p className="absolute top-1 left-1 text-[10px] text-destructive">{drawError}</p>}
-      {!readOnly && (
-        <button type="button" className="absolute top-1 right-1 p-1 rounded bg-white/80 border" onClick={() => {
-          const c = canvasRef.current!; c.getContext("2d")!.clearRect(0, 0, c.width, c.height); onChange(""); setDrawError(null);
-        }}><Eraser className="w-3 h-3" /></button>
-      )}
-    </div>
-  );
 }
 
 function AudioRecorder({ value, onChange, readOnly, studentId }: { value: any; onChange: (v: string) => void; readOnly?: boolean; studentId?: string | null }) {

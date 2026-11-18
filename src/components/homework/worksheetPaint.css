@@ -1,0 +1,16 @@
+:root {
+  --paint-paper: #ffffff;
+  --paint-ink: #18181b;
+  --paint-gray: #71717a;
+  --paint-red: #dc2626;
+  --paint-orange: #ea580c;
+  --paint-yellow: #facc15;
+  --paint-green: #16a34a;
+  --paint-teal: #0d9488;
+  --paint-blue: #2563eb;
+  --paint-violet: #9333ea;
+  --paint-pink: #ec4899;
+  --paint-brown: #92400e;
+}
+.worksheet-paint-paper { background: var(--paint-paper); }
+.worksheet-paint-swatch { background: var(--paint-swatch); }

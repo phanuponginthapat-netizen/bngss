@@ -133,6 +133,7 @@
     "onnxruntime-web": "1.19.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.0.227",
+    "perfect-freehand": "^1.2.3",
     "pptx-preview": "^1.0.7",
     "pptxgenjs": "^4.0.1",
     "qrcode.react": "^4.2.0",

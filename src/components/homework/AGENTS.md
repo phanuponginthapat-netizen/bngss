@@ -1,2 +1,3 @@
 - Worksheet PDF Storage access is limited to the exact saved assignment path and authenticated student's classroom/school; preserve owner/staff reads and private answer attachments because assignment listing alone must not authorize unrelated files.
 - Worksheet fullscreen resizes the same mounted answer dialog/player, with an independently scrolling document and fixed controls, so resizing never reloads answers or loses unsaved work.
+- Worksheet drawing uses a local PNG raster editor with perfect-freehand strokes and bounded pixel history; publish each finished action into existing answers without server writes, preserving old PNGs and read-only grading views.
