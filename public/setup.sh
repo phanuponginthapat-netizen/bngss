@@ -503,8 +503,6 @@ class H(http.server.BaseHTTPRequestHandler):
         elif p == "/lock":       ok = run("xdg-screensaver lock")
         elif p == "/unlock":     ok = True
         elif p == "/health":     ok = True
-        elif p == "/screenshot":
-            fn=f"/tmp/kiosk-{int(time.time())}.png"; ok=run(f"scrot '{fn}'")
         log(f"POST {p} -> {ok}")
         self.send_response(200 if ok else 500)
         self.send_header("Content-Type","application/json")

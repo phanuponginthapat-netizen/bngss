@@ -21,7 +21,6 @@
       </form>
       <span class="sb-user" title="ผู้ใช้งาน">👤 <b class="sb-user-name">—</b> <span class="sb-user-email" style="opacity:.75;font-weight:400;margin-left:6px"></span></span>
       <span class="sb-clock" title="เวลาปัจจุบัน">🕒 <b class="sb-clock-val">--:--:--</b></span>
-      <button class="sb-btn sb-shot" title="แคปหน้าจอ">📸</button>
       <button class="sb-btn sb-files" title="ไฟล์ที่ดาวน์โหลด">📂 ไฟล์</button>
       <button class="sb-btn sb-send" title="ส่งไฟล์ให้ครู (แนบในการบ้าน)">📤 ส่งงาน</button>
       <button class="sb-btn sb-apps" title="รายการโปรด / ทางลัด" aria-label="apps">
@@ -77,10 +76,6 @@
   bar.querySelector(".sb-close").addEventListener("click", () =>
     chrome.runtime.sendMessage({ type: "CLOSE_TAB" })
   );
-  bar.querySelector(".sb-shot").addEventListener("click", () =>
-    chrome.runtime.sendMessage({ type: "SB_SCREENSHOT" })
-  );
-
   // Apps grid popup
   const appsBtn = bar.querySelector(".sb-apps");
   const panel = bar.querySelector(".sb-main-apps");

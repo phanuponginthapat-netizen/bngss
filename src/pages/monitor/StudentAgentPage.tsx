@@ -341,7 +341,7 @@ export default function StudentAgentPage() {
         const sec = Math.max(3, Number(payload?.sec) || 10);
         startCountdown("shutdown", sec, async () => {
           const ok = (await extCall("SB_POWER", { action: "shutdown" })).ok || (await callLocalCtl("/shutdown"));
-          if (!ok) { toast.error("สั่งปิดเครื่องไม่สำเร็จ"); if (me) send({ type: "screenshot-image", from: me.id, to: from, image: "", error: "สั่งปิดเครื่องไม่สำเร็จ: เครื่องนี้ไม่มีโปรแกรม BNG Safe Browser ที่ทำงานอยู่" }); }
+          if (!ok) { toast.error("สั่งปิดเครื่องไม่สำเร็จ"); if (me) send({ type: "command-error", from: me.id, to: from, error: "สั่งปิดเครื่องไม่สำเร็จ: เครื่องนี้ไม่มีโปรแกรม BNG Safe Browser ที่ทำงานอยู่" }); }
         });
         break;
       }
@@ -349,11 +349,11 @@ export default function StudentAgentPage() {
         const sec = Math.max(3, Number(payload?.sec) || 10);
         startCountdown("reboot", sec, async () => {
           const ok = (await extCall("SB_POWER", { action: "reboot" })).ok || (await callLocalCtl("/reboot"));
-          if (!ok) { toast.error("สั่งรีสตาร์ทไม่สำเร็จ"); if (me) send({ type: "screenshot-image", from: me.id, to: from, image: "", error: "สั่งรีสตาร์ทไม่สำเร็จ: เครื่องนี้ไม่มีโปรแกรม BNG Safe Browser ที่ทำงานอยู่" }); }
+          if (!ok) { toast.error("สั่งรีสตาร์ทไม่สำเร็จ"); if (me) send({ type: "command-error", from: me.id, to: from, error: "สั่งรีสตาร์ทไม่สำเร็จ: เครื่องนี้ไม่มีโปรแกรม BNG Safe Browser ที่ทำงานอยู่" }); }
         });
         break;
       }
-      // ไม่มีคำสั่ง screenshot แล้ว — ครูดู "เว็บที่กำลังเปิด" จากสถานะเครื่องแทน
+      // ไม่มีการดูหรือจับภาพหน้าจอ
       case "logout": {
         toast("ครูสั่ง logout — กำลังออกจากระบบ");
         await supabase.auth.signOut().catch(() => {});

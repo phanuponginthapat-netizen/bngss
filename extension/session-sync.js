@@ -142,7 +142,7 @@
     }
     if (ev.source !== window || ev.origin !== location.origin || location.pathname !== "/dashboard/monitor/agent" || !ev.data || typeof ev.data !== "object") return;
     const t = ev.data.type;
-    if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_SCREENSHOT" || t === "SB_MESSAGE") {
+    if (t === "SB_OPEN_URL" || t === "SB_LOCK_ALL" || t === "SB_UNLOCK_ALL" || t === "SB_MESSAGE") {
       try { chrome.runtime.sendMessage(ev.data); } catch {}
     }
     // คำสั่ งที่ตองได ้รบ ั คำตลบกลบั (power) → สง่ ผลกลบั ไปหน้า agent

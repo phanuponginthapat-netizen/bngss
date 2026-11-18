@@ -78,7 +78,7 @@ function notify(title, message) {
 // -------------------------------------------------------------
 // Auto-run Monitor Agent — เปิดหน้า /dashboard/monitor/agent แบบ pinned เบื้องหลัง
 // เมื่อ extension detect ว่ามี session แล้ว และคอย re-open ถ้านักเรียนปิด
-// (เพื่อให้ครูสั่ง lock/message/screenshot/screen-share/shutdown ได้เสมอ)
+// (เพื่อให้ครูสั่ง lock/message/open-url/shutdown ได้เสมอ — ไม่มีการดูหรือจับภาพหน้าจอ)
 // -------------------------------------------------------------
 // เปิดเฉพาะ role นักเรียนเท่านั้น — บุคลากร/ครู ใช้ extension แบบบันทึก log ปกติ
 function isStudentSession(session) {
@@ -375,7 +375,7 @@ async function powerAction(action) {
 
 // คำสั่งจากครู (หน้า Classroom Monitor) — ทำในส่วนขยายโดยตรง
 async function runTeacherCommand(session, teacherId, action, payload) {
-  const reply = (extra) => sendMonitorFromExt(session, { type: "screenshot-image", from: session.user?.id, to: teacherId, image: "", ...extra }).catch(() => {});
+  const reply = (extra) => sendMonitorFromExt(session, { type: "command-error", from: session.user?.id, to: teacherId, ...extra }).catch(() => {});
   try {
     if (action === "lock") {
       await chrome.storage.local.set({ locked: true, lockMsg: String(payload.message || "ครูล็อกจอ").slice(0, 300) });
@@ -425,7 +425,7 @@ async function ensureRealtime() {
       if (typeof receipt !== "string" || _handledEvents.has(receipt)) return;
       const s = await getValidSession(); if (!s) return;
       const ev = await sbRpc(s, "read_monitor_event", { _id: receipt }).catch(() => null);
-      if (!ev || ev.type === "screenshot-image") return;
+      if (!ev || ev.type !== "command") return;
       const me = jwtSub(s.access_token) || s.user?.id;
       if (ev.to !== me) return;
       // รอให้หน้า Agent รับก่อน แล้วค่อยตรวจว่ายังค้างไหม
@@ -974,19 +974,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // ครูส่งข้อความ → แสดงบนแท็บที่นักเรียนกำลังดูอยู่
     showTeacherMessage(String(msg.message || "").slice(0, 500));
     sendResponse({ ok: true });
-  } else if (msg?.type === "SB_SCREENSHOT") {
-    if (!internal && !sender.tab?.active) { sendResponse({ ok: false, error: "เลือกแท็บนี้ก่อนจับภาพ" }); return false; }
-    // แคปหน้าจอแท็บปัจจุบันแล้วดาวน์โหลด
-    chrome.tabs.captureVisibleTab(sender.tab?.windowId, { format: "png" }, (dataUrl) => {
-      const error = chrome.runtime.lastError;
-      if (error || !dataUrl) { sendResponse({ ok: false, error: error?.message || "จับภาพไม่สำเร็จ" }); return; }
-      chrome.downloads.download({
-        url: dataUrl,
-        filename: `screenshot-${new Date().toISOString().replace(/[:.]/g, "-")}.png`,
-        saveAs: false,
-      }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false, error: "บันทึกภาพไม่สำเร็จ" }));
-    });
-    return true;
   } else if (msg?.type === "SB_POWER") {
     // ครูสั่ งปดิ /รีสตารท์ /ออกจากระบบ → ผาน launcher ของโปรแกรม BNG Safe Browser
     const action = msg.action === "reboot" ? "restart" : msg.action;

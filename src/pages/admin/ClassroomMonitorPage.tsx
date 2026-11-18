@@ -79,7 +79,7 @@ export default function ClassroomMonitorPage() {
       const payload = await readMonitorEvent(raw).catch(() => null);
       if (!payload) return;
       // ส่วนขยาย/หน้า Agent แจ้งข้อผิดพลาดของคำสั่งกลับมาทางช่องนี้
-      if (payload.type === "screenshot-image") {
+      if (payload.type === "command-error") {
         if (payload.to === me.id && payload.error) {
           toast.error(`${agentsRef.current[payload.from]?.name || "นักเรียน"}: ${payload.error}`, { duration: 8000 });
         }

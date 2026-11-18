@@ -351,7 +351,7 @@ export default function KioskSetupPage() {
               <div>
                 <div className="font-semibold">Student — คอมพิวเตอร์นักเรียน</div>
                 <div className="text-xs text-muted-foreground">
-                  ห้องคอมพิวเตอร์นักเรียน · เปิด Monitor Agent ให้ครูดูจอ · Idle logout · รีบูต 22:30
+                  ห้องคอมพิวเตอร์นักเรียน · เปิด Monitor Agent ให้ครูสั่งล็อก/ส่งข้อความ · Idle logout · รีบูต 22:30
                 </div>
               </div>
             </button>

@@ -8,7 +8,7 @@
  *   - open-url               : เปิดลิงก์ให้นักเรียนทุกเครื่องอัตโนมัติ
  *   - shutdown / reboot      : สั่งปิด/รีสตาร์ทเครื่อง (ผ่าน local daemon port 9998)
  *   - logout                 : สั่ง logout session ปัจจุบัน
- *   - screenshot-image       : ช่องตอบกลับข้อผิดพลาดของคำสั่ง (ไม่มีการจับ/ส่งภาพหน้าจอ)
+ *   - command-error          : ช่องตอบกลับข้อผิดพลาดของคำสั่ง (ข้อความเท่านั้น ไม่มีการดูหรือจับภาพหน้าจอ)
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -33,7 +33,7 @@ export type CommandAction =
 
 export type MonitorEvent =
   | { type: "command"; from: string; to: string; action: CommandAction; payload?: any }
-  | { type: "screenshot-image"; from: string; to: string; image: string; error?: string /* แจ้งครูว่าคำสั่งล้มเหลว */ };
+  | { type: "command-error"; from: string; to: string; error?: string /* แจ้งครูว่าคำสั่งล้มเหลว */ };
 
 /** Broadcast contains only a receipt; identity, payload and expiry are verified by Cloud. */
 export async function sendMonitorEvent(channel: RealtimeChannel | null, event: MonitorEvent | Record<string, unknown>, name = "monitor") {

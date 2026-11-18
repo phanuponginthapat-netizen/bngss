@@ -792,11 +792,6 @@ POLICY=$(cat <<JSON
   "VideoCaptureAllowed": true,
   "DefaultVideoCaptureSetting": 1,
   "VideoCaptureAllowedUrls": ["$KIOSK_ORIGIN"],
-  "ScreenCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
-  "SameOriginTabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
-  "TabCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
-  "WindowCaptureAllowedByOrigins": ["$KIOSK_ORIGIN"],
-  "ScreenCaptureAllowed": true,
   "DefaultNotificationsSetting": 1,
   "NotificationsAllowedForUrls": ["$KIOSK_ORIGIN"],
   "DefaultGeolocationSetting": 1,
@@ -1742,7 +1737,7 @@ while true; do
     --user-data-dir="$DOOR_PROFILE" \\
     --kiosk "\$TARGET_URL" \\
     --noerrdialogs --disable-infobars --disable-session-crashed-bubble \\
-    --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls,ScreenCaptureNotification \\
+    --disable-features=TranslateUI,AutofillServerCommunication,MediaRouter,GlobalMediaControls \\
     --overscroll-history-navigation=0 --disable-pinch --no-first-run \\
     --check-for-update-interval=31536000 --disable-component-update \\
     --disable-background-networking --disable-breakpad --disable-domain-reliability \\
@@ -1756,10 +1751,7 @@ while true; do
     --enable-accelerated-video-decode \\
     --enable-features=WebRTCPipeWireCapturer,CanvasOopRasterization \
     --password-store=basic --disk-cache-size=$DOOR_CACHE_SIZE \\
-    $LOWMEM_FLAGS \\
-    --auto-select-desktop-capture-source="Entire screen" \\
-    --enable-usermedia-screen-capturing \\
-    --allow-http-screen-capture
+    $LOWMEM_FLAGS
   EC=\$?
   logger -t kiosk "chromium(door) exited code=\$EC — restart in 3s"
   sleep 3
