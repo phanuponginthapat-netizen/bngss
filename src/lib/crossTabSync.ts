@@ -11,6 +11,8 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { flush as flushOfflineQueue } from "./offlineQueue";
+import { refreshSessionIfNeeded } from "./sessionRefresh";
+import { getBackendConfig } from "./runtimeConfig";
 
 type Msg =
   | { kind: "auth"; event: string; hasSession: boolean; at: number }
@@ -18,9 +20,10 @@ type Msg =
   | { kind: "reconnect-realtime"; at: number }
   | { kind: "ping"; at: number };
 
-const CHANNEL_NAME = "lovable:cross-tab";
-const STORAGE_KEY = "lovable:cross-tab:last";
-const LEADER_KEY = "lovable:cross-tab:leader";
+const backendScope = getBackendConfig()?.url ?? "hosted";
+const CHANNEL_NAME = `lovable:cross-tab:${backendScope}`;
+const STORAGE_KEY = `${CHANNEL_NAME}:last`;
+const LEADER_KEY = `${CHANNEL_NAME}:leader`;
 
 let bc: BroadcastChannel | null = null;
 let installed = false;
@@ -48,16 +51,7 @@ function reconnectRealtime() {
   } catch { /* ignore */ }
 }
 
-async function refreshSessionQuiet() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const expiresAt = (session.expires_at ?? 0) * 1000;
-    if (expiresAt - Date.now() < 5 * 60 * 1000) {
-      await supabase.auth.refreshSession();
-    }
-  } catch { /* ignore */ }
-}
+const refreshSessionQuiet = refreshSessionIfNeeded;
 
 /** Try to become "leader" tab for online flush (single-writer) */
 function tryBecomeLeader(): boolean {
@@ -80,10 +74,9 @@ function handleMessage(msg: Msg) {
     case "auth": {
       // แท็บอื่นเพิ่ง sign-in/out/refresh — sync session ให้แท็บนี้ตาม
       // (supabase-js อ่าน localStorage อยู่แล้ว แต่บาง event ต้อง trigger refresh)
-      if (msg.event === "SIGNED_OUT") {
-        // ให้แท็บนี้ signOut ตาม (ไม่ broadcast ต่อ)
-        supabase.auth.signOut().catch(() => {});
-      } else if (msg.event === "SIGNED_IN" || msg.event === "TOKEN_REFRESHED") {
+      // Auth already synchronizes storage across tabs. Replaying signOut here
+      // revokes a newer session and creates a SIGNED_OUT broadcast feedback loop.
+      if (msg.event === "SIGNED_IN" || msg.event === "TOKEN_REFRESHED") {
         refreshSessionQuiet();
         reconnectRealtime();
       }
@@ -124,7 +117,9 @@ export function installCrossTabSync() {
 
   // Broadcast auth state ให้ทุกแท็บรับรู้พร้อมกัน
   supabase.auth.onAuthStateChange((event, session) => {
-    post({ kind: "auth", event, hasSession: !!session, at: Date.now() });
+    if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      post({ kind: "auth", event, hasSession: !!session, at: Date.now() });
+    }
   });
 
   // เมื่อกลับมา online — leader เดียวเป็นคน flush queue, ทุกแท็บ reconnect

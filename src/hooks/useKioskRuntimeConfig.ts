@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { callLocalCtl } from "@/lib/monitorSignal";
 import { toast } from "sonner";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { isMobileSession } from "@/lib/mobileSession";
 
 export type KioskRuntimeConfig = {
   mode?: "door" | "student";
@@ -84,7 +85,7 @@ export function useKioskRuntimeConfig(enabled: boolean = true) {
 
   // idle logout
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || isMobileSession()) return;
     const min = Number(config?.idleLogoutMin) || 0;
     if (!min || min <= 0) return;
 

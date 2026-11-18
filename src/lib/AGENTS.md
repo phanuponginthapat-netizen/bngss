@@ -1,3 +1,4 @@
+- All resume/focus/online session refresh callers share sessionRefresh single-flight; cross-tab topics are backend-scoped and never replay SIGNED_OUT because Auth owns logout propagation, preventing stale-message revocation and broadcast loops.
 - Apply subjectTermPolicy to ปพ.6 report and import catalogs for all known curriculum codes; term corrections filter historical duplicate rows without deleting scores or assignment references, and primary science titles retain legacy file aliases.
 - Subject matching normalizes แอนิเมชั่น/แอนิเมชัน spelling but remains scoped to the file grade and semester; missing curriculum subjects require confirmation, never cross-term matching.
 - Explicit numeric subject suffixes must match exactly except school-confirmed code aliases scoped to grade, term and year; only unnumbered names use unique numbered fallback, preventing scores assigned to conflicting courses.

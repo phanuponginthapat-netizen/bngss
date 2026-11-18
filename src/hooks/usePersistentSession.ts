@@ -1,19 +1,9 @@
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { refreshSessionIfNeeded } from "@/lib/sessionRefresh";
 
 export function usePersistentSession() {
   useEffect(() => {
-    const refresh = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-        // Refresh if expires in 5 min or already expired
-        if (expiresAt && Date.now() > expiresAt - 5 * 60 * 1000) {
-          await supabase.auth.refreshSession();
-        }
-      } catch {}
-    };
+    const refresh = refreshSessionIfNeeded;
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
     const onOnline = () => refresh();
     const onFocus = () => refresh();
@@ -22,13 +12,15 @@ export function usePersistentSession() {
     window.addEventListener("focus", onFocus);
     // Native Capacitor resume
     let capSub: any;
+    let disposed = false;
     import("@capacitor/app").then(({ App }) => {
-      App.addListener("resume", refresh).then(s => capSub = s).catch(()=>{});
+      App.addListener("resume", refresh).then(s => { if (disposed) void s.remove(); else capSub = s; }).catch(()=>{});
     }).catch(()=>{});
     // Initial check
     refresh();
     const id = setInterval(refresh, 10 * 60 * 1000);
     return () => {
+      disposed = true;
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("focus", onFocus);

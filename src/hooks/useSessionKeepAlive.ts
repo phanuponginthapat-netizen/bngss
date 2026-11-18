@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { refreshSessionIfNeeded } from "@/lib/sessionRefresh";
 
 /**
  * รักษา session ให้อยู่รอดบนมือถือ (browser + PWA)
@@ -14,20 +15,9 @@ import { supabase } from "@/integrations/supabase/client";
  *  3. Fallback interval 4 นาที (Chrome desktop / active tab เท่านั้น — mobile ไม่ทำงานตอน background แต่จะทำงานทันทีที่กลับมา)
  */
 
-const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // refresh ถ้าเหลือ <5 นาที
 const HEARTBEAT_MS = 4 * 60 * 1000;
 
-async function refreshIfNeeded() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const expiresAt = (session.expires_at ?? 0) * 1000;
-    const now = Date.now();
-    if (expiresAt - now < REFRESH_THRESHOLD_MS) {
-      await supabase.auth.refreshSession();
-    }
-  } catch { /* ignore transient errors */ }
-}
+const refreshIfNeeded = refreshSessionIfNeeded;
 
 function reconnectRealtime() {
   try {
