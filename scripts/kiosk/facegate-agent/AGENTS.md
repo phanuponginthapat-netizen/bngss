@@ -16,3 +16,4 @@
 - Receive data-free device-authorized SSE doorbells and re-read canonical receipts on events, heartbeat, reconnect and upload confirmation; an independent fallback handles day rollover/lost events, keeps pending separate, and mirrors capture identity/time/photo without remote door or speech actions.
 
 - Keep adaptive exemplars local, bounded and anchored to unchanged Cloud enrollment; identity_clear requires a .12 original-sample cosine lead over every other person before scanning or learning, unaffected by geometry/adaptation. Use QR for lookalikes, never train the model or delete attendance evidence. Sync all enrollment crops outside the live camera loop.
+- Look-alike twins (same surname, top two anchored matches, everyone else ≥ identity margin away) may each pass once per day via twin_pair.py: first scan to the unscanned best match, second to the unscanned sibling, then duplicate; never applies to strangers, staff or visitors.

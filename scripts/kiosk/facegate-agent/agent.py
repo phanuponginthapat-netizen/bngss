@@ -24,6 +24,7 @@ import time
 from typing import Any
 import sys
 from native_settings import Settings as NativeSettings
+from twin_pair import twin_partner, pick_twin
 from face_memory import enrollment_anchors, learn as learn_face, prune as prune_memory, identity_clear
 local_memory = {}
 
@@ -396,6 +397,15 @@ def queue_attendance(payload: dict) -> bool:
         return False
     outbox_wake.set()
     return True
+
+
+def _scanned_today(sid: str, direction, settings: dict) -> bool:
+    """Whether this person already has a scan today for the effective direction."""
+    today = clock.now_tz(timezone(timedelta(hours=7))).date().isoformat()
+    d = direction if direction in ("in", "out") else (settings.get("device_default_direction") or "in")
+    with lock:
+        confirmed = state.get("scan_date") == today and (sid, d) in state.get("confirmed_scans", set())
+    return confirmed or f"{today}:{sid}:{d}" in _recent_ok
 
 
 def submit_attendance_fast(payload: dict, settings: dict, delay: int, extra: dict | None = None) -> dict:
@@ -1900,7 +1910,15 @@ def _run_scan(image: str, direction: str | None = None, dry_run: bool = False, g
         anchored_scores[sid] = max(anchored_scores.get(sid, -1.), float(score))
     own_anchor = anchored_scores.get(student_id, -1.)
     other_anchor = max((v for sid, v in anchored_scores.items() if sid != student_id), default=-1.)
-    if (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or not identity_clear(student_id, anchored_scores):
+    ambiguous = (best_score - runner_up < 0.08 and runner_up > 0) or own_anchor < threshold or not identity_clear(student_id, anchored_scores)
+    if ambiguous and not dry_run:
+        with lock:
+            people = dict(state["students"])
+        partner = twin_partner(student_id, anchored_scores, people, threshold)
+        if partner:
+            student_id = pick_twin(student_id, partner, lambda sid: _scanned_today(sid, direction, settings))
+            ambiguous = False
+    if ambiguous:
         return {
             "result": "denied",
             "message": "ใบหน้าคล้ายกัน กรุณาใช้ QR บัตรนักเรียนแทน",
