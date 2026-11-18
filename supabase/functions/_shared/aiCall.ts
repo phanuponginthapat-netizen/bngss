@@ -9,6 +9,41 @@ import { getSecret } from "./getSecret.ts";
 import { secretKeys } from "./secretKeys.ts";
 import { NO_LOVABLE_AI_MSG } from "./standalone.ts";
 import { modelCandidates, isModelNotFound } from "./modelAliases.ts";
+import { generateResponse } from "npm:@lovable.dev/ai-gateway@0.1.11";
+
+const TIMEOUT_MSG = "AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่";
+const isChat = (fn?: string) => !!fn?.startsWith("ai-chat");
+
+function partText(c: any): string {
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) return c.map((x) => typeof x === "string" ? x : x?.type === "text" ? String(x.text || "") : "").join("\n");
+  return "";
+}
+
+/** Final fallback for shared all-role chat when every school-owned provider fails or stalls. */
+export async function lovableChatFallback(opts: AICallOpts): Promise<AIResult | null> {
+  if (!isChat(opts.functionName) || opts.vision || !Deno.env.get("LOVABLE_API_KEY")) return null;
+  const started = Date.now();
+  try {
+    const instructions = opts.messages.filter((m) => m.role === "system").map((m) => partText(m.content)).join("\n\n");
+    const input = opts.messages.filter((m) => m.role !== "system")
+      .map((m) => ({ role: m.role as "user" | "assistant", content: partText(m.content) }))
+      .filter((m) => m.content.trim());
+    const res: any = await generateResponse({ model: "openai/gpt-6-astra", instructions, input, max_output_tokens: opts.max_tokens ?? 1500 } as any);
+    const content = typeof res?.output_text === "string" && res.output_text
+      ? res.output_text
+      : (res?.output ?? []).flatMap((o: any) => o?.content ?? []).filter((c: any) => c?.type === "output_text").map((c: any) => c.text).join("");
+    await logUsage({ provider_id: null, provider_name: "lovable-ai", model: "openai/gpt-6-astra", function_name: opts.functionName,
+      tokens_input: res?.usage?.input_tokens || 0, tokens_output: res?.usage?.output_tokens || 0, success: !!content,
+      error_message: content ? undefined : "empty response", latency_ms: Date.now() - started, called_by: opts.userId });
+    return content ? { content, provider: "lovable-ai", model: "openai/gpt-6-astra" } : null;
+  } catch (e: any) {
+    await logUsage({ provider_id: null, provider_name: "lovable-ai", model: "openai/gpt-6-astra", function_name: opts.functionName,
+      tokens_input: 0, tokens_output: 0, success: false, error_message: String(e?.message || e), latency_ms: Date.now() - started, called_by: opts.userId });
+    if (e?.name === "TimeoutError" || e?.code === "timeout") throw new Error(TIMEOUT_MSG);
+    return null;
+  }
+}
 
 
 export interface AIMessage {
@@ -196,7 +231,7 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         const r = await fetch(p.base_url, {
           method: "POST",
-          signal: opts.functionName?.startsWith("ai-chat") ? AbortSignal.timeout(45000) : undefined,
+          signal: isChat(opts.functionName) ? AbortSignal.timeout(20000) : undefined,
           headers,
           body: JSON.stringify(body),
         });
@@ -243,8 +278,8 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
 
         return { content, provider: p.name, model: useModel };
       } catch (e: any) {
-        if (e?.name === "TimeoutError" || e?.name === "AbortError") {
-          throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
+        if ((e?.name === "TimeoutError" || e?.name === "AbortError") && !isChat(opts.functionName)) {
+          throw new Error(TIMEOUT_MSG);
         }
         const msg = `${p.name}(${useModel}): exception ${e?.message || e}`;
         errors.push(msg);
@@ -281,11 +316,14 @@ export async function aiCall(opts: AICallOpts): Promise<AIResult> {
       });
       return { content: r.content, provider: `pool:${p}`, model: r.model };
     } catch (e: any) {
-      if (String(e?.message || "").includes("AI ใช้เวลาตอบนานเกินไป")) throw e;
+      if (String(e?.message || "").includes("AI ใช้เวลาตอบนานเกินไป") && !isChat(opts.functionName)) throw e;
       errors.push(`pool:${p}: ${e?.message || e}`);
       continue;
     }
   }
+
+  const fallback = await lovableChatFallback(opts);
+  if (fallback) return fallback;
 
   // สรุป error ให้ผู้ใช้อ่านเข้าใจ (ภาษาไทย) พร้อมรายละเอียดสำหรับ admin
   const joined = errors.join(" | ");
@@ -350,6 +388,8 @@ export async function aiCouncil(opts: CouncilOpts): Promise<CouncilResult> {
   const successes = results.filter((r) => r.ok);
   if (successes.length === 0) {
     if (results.some(r => r.error?.includes("AI ใช้เวลาตอบนานเกินไป"))) {
+      const fallback = await lovableChatFallback(opts);
+      if (fallback) return { ...fallback, panel: results };
       throw new Error("AI ใช้เวลาตอบนานเกินไป กรุณาตรวจข้อความก่อนลองใหม่");
     }
     const single = await aiCall(opts);
