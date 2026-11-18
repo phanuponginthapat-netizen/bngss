@@ -52,3 +52,5 @@
 - Linux door kiosks run FaceGate native (direct V4L2 camera + own window), not browser scanning; keep public/kiosk-setup.sh mirrored and rebuild the agent installer zip on agent changes.
 - Public app download page (/download-app) resolves the APK through src/lib/githubRelease.ts (canonical GitHub release URL + verified fallback, never API-provided URLs) so the file schools download always matches the published release.
 - Install uses shared release/platform resolvers and publicOrigin for domain-aware QR links; keep scanner packages separate and retain the old origin until custom DNS is ready.
+- kiosk-api records requests carrying an unknown device key (throttled, service-role RPC) in kiosk_unknown_keys; only an admin/director approval re-creates the device with that key, so a scanner removed from the list can be re-linked without touching the machine while unknown keys never authorize anything on their own.
+- FaceGate attendance triggers read school_settings values as text (plain or JSON-quoted); never use jsonb operators on setting_value, because a failed cast is swallowed by the trigger and silently stops school-day attendance.

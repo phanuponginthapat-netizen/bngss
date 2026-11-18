@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Plus, RefreshCw, Trash2, Monitor, Power } from "lucide-react";
+import { Copy, Plus, RefreshCw, Trash2, Monitor, Power, Link2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 type KioskDevice = {
@@ -30,6 +30,19 @@ const newKey = () => {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 };
 
+type UnknownKey = {
+  id: string;
+  key_hint: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  hits: number;
+  last_route: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  platform: string | null;
+  agent_version: string | null;
+};
+
 const isOnline = (iso: string | null) =>
   !!iso && Date.now() - new Date(iso).getTime() < 3 * 60_000;
 
@@ -37,6 +50,8 @@ export default function KioskDeviceManager() {
   const [rows, setRows] = useState<KioskDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
+  const [unknown, setUnknown] = useState<UnknownKey[]>([]);
+  const [unknownError, setUnknownError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -47,7 +62,32 @@ export default function KioskDeviceManager() {
       .order("created_at", { ascending: false });
     if (error) toast.error("โหลดรายการเครื่องไม่สำเร็จ: " + error.message);
     setRows(((data ?? []) as unknown) as KioskDevice[]);
+    const { data: u, error: uErr } = await supabase
+      .from("kiosk_unknown_keys")
+      .select("id, key_hint, first_seen_at, last_seen_at, hits, last_route, ip_address, user_agent, platform, agent_version")
+      .order("last_seen_at", { ascending: false });
+    setUnknownError(uErr ? uErr.message : null);
+    setUnknown(uErr ? [] : ((u ?? []) as UnknownKey[]));
     setLoading(false);
+  };
+
+  // ตู้ที่ถูกลบออกจากรายชื่อแต่ยังส่งข้อมูลเข้ามาด้วยรหัสเดิม → รับกลับโดยไม่ต้องตั้งค่าที่ตู้
+  const relink = async (u: UnknownKey, index: number) => {
+    const label = await swal.prompt("ตั้งชื่อเครื่องที่รับกลับ", {
+      defaultValue: `ตู้สแกน ${rows.length + index + 1}`,
+    });
+    if (label === null) return;
+    const { error } = await supabase.rpc("approve_kiosk_unknown_key", { _id: u.id, _name: label || "" });
+    if (error) return toast.error("รับเครื่องกลับไม่สำเร็จ: " + error.message);
+    toast.success("รับเครื่องกลับแล้ว — ตู้จะส่งข้อมูลเข้าระบบได้ภายในไม่กี่วินาที");
+    load();
+  };
+
+  const dismiss = async (u: UnknownKey) => {
+    if (!(await swal.confirm({ title: "ไม่รับเครื่องนี้?", text: "ถ้าเป็นตู้ของโรงเรียน ตู้นั้นจะยังส่งข้อมูลเข้าระบบไม่ได้" }))) return;
+    const { error } = await supabase.from("kiosk_unknown_keys").delete().eq("id", u.id);
+    if (error) return toast.error(error.message);
+    load();
   };
 
   useEffect(() => { load(); }, []);
@@ -84,7 +124,10 @@ export default function KioskDeviceManager() {
   };
 
   const remove = async (d: KioskDevice) => {
-    if (!(await swal.confirm({ title: `ลบเครื่อง "${d.name || d.device_id}" ?` }))) return;
+    if (!(await swal.confirm({
+      title: `ลบเครื่อง "${d.name || d.device_id}" ?`,
+      text: "ตู้นี้จะส่งผลสแกนเข้าระบบไม่ได้ทันที จนกว่าจะรับเครื่องกลับหรือใส่รหัสใหม่ที่ตู้",
+    }))) return;
     const { error } = await supabase.from("kiosk_devices").delete().eq("id", d.id);
     if (error) return toast.error(error.message);
     toast.success("ลบแล้ว");
@@ -115,6 +158,42 @@ export default function KioskDeviceManager() {
           <Button onClick={addDevice} className="gap-2"><Plus className="w-4 h-4" />เพิ่มเครื่อง</Button>
           <Button variant="outline" onClick={load} className="gap-2"><RefreshCw className="w-4 h-4" />รีเฟรช</Button>
         </div>
+
+        {unknownError && (
+          <p className="text-sm text-destructive">โหลดรายการเครื่องที่รอรับกลับไม่สำเร็จ: {unknownError}</p>
+        )}
+        {unknown.length > 0 && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">มีเครื่องสแกน {unknown.length} เครื่องติดต่อเข้ามาแต่ไม่พบในรายชื่อ</p>
+                <p className="text-xs text-muted-foreground">ผลสแกนจากเครื่องเหล่านี้ยังเข้าระบบไม่ได้ ถ้าเป็นตู้ของโรงเรียนให้กด "รับเครื่องกลับ" — ไม่ต้องไปตั้งค่าที่ตู้</p>
+              </div>
+            </div>
+            {unknown.map((u, i) => (
+              <div key={u.id} className="rounded-md border bg-background p-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <code className="rounded bg-muted px-2 py-0.5 font-mono">{u.key_hint}</code>
+                  {u.agent_version && <Badge variant="outline">v{u.agent_version}</Badge>}
+                  {u.platform && <span className="text-xs text-muted-foreground">{u.platform}</span>}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ติดต่อล่าสุด {new Date(u.last_seen_at).toLocaleString("th-TH")} · เริ่มพบ {new Date(u.first_seen_at).toLocaleString("th-TH")}
+                  {u.ip_address ? ` · IP ${u.ip_address}` : ""}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" className="gap-1" onClick={() => relink(u, i)}>
+                    <Link2 className="w-3.5 h-3.5" />รับเครื่องกลับ
+                  </Button>
+                  <Button size="sm" variant="ghost" className="gap-1 text-destructive" onClick={() => dismiss(u)}>
+                    <Trash2 className="w-3.5 h-3.5" />ไม่รับ
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <p className="text-sm text-muted-foreground">กำลังโหลด…</p>

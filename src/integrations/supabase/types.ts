@@ -9229,6 +9229,48 @@ export type Database = {
         }
         Relationships: []
       }
+      kiosk_unknown_keys: {
+        Row: {
+          agent_version: string | null
+          device_key: string
+          first_seen_at: string
+          hits: number
+          id: string
+          ip_address: string | null
+          key_hint: string
+          last_route: string | null
+          last_seen_at: string
+          platform: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          agent_version?: string | null
+          device_key: string
+          first_seen_at?: string
+          hits?: number
+          id?: string
+          ip_address?: string | null
+          key_hint: string
+          last_route?: string | null
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          agent_version?: string | null
+          device_key?: string
+          first_seen_at?: string
+          hits?: number
+          id?: string
+          ip_address?: string | null
+          key_hint?: string
+          last_route?: string | null
+          last_seen_at?: string
+          platform?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       learning_center_bookings: {
         Row: {
           booking_date: string
@@ -17404,6 +17446,10 @@ export type Database = {
         }
         Returns: string
       }
+      approve_kiosk_unknown_key: {
+        Args: { _id: string; _name: string }
+        Returns: string
+      }
       archive_and_purge_old_data: {
         Args: { _retention_years?: number }
         Returns: Json
@@ -17968,41 +18014,24 @@ export type Database = {
         }
         Returns: Json
       }
-      kiosk_heartbeat:
-        | {
-            Args: {
-              _agent_version?: string
-              _config_updated_at?: string
-              _device_id: string
-              _extension_installed?: boolean
-              _extension_version?: string
-              _hostname?: string
-              _kiosk_mode?: string
-              _screen_resolution?: string
-              _status?: string
-              _uptime_sec?: number
-              _user_agent?: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _active_title?: string
-              _active_url?: string
-              _agent_version?: string
-              _config_updated_at?: string
-              _device_id: string
-              _extension_installed?: boolean
-              _extension_version?: string
-              _hostname?: string
-              _kiosk_mode?: string
-              _screen_resolution?: string
-              _status?: string
-              _uptime_sec?: number
-              _user_agent?: string
-            }
-            Returns: undefined
-          }
+      kiosk_heartbeat: {
+        Args: {
+          _active_title?: string
+          _active_url?: string
+          _agent_version?: string
+          _config_updated_at?: string
+          _device_id: string
+          _extension_installed?: boolean
+          _extension_version?: string
+          _hostname?: string
+          _kiosk_mode?: string
+          _screen_resolution?: string
+          _status?: string
+          _uptime_sec?: number
+          _user_agent?: string
+        }
+        Returns: undefined
+      }
       line_vault_dispatch: {
         Args: { category: string; payload: Json }
         Returns: undefined
@@ -18203,6 +18232,17 @@ export type Database = {
         Returns: undefined
       }
       recompute_personnel_teaching_level: { Args: never; Returns: undefined }
+      record_kiosk_unknown_key: {
+        Args: {
+          _agent_version: string
+          _ip: string
+          _key: string
+          _platform: string
+          _route: string
+          _user_agent: string
+        }
+        Returns: undefined
+      }
       remind_incomplete_grades: { Args: never; Returns: Json }
       reset_content_data: { Args: never; Returns: Json }
       resolve_scanned_personnel: {

@@ -477,6 +477,20 @@
       "when": 1794942932871,
       "tag": "0067_kiosk_heartbeat_active_tab",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1794964570637,
+      "tag": "0068_kiosk_unknown_key_relink",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794964816795,
+      "tag": "0069_fix_facegate_attendance_threshold",
+      "breakpoints": true
     }
   ]
 }

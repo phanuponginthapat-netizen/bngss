@@ -87,6 +87,34 @@ async function authDevice(req: Request, db: ReturnType<typeof admin>): Promise<D
   };
 }
 
+// A scanner whose row was removed keeps calling with its stored key. Record it
+// (throttled per key) so an admin can re-link it from the device page; the key
+// itself never authorizes anything until an admin approves it.
+const unknownKeySeen = new Map<string, number>();
+async function noteUnknownKey(req: Request, db: ReturnType<typeof admin>, route: string) {
+  const key = req.headers.get("x-device-key")?.trim() ?? "";
+  if (key.length < 16 || key.length > 128) return;
+  const now = Date.now();
+  if (now - (unknownKeySeen.get(key) ?? 0) < 60_000) return;
+  if (unknownKeySeen.size > 500) unknownKeySeen.clear();
+  unknownKeySeen.set(key, now);
+  let platform: string | null = null, agentVersion: string | null = null;
+  if (route === "sync") {
+    const b = await req.clone().json().catch(() => null) as any;
+    if (b && typeof b === "object") {
+      platform = typeof b.platform === "string" ? b.platform : null;
+      agentVersion = typeof b.agent_version === "string" ? b.agent_version : null;
+    }
+  }
+  const { error } = await db.rpc("record_kiosk_unknown_key", {
+    _key: key, _route: route,
+    _ip: (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null,
+    _user_agent: req.headers.get("user-agent"),
+    _platform: platform, _agent_version: agentVersion,
+  });
+  if (error) console.error("[kiosk-api] record unknown key failed", error.message);
+}
+
 async function loadSettings(db: ReturnType<typeof admin>) {
   const { data, error } = await db
     .from("school_settings")
@@ -199,7 +227,10 @@ Deno.serve(async (req) => {
     }
 
     const device = await authDevice(req, db);
-    if (!device) return json({ error: "invalid device key" }, 401);
+    if (!device) {
+      await noteUnknownKey(req, db, route);
+      return json({ error: "invalid device key" }, 401);
+    }
 
     const body = await req.json().catch(() => ({} as any));
     const settings = await loadSettings(db);
