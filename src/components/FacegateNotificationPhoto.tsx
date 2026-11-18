@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ImageOff, RefreshCw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { resolveKioskMediaUrl } from "@/lib/kioskMediaUrl";
+import { ImageOff, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { loadNotificationEvidence, notificationEvidenceReference } from "./facegateNotificationEvidence";
 import { Button } from "@/components/ui/button";
 
 type Reference = { reference_id?: string | null; reference_type?: string | null; reference_table?: string | null };
@@ -15,30 +14,35 @@ export function facegateNotificationAlertId(reference: Reference): string | null
 export default function FacegateNotificationPhoto({ reference, userId, lang }: {
   reference: Reference; userId: string | null | undefined; lang: string;
 }) {
-  const alertId = facegateNotificationAlertId(reference);
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const { data: url, isPending, error, refetch } = useQuery({
-    queryKey: ["facegate_notification_photo", userId, alertId],
-    enabled: !!userId && !!alertId,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      if (!alertId || !userId) return null;
-      const { data, error } = await supabase.from("kiosk_agent_alerts")
-        .select("snapshot_url").eq("id", alertId).maybeSingle();
-      if (error) throw error;
-      return resolveKioskMediaUrl(data?.snapshot_url);
-    },
+  const source = notificationEvidenceReference(reference);
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const { data: evidence, isPending, error, refetch } = useQuery({
+    queryKey: ["facegate_notification_photo", userId, source?.table, source?.id],
+    enabled: !!userId && !!source,
+    staleTime: 2 * 60_000,
+    gcTime: 0,
+    queryFn: () => loadNotificationEvidence(reference),
   });
-  if (!alertId || !userId) return null;
-  return <div className="mt-2 flex h-32 w-full items-center justify-center overflow-hidden rounded-md border bg-muted/40">
-    {url && failedUrl !== url ? <img src={url} alt={lang === "th" ? "ภาพจากการสแกน FaceGate" : "FaceGate scan photo"}
-      className="h-full w-full object-contain" loading="lazy" onError={() => setFailedUrl(url)} />
-      : <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
-        <ImageOff className="h-4 w-4 shrink-0" />
-        <span>{isPending ? (lang === "th" ? "กำลังโหลดรูป" : "Loading photo") : (lang === "th" ? "ไม่สามารถแสดงรูปสแกนได้" : "Scan photo unavailable")}</span>
-        {error && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"
-          title={lang === "th" ? "ลองโหลดรูปอีกครั้ง" : "Retry photo"}
-          onClick={event => { event.stopPropagation(); void refetch(); }}><RefreshCw className="h-3 w-3" /></Button>}
-      </div>}
+  if (!source || !userId) return null;
+  const paired = source.table === "face_scan_logs";
+  const photo = (url: string | null | undefined, label: string) => <div className={paired ? "w-20 shrink-0" : "w-full"}>
+    <div className={`flex items-center justify-center overflow-hidden rounded-md border bg-muted/40 ${paired ? "h-20 w-20" : "h-32 w-full"}`}>
+      {url && !failedUrls.includes(url)
+        ? <img src={url} alt={label} className="h-full w-full object-contain" loading="lazy" referrerPolicy="no-referrer"
+          onError={() => setFailedUrls(previous => [...previous, url])} />
+        : <div className="flex flex-col items-center gap-1 p-1 text-center text-[10px] text-muted-foreground">
+          <ImageOff className="h-4 w-4" />
+          <span>{isPending ? (lang === "th" ? "กำลังโหลดรูป" : "Loading photo") : (lang === "th" ? "ไม่มีภาพที่แสดงได้" : "Photo unavailable")}</span>
+        </div>}
+    </div>
+    {paired && <p className="mt-1 text-center text-[10px] text-muted-foreground">{label}</p>}
+  </div>;
+  return <div className="mt-2 flex max-w-full flex-wrap items-center gap-2">
+    {paired && photo(evidence?.portrait, lang === "th" ? "รูปประจำตัว" : "Portrait")}
+    {paired && <ArrowRightLeft className="mb-4 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+    {photo(evidence?.scan, lang === "th" ? "ภาพจากตู้สแกน" : "Scanner photo")}
+    {(error || evidence?.failed || failedUrls.length > 0) && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0"
+      title={lang === "th" ? "ลองโหลดรูปอีกครั้ง" : "Retry photo"}
+      onClick={event => { event.stopPropagation(); setFailedUrls([]); void refetch(); }}><RefreshCw className="h-3 w-3" /></Button>}
   </div>;
 }

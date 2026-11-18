@@ -17,6 +17,7 @@ import { th } from "date-fns/locale";
 import { toast } from "sonner";
 import { routeForNotification } from "@/lib/notificationRoute";
 import { uniqueInboxNotifications } from "@/lib/notificationIdentity";
+import FacegateNotificationPhoto from "@/components/FacegateNotificationPhoto";
 
 const EFormInboxPage = lazy(() => import("./EFormInboxPage"));
 const DocumentInboxPage = lazy(() => import("./DocumentInboxPage"));
@@ -337,6 +338,7 @@ export default function InboxPage() {
                                 {item.message}
                               </p>
                             )}
+                            <FacegateNotificationPhoto reference={item} userId={userId} lang="th" />
                             <p className={`text-xs mt-1 ${unread ? "text-primary font-medium" : "text-muted-foreground/60"}`}>
                               {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: th })}
                             </p>
