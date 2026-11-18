@@ -1,0 +1,1 @@
+- Triggers read school_settings.setting_value as text (plain or JSON-quoted), never with jsonb operators; a swallowed cast error silently stops FaceGate school-day attendance.

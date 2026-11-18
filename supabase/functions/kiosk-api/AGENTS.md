@@ -1,0 +1,1 @@
+- Unknown device keys are recorded (throttled, service-role RPC) in kiosk_unknown_keys; only admin/director approval re-creates the device with that key, so a removed scanner re-links without touching the machine and unknown keys never authorize anything.
