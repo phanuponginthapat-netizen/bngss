@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Pencil, FileText, Image as ImageIcon, File as FileIcon } from "lucide-react";
+import { Download, Pencil, FileText, Image as ImageIcon, File as FileIcon, RotateCw } from "lucide-react";
 import { signedHomeworkUrl, isImageMime, isPdfMime, isEditableMime, type Attachment } from "@/lib/homeworkStorage";
 import HomeworkEditor from "./HomeworkEditor";
 import { toast } from "sonner";
@@ -20,10 +20,13 @@ const attachmentKey = (a: Attachment, index?: number) => a.id || a.path || `${a.
 /** โหลด signed URL ให้ทุกไฟล์ (ใช้แสดง preview รูป/PDF โดยไม่ต้องกดเปิด) */
 function useSignedUrls(attachments: Attachment[]) {
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const next: Record<string, string> = {};
+      const failed: Record<string, boolean> = {};
       await Promise.all(
         attachments
           .filter((a) => isImageMime(a.mime, a.name) || isPdfMime(a.mime, a.name))
@@ -31,25 +34,25 @@ function useSignedUrls(attachments: Attachment[]) {
             try {
               next[attachmentKey(a)] = await signedHomeworkUrl(a.path);
             } catch {
-              /* ignore */
+              failed[attachmentKey(a)] = true;
             }
           })
       );
-      if (!cancelled) setUrls(next);
+      if (!cancelled) { setUrls(next); setErrors(failed); }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attachments.map((a, i) => attachmentKey(a, i)).join("|")]);
-  return urls;
+  }, [attachments.map((a, i) => attachmentKey(a, i)).join("|"), retry]);
+  return { urls, errors, retry: () => setRetry(v => v + 1) };
 }
 
 export default function AttachmentList({ attachments, canEdit, onEditedSave, dense }: Props) {
   const [editing, setEditing] = useState<Attachment | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   useBodyScrollLock(!!lightbox);
-  const imageUrls = useSignedUrls(attachments || []);
+  const { urls: imageUrls, errors, retry } = useSignedUrls(attachments || []);
 
   if (!attachments?.length) return null;
 
@@ -67,6 +70,7 @@ export default function AttachmentList({ attachments, canEdit, onEditedSave, den
 
   return (
     <div className={`space-y-2 ${dense ? "" : "mt-1"}`}>
+      {Object.keys(errors).length > 0 && <div role="alert" className="flex items-center gap-2 text-xs text-destructive">โหลดไฟล์แนบบางไฟล์ไม่สำเร็จ<Button type="button" variant="outline" size="sm" onClick={retry}><RotateCw className="mr-1 h-3 w-3" />ลองใหม่</Button></div>}
       {/* Inline image previews — ไม่ต้องกดเปิด */}
       {images.length > 0 && (
         <div className={`grid gap-2 ${dense ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>

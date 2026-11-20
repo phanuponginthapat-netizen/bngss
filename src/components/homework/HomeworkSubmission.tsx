@@ -203,6 +203,7 @@ export function StudentSubmissionPanel({
       await submit([{ ...att, name: filename }]);
     } catch (e: any) {
       toast.error(e?.message || "บันทึกไม่สำเร็จ");
+      throw e;
     }
   };
 
@@ -231,6 +232,7 @@ export function StudentSubmissionPanel({
             <p className="whitespace-pre-wrap rounded border bg-background p-2 text-foreground">{mine.text}</p>
           </div>
         )}
+        {teacherAttachments.length > 0 && <div className="space-y-1"><p className="text-xs font-medium text-muted-foreground">ไฟล์การบ้านจากครู</p><AttachmentList attachments={teacherAttachments} dense /></div>}
         {mine.attachments && mine.attachments.length > 0 && (
           <div className="space-y-1">
             <div className="text-[11px] text-muted-foreground">ไฟล์ที่ส่งล่าสุด</div>

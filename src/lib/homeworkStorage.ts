@@ -52,9 +52,10 @@ export async function signedHomeworkUrl(path: string, expiresInSec = 3600): Prom
 }
 
 export async function downloadHomeworkBlob(path: string): Promise<Blob> {
-  const { data, error } = await supabase.storage.from(BUCKET).download(path);
-  if (error) throw error;
-  return data;
+  const url = await signedHomeworkUrl(path);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("อ่านไฟล์การบ้านไม่สำเร็จ กรุณาลองใหม่");
+  return response.blob();
 }
 
 const ext = (name?: string) => (name || "").toLowerCase().split(".").pop() || "";

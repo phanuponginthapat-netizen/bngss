@@ -40,6 +40,7 @@ export default function HomeworkEditor(props: Props) {
 
 function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Props) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<any>(null);
   const fabricNsRef = useRef<any>(null);
   const pdfDocRef = useRef<any>(null);
@@ -69,9 +70,13 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
   };
 
   const attachHistory = (canvas: any) => {
+    canvas.on("object:added", ({ target }: any) => {
+      if (target?.type?.toLowerCase().includes("text")) target.hiddenTextareaContainer = dialogRef.current;
+    });
     canvas.on("object:added", pushHistory);
     canvas.on("object:modified", pushHistory);
     canvas.on("object:removed", pushHistory);
+    canvas.on("text:changed", pushHistory);
   };
 
   useEffect(() => {
@@ -113,7 +118,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
       }
       const blob = await downloadHomeworkBlob(attachment.path);
 
-      if (isImageMime(attachment.mime)) {
+      if (isImageMime(attachment.mime, attachment.name)) {
         const url = URL.createObjectURL(blob);
         const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
         const scale = Math.min(getCanvasWidth() / img.width, 1);
@@ -125,7 +130,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
         canvas.add(img); canvas.sendObjectToBack(img);
         skipHistoryRef.current = false;
         canvas.requestRenderAll();
-      } else if (isPdfMime(attachment.mime)) {
+      } else if (isPdfMime(attachment.mime, attachment.name)) {
         const pdfjs: any = await import("pdfjs-dist");
         const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
         pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -185,8 +190,11 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
         const t = new fabric.IText("พิมพ์ที่นี่", {
           originX: "left", originY: "top", left: p.x, top: p.y, fontSize: 20, fill: color,
           fontFamily: "IBM Plex Sans Thai, Inter, sans-serif",
+          hiddenTextareaContainer: dialogRef.current,
         });
         canvas.add(t); canvas.setActiveObject(t);
+        t.enterEditing(); t.selectAll(); t.hiddenTextarea?.focus();
+        canvas.requestRenderAll();
         setTool("select");
         return;
       }
@@ -237,7 +245,9 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     const scaled = page.getViewport({ scale, rotation });
     const tmp = document.createElement("canvas");
     tmp.width = scaled.width; tmp.height = scaled.height;
-    await page.render({ canvasContext: tmp.getContext("2d")!, viewport: scaled }).promise;
+    const context = tmp.getContext("2d");
+    if (!context) throw new Error("เปิดพื้นที่ใบงานไม่สำเร็จ");
+    await page.render({ canvasContext: context, viewport: scaled }).promise;
     const dataUrl = tmp.toDataURL("image/png");
 
     skipHistoryRef.current = true;
@@ -250,7 +260,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     const state = pageStatesRef.current[n];
     if (state?.objects?.length) {
       const objs = await fabric.util.enlivenObjects(state.objects);
-      objs.forEach((o: any) => canvas.add(o));
+      objs.forEach((o: any) => { if (o.type?.toLowerCase().includes("text")) o.hiddenTextareaContainer = dialogRef.current; canvas.add(o); });
     }
     skipHistoryRef.current = false;
     canvas.requestRenderAll();
@@ -330,16 +340,17 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
     try {
       const canvas = fabricCanvasRef.current;
       if (!canvas) throw new Error("พื้นที่วาดยังไม่พร้อม");
+      canvas.getActiveObject()?.exitEditing?.(); canvas.discardActiveObject(); canvas.requestRenderAll();
       if (!attachment) {
         const dataUrl = canvas.toDataURL({ format: "png", multiplier: 1 });
         const blob = await (await fetch(dataUrl)).blob();
         await onSave(blob, `ภาพวาด_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.png`);
-      } else if (isImageMime(attachment.mime)) {
+      } else if (isImageMime(attachment.mime, attachment.name)) {
         const dataUrl = canvas.toDataURL({ format: "png", multiplier: 1 });
         const blob = await (await fetch(dataUrl)).blob();
         const base = attachment.name.replace(/\.[^.]+$/, "");
         await onSave(blob, `${base}_edited.png`);
-      } else if (isPdfMime(attachment.mime)) {
+      } else if (isPdfMime(attachment.mime, attachment.name)) {
         persistCurrentPage();
         const { jsPDF } = await import("jspdf");
         const out = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
@@ -391,7 +402,7 @@ function CanvasImagePdfEditor({ open, attachment, blank, onClose, onSave }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-5xl flex flex-col overflow-hidden">
+      <DialogContent ref={dialogRef} className="sm:max-w-5xl flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="truncate">{attachment ? `แก้ไข: ${attachment.name}` : "กระดานวาด"}</DialogTitle>
         </DialogHeader>
@@ -459,7 +470,7 @@ function SignaturePadDialog({ onCancel, onDone }: { onCancel: () => void; onDone
   const ref = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   useEffect(() => {
-    const c = ref.current!; const ctx = c.getContext("2d")!;
+    const c = ref.current; const ctx = c?.getContext("2d"); if (!c || !ctx) return;
     ctx.lineWidth = 2; ctx.strokeStyle = "#111"; ctx.lineCap = "round"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
     const pos = (e: any) => { const r = c.getBoundingClientRect(); const t = e.touches?.[0] ?? e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
     const down = (e: any) => { drawing.current = true; const { x, y } = pos(e); ctx.beginPath(); ctx.moveTo(x, y); };
@@ -472,7 +483,7 @@ function SignaturePadDialog({ onCancel, onDone }: { onCancel: () => void; onDone
       c.removeEventListener("touchstart", down); c.removeEventListener("touchmove", move); window.removeEventListener("touchend", up);
     };
   }, []);
-  const clear = () => { const c = ref.current!; const ctx = c.getContext("2d")!; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); };
+  const clear = () => { const c = ref.current; const ctx = c?.getContext("2d"); if (!c || !ctx) return; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); };
   return (
     <Dialog open onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-lg">
@@ -481,7 +492,7 @@ function SignaturePadDialog({ onCancel, onDone }: { onCancel: () => void; onDone
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={clear}>ล้าง</Button>
           <Button variant="outline" onClick={onCancel}>ยกเลิก</Button>
-          <Button onClick={() => onDone(ref.current!.toDataURL("image/png"))}>ใช้ลายเซ็นนี้</Button>
+          <Button onClick={() => { if (ref.current) onDone(ref.current.toDataURL("image/png")); }}>ใช้ลายเซ็นนี้</Button>
         </div>
       </DialogContent>
     </Dialog>
