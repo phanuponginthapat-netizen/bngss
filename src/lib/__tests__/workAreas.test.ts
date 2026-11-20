@@ -57,7 +57,7 @@ describe("department navigation", () => {
     const urls = areas.flatMap(a => a.groups.flatMap(g => g.items.map(i => i.url)));
     expect(urls).not.toContain("/dashboard/academic/pp5");
     expect(urls).toContain("/dashboard/academic/score-status");
-    expect(areas.map(a => a.key)).not.toContain("finance");
+    expect(areas.map(a => a.key)).toContain("finance");
   });
   it("has no duplicate or unresolved task destinations", () => {
     for (const area of buildWorkAreas()) {
@@ -89,7 +89,8 @@ describe("department navigation", () => {
     expect(urls).toContain("/dashboard/admin/document");
     expect(urls).not.toContain("/dashboard/hr/salary");
     expect(urls).not.toContain("/dashboard/hr/personnel");
-    expect(urls).not.toContain("/dashboard/finance/budget");
+    expect(urls).toContain("/dashboard/finance/budget");
+    expect(urls).not.toContain("/dashboard/finance/procurement");
     expect(urls).not.toContain("/dashboard/admin/eform-templates");
   });
   it("honors switches on direct departmental jobs", () => {

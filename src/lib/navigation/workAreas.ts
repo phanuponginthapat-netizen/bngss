@@ -263,7 +263,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
       label: L("งานการเงินและพัสดุ", "Finance & Assets"),
       icon: DollarSign,
 
-      roles: ["admin", "director"],
+      roles: ["admin", "director", "teacher"],
       items: [
         { title: L("งานการเงินและพัสดุ", "Finance & Assets"), url: "/dashboard/hub/finance", icon: DollarSign, roles: ["admin", "director"], desc: L("งบประมาณ จัดซื้อ ทรัพย์สิน เงินอุดหนุน โครงการฮับ", "Budget, procurement, assets, subsidy, hub") },
       ],
@@ -336,7 +336,7 @@ export function buildWorkAreas(lang = "th"): WorkArea[] {
     task(L("ครูเวรประจำวัน", "Teacher duty"), "admin/duty-teachers", ShieldCheck, management),
   ]);
   replaceTasks("finance", [
-    task(L("งบประมาณและบัญชี", "Budget & accounting"), "finance/budget", DollarSign, management),
+    task(L("งบประมาณและบัญชี", "Budget & accounting"), "finance/budget", DollarSign, staff),
     task(L("จัดซื้อจัดจ้าง", "Procurement"), "finance/procurement", ClipboardCheck, management),
     task(L("ทะเบียนพัสดุและครุภัณฑ์", "Asset register"), "finance/assets", Package, management),
     task(L("รายงานพัสดุ", "Asset reports"), "finance/assets/reports", BarChart3, management),

@@ -581,7 +581,7 @@ const App = () => {
                 <Route path="monitor/agent" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher", "student", "parent"]}><StudentAgentPage /></ProtectedRoute>} />
                 {/* Finance */}
                 <Route path="finance" element={<Navigate to="/dashboard/finance/budget" replace />} />
-                <Route path="finance/budget" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><BudgetAccountingPage /></DepartmentRoute></ProtectedRoute>} />
+                <Route path="finance/budget" element={<ProtectedRoute allowedRoles={["admin", "director", "teacher"]}><DepartmentRoute departments={["finance_personnel"]}><BudgetAccountingPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="finance/procurement" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><ProcurementPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="finance/assets" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><AssetManagementPage /></DepartmentRoute></ProtectedRoute>} />
                 <Route path="finance/assets/reports" element={<ProtectedRoute allowedRoles={["admin", "director"]}><DepartmentRoute departments={["finance_personnel"]}><AssetReportsPage /></DepartmentRoute></ProtectedRoute>} />
