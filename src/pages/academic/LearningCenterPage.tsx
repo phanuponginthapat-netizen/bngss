@@ -148,17 +148,20 @@ export default function LearningCenterPage() {
   const [bClassroomId, setBClassroomId] = useState<string>("");
   const [bRoomId, setBRoomId] = useState<string>("");
   const [bTopic, setBTopic] = useState("");
+  const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
 
   // Special rooms
-  const { data: rooms = [] } = useQuery({
+  const { data: rooms = [], error: roomsError, isPending: roomsLoading } = useQuery({
     queryKey: ["special_rooms_active"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("special_rooms")
         .select("*")
         .eq("is_active", true)
         .order("sort_order")
         .order("name");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -181,15 +184,16 @@ export default function LearningCenterPage() {
 
 
   // My personnel record
-  const { data: myPersonnel } = useQuery({
+  const { data: myPersonnel, error: personnelError, isPending: personnelLoading } = useQuery({
     queryKey: ["my_personnel_lcb", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("personnel")
         .select("id, prefix, first_name, last_name")
-        .eq("user_id", userId!)
+        .eq("user_id", userId ?? "")
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
@@ -201,7 +205,8 @@ export default function LearningCenterPage() {
   const { data: classrooms = [] } = useQuery({
     queryKey: ["lcb_classrooms"],
     queryFn: async () => {
-      const { data } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
+      const { data, error } = await supabase.from("classrooms").select("id, name, grade_level").order("grade_level").order("name");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -211,10 +216,12 @@ export default function LearningCenterPage() {
     queryKey: ["lcb_my_subjects", myPersonnel?.id, currentAcademicYear, currentSemester],
     enabled: !!myPersonnel?.id && calendarReady,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!myPersonnel) return [];
+      const { data, error } = await supabase
         .from("teacher_assignments")
         .select("subject_id, classroom_id, semester, academic_year, subjects(id, code, name_th,grade_level,semester,academic_year), classrooms(id, name)")
-        .eq("personnel_id", myPersonnel!.id);
+        .eq("personnel_id", myPersonnel.id);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -224,12 +231,14 @@ export default function LearningCenterPage() {
     queryKey: ["lcb_my_schedules", myPersonnel?.id, currentAcademicYear, currentSemester],
     enabled: !!myPersonnel?.id && calendarReady,
     queryFn: async () => {
-      const { data } = await supabase
+      if (!myPersonnel) return [];
+      const { data, error } = await supabase
         .from("schedules")
         .select("subject_id, classroom_id, semester, academic_year, subjects(id, code, name_th,grade_level,semester,academic_year), classrooms(id, name)")
-        .eq("teacher_id", myPersonnel!.id)
+        .eq("teacher_id", myPersonnel.id)
         .eq("academic_year", toCE(currentAcademicYear || new Date().getFullYear() + BE_OFFSET))
         .eq("semester", currentSemester || 1);
+      if (error) throw error;
       return data || [];
     },
   });
@@ -252,7 +261,7 @@ export default function LearningCenterPage() {
     return d;
   }, [weekStart]);
 
-  const { data: bookings = [] } = useQuery({
+  const { data: bookings = [], error: bookingsError, isPending: bookingsLoading } = useQuery({
     queryKey: ["lcb_bookings", isoDate(weekStart), isoDate(weekEnd), tab, selectedRoomId],
     enabled: !!selectedRoomId,
     queryFn: async () => {
@@ -262,7 +271,8 @@ export default function LearningCenterPage() {
       } else {
         q = q.gte("booking_date", isoDate(new Date())).order("booking_date").order("start_time");
       }
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return (data || []).sort((a: any, b: any) =>
         a.booking_date.localeCompare(b.booking_date) || a.start_time.localeCompare(b.start_time)
       );
@@ -274,7 +284,7 @@ export default function LearningCenterPage() {
     queryKey: ["lcb_nearest_booking", selectedRoomId],
     enabled: !!selectedRoomId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("learning_center_bookings")
         .select("id, booking_date, start_time, end_time, period, subject_name, teacher_name")
         .eq("status", "confirmed")
@@ -284,6 +294,7 @@ export default function LearningCenterPage() {
         .order("start_time")
         .limit(1)
         .maybeSingle();
+      if (error) throw error;
       return data || null;
     },
   });
@@ -293,7 +304,7 @@ export default function LearningCenterPage() {
   useEffect(() => {
     if (!selectedRoomId || tab !== "week" || userMovedWeek.current) return;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("learning_center_bookings")
         .select("booking_date")
         .eq("status", "confirmed")
@@ -355,7 +366,8 @@ export default function LearningCenterPage() {
   };
 
 
-  const submit = async () => {
+  const performSubmit = async () => {
+    if (personnelError || roomsError || bookingsError) return toast.error("โหลดข้อมูลการจองไม่สำเร็จ กรุณาลองใหม่");
     if (!canBook) return toast.error("เฉพาะครู/ผู้บริหารเท่านั้นที่สามารถจองได้");
     if (!myPersonnel) return toast.error("ไม่พบข้อมูลบุคลากรของคุณ");
     if (!bRoomId) return toast.error("กรุณาเลือกห้องที่ต้องการจอง");
@@ -407,9 +419,11 @@ export default function LearningCenterPage() {
 
 
     let firstVisibleDate: string | null = null;
+    const successDates: string[] = [];
+    const bookedRoom = rooms.find(r => r.id === bRoomId);
 
     if (bMode === "single") {
-      const { error } = await supabase.from("learning_center_bookings").insert(rows[0]);
+      const { error } = await supabase.from("learning_center_bookings").insert(rows[0]).select("id").single();
       if (error) {
         if (error.message.includes("uq_lcb_slot") || error.code === "23505") {
           return toast.error("ช่วงเวลานี้มีคนจองแล้ว กรุณาเลือกเวลาอื่น");
@@ -417,21 +431,23 @@ export default function LearningCenterPage() {
         return toast.error(saveErrorMessage(error));
       }
       firstVisibleDate = rows[0].booking_date;
-      toast.success(`จองห้อง ${selectedRoom?.name || ""} เรียบร้อย`);
+      successDates.push(rows[0].booking_date);
+      toast.success(`จองห้อง ${bookedRoom?.name || ""} เรียบร้อย`);
     } else {
       // Insert each — collect successes/failures so partial conflicts don't block all
       let ok = 0;
       const conflicts: string[] = [];
       for (const row of rows) {
-        const { error } = await supabase.from("learning_center_bookings").insert(row);
+        const { error } = await supabase.from("learning_center_bookings").insert(row).select("id").single();
         if (error) {
           if (error.message.includes("uq_lcb_slot") || error.code === "23505") {
             conflicts.push(row.booking_date);
           } else {
-            return toast.error(saveErrorMessage(error));
+            return toast.error(`${successDates.length ? `บันทึกแล้ว ${successDates.length} ครั้งก่อนเกิดข้อผิดพลาด · ` : ""}${saveErrorMessage(error)}`);
           }
         } else {
           ok++;
+          successDates.push(row.booking_date);
           if (!firstVisibleDate) firstVisibleDate = row.booking_date;
         }
       }
@@ -447,11 +463,8 @@ export default function LearningCenterPage() {
 
     // Notify admins/directors of the new booking(s) — fans out to in-app + Web Push
     try {
-      const successDates = bMode === "single"
-        ? [rows[0].booking_date]
-        : rows.map((r) => r.booking_date).filter((d) => !(/* conflicts captured above */ false));
       await notifyAdminsRoomBooking({
-        roomName: selectedRoom?.name || "—",
+        roomName: bookedRoom?.name || "—",
         teacherName: myTeacherName || "ครู",
         subjectName: subjectName,
         dates: successDates,
@@ -474,9 +487,16 @@ export default function LearningCenterPage() {
   };
 
 
+  const submit = async () => {
+    if (saveLock.current) return;
+    saveLock.current = true; setSaving(true);
+    try { await performSubmit(); } catch (error) { toast.error(saveErrorMessage(error)); }
+    finally { saveLock.current = false; setSaving(false); }
+  };
+
   const cancelBooking = async (b: any) => {
     if (!(await swal.confirm({ title: `ยกเลิกการจอง?`, text: `${b.subject_name || "-"} วันที่ ${fmtDate(b.booking_date)}`, danger: true }))) return;
-    const { error } = await supabase.from("learning_center_bookings").delete().eq("id", b.id);
+    const { error } = await supabase.from("learning_center_bookings").delete().eq("id", b.id).select("id").single();
     if (error) return toast.error(saveErrorMessage(error));
     toast.success("ยกเลิกการจองแล้ว");
     qc.invalidateQueries({ queryKey: ["lcb_bookings"] });
@@ -508,6 +528,9 @@ export default function LearningCenterPage() {
     return d < weekStart || d > weekEnd;
   }, [nearestBooking, weekStart, weekEnd]);
 
+  const readError = roomsError || personnelError || bookingsError;
+  if (readError) return <div className="container mx-auto p-6 space-y-3"><p className="text-destructive">{saveErrorMessage(readError)}</p><Button variant="outline" onClick={() => qc.invalidateQueries({ predicate: q => String(q.queryKey[0]).startsWith("lcb_") || q.queryKey[0] === "special_rooms_active" })}>ลองใหม่</Button></div>;
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -518,7 +541,7 @@ export default function LearningCenterPage() {
           <p className="text-sm text-muted-foreground">เลือกห้องที่ต้องการจอง · ครูจองล่วงหน้าสำหรับสอนวิชาของตน · ทุกคนเห็นตารางการใช้ห้อง</p>
         </div>
         {canBook && rooms.length > 0 && (
-          <Button onClick={() => { resetForm(); setOpen(true); }}>
+          <Button disabled={personnelLoading || roomsLoading} onClick={() => { resetForm(); setOpen(true); }}>
             <Plus className="w-4 h-4 mr-1" /> จองห้องใหม่
           </Button>
         )}
@@ -783,7 +806,7 @@ export default function LearningCenterPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={v => { if (!saving) setOpen(v); }}>
         <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>จองห้องพิเศษ</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -917,8 +940,8 @@ export default function LearningCenterPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submit} disabled={!canBook}>ยืนยันการจอง</Button>
+            <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>ยกเลิก</Button>
+            <Button onClick={submit} disabled={!canBook || saving || personnelLoading}>{saving ? "กำลังจอง…" : "ยืนยันการจอง"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

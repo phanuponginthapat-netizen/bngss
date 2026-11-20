@@ -1,0 +1,1 @@
+- Room bookings confirm returned writes and fail dependent reads visibly; teacher inserts use auth ownership and their linked personnel, cancellation stays owner-only unless admin/director, and partial recurring writes report only confirmed dates to avoid fabricated success.

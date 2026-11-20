@@ -547,6 +547,13 @@
       "when": 1795150895625,
       "tag": "0077_restore_special_room_management",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1795151094221,
+      "tag": "0078_restore_teacher_room_booking",
+      "breakpoints": true
     }
   ]
 }
