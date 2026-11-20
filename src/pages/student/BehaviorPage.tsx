@@ -25,6 +25,7 @@ import { notifyStudentEvent } from "@/lib/notifyStudentEvent";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 import { swal } from "@/lib/swal";
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { exactStudentCode } from '@/lib/studentRosterFilter';
 
 // หัวข้อพฤติกรรมตามมาตรฐาน สพฐ.
 const OBEC_BEHAVIOR_TOPICS = [
@@ -44,7 +45,7 @@ const topicLabelMap = Object.fromEntries(OBEC_BEHAVIOR_TOPICS.map(t => [t.value,
 const BehaviorPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
-  const studentData = useStudentData();
+  const studentData = useStudentData({ classroomScope: "school", skipAutoFilter: true });
   const { isParent, isStudent, userId } = useUserRole();
   const isFamily = isParent || isStudent;
   const { childIds } = useParentChildren();
@@ -74,16 +75,23 @@ const BehaviorPage = () => {
   const [points, setPoints] = useState("0");
   const [filterTopic, setFilterTopic] = useState("all");
   const [scanOpen, setScanOpen] = useState(false);
+  const [recordSearch, setRecordSearch] = useState("");
+  const recordStudents = useMemo(() => {
+    const q = recordSearch.trim().toLowerCase();
+    return studentData.students.filter(s => !q || s.student_code.toLowerCase().includes(q) ||
+      `${s.prefix || ""}${s.first_name} ${s.last_name}`.toLowerCase().includes(q));
+  }, [studentData.students, recordSearch]);
+  const changeRecordSearch = (value: string) => {
+    setRecordSearch(value);
+    setStudentId(exactStudentCode(studentData.students, value)?.id ?? "");
+  };
 
-  // Scope: parent → only their children; student → only themselves; teachers → homeroom students; admin/director → all
+  // Family sees only linked students; staff sees all server-authorized classrooms.
   const scopedStudentIds = useMemo(() => {
     if (isParent) return childIds;
     if (isStudent) return selfStudent ? [selfStudent.id] : [];
-    if (!studentData.homeroomClassroomIds) return null;
-    return studentData.students
-      .filter((s: any) => studentData.homeroomClassroomIds!.includes(s.classroom_id))
-      .map((s: any) => s.id);
-  }, [isParent, isStudent, selfStudent, childIds, studentData.homeroomClassroomIds, studentData.students]);
+    return null;
+  }, [isParent, isStudent, selfStudent, childIds]);
 
   const { data: records = [], error: recordsError, refetch } = useQuery({
     queryKey: ["behavior_records", academicYear, scopedStudentIds?.join(",") || "all"],
@@ -180,6 +188,7 @@ const BehaviorPage = () => {
     }
     if (!found) { toast.error(`ไม่พบนักเรียนจาก QR (${cleaned.slice(0, 40)})`); return; }
     setStudentId(found.id);
+    setRecordSearch(found.student_code);
     setOpen(true);
     toast.success(`เลือก: ${found.first_name} ${found.last_name}`);
   };
@@ -187,7 +196,7 @@ const BehaviorPage = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {(recordsError || studentData.error) && <div role="alert" className="text-destructive">อ่านข้อมูลพฤติกรรมไม่สำเร็จ <Button variant="outline" onClick={() => void refetch()}>ลองใหม่</Button></div>}
+      {(recordsError || studentData.error) && <div role="alert" className="text-destructive">อ่านข้อมูลพฤติกรรมไม่สำเร็จ <Button variant="outline" onClick={() => { void refetch(); void studentData.refetch(); }}>ลองใหม่</Button></div>}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-responsive-title font-bold text-foreground">{lang === "th" ? "ระบบความประพฤตินักเรียน" : "Behavior Records"}</h1>
@@ -210,19 +219,10 @@ const BehaviorPage = () => {
                 <div className="flex gap-2 mb-2">
                   <Input
                     placeholder={lang === "th" ? "พิมพ์รหัสหรือชื่อนักเรียน..." : "Type code or name..."}
-                    value={studentData.search}
-                    onChange={e => {
-                      studentData.setSearch(e.target.value);
-                      const v = e.target.value.trim();
-                      const exact = studentData.students.find((s: any) => s.student_code === v);
-                      if (exact) setStudentId(exact.id);
-                    }}
+                    value={recordSearch}
+                    onChange={e => changeRecordSearch(e.target.value)}
                   />
-                  <ScanSearchButton onScan={(code) => {
-                    studentData.setSearch(code);
-                    const exact = studentData.filteredStudents.find((s: any) => s.student_code === code);
-                    if (exact) setStudentId(exact.id);
-                  }} />
+                  <ScanSearchButton onScan={changeRecordSearch} />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 mb-2">
                   <Select value={studentData.gradeFilter} onValueChange={v => { studentData.setGradeFilter(v); studentData.setClassroomFilter("all"); }}>
@@ -243,7 +243,7 @@ const BehaviorPage = () => {
                 <Select value={studentId} onValueChange={setStudentId}>
                   <SelectTrigger><SelectValue placeholder={lang === "th" ? "เลือกนักเรียน" : "Select student"} /></SelectTrigger>
                   <SelectContent>
-                    {studentData.filteredStudents.map((s: any) => (
+                    {(recordSearch.trim() ? recordStudents : studentData.filteredStudents).map((s: any) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.student_code} - {s.prefix || ""}{s.first_name} {s.last_name}
                         {s.classrooms && <span className="text-muted-foreground"> ({s.classrooms.name})</span>}

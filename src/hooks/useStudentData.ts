@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useHomeroomClassrooms } from "@/hooks/useHomeroomClassrooms";
 import { sortGrades } from "@/lib/gradeOrder";
 import { effectiveGrade } from "@/lib/classroomGrade";
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { loadFullClassrooms } from "@/lib/classroomQueries";
+import { exactStudentCode, rosterClassroomScope } from "@/lib/studentRosterFilter";
 
 
 /**
@@ -15,39 +18,33 @@ import { effectiveGrade } from "@/lib/classroomGrade";
  * Homeroom, SDQ, Screening, and Leave pages.
  */
 export function useStudentData(options?: {
+  /** School-wide presentation under existing server authorization. */
+  classroomScope?: "homeroom" | "school";
   /** Skip auto-setting classroom filter for homeroom teachers */
   skipAutoFilter?: boolean;
   /** Initial value for classroom filter (overridden by homeroom if teacher) */
   initialClassroom?: string;
 }) {
-  const { homeroomClassroomIds, isFiltered, teacherFullName } = useHomeroomClassrooms();
+  const { homeroomClassroomIds: assignedHomeroomIds, teacherFullName } = useHomeroomClassrooms();
+  const homeroomClassroomIds = rosterClassroomScope(assignedHomeroomIds, options?.classroomScope);
+  const isFiltered = homeroomClassroomIds !== null;
 
   // ─── Shared queries with stable keys ───
-  const { data: students = [], isLoading: studentsLoading, error: studentsError } = useQuery({
+  const { data: students = [], isLoading: studentsLoading, error: studentsError, refetch: refetchStudents } = useQuery({
     queryKey: ["active-students-with-class"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      return fetchAllRows((from, to) => supabase
         .from("students")
         .select("*, classrooms!students_classroom_id_fkey(name, grade_level)")
         .eq("status", "active")
-        .order("student_code");
-      if (error) throw error;
-      return data || [];
+        .order("student_code").order("id").range(from, to));
     },
     staleTime: 30_000,
   });
 
-  const { data: classrooms = [], isLoading: classroomsLoading, error: classroomsError } = useQuery({
+  const { data: classrooms = [], isLoading: classroomsLoading, error: classroomsError, refetch: refetchClassrooms } = useQuery({
     queryKey: ["all-classrooms"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("classrooms")
-        .select("*")
-        .order("grade_level")
-        .order("name");
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: loadFullClassrooms,
     staleTime: 30_000,
   });
 
@@ -123,9 +120,7 @@ export function useStudentData(options?: {
 
   // Exact match by student_code (typed in search) — pages can auto-select on this
   const exactMatch = useMemo(() => {
-    const q = search.trim();
-    if (!q) return null;
-    return filteredStudents.find((s: any) => s.student_code === q) || null;
+    return exactStudentCode(filteredStudents, search);
   }, [filteredStudents, search]);
 
 
@@ -136,6 +131,7 @@ export function useStudentData(options?: {
     availableClassrooms,
     isLoading: studentsLoading || classroomsLoading,
     error: studentsError || classroomsError,
+    refetch: () => Promise.all([refetchStudents(), refetchClassrooms()]),
 
     // Filter state
     search,
