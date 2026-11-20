@@ -145,8 +145,32 @@ const BehaviorPage = () => {
     } as any).select("id").single();
     setSavingBehavior(false);
     if (error) { toast.error(saveErrorMessage(error)); return; }
-    toast.success(lang === "th" ? "บันทึกสำเร็จ" : "Saved");
     qc.invalidateQueries({ queryKey: ["behavior_records"] });
+
+    // สรุปการบันทึกให้ครูเห็นชัดว่าบันทึกของใคร เรื่องอะไร กี่คะแนน
+    const savedStudent = studentData.students.find((s: any) => s.id === studentId) as any;
+    const studentName = savedStudent
+      ? `${savedStudent.prefix || ""}${savedStudent.first_name} ${savedStudent.last_name}`.trim()
+      : "-";
+    const studentMeta = savedStudent
+      ? [savedStudent.student_code, savedStudent.classrooms?.name].filter(Boolean).join(" • ")
+      : "";
+    const isPos = type === "positive";
+    const pts = safeInt(points, 0);
+    void swal.fire({
+      icon: isPos ? "success" : "warning",
+      title: lang === "th" ? "บันทึกพฤติกรรมเรียบร้อย" : "Behavior recorded",
+      html: `
+        <div style="text-align:left;display:flex;flex-direction:column;gap:6px">
+          <div><b>${lang === "th" ? "นักเรียน" : "Student"}:</b> ${studentName}</div>
+          ${studentMeta ? `<div style="opacity:.7;font-size:.85em">${studentMeta}</div>` : ""}
+          <div><b>${lang === "th" ? "ประเภท" : "Type"}:</b> ${isPos ? (lang === "th" ? "เชิงบวก ⭐" : "Positive ⭐") : (lang === "th" ? "เชิงลบ ⚠️" : "Negative ⚠️")}</div>
+          <div><b>${lang === "th" ? "หัวข้อ" : "Topic"}:</b> ${topicLabel}</div>
+          <div><b>${lang === "th" ? "รายละเอียด" : "Detail"}:</b> ${desc}</div>
+          <div><b>${lang === "th" ? "คะแนน" : "Points"}:</b> ${isPos ? "+" : "-"}${pts} ${lang === "th" ? "คะแนน" : "pts"}</div>
+        </div>`,
+      confirmButtonText: lang === "th" ? "รับทราบ" : "OK",
+    });
 
     // Spider-web: แจ้งนักเรียน + ผู้ปกครอง (เชิงลบแจ้ง homeroom ด้วย)
     const isPositive = type === "positive";
