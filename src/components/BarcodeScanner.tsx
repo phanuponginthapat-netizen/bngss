@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useId } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScanLine, AlertCircle, Focus } from "lucide-react";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { applyCameraFocus } from "@/lib/cameraFocus";
 
 const IS_IOS =
@@ -21,9 +22,11 @@ interface Props {
   children?: React.ReactNode;
 }
 
-const SCANNER_ID = "barcode-scanner-region";
-
 export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบาร์โค้ด / QR Code", continuous = false, children }: Props) => {
+  const scannerId = `barcode-scanner-${useId().replace(/:/g, "")}`;
+  const [scannerElement, setScannerElement] = useState<HTMLDivElement | null>(null);
+  const [retry, setRetry] = useState(0);
+  const lifecycleRef = useRef<Promise<void>>(Promise.resolve());
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
    * แต่การ pause/play + applyConstraints ใหม่จะ trigger AF re-lock บนเครื่อง iOS
    */
   const triggerRefocus = useCallback(async () => {
-    const el = document.getElementById(SCANNER_ID);
+    const el = scannerElement;
     const videoEl = el?.querySelector("video") as HTMLVideoElement | null;
     const stream = (videoEl?.srcObject as MediaStream) || null;
     if (!videoEl || !stream) return;
@@ -59,76 +62,32 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
     } finally {
       setTimeout(() => setRefocusing(false), 400);
     }
-  }, []);
+  }, [scannerElement]);
 
   useEffect(() => {
-    if (!open) return;
-
+    // Radix mounts portal contents separately; start only after its actual ref exists.
+    if (!open || !scannerElement) return;
     let cancelled = false;
+    let instance: Html5Qrcode | null = null;
     setError(null);
+    lastScanRef.current = { code: "", at: 0 };
 
     const stop = async () => {
-      try {
-        if (scannerRef.current?.isScanning) await scannerRef.current.stop();
-        await scannerRef.current?.clear();
-      } catch {}
-      scannerRef.current = null;
+      const current = instance;
+      if (!current) return;
+      instance = null;
+      try { if (current.isScanning) await current.stop(); } catch {}
+      try { current.clear(); } catch {}
+      if (scannerRef.current === current) scannerRef.current = null;
     };
 
     const start = async () => {
-      // Wait a tick so the dialog's scanner div is mounted
-      await new Promise((r) => setTimeout(r, 50));
       if (cancelled) return;
-
-      const el = document.getElementById(SCANNER_ID);
-      if (!el) {
-        setError("ไม่พบพื้นที่แสดงกล้อง");
-        return;
-      }
-
-      // Pre-check permissions / availability with a clear error
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error("เบราว์เซอร์ไม่รองรับการใช้กล้อง (ต้องใช้ HTTPS)");
+          throw new Error("เบราว์เซอร์ไม่รองรับการใช้กล้อง กรุณาเปิดผ่าน HTTPS");
         }
-      } catch (e: any) {
-        const msg = e?.message || "เปิดกล้องไม่สำเร็จ";
-        setError(msg);
-        toast.error(msg);
-        return;
-      }
-
-      // เลือก deviceId ของกล้องหลัง (ถ้ามี) เพื่อหลีกเลี่ยง OverconstrainedError บน Android บางรุ่น
-      let cameraConfig: any = { facingMode: { ideal: "environment" } };
-      try {
-        const probe = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
-        probe.getTracks().forEach((t) => t.stop());
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter((d) => d.kind === "videoinput");
-        const back = cams.find((d) => /back|rear|environment/i.test(d.label)) || cams[cams.length - 1];
-        if (back?.deviceId) cameraConfig = { deviceId: { exact: back.deviceId } };
-      } catch (e: any) {
-        const name = e?.name || "";
-        let msg = e?.message || "เปิดกล้องไม่สำเร็จ";
-        if (name === "NotAllowedError") msg = "ไม่ได้รับอนุญาตให้ใช้กล้อง — กรุณาอนุญาตในเบราว์เซอร์";
-        else if (name === "NotFoundError") msg = "ไม่พบกล้องในอุปกรณ์นี้";
-        else if (name === "NotReadableError") msg = "กล้องถูกใช้งานโดยแอปอื่นอยู่";
-        else if (name === "SecurityError") msg = "เบราว์เซอร์บล็อกกล้อง (ต้องเปิดผ่าน HTTPS)";
-        console.error("Camera permission error", e);
-        setError(msg);
-        toast.error(msg);
-        return;
-      }
-
-      try {
-        // Clear any previous video/canvas elements that html5-qrcode may have left behind
-        if (el) el.innerHTML = "";
-        if (scannerRef.current) {
-          try { if (scannerRef.current.isScanning) await scannerRef.current.stop(); } catch {}
-          try { await scannerRef.current.clear(); } catch {}
-          scannerRef.current = null;
-        }
-        const inst = new Html5Qrcode(SCANNER_ID, {
+        const current = new Html5Qrcode(scannerId, {
           formatsToSupport: [
             Html5QrcodeSupportedFormats.QR_CODE,
             Html5QrcodeSupportedFormats.CODE_128,
@@ -137,56 +96,55 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
           ],
           verbose: false,
         });
-        scannerRef.current = inst;
-        const elW = el.clientWidth || 320;
-        const boxSize = Math.min(360, Math.floor(elW * 0.75));
-        await inst.start(
-          cameraConfig,
+        instance = current;
+        scannerRef.current = current;
+        const decoded = (raw: string) => {
+          if (cancelled) return;
+          const code = raw.trim();
+          if (code.length < 3 || /[\x00-\x1f]/.test(code)) return;
+          const now = Date.now();
+          if (code === lastScanRef.current.code && now - lastScanRef.current.at < 1500) return;
+          lastScanRef.current = { code, at: now };
+          if (!continuous) cancelled = true;
+          onScanRef.current(code);
+          if (!continuous) onCloseRef.current();
+        };
+        // One camera acquisition: probing then reopening can leave mobile cameras busy.
+        await current.start(
+          { facingMode: "environment" },
           {
             fps: 15,
-            qrbox: { width: boxSize, height: boxSize },
+            qrbox: (width, height) => {
+              const size = Math.max(1, Math.min(360, Math.floor(Math.min(width, height) * 0.75)));
+              return { width: size, height: size };
+            },
             aspectRatio: 1.333,
-            useBarCodeDetectorIfSupported: true,
-            // iOS Safari: บังคับ resolution สูง → บังคับใช้ main sensor (autofocus ดีกว่ากล้อง ultrawide)
-            videoConstraints: IS_IOS
-              ? { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-              : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          } as any,
-          (decoded) => {
-            if (cancelled) return;
-            const code = decoded.trim();
-            if (code.length < 3 || /[\x00-\x1f]/.test(code)) return;
-            const now = Date.now();
-            if (code === lastScanRef.current.code && now - lastScanRef.current.at < 1500) return;
-            lastScanRef.current = { code, at: now };
-            onScanRef.current(code);
-            if (!continuous) {
-              stop();
-              onCloseRef.current();
-            }
           },
-
-          () => {}
+          decoded,
+          () => {},
         );
-
-        // เปิด autofocus ต่อเนื่อง + macro focus ให้กล้อง (ช่วยไม่ให้ QR เบลอในระยะใกล้)
-        try {
-          const videoEl = el.querySelector("video") as HTMLVideoElement | null;
-          const stream = (videoEl?.srcObject as MediaStream) || null;
-          await applyCameraFocus(stream, "close");
-        } catch {}
-
-      } catch (e: any) {
-        console.error("Scanner start failed", e);
-        const msg = e?.message || "เริ่มสแกนไม่สำเร็จ";
-        setError(msg);
-        toast.error(msg);
+        if (cancelled) { await stop(); return; }
+        const video = scannerElement.querySelector("video");
+        await applyCameraFocus(video?.srcObject as MediaStream | null, "close");
+      } catch (e: unknown) {
+        await stop();
+        if (cancelled) return;
+        const name = typeof e === "object" && e !== null && "name" in e ? String(e.name) : "";
+        let message = e instanceof Error ? e.message : typeof e === "string" ? e : "เริ่มสแกนไม่สำเร็จ";
+        if (name === "NotAllowedError" || name === "SecurityError") message = "ไม่ได้รับอนุญาตให้ใช้กล้อง กรุณาอนุญาตกล้องในเบราว์เซอร์แล้วลองใหม่";
+        else if (name === "NotFoundError") message = "ไม่พบกล้องในอุปกรณ์นี้";
+        else if (name === "NotReadableError") message = "กล้องถูกใช้งานอยู่ กรุณาปิดแอปที่ใช้กล้องแล้วลองใหม่";
+        setError(message);
       }
     };
-
-    start();
-    return () => { cancelled = true; stop(); };
-  }, [open, continuous]);
+    // A late permission/start response must release its camera before a reopen starts.
+    const starting = lifecycleRef.current.then(start);
+    lifecycleRef.current = starting;
+    return () => {
+      cancelled = true;
+      lifecycleRef.current = starting.then(stop);
+    };
+  }, [open, continuous, scannerElement, scannerId, retry]);
 
 
   return (
@@ -199,19 +157,22 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
         </DialogHeader>
         <div className="relative">
           <div
-            id={SCANNER_ID}
+            id={scannerId}
+            ref={setScannerElement}
             onClick={triggerRefocus}
-            className="w-full rounded-lg overflow-hidden bg-black/80 min-h-[300px] cursor-pointer select-none"
+            className="w-full rounded-lg overflow-hidden bg-muted min-h-[300px] cursor-pointer select-none"
           />
           {/* ปุ่มโฟกัสใหม่ — จำเป็นสำหรับ iOS Safari ที่ไม่รองรับ focusMode API */}
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="icon"
             onClick={(e) => { e.stopPropagation(); triggerRefocus(); }}
-            className="absolute bottom-3 right-3 h-11 w-11 rounded-full bg-white/90 hover:bg-white text-black shadow-lg backdrop-blur flex items-center justify-center active:scale-95 transition-all"
+            className="absolute bottom-3 right-3 h-11 w-11 rounded-full bg-background/90 hover:bg-background text-foreground shadow-lg backdrop-blur flex items-center justify-center active:scale-95 transition-all"
             aria-label="โฟกัสใหม่"
           >
             <Focus className={`w-5 h-5 ${refocusing ? "animate-spin" : ""}`} />
-          </button>
+          </Button>
         </div>
         {error ? (
           <div className="space-y-3">
@@ -224,6 +185,7 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
                 </div>
               </div>
             </div>
+            <Button type="button" variant="outline" onClick={() => setRetry(value => value + 1)}>ลองเปิดกล้องอีกครั้ง</Button>
             <form
               className="flex items-center gap-2"
               onSubmit={(e) => {
@@ -235,20 +197,21 @@ export const BarcodeScanner = ({ open, onClose, onScan, title = "สแกนบ
                 if (!continuous) onCloseRef.current();
               }}
             >
-              <input
+              <Input
+                aria-label="รหัสนักเรียนแทนการสแกน"
                 value={manual}
                 onChange={(e) => setManual(e.target.value)}
                 placeholder="กรอกรหัสนักเรียน/รหัสบนบัตรแทนการสแกน"
                 className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm"
                 autoFocus
               />
-              <button
+              <Button
                 type="submit"
                 className="h-10 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
                 disabled={manual.trim().length < 2}
               >
                 ยืนยัน
-              </button>
+              </Button>
             </form>
           </div>
         ) : (

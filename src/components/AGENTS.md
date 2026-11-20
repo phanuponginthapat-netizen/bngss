@@ -3,3 +3,4 @@
 - Homework attachments, document editor and worksheet audio use MediaCaptureButtons for live recording, local review and retry; recorded MIME follows browser support and closing releases all media tracks without uploading.
 - Homework edit/answer/grading views wait for every dependent read before mounting editable content and reject source failures with retry; preserve saved file references until a confirmed write and ignore obsolete async loads to prevent draft loss.
 - Shared task submissions and replies use compare-and-swap JSON writes with fresh reads; preserve concurrent changes and reject stale same-student grading before reporting success.
+- BarcodeScanner starts on its mounted portal ref with an instance-unique region ID and serialized camera teardown; avoid permission probes/reopens so nested card scanners and late permission responses cannot contend for cameras.
