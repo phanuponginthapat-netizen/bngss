@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, FileEdit, Send, CheckCircle2, XCircle, Eye, Trash2, Search, BookOpenCheck, Sparkles, Filter, Clock, AlertCircle, MessageSquare, Users, Printer, Download, NotebookPen, Save } from "lucide-react";
 import { printLessonPlan, exportLessonPlanJSON } from "@/lib/lessonPlanExport";
+import { useTermSubjects } from "@/hooks/useTermSubjects";
 import { saveErrorMessage } from "@/lib/saveError";
 
 const STATUS_STYLES: Record<string, { label: string; className: string; icon: any }> = {
@@ -71,10 +72,11 @@ export default function LessonPlansPage() {
     },
   });
 
-  const { data: subjects = [] } = useQuery({
-    queryKey: ["subjects-list"],
-    queryFn: async () => (await supabase.from("subjects").select("id,code,name_th,grade_level").order("code")).data || [],
-  });
+  const { data: subjects = [] } = useTermSubjects(
+    editing?.academic_year ? Number(editing.academic_year) : currentAcademicYear,
+    editing?.semester ? Number(editing.semester) : currentSemester,
+  );
+
   const { data: classrooms = [] } = useQuery({
     queryKey: ["classrooms-list"],
     queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("grade_level").order("name")).data || [],
@@ -500,7 +502,7 @@ function Section({ title, children }: any) {
 
 function PlanFormDialog({ editing, setEditing, subjects, classrooms, onSave, saving }: any) {
   if (!editing) return null;
-  const set = (k: string, v: any) => setEditing({ ...editing, [k]: v });
+  const set = (k: string, v: any) => setEditing({ ...editing, [k]: v, ...(["academic_year", "semester"].includes(k) ? { subject_id: "" } : {}) });
   const arrText = (arr: string[] | undefined) => (arr || []).join(", ");
   const parseArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
 

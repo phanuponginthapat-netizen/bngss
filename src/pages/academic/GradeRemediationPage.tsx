@@ -1,3 +1,5 @@
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { remediationSelectionTerms } from "@/lib/subjectSelectionTerm";
 import { useState, useEffect } from "react";
 import { escapeHtml } from "@/lib/escapeHtml";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +41,8 @@ type Remediation = {
 
 export default function GradeRemediationPage() {
   const { lang } = useLanguage();
+  const calendar = useAcademicYear();
+  const remediationTerms = calendar.isReady ? remediationSelectionTerms({ academicYear: calendar.currentAcademicYear, semester: calendar.currentSemester }) : [];
   const L = (th: string, en: string) => (lang === "th" ? th : en);
   const [tab, setTab] = useState("list");
   const [items, setItems] = useState<Remediation[]>([]);
@@ -261,7 +265,13 @@ export default function GradeRemediationPage() {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex flex-wrap gap-2 items-center">
-            <Input placeholder={L("เทอม เช่น 1/2568", "Term e.g. 1/2568")} value={termFilter} onChange={(e) => setTermFilter(e.target.value)} className="w-40 h-8 text-sm" />
+            <Select value={termFilter || "all"} onValueChange={value => setTermFilter(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-48 h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกเทอม (ประวัติเดิม)</SelectItem>
+                {remediationTerms.map((term, index) => <SelectItem key={`${term.semester}/${term.academicYear}`} value={`${term.semester}/${term.academicYear}`}>{index === 0 ? "เทอมปัจจุบัน" : "เทอมก่อน"} {term.semester}/{term.academicYear}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40 h-8"><SelectValue /></SelectTrigger>
               <SelectContent>

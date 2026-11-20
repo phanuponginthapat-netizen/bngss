@@ -1,3 +1,4 @@
+import { subjectInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { AcademicReadNotice } from "@/components/academic/AcademicReadNotice";
 import { academicReadState } from "@/lib/academicReadState";
 import { Fragment, useState, useMemo, useEffect, useRef } from "react";
@@ -595,8 +596,7 @@ const SchedulePage = () => {
     if (!classroom) return [];
     return subjects.filter((s: any) =>
       s.grade_level === classroom.grade_level &&
-      s.academic_year === scheduleYear &&
-      (s.semester === 0 || s.semester === filterSemester || s.semester == null)
+      subjectInSelectionTerm(s, { academicYear: scheduleYear, semester: filterSemester })
     );
   };
 

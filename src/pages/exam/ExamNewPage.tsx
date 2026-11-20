@@ -13,6 +13,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 import { Sparkles, Loader2, Save } from "lucide-react";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { assignmentInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
 const REFS = [
@@ -30,6 +32,7 @@ const CHOICE_FORMATS: Record<string, string[]> = {
 export default function ExamNewPage() {
   const nav = useNavigate();
   const { user } = useAuthSession();
+  const calendar = useAcademicYear();
   const [form, setForm] = useState({
     title: "", assignment_id: "", topic: "",
     level: "medium", question_count: 10, references: ["onet"] as string[],
@@ -43,20 +46,21 @@ export default function ExamNewPage() {
   const { data: personnel } = useQuery({
     queryKey: ["my-personnel", user?.id],
     enabled: !!user?.id,
-    queryFn: async () => (await supabase.from("personnel").select("id").eq("user_id", user!.id).maybeSingle()).data,
+    queryFn: async () => (await supabase.from("personnel").select("id").eq("user_id", user?.id ?? "").maybeSingle()).data,
   });
 
   // ดึงรายการ "วิชา-ห้อง" ที่ครูได้รับมอบหมาย
   const { data: assignments = [] } = useQuery({
-    queryKey: ["my-teacher-assignments", personnel?.id],
-    enabled: !!personnel?.id,
+    queryKey: ["my-teacher-assignments", personnel?.id, calendar.currentAcademicYear, calendar.currentSemester],
+    enabled: !!personnel?.id && calendar.isReady,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("teacher_assignments")
-        .select("id, subject_id, classroom_id, academic_year, semester, subjects(id,name_th,code), classrooms(id,name,grade_level)")
-        .eq("personnel_id", personnel!.id)
+        .select("id, subject_id, classroom_id, academic_year, semester, subjects(id,name_th,code,grade_level,semester,academic_year), classrooms(id,name,grade_level)")
+        .eq("personnel_id", personnel?.id ?? "")
         .order("academic_year", { ascending: false });
-      return data || [];
+      if (error) throw error;
+      return (data || []).filter(row => assignmentInSelectionTerm(row, { academicYear: calendar.currentAcademicYear, semester: calendar.currentSemester }));
     },
   });
 
@@ -75,12 +79,12 @@ export default function ExamNewPage() {
     queryFn: async () => (await supabase
       .from("subject_indicators")
       .select("id,title,description,sort_order")
-      .eq("subject_id", selected!.subject_id)
+      .eq("subject_id", selected?.subject_id ?? "")
       .order("sort_order", { ascending: true })).data || [],
   });
 
   async function generate() {
-    if (!form.assignment_id) return toast.error("กรุณาเลือกวิชา/ห้องเรียน");
+    if (!selected) return toast.error("กรุณาเลือกวิชา/ห้องเรียน");
     if (!form.topic) return toast.error("กรุณากรอกหัวข้อ");
     setGenLoading(true);
     try {

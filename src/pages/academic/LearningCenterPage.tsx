@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { assignmentInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { toCE } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,7 +98,7 @@ export default function LearningCenterPage() {
   const qc = useQueryClient();
   const { isAdmin, isDirector, isTeacher, userId } = useUserRole();
   const canBook = isAdmin || isDirector || isTeacher;
-  const { currentAcademicYear, currentSemester, config } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, config, isReady: calendarReady } = useAcademicYear();
 
   // Compute current semester date range (used by "รายเทอม" booking mode)
   const semesterRange = useMemo(() => {
@@ -206,12 +207,12 @@ export default function LearningCenterPage() {
 
   // Subjects teacher is assigned to
   const { data: mySubjects = [] } = useQuery({
-    queryKey: ["lcb_my_subjects", myPersonnel?.id],
-    enabled: !!myPersonnel?.id,
+    queryKey: ["lcb_my_subjects", myPersonnel?.id, currentAcademicYear, currentSemester],
+    enabled: !!myPersonnel?.id && calendarReady,
     queryFn: async () => {
       const { data } = await supabase
         .from("teacher_assignments")
-        .select("subject_id, classroom_id, subjects(id, code, name_th), classrooms(id, name)")
+        .select("subject_id, classroom_id, semester, academic_year, subjects(id, code, name_th,grade_level,semester,academic_year), classrooms(id, name)")
         .eq("personnel_id", myPersonnel!.id);
       return data || [];
     },
@@ -220,11 +221,11 @@ export default function LearningCenterPage() {
   // Schedules of teacher (so admin/director can also pick from their schedule)
   const { data: mySchedules = [] } = useQuery({
     queryKey: ["lcb_my_schedules", myPersonnel?.id, currentAcademicYear, currentSemester],
-    enabled: !!myPersonnel?.id,
+    enabled: !!myPersonnel?.id && calendarReady,
     queryFn: async () => {
       const { data } = await supabase
         .from("schedules")
-        .select("subject_id, classroom_id, subjects(id, code, name_th), classrooms(id, name)")
+        .select("subject_id, classroom_id, semester, academic_year, subjects(id, code, name_th,grade_level,semester,academic_year), classrooms(id, name)")
         .eq("teacher_id", myPersonnel!.id)
         .eq("academic_year", toCE(currentAcademicYear || new Date().getFullYear() + BE_OFFSET))
         .eq("semester", currentSemester || 1);
@@ -236,12 +237,12 @@ export default function LearningCenterPage() {
   const subjectOptions = useMemo(() => {
     const seen = new Map<string, any>();
     [...mySubjects, ...mySchedules].forEach((r: any) => {
-      if (!r.subject_id) return;
+      if (!r.subject_id || !assignmentInSelectionTerm(r, { academicYear: currentAcademicYear, semester: currentSemester })) return;
       const key = r.subject_id;
       if (!seen.has(key)) seen.set(key, r);
     });
     return [...seen.values()];
-  }, [mySubjects, mySchedules]);
+  }, [mySubjects, mySchedules, currentAcademicYear, currentSemester]);
 
   // Bookings — date range from weekStart .. +6 days (or all for list tab)
   const weekEnd = useMemo(() => {

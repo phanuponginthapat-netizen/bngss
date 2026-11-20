@@ -19,6 +19,7 @@ import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, ClipboardList, Sparkles, CalendarDays, Trash2, FileEdit, Users, ChevronLeft, ChevronRight, Flame, Search } from "lucide-react";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
+import { useTermSubjects } from "@/hooks/useTermSubjects";
 import { saveErrorMessage } from "@/lib/saveError";
 
 const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
@@ -51,10 +52,11 @@ export default function TeachingLogbookPage() {
   const [editing, setEditing] = useState<any>(null);
   const [search, setSearch] = useState("");
 
-  const { data: subjects = [] } = useQuery({
-    queryKey: ["subjects-list-log"],
-    queryFn: async () => (await supabase.from("subjects").select("id,code,name_th").order("code")).data || [],
-  });
+  const { data: subjects = [] } = useTermSubjects(
+    editing?.academic_year ? Number(editing.academic_year) : currentAcademicYear,
+    editing?.semester ? Number(editing.semester) : currentSemester,
+  );
+
   const { data: classrooms = [] } = useQuery({
     queryKey: ["classrooms-list-log"],
     queryFn: async () => (await supabase.from("classrooms").select("id,name,grade_level").order("grade_level")).data || [],
@@ -281,7 +283,7 @@ function MiniStat({ label, value, icon, color }: any) {
 
 function LogFormDialog({ editing, setEditing, subjects, classrooms, plans, onSave, saving }: any) {
   if (!editing) return null;
-  const set = (k: string, v: any) => setEditing({ ...editing, [k]: v });
+  const set = (k: string, v: any) => setEditing({ ...editing, [k]: v, ...(["academic_year", "semester"].includes(k) ? { subject_id: "" } : {}) });
   return (
     <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
       <DialogHeader><DialogTitle>{editing.id ? "แก้ไขบันทึกการสอน" : "บันทึกการสอนใหม่"}</DialogTitle></DialogHeader>

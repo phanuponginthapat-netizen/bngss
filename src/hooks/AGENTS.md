@@ -1,1 +1,2 @@
 - postgres_changes channel names (here and in every page/component) carry a random suffix; fixed names crash pages when a hook mounts twice, as happened to the student Agent page.
+- Task subject selectors use subjectSelectionTerm/useTermSubjects with calendar readiness and year-semester query keys; keep historical lookup/import catalogs complete and use remediationSelectionTerms for the prior/current term exception to avoid hiding saved records.

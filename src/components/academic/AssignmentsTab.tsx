@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +14,8 @@ import { Plus, Trash2, BookOpen, Users, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { subjectInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 
@@ -26,14 +28,16 @@ interface AssignmentsTabProps {
 
 export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }: AssignmentsTabProps) => {
   const qc = useQueryClient();
+  const calendar = useAcademicYear();
   const { isAdmin, isDirector } = useUserRole();
   const canEdit = isAdmin || isDirector;
   const [assignOpen, setAssignOpen] = useState(false);
   const [editAssignment, setEditAssignment] = useState<any | null>(null);
   const [personnelId, setPersonnelId] = useState("");
   const [classroomId, setClassroomId] = useState("");
-  const [semester, setSemester] = useState("1");
-  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
+  const [semester, setSemester] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
+  useEffect(() => { if (calendar.isReady && !semester) { setSemester(String(calendar.currentSemester)); setAcademicYear(String(calendar.currentAcademicYear)); } }, [calendar.isReady, calendar.currentSemester, calendar.currentAcademicYear, semester]);
   const [filterGrade, setFilterGrade] = useState("all");
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [savingAssign, setSavingAssign] = useState(false);
@@ -47,10 +51,12 @@ export const AssignmentsTab = ({ assignments, personnel, subjects, classrooms }:
   const filteredSubjects = useMemo(() => {
     return subjects.filter((s: any) => {
       const gradeMatch = filterGrade === "all" || s.grade_level === filterGrade;
-      const semesterMatch = !s.semester || String(s.semester) === semester;
+      const semesterMatch = calendar.isReady && subjectInSelectionTerm(s, { academicYear: Number(academicYear), semester: Number(semester) });
       return gradeMatch && semesterMatch;
     });
-  }, [subjects, filterGrade, semester]);
+  }, [subjects, filterGrade, semester, academicYear, calendar.isReady]);
+
+  useEffect(() => { setSelectedSubjectIds(ids => ids.filter(id => filteredSubjects.some(s => s.id === id))); }, [filteredSubjects]);
 
   const toggleSubject = (id: string) => {
     setSelectedSubjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { Loader2, Plus, StickyNote, Copy, Trash2, Link2, LayoutGrid, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { assignmentInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { useMyTeacherAssignments } from "@/hooks/useMyTeacherAssignments";
 import { shortenUrl } from "@/lib/shortlink";
 import { saveErrorMessage } from "@/lib/saveError";
@@ -46,7 +48,9 @@ export default function PadletListPage() {
   const [coverUrl, setCoverUrl] = useState<string>("");
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverSignedMap, setCoverSignedMap] = useState<Record<string, string>>({});
-  const { data: myAssignments = [] } = useMyTeacherAssignments();
+  const { data: allAssignments = [], error: assignmentsError } = useMyTeacherAssignments();
+  const calendar = useAcademicYear();
+  const myAssignments = calendar.isReady ? allAssignments.filter(a => assignmentInSelectionTerm({ academic_year: a.academicYear, semester: a.semester, subjects: { code: a.subjectCode, grade_level: a.gradeLevel, semester: a.subjectSemester } }, { academicYear: calendar.currentAcademicYear, semester: calendar.currentSemester })) : [];
 
   const load = async () => {
     setLoading(true);
@@ -81,6 +85,7 @@ export default function PadletListPage() {
     if (saving || uploadingCover) return;
     if (!title.trim()) { toast.error("กรุณาตั้งชื่อกระดาน"); return; }
     if (!user) return;
+    if (scope !== "school" && (assignmentsError || !calendar.isReady || !myAssignments.some(a => a.id === scope))) { toast.error("กรุณาเลือกวิชาในภาคเรียนปัจจุบันอีกครั้ง"); return; }
     setSaving(true);
     const picked = scope !== "school" ? myAssignments.find(a => a.id === scope) : null;
     const boardId = crypto.randomUUID();

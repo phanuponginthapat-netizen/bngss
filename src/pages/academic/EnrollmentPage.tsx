@@ -14,18 +14,21 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import { Plus, Users, UserPlus, BookOpen, Trash2, School, Search } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { subjectInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { saveErrorMessage, safeInt } from "@/lib/saveError";
 
 interface Classroom { id: string; name: string; grade_level: string; academic_year: number; homeroom_teacher: string | null; capacity: number | null; }
 interface Student { id: string; student_code: string; prefix: string | null; first_name: string; last_name: string; classroom_id: string | null; status: string; }
-interface Subject { id: string; code: string; name_th: string; credits: number; grade_level: string | null; semester?: number | null; }
+interface Subject { id: string; code: string; name_th: string; credits: number; grade_level: string | null; semester?: number | null; academic_year?: number | null; }
 interface Enrollment { id: string; student_id: string; subject_id: string; classroom_id: string | null; semester: number | null; academic_year: number; enrollment_type: string; status: string; enrolled_at: string; }
 
 const GRADE_LEVELS = ["อ.1", "อ.2", "อ.3", "ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "การศึกษาพิเศษ"];
 
 const EnrollmentPage = () => {
   const { lang } = useLanguage();
+  const calendar = useAcademicYear();
   const { isAdmin, isDirector } = useUserRole();
   const canEdit = isAdmin || isDirector;
   const [allClassrooms, setAllClassrooms] = useState<Classroom[]>([]);
@@ -47,8 +50,9 @@ const EnrollmentPage = () => {
   // Forms
   const [classroomForm, setClassroomForm] = useState({ name: "", grade_level: "", homeroom_teacher: "", capacity: "40" });
   const [studentForm, setStudentForm] = useState({ student_code: "", prefix: "ด.ช.", first_name: "", last_name: "", classroom_id: "" });
-  const [enrollSemester, setEnrollSemester] = useState("1");
-  const [enrollYear, setEnrollYear] = useState(String(new Date().getFullYear() + BE_OFFSET));
+  const [enrollSemester, setEnrollSemester] = useState("");
+  const [enrollYear, setEnrollYear] = useState("");
+  useEffect(() => { if (calendar.isReady && !enrollSemester) { setEnrollSemester(String(calendar.currentSemester)); setEnrollYear(String(calendar.currentAcademicYear)); } }, [calendar.isReady, calendar.currentSemester, calendar.currentAcademicYear, enrollSemester]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [savingClassroom, setSavingClassroom] = useState(false);
   const [savingStudent, setSavingStudent] = useState(false);
@@ -58,11 +62,13 @@ const EnrollmentPage = () => {
   const selectedClassroomData = useMemo(() => classrooms.find(c => c.id === selectedClassroom), [classrooms, selectedClassroom]);
   const filteredSubjects = useMemo(() => {
     return subjects.filter(s => {
-      const semesterMatch = !s.semester || String(s.semester) === enrollSemester;
+      const semesterMatch = calendar.isReady && subjectInSelectionTerm(s, { academicYear: Number(enrollYear), semester: Number(enrollSemester) });
       const gradeMatch = !selectedClassroomData || !s.grade_level || s.grade_level === selectedClassroomData.grade_level;
       return semesterMatch && gradeMatch;
     });
-  }, [subjects, enrollSemester, selectedClassroomData]);
+  }, [subjects, enrollSemester, enrollYear, selectedClassroomData, calendar.isReady]);
+
+  useEffect(() => { if (selectedSubject && !filteredSubjects.some(s => s.id === selectedSubject)) setSelectedSubject(""); }, [filteredSubjects, selectedSubject]);
 
   useEffect(() => {
     fetchClassrooms();

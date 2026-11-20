@@ -14,6 +14,9 @@ import EFormTemplateDesigner from "@/components/eform/EFormTemplateDesigner";
 import PdfWorksheetDesigner from "@/components/homework/PdfWorksheetDesigner";
 import { isWorksheetGradable, type WorksheetField } from "@/lib/pdfWorksheet";
 import type { EFormField } from "@/lib/eformTemplate";
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { useUserRole } from "@/hooks/useUserRole";
+import { assignmentInSelectionTerm, subjectInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { notifyWorksheetClass } from "@/lib/worksheetNotifications";
 
 const EMPTY = `<h2 style="text-align:center;">ใบงาน</h2><p>คำสั่ง: ...</p>`;
@@ -26,6 +29,9 @@ interface Props {
 
 export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Props) {
   const qc = useQueryClient();
+  const calendar = useAcademicYear();
+  const { userId } = useUserRole();
+  const selectionTerm = { academicYear: calendar.currentAcademicYear, semester: calendar.currentSemester };
   const [fullscreen, setFullscreen] = useState(true);
   const [title, setTitle] = useState("");
   const [subjectId, setSubjectId] = useState<string>("");
@@ -59,9 +65,9 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
   // Load only classrooms / subjects assigned to the current teacher.
   // Keep this in sync with the regular homework form, but do not fall back to
   // all classrooms/subjects because teachers should only see their assignments.
-  const { data: assignments = [] } = useQuery({
-    queryKey: ["hw-rich-assignments"],
-    enabled: open,
+  const { data: assignments = [], error: assignmentsError, refetch: retryAssignments } = useQuery({
+    queryKey: ["hw-rich-assignments", userId, selectionTerm.academicYear, selectionTerm.semester],
+    enabled: open && calendar.isReady && !!userId,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
@@ -99,7 +105,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       const map = new Map<string, any>();
       const addRows = (rows: any[] | null | undefined) => {
         (rows || []).forEach((row) => {
-          if (!row?.classroom_id || !row?.subject_id) return;
+          if (!row?.classroom_id || !row?.subject_id || !assignmentInSelectionTerm(row, selectionTerm)) return;
           const classroom = Array.isArray(row.classrooms) ? row.classrooms[0] : row.classrooms;
           const subject = Array.isArray(row.subjects) ? row.subjects[0] : row.subjects;
           if (!classroom?.id || !subject?.id) return;
@@ -116,11 +122,11 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
         const [{ data: assigned, error: assignedError }, { data: scheduled, error: scheduledError }] = await Promise.all([
           supabase
             .from("teacher_assignments")
-            .select("classroom_id, subject_id, classrooms(id,name), subjects(id,name_th,code)")
+            .select("classroom_id, subject_id, semester, academic_year, classrooms(id,name), subjects(id,name_th,code,grade_level,semester,academic_year)")
             .eq("personnel_id", personnelId),
           supabase
             .from("schedules")
-            .select("classroom_id, subject_id, classrooms(id,name), subjects(id,name_th,code)")
+            .select("classroom_id, subject_id, semester, academic_year, classrooms(id,name), subjects(id,name_th,code,grade_level,semester,academic_year)")
             .eq("teacher_id", personnelId),
         ]);
 
@@ -133,7 +139,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
       if (teacherName) {
         const { data: byName, error } = await supabase
           .from("schedules")
-          .select("classroom_id, subject_id, classrooms(id,name), subjects(id,name_th,code)")
+          .select("classroom_id, subject_id, semester, academic_year, classrooms(id,name), subjects(id,name_th,code,grade_level,semester,academic_year)")
           .eq("teacher_name", teacherName);
         if (error) throw error;
         addRows(byName);
@@ -141,10 +147,10 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
 
       if (map.size === 0) {
         const [{ data: subs }, { data: rooms }] = await Promise.all([
-          supabase.from("subjects").select("id,name_th,code").limit(300),
+          supabase.from("subjects").select("id,name_th,code,grade_level,semester,academic_year").order("code"),
           supabase.from("classrooms").select("id,name").order("name").limit(300),
         ]);
-        (subs || []).forEach((subject: any) => {
+        (subs || []).filter((subject: any) => subjectInSelectionTerm(subject, selectionTerm)).forEach((subject: any) => {
           (rooms || []).forEach((classroom: any) => {
             map.set(`${classroom.id}|${subject.id}`, {
               classroom_id: classroom.id,
@@ -176,8 +182,8 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
 
   useEffect(() => {
     if (!subjectId) return;
-    if (subjects.length > 0 && !subjects.some((s: any) => s.id === subjectId)) setSubjectId("");
-  }, [classroomId, subjectId, subjects]);
+    if (!editingId && !subjects.some((s: any) => s.id === subjectId)) setSubjectId("");
+  }, [classroomId, subjectId, subjects, editingId]);
 
   useEffect(() => {
     if (!open) return;
@@ -213,6 +219,8 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
 
   const save = async () => {
     if (loading || loadError || saving) return;
+    if (!calendar.isReady || assignmentsError) { toast.error("โหลดรายวิชาของภาคเรียนไม่สำเร็จ กรุณาลองใหม่"); return; }
+    if (!editingId && subjectId && !subjects.some(s => s.id === subjectId)) { toast.error("กรุณาเลือกวิชาในภาคเรียนปัจจุบัน"); return; }
     if (!title.trim()) { toast.error("กรอกชื่อใบงาน"); return; }
     if (!classroomId) { toast.error("เลือกห้องเรียน"); return; }
     if (mode === "pdf" && !pdfPath && !pendingPdfFile) { toast.error("กรุณาอัปโหลด PDF ต้นแบบ"); return; }
@@ -284,6 +292,7 @@ export function HomeworkRichDesignerDialog({ open, onOpenChange, editingId }: Pr
 
   const metaPanel = (
     <div className="space-y-2">
+      {(assignmentsError || calendar.error) && <div role="alert" className="text-destructive text-sm">โหลดรายวิชาไม่สำเร็จ <Button variant="outline" size="sm" onClick={() => retryAssignments()}>ลองใหม่</Button></div>}
       <div>
         <Label className="text-xs">ชื่อใบงาน *</Label>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} className="h-8 text-sm" placeholder="เช่น ใบงานคณิตศาสตร์..." />

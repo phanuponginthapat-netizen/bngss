@@ -1,3 +1,5 @@
+import { useAcademicYear } from "@/hooks/useAcademicYear";
+import { assignmentInSelectionTerm, subjectInSelectionTerm } from "@/lib/subjectSelectionTerm";
 import { swal } from "@/lib/swal";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -45,6 +47,8 @@ function TeacherAttachmentsList({ items }: { items: Attachment[] }) {
 const HomeworkPage = () => {
   const { role, userId, isTeacher, isStudent, isParent, isAdmin, isDirector } = useUserRole();
   const qc = useQueryClient();
+  const calendar = useAcademicYear();
+  const selectionTerm = { academicYear: calendar.currentAcademicYear, semester: calendar.currentSemester };
   const [searchParams, setSearchParams] = useSearchParams();
   const canCreate = isTeacher || isAdmin || isDirector;
   const isStudentLike = isStudent || isParent; // parent views child's homework
@@ -57,7 +61,7 @@ const HomeworkPage = () => {
       const { data } = await supabase
         .from("profiles")
         .select("first_name,last_name,student_code,employee_code")
-        .eq("id", userId!)
+        .eq("id", userId ?? "")
         .maybeSingle();
       return data;
     },
@@ -105,7 +109,7 @@ const HomeworkPage = () => {
     queryKey: ["hw-personnel", userId, me?.employee_code],
     enabled: canCreate && !!userId,
     queryFn: async () => {
-      const { data: byUser } = await supabase.from("personnel").select("id,prefix,first_name,last_name").eq("user_id", userId!).maybeSingle();
+      const { data: byUser } = await supabase.from("personnel").select("id,prefix,first_name,last_name").eq("user_id", userId ?? "").maybeSingle();
       if (byUser) return byUser;
 
       if (me?.employee_code) {
@@ -120,30 +124,32 @@ const HomeworkPage = () => {
       return null;
     },
   });
-  const { data: teacherAssign = [] } = useQuery({
-    queryKey: ["hw-teacher-assign", personnelRow?.id, userId, role],
-    enabled: canCreate && !!userId,
+  const { data: teacherAssign = [], error: teacherAssignError, refetch: retryTeacherAssign } = useQuery({
+    queryKey: ["hw-teacher-assign", personnelRow?.id, userId, role, selectionTerm.academicYear, selectionTerm.semester],
+    enabled: canCreate && !!userId && calendar.isReady,
     queryFn: async () => {
       const map = new Map<string, any>();
       const push = (row: any) => {
-        if (!row?.subject_id || !row?.classroom_id) return;
+        if (!row?.subject_id || !row?.classroom_id || !assignmentInSelectionTerm(row, selectionTerm)) return;
         const k = `${row.subject_id}|${row.classroom_id}`;
         if (!map.has(k)) map.set(k, row);
       };
       // 1) teacher_assignments (by personnel)
       if (personnelRow?.id) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("teacher_assignments")
-          .select("subject_id,classroom_id,subjects(name_th,code),classrooms(name)")
+          .select("subject_id,classroom_id,semester,academic_year,subjects(name_th,code,grade_level,semester,academic_year),classrooms(name)")
           .eq("personnel_id", personnelRow.id);
+        if (error) throw error;
         (data || []).forEach(push);
       }
       // 2) schedules (teacher_id stores personnel.id in this project)
       if (personnelRow?.id) {
-        const { data: sch } = await supabase
+        const { data: sch, error: scheduleError } = await supabase
           .from("schedules")
-          .select("subject_id,classroom_id,subjects(name_th,code),classrooms(name)")
+          .select("subject_id,classroom_id,semester,academic_year,subjects(name_th,code,grade_level,semester,academic_year),classrooms(name)")
           .eq("teacher_id", personnelRow.id);
+        if (scheduleError) throw scheduleError;
         (sch || []).forEach(push);
       }
       // 3) fallback by teacher_name for older/imported schedule rows
@@ -151,10 +157,11 @@ const HomeworkPage = () => {
         ? `${personnelRow.prefix || ""}${personnelRow.first_name || ""} ${personnelRow.last_name || ""}`.trim()
         : [me?.first_name, me?.last_name].filter(Boolean).join(" ").trim();
       if (teacherName) {
-        const { data: byName } = await supabase
+        const { data: byName, error: nameError } = await supabase
           .from("schedules")
-          .select("subject_id,classroom_id,subjects(name_th,code),classrooms(name)")
+          .select("subject_id,classroom_id,semester,academic_year,subjects(name_th,code,grade_level,semester,academic_year),classrooms(name)")
           .eq("teacher_name", teacherName);
+        if (nameError) throw nameError;
         (byName || []).forEach(push);
       }
       // 4a) Homeroom classrooms — allow homeroom teacher to assign homework
@@ -169,15 +176,16 @@ const HomeworkPage = () => {
         if (hrRooms && hrRooms.length > 0) {
           const grades = Array.from(new Set(hrRooms.map((r: any) => r.grade_level).filter(Boolean)));
           const { data: subs } = grades.length
-            ? await supabase.from("subjects").select("id,name_th,code,grade_level").in("grade_level", grades)
+            ? await supabase.from("subjects").select("id,name_th,code,grade_level,semester,academic_year").in("grade_level", grades)
             : { data: [] as any[] };
           hrRooms.forEach((r: any) => {
             (subs || [])
-              .filter((s: any) => !s.grade_level || s.grade_level === r.grade_level)
+              .filter((s: any) => subjectInSelectionTerm(s, selectionTerm) && (!s.grade_level || s.grade_level === r.grade_level))
               .forEach((s: any) => push({
                 subject_id: s.id,
                 classroom_id: r.id,
-                subjects: { name_th: s.name_th, code: s.code },
+                subjects: s,
+                academic_year: selectionTerm.academicYear, semester: selectionTerm.semester,
                 classrooms: { name: r.name },
               }));
           });
@@ -187,15 +195,16 @@ const HomeworkPage = () => {
       //     Capped to prevent an accidental 90k-row cartesian product.
       if (map.size === 0 && (role === "admin" || role === "director")) {
         const [{ data: subs }, { data: rooms }] = await Promise.all([
-          supabase.from("subjects").select("id,name_th,code").order("code").limit(50),
+          supabase.from("subjects").select("id,name_th,code,grade_level,semester,academic_year").order("code"),
           supabase.from("classrooms").select("id,name").order("name").limit(50),
         ]);
-        (subs || []).forEach((s: any) => {
+        (subs || []).filter((s: any) => subjectInSelectionTerm(s, selectionTerm)).forEach((s: any) => {
           (rooms || []).forEach((r: any) => {
             push({
               subject_id: s.id,
               classroom_id: r.id,
-              subjects: { name_th: s.name_th, code: s.code },
+              subjects: s,
+                academic_year: selectionTerm.academicYear, semester: selectionTerm.semester,
               classrooms: { name: r.name },
             });
           });
@@ -220,7 +229,7 @@ const HomeworkPage = () => {
       const rows = await fetchAllRows((from, to) => {
       let q = supabase.from("homework_assignments").select("*,subjects(name_th,code),classrooms(name)").order("created_at", { ascending: false }).order("id").range(from, to);
       if (isStudentLike && studentRow?.classroom_id) q = q.eq("classroom_id", studentRow.classroom_id);
-      else if (isTeacher && !isAdmin && !isDirector) q = q.eq("created_by", userId!);
+      else if (isTeacher && !isAdmin && !isDirector) q = q.eq("created_by", userId ?? "");
       return q;
       });
       return rows.filter((a: any) => !!a.content_html || !!a.pdf_path);
@@ -269,7 +278,7 @@ const HomeworkPage = () => {
         if (!studentRow?.classroom_id) return Promise.resolve({ data: [], error: null });
         q = q.eq("classroom_id", studentRow.classroom_id);
       } else if (isTeacher) {
-        q = q.eq("assigned_by", userId!);
+        q = q.eq("assigned_by", userId ?? "");
       }
       return q;
       });
@@ -283,6 +292,7 @@ const HomeworkPage = () => {
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
+    if (!calendar.isReady || teacherAssignError) { toast.error("โหลดรายวิชาของภาคเรียนไม่สำเร็จ กรุณาลองใหม่"); return; }
     const a = teacherAssign.find((x: any) => `${x.subject_id}|${x.classroom_id}` === form.assignment_key);
     if (!form.title.trim() || !a) {
       toast.error("กรอกหัวข้อและเลือกวิชา/ห้อง");
@@ -625,7 +635,7 @@ const HomeworkPage = () => {
       })()}
 
       {/* ===== Rich homework section ===== */}
-      {(richError || listError || richSubmissionsError || childrenError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านหรือการส่งใบงานไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); retryRichSubmissions(); retryChildren(); }}>ลองใหม่</Button></div>}
+      {(richError || listError || richSubmissionsError || childrenError || teacherAssignError || calendar.error) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านหรือการส่งใบงานไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); retryRichSubmissions(); retryChildren(); retryTeacherAssign(); }}>ลองใหม่</Button></div>}
       {richList.length > 0 && isStudentLike && (
         <section className="space-y-2 border-t pt-5">
             <h2 className="text-base font-semibold flex items-center gap-2">

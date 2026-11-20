@@ -18,6 +18,7 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { uploadPublicFileWithFallback } from "@/lib/uploadFallback";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import { useTermSubjects } from "@/hooks/useTermSubjects";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { todayBangkok, bkkDateISO } from "@/lib/dateBE";
 
@@ -64,7 +65,7 @@ export default function IctLoanStationPage() {
   const [bulkClassroomId, setBulkClassroomId] = useState<string>("");
   const [bulkTopic, setBulkTopic] = useState<string>("");
   const [bulkDurationMin, setBulkDurationMin] = useState<number>(50);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const { data: subjects = [] } = useTermSubjects();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
   const [bulkDate, setBulkDate] = useState<string>(() => todayBangkok());
@@ -105,12 +106,10 @@ export default function IctLoanStationPage() {
 
   const loadRefs = async () => {
     try {
-    const [subs, cls, pers] = await Promise.all([
-      fetchAllRows<Subject>((from,to) => supabase.from("subjects").select("id,code,name_th").order("code").order("id").range(from,to)),
+    const [cls, pers] = await Promise.all([
       fetchAllRows<Classroom>((from,to) => supabase.from("classrooms").select("id,name").order("name").order("id").range(from,to)),
       fetchAllRows<Personnel>((from,to) => supabase.from("personnel").select("id,employee_code,prefix,first_name,last_name,department").eq("status", "active").order("first_name").order("id").range(from,to)),
     ]);
-    setSubjects((subs as any) || []);
     setClassrooms((cls as any) || []);
     setPersonnelList((pers as any) || []);
     } catch (error) { toast.error(saveErrorMessage(error)); }
