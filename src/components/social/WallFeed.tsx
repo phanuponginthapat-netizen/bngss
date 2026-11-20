@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { resolveSocialMedia, validSocialLink } from "@/lib/socialMedia";
+import { validSocialLink } from "@/lib/socialMedia";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { detectMediaTypeFromUrl } from "@/lib/media";
 import MediaRenderer from "./MediaRenderer";
+import WallMedia from "./WallMedia";
 import { saveErrorMessage } from "@/lib/saveError";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { wallInteractionAllowed } from "@/lib/wallAccess";
@@ -89,12 +90,7 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
     if (profileUserId) q = q.eq("author_id", profileUserId);
     const { data: rows, error } = await q;
     if (error) throw error;
-    const list = await Promise.all(
-      (rows || []).map(async (p: any) => ({
-        ...p,
-        media_urls: await Promise.all((p.media_urls || []).map((url: string) => resolveSocialMedia(url, "wall-media"))),
-      }))
-    ) as WallPost[];
+    const list = (rows || []) as WallPost[];
 
     const ids = Array.from(new Set(list.map((p) => p.author_id)));
     const authors = new Map<string, any>();
@@ -351,7 +347,9 @@ export default function WallFeed({ profileUserId, readOnly = false }: { profileU
             {p.content && <p className="whitespace-pre-wrap break-words text-sm">{p.content}</p>}
 
             {p.media_urls?.map((url, i) => (
-              <MediaRenderer key={i} mediaType={detectMediaTypeFromUrl(url)} mediaUrl={url} />
+              readOnly
+                ? <MediaRenderer key={`${p.id}-${i}-${url}`} mediaType={detectMediaTypeFromUrl(url)} mediaUrl={url} />
+                : <WallMedia key={`${p.id}-${i}-${url}`} reference={url} />
             ))}
 
             {p.link_url && (

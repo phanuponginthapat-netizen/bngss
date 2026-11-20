@@ -38,6 +38,12 @@ const PUBLIC_BUCKETS = new Set([
 
 const signedCache = new Map<string, { url: string; exp: number }>();
 
+/** Explicit attachment retry renews only this backend/user/object token. */
+export async function invalidateStorageSignedUrl(bucket: string, path: string): Promise<void> {
+  const { data: auth } = await supabase.auth.getSession();
+  signedCache.delete(`${getBackendConfig().url}:${auth.session?.user.id || 'signed-out'}:${bucket}/${path}`);
+}
+
 /**
  * สำหรับ private buckets — สร้าง signed URL อายุ 1 ชั่วโมง (default)
  * ถ้าไฟล์ถูกย้ายไป cold storage แล้ว จะคืนลิงก์สตรีมจาก Google Drive แทน

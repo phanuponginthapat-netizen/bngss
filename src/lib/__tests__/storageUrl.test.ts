@@ -47,3 +47,15 @@ it('still signs existing private Cloud files', async () => {
   expect(await resolveStorageUrl('homework-files', 'submissions/present.jpg')).toBe('https://backend.example/fresh');
   expect(mocks.cold).not.toHaveBeenCalled();
 });
+
+it('explicit media retry renews only the failed object token', async () => {
+  mocks.sign.mockResolvedValue({ data: { signedUrl: 'https://backend.example/first' }, error: null });
+  const { resolveStorageUrl, invalidateStorageSignedUrl } = await import('../storageUrl');
+  await resolveStorageUrl('wall-media', 'owner/photo.jpg');
+  await resolveStorageUrl('wall-media', 'owner/other.jpg');
+  await invalidateStorageSignedUrl('wall-media', 'owner/photo.jpg');
+  mocks.sign.mockResolvedValue({ data: { signedUrl: 'https://backend.example/renewed' }, error: null });
+  expect(await resolveStorageUrl('wall-media', 'owner/photo.jpg')).toBe('https://backend.example/renewed');
+  expect(await resolveStorageUrl('wall-media', 'owner/other.jpg')).toBe('https://backend.example/first');
+  expect(mocks.sign).toHaveBeenCalledTimes(3);
+});

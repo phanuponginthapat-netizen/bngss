@@ -10,6 +10,7 @@ interface Props {
   displayMode?: "preview" | "download" | "embed";
   fileName?: string | null;
   title?: string;
+  onMediaError?: () => void;
 }
 
 export default function MediaRenderer({
@@ -18,6 +19,7 @@ export default function MediaRenderer({
   displayMode = "preview",
   fileName,
   title,
+  onMediaError,
 }: Props) {
   const [open, setOpen] = useState(false);
   useBodyScrollLock(open);
@@ -72,6 +74,7 @@ export default function MediaRenderer({
           src={mediaUrl}
           alt={title || ""}
           loading="lazy"
+          onError={onMediaError}
           className="w-full max-h-[600px] object-contain rounded-lg bg-muted cursor-zoom-in"
           onClick={() => setOpen(true)}
         />
@@ -89,8 +92,8 @@ export default function MediaRenderer({
 
   if (mediaType === "video") {
     return (
-      <video controls preload="metadata" className="w-full max-h-[600px] rounded-lg bg-black">
-        <source src={mediaUrl} />
+      <video controls preload="metadata" onError={onMediaError} className="w-full max-h-[600px] rounded-lg bg-black">
+        <source src={mediaUrl} onError={onMediaError} />
       </video>
     );
   }

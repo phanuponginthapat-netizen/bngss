@@ -1,4 +1,4 @@
-import { resolveStorageUrl } from "./storageUrl";
+import { invalidateStorageSignedUrl, resolveStorageUrl } from "./storageUrl";
 
 // Keep durable object paths in records; renew temporary URLs only when reading.
 export function storageMediaPath(value: string, bucket: string): string | null {
@@ -17,9 +17,10 @@ export function storageMediaPath(value: string, bucket: string): string | null {
   return null;
 }
 
-export async function resolveSocialMedia(value: string, bucket: "portfolio" | "wall-media") {
+export async function resolveSocialMedia(value: string, bucket: "portfolio" | "wall-media", renew = false) {
   const path = storageMediaPath(value, bucket);
   if (!path) return value;
+  if (renew) await invalidateStorageSignedUrl(bucket, path);
   return resolveStorageUrl(bucket, path);
 }
 
