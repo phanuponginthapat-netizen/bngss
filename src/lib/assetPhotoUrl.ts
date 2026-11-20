@@ -3,26 +3,20 @@ import { useEffect, useState } from "react";
 import { resolveStorageUrl } from "./storageUrl";
 
 const BUCKET = "asset-photos";
-// 10 years; long enough that stored URLs effectively never expire for this lifecycle.
-const LONG_EXPIRY_SEC = 60 * 60 * 24 * 365 * 10;
-
-/** Upload a file to asset-photos and return a long-lived signed URL. */
+/** Upload a file and persist a durable bucket/path reference; sign only at read time. */
 export async function uploadAssetPhoto(path: string, file: Blob | File): Promise<string> {
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: file instanceof File ? file.type || "image/jpeg" : "image/jpeg",
     upsert: false,
   });
   if (error) throw error;
-  const { data, error: signErr } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, LONG_EXPIRY_SEC);
-  if (signErr || !data?.signedUrl) throw signErr || new Error("sign failed");
-  return data.signedUrl;
+  return `${BUCKET}/${path}`;
 }
 
 /** Extract asset-photos object path from a stored URL (handles old public URLs and signed URLs). */
 export function extractAssetPath(url: string | null | undefined): string | null {
   if (!url) return null;
+  if (url.startsWith(`${BUCKET}/`)) return url.slice(BUCKET.length + 1);
   const m =
     url.match(/\/storage\/v1\/object\/public\/asset-photos\/([^?]+)/) ||
     url.match(/\/storage\/v1\/object\/sign\/asset-photos\/([^?]+)/) ||

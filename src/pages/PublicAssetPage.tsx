@@ -9,9 +9,15 @@ import { Package, MapPin, User, Phone, AlertTriangle, ArrowLeft, CheckCircle2, M
 import { toast } from "sonner";
 import MapPicker from "@/components/MapPicker";
 import { saveErrorMessage } from "@/lib/saveError";
+import AssetPhoto from "@/components/assets/AssetPhoto";
+import { useAuthSession } from "@/hooks/useAuthSession";
+import { taskLoginUrl } from "@/lib/navigation/taskEntry";
 
 const PublicAssetPage = () => {
   const { id } = useParams<{ id: string }>();
+  const { user, isReady } = useAuthSession();
+  const [loadError,setLoadError] = useState<unknown>(null);
+  const [retry,setRetry] = useState(0);
   const [asset, setAsset] = useState<any | null>(null);
   const [school, setSchool] = useState<any | null>(null);
   const [responsible, setResponsible] = useState<any | null>(null);
@@ -25,53 +31,41 @@ const PublicAssetPage = () => {
   const [activePhoto, setActivePhoto] = useState(0);
 
   useEffect(() => {
+    let active = true;
+    if (!isReady) return;
+    if (!user || !id) { setLoading(false); return; }
     const load = async () => {
-      if (!id) return;
-      setLoading(true);
-      // ใช้ RPC สาธารณะ (security definer) เพื่อให้คนนอก/ผู้ปกครองสแกน QR แล้วดูข้อมูลได้
-      const { data: rows, error } = await (supabase.rpc as any)("get_public_asset", { _id: id });
-      const a = Array.isArray(rows) ? rows[0] : rows;
-      if (error) console.error("get_public_asset failed", error);
-      if (a) {
-        setAsset(a);
-        setSchool({
-          school_name: a.school_name,
-          phone: a.school_phone,
-          email: a.school_email,
-          address: a.school_address,
-        });
-        if (a.responsible_user_id) {
-          const { data: c } = await (supabase.rpc as any)("get_public_asset_contact", { _asset_id: id });
-          const p = Array.isArray(c) ? c[0] : c;
-          if (p) setResponsible({ first_name: p.full_name, last_name: "", position: p.position_title, phone: p.phone });
-        }
-      } else {
-        setAsset(null);
-      }
-      setLoading(false);
+      setLoading(true); setLoadError(null); setAsset(null); setResponsible(null); setActivePhoto(0);
+      try {
+        const {data,error}=await supabase.from("assets").select("*").eq("id",id).maybeSingle();
+        if(error)throw error;
+        if(active){setAsset(data);setSchool(null);}
+      } catch(error){if(active)setLoadError(error);} finally{if(active)setLoading(false);}
     };
-    load();
-  }, [id]);
+    void load();
+    return()=>{active=false;};
+  },[id,isReady,user?.id,retry]);
 
   const handleReportFound = async () => {
     if (!reporterName.trim() || !foundLocation.trim()) {
       toast.error("กรุณากรอกชื่อและสถานที่ที่พบ");
       return;
     }
+    if (submitting || !user || !asset) return;
     setSubmitting(true);
     const desc = `[พบทรัพย์สิน] พบที่: ${foundLocation}${reporterContact ? ` | ติดต่อกลับ: ${reporterContact}` : ""}`;
-    const { error } = await (supabase.rpc as any)("report_found_asset", {
-      _asset_id: id,
-      _reporter_name: reporterName.trim(),
-      _description: desc,
-    });
+    const { data,error } = await supabase.from("asset_damage_reports").insert({
+      asset_id:asset.id,reported_by_user_id:user.id,reporter_name:reporterName.trim(),description:desc,
+    }).select("id").single();
     setSubmitting(false);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    if (error || !data?.id) { toast.error(saveErrorMessage(error || new Error("ยังไม่ได้รับการยืนยัน"))); return; }
     setSubmitted(true);
     toast.success("แจ้งพบทรัพย์สินสำเร็จ ขอบคุณค่ะ/ครับ");
   };
 
-  if (loading) {
+  if (isReady && !user) return <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6"><h1 className="text-xl font-semibold">ข้อมูลวัสดุ/ครุภัณฑ์</h1><p className="text-muted-foreground">กรุณาเข้าสู่ระบบเพื่อดูข้อมูลทรัพย์สิน</p><Button asChild><Link to={taskLoginUrl(`/asset/${id || ""}`)}>เข้าสู่ระบบ</Link></Button></div>;
+  if (loadError) return <div role="alert" className="min-h-screen flex flex-col items-center justify-center gap-4 p-6"><p>อ่านข้อมูลทรัพย์สินไม่สำเร็จ</p><Button onClick={()=>setRetry(n=>n+1)} variant="outline">ลองใหม่</Button></div>;
+  if (loading || !isReady) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">กำลังโหลด...</div>;
   }
 
@@ -82,7 +76,7 @@ const PublicAssetPage = () => {
           <CardContent className="pt-6 text-center space-y-3">
             <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" />
             <h2 className="text-xl font-bold">ไม่พบข้อมูลทรัพย์สิน</h2>
-            <p className="text-sm text-muted-foreground">QR Code นี้อาจไม่ถูกต้อง หรือทรัพย์สินถูกลบออกจากระบบแล้ว</p>
+            <p className="text-sm text-muted-foreground">ไม่พบรายการที่คุณมีสิทธิ์ดู กรุณาตรวจรหัสหรือติดต่อเจ้าหน้าที่</p>
             <Link to="/"><Button variant="outline"><ArrowLeft className="w-4 h-4 mr-2" />กลับหน้าหลัก</Button></Link>
           </CardContent>
         </Card>
@@ -122,7 +116,7 @@ const PublicAssetPage = () => {
         {/* Photos gallery */}
         {photos.length > 0 && (
           <Card className="overflow-hidden">
-            <img src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover" />
+            <AssetPhoto src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover" />
             {photos.length > 1 && (
               <div className="flex gap-2 overflow-x-auto p-2">
                 {photos.map((p, i) => (
@@ -131,7 +125,7 @@ const PublicAssetPage = () => {
                     onClick={() => setActivePhoto(i)}
                     className={`shrink-0 ${i === activePhoto ? "ring-2 ring-primary" : ""}`}
                   >
-                    <img src={p} alt="" className="w-14 h-14 object-cover rounded border" />
+                    <AssetPhoto src={p} alt="" className="w-14 h-14 object-cover rounded border" />
                   </button>
                 ))}
               </div>

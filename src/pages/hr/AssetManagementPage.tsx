@@ -32,6 +32,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { BEDatePicker } from "@/components/ui/be-date-picker";
 import { swal } from "@/lib/swal";
 import { fetchAllRows } from "@/lib/fetchAllRows";
+import AssetPhoto from "@/components/assets/AssetPhoto";
+import { assetNumericFields, assetEstimatedValue, assetMatchesSearch } from "@/lib/assetRegistry";
+import { isVisibleSchoolPersonnel } from "@/lib/personnelVisibility";
 import { ASSET_CATEGORIES, ASSET_CATEGORIES_FULL, getCategoryDef, BUDGET_SOURCES } from "@/lib/assetCategories";
 
 const CONDITIONS = [
@@ -64,8 +67,8 @@ const emptyForm = () => ({
 const AssetManagementPage = () => {
   const { lang } = useLanguage();
   const qc = useQueryClient();
-  const { role } = useUserRole();
-  const canManage = role === "admin" || role === "director";
+  const { role, userId, readOnly } = useUserRole();
+  const canManage = !readOnly && (role === "admin" || role === "director");
   const [open, setOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [detailAsset, setDetailAsset] = useState<any>(null);
@@ -106,7 +109,7 @@ const AssetManagementPage = () => {
     return null;
   };
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading: assetsLoading, error: assetsError, refetch: retryAssets } = useQuery({
     queryKey: ["assets"],
     queryFn: async () =>
       fetchAllRows((from, to) =>
@@ -114,17 +117,14 @@ const AssetManagementPage = () => {
       ),
   });
 
-  const { data: personnel = [] } = useQuery({
+  const { data: personnel = [], isLoading: staffLoading, error: staffError, refetch: retryStaff } = useQuery({
     queryKey: ["personnel-list", "staff-only"],
     queryFn: async () => {
       // ดึงเฉพาะบุคลากร (admin/director/teacher) ผ่าน security-definer RPC
       // เพราะ RLS ของ user_roles ไม่ให้ผู้ใช้ทั่วไปอ่านของคนอื่น
       const { data, error } = await supabase.rpc("get_staff_profiles");
-      if (error) {
-        console.error("get_staff_profiles failed", error);
-        return [];
-      }
-      return ((data as any[]) || []).map((p) => ({
+      if (error) throw error;
+      return ((data as any[]) || []).filter(isVisibleSchoolPersonnel).map((p) => ({
         id: p.id,
         first_name: p.first_name,
         last_name: p.last_name,
@@ -149,7 +149,7 @@ const AssetManagementPage = () => {
   const editSnError = editAsset ? validateSN(editAsset.serial_number || "") : null;
   const editSnDuplicate = editAsset && !editSnError ? findDuplicateSN(editAsset.serial_number || "", editAsset.id) : null;
 
-  const { data: damageReports = [] } = useQuery({
+  const { data: damageReports = [], isLoading: damageLoading, error: damageError, refetch: retryDamage } = useQuery({
     queryKey: ["asset_damage_reports"],
     queryFn: async () =>
       fetchAllRows((from, to) =>
@@ -176,13 +176,7 @@ const AssetManagementPage = () => {
   // Filtered and sorted records
   const filteredRecords = useMemo(() => {
     const result = records.filter((r: any) => {
-      const matchSearch = !searchTerm ||
-        r.asset_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.asset_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.responsible_person?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.building?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.room?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = assetMatchesSearch(r,searchTerm);
       const matchCategory = filterCategory === "all" || r.category === filterCategory;
       const def = getCategoryDef(r.category);
       const matchGroup = filterGroup === "all" || def?.group === filterGroup;
@@ -239,8 +233,8 @@ const AssetManagementPage = () => {
         const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
         const url = await uploadAssetPhoto(path, compressed);
         urls.push(url);
-      } catch (e: any) {
-        toast.error(`อัปโหลดไม่สำเร็จ: ${f.name}`);
+      } catch {
+        throw new Error(`อัปโหลดไม่สำเร็จ: ${f.name} ยังไม่ได้บันทึกสินทรัพย์`);
       }
     }
     return urls;
@@ -248,6 +242,7 @@ const AssetManagementPage = () => {
 
 
   const handleAdd = async () => {
+    if (uploading || !canManage) return;
     if (!form.asset_code?.trim() || !form.asset_name?.trim() || !form.acquisition_cost) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
@@ -264,10 +259,11 @@ const AssetManagementPage = () => {
     );
     if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${form.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
+    try {
+    const numeric = assetNumericFields(form);
     const newUrls = await uploadPhotos(photoFiles);
     const allPhotos = [...form.photos, ...newUrls];
-    const cost = safeNum(form.acquisition_cost);
-    const depRate = safeNum(form.depreciation_rate) / 100;
+    const cost = numeric.cost;
 
 
     // Get responsible name from profile if user_id selected
@@ -277,18 +273,18 @@ const AssetManagementPage = () => {
       if (p) responsibleName = `${p.first_name || ""} ${p.last_name || ""}`.trim() || responsibleName;
     }
 
-    const { error } = await supabase.from("assets").insert({
+    const { data, error } = await supabase.from("assets").insert({
       asset_code: form.asset_code.trim(), asset_name: form.asset_name.trim(), category: form.category,
-      acquisition_cost: cost, depreciation_rate: safeNum(form.depreciation_rate),
-      current_value: Math.max(0, cost * (1 - depRate)), location: form.location,
+      acquisition_cost: cost, depreciation_rate: numeric.rate,
+      current_value: assetEstimatedValue(cost, numeric.rate, form.acquisition_date || null, todayBangkok()), location: form.location,
       responsible_person: responsibleName,
       responsible_user_id: form.responsible_user_id || null,
       condition: form.condition,
-      notes: form.notes, useful_life_years: Math.max(1, safeNum(form.useful_life_years, 5)),
+      notes: form.notes, useful_life_years: numeric.life,
       acquisition_date: form.acquisition_date || null,
       serial_number: form.serial_number?.trim() || null,
       barcode: form.barcode || null,
-      quantity: Math.max(1, safeNum(form.quantity, 1)),
+      quantity: numeric.quantity,
       building: form.building || null, room: form.room || null, floor: form.floor || null,
       latitude: form.latitude ? safeNum(form.latitude) : null,
       longitude: form.longitude ? safeNum(form.longitude) : null,
@@ -298,18 +294,20 @@ const AssetManagementPage = () => {
       warranty_until: form.warranty_until || null,
       photos: allPhotos,
       ...(allPhotos[0] ? { photo_url: allPhotos[0] } : {}),
-    } as any);
-    setUploading(false);
-    if (error) { toast.error(saveErrorMessage(error.message)); return; }
+    } as any).select("id").single();
+    if (error) throw error;
+    if (!data?.id) throw new Error("ยังไม่ได้รับการยืนยันการลงทะเบียน");
     toast.success("ลงทะเบียนสินทรัพย์สำเร็จ");
     qc.invalidateQueries({ queryKey: ["assets"] });
+    qc.invalidateQueries({ queryKey: ["assets-report"] });
 
     setOpen(false); setPhotoFiles([]);
     setForm(emptyForm());
+    } catch (error) { toast.error(saveErrorMessage(error)); } finally { setUploading(false); }
   };
 
   const handleEdit = async () => {
-    if (!editAsset) return;
+    if (!editAsset || uploading || !canManage) return;
     if (!String(editAsset.asset_code || "").trim() || !String(editAsset.asset_name || "").trim()) {
       toast.error("กรุณากรอกรหัสและชื่อครุภัณฑ์"); return;
     }
@@ -326,16 +324,14 @@ const AssetManagementPage = () => {
     );
     if (dupCode) { toast.error(`รหัสครุภัณฑ์ "${editAsset.asset_code}" ถูกใช้แล้ว`); return; }
     setUploading(true);
+    try {
+    const numeric = assetNumericFields(editAsset);
     const newUrls = await uploadPhotos(photoFiles);
     const existing = Array.isArray(editAsset.photos) ? editAsset.photos : [];
     const allPhotos = [...existing, ...newUrls];
 
-    const cost = safeNum(editAsset.acquisition_cost);
-    const depRate = safeNum(editAsset.depreciation_rate) / 100;
-    const ageYears = editAsset.acquisition_date
-      ? (Date.now() - new Date(editAsset.acquisition_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-      : 0;
-    const currentValue = Math.max(0, cost * Math.pow(1 - depRate, Math.max(0, Math.floor(ageYears))));
+    const cost = numeric.cost;
+    const currentValue = assetEstimatedValue(cost,numeric.rate,editAsset.acquisition_date || null,todayBangkok());
 
     let responsibleName = editAsset.responsible_person;
     if (editAsset.responsible_user_id) {
@@ -343,21 +339,21 @@ const AssetManagementPage = () => {
       if (p) responsibleName = `${p.first_name || ""} ${p.last_name || ""}`.trim() || responsibleName;
     }
 
-    const { error } = await supabase.from("assets").update({
+    const { data, error } = await supabase.from("assets").update({
       asset_code: String(editAsset.asset_code).trim(), asset_name: String(editAsset.asset_name).trim(),
       category: editAsset.category, acquisition_cost: cost,
-      depreciation_rate: safeNum(editAsset.depreciation_rate),
+      depreciation_rate: numeric.rate,
       current_value: currentValue, location: editAsset.location,
       responsible_person: responsibleName,
       responsible_user_id: editAsset.responsible_user_id || null,
       condition: editAsset.condition,
-      notes: editAsset.notes, useful_life_years: Math.max(1, safeNum(editAsset.useful_life_years, 5)),
+      notes: editAsset.notes, useful_life_years: numeric.life,
       acquisition_date: editAsset.acquisition_date || null,
       photos: allPhotos,
       photo_url: allPhotos[0] || editAsset.photo_url || null,
       serial_number: String(editAsset.serial_number || "").trim() || null,
       barcode: editAsset.barcode || null,
-      quantity: Math.max(1, safeNum(editAsset.quantity, 1)),
+      quantity: numeric.quantity,
       building: editAsset.building || null, room: editAsset.room || null, floor: editAsset.floor || null,
       latitude: editAsset.latitude ? safeNum(editAsset.latitude) : null,
       longitude: editAsset.longitude ? safeNum(editAsset.longitude) : null,
@@ -365,13 +361,15 @@ const AssetManagementPage = () => {
       budget_source: editAsset.budget_source || null,
       supplier: editAsset.supplier || null,
       warranty_until: editAsset.warranty_until || null,
-    } as any).eq("id", editAsset.id);
-    setUploading(false);
-    if (error) { toast.error(saveErrorMessage(error.message)); return; }
+    } as any).eq("id", editAsset.id).select("id").single();
+    if (error) throw error;
+    if (!data?.id) throw new Error("ไม่พบสินทรัพย์ที่แก้ไขได้");
     toast.success("แก้ไขสำเร็จ");
 
     qc.invalidateQueries({ queryKey: ["assets"] });
+    qc.invalidateQueries({ queryKey: ["assets-report"] });
     setEditAsset(null); setPhotoFiles([]);
+    } catch (error) { toast.error(saveErrorMessage(error)); } finally { setUploading(false); }
   };
 
   const removeExistingPhoto = (idx: number, mode: "add" | "edit") => {
@@ -384,10 +382,13 @@ const AssetManagementPage = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canManage) return;
     if (!(await swal.confirm({ title: "ต้องการลบสินทรัพย์นี้หรือไม่?", danger: true }))) return;
-    const { error } = await supabase.from("assets").delete().eq("id", id);
+    const { data, error } = await supabase.from("assets").delete().eq("id", id).select("id");
+    if (!error && !data?.length) { toast.error("ไม่พบสินทรัพย์ที่ลบได้"); return; }
     if (error) { toast.error(saveErrorMessage(error.message)); return; }
     qc.invalidateQueries({ queryKey: ["assets"] });
+    qc.invalidateQueries({ queryKey: ["assets-report"] });
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("ลบสำเร็จ");
   };
@@ -396,23 +397,25 @@ const AssetManagementPage = () => {
     if (!reportAssetId || !reportDesc.trim() || !reporterName.trim()) {
       toast.error("กรุณากรอกข้อมูลให้ครบ"); return;
     }
-    if (uploading) return;
+    if (uploading || readOnly) return;
     setUploading(true);
-    const { error } = await supabase.from("asset_damage_reports").insert({
+    const { data, error } = await supabase.from("asset_damage_reports").insert({
+      reported_by_user_id: userId,
       asset_id: reportAssetId, description: reportDesc.trim(), reporter_name: reporterName.trim(),
-    } as any);
+    } as any).select("id").single();
     setUploading(false);
-    if (error) { toast.error(saveErrorMessage(error.message)); return; }
+    if (error || !data?.id) { toast.error(saveErrorMessage(error || new Error("ยังไม่ได้รับการยืนยันแจ้งชำรุด"))); return; }
     toast.success("แจ้งชำรุดสำเร็จ");
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     setReportOpen(false); setReportAssetId(""); setReportDesc(""); setReporterName("");
   };
 
   const handleUpdateReportStatus = async (id: string, status: string, resolution_notes?: string) => {
-    const { error } = await supabase.from("asset_damage_reports").update({
+    if (!canManage) return;
+    const { data, error } = await supabase.from("asset_damage_reports").update({
       status, ...(status === "resolved" ? { resolved_at: new Date().toISOString(), resolution_notes } : {}),
-    } as any).eq("id", id);
-    if (error) { toast.error(saveErrorMessage(error)); return; }
+    } as any).eq("id", id).select("id").single();
+    if (error || !data?.id) { toast.error(saveErrorMessage(error || new Error("ไม่พบรายการที่อัปเดตได้"))); return; }
     qc.invalidateQueries({ queryKey: ["asset_damage_reports"] });
     toast.success("อัปเดตสถานะสำเร็จ");
   };
@@ -473,6 +476,8 @@ const AssetManagementPage = () => {
     }
     return a.responsible_person || "-";
   };
+
+  if (assetsLoading || staffLoading || damageLoading || assetsError || staffError || damageError) return <div role="status" className="p-6 space-y-3"><p>{assetsError || staffError || damageError ? "อ่านข้อมูลทะเบียนหรือรายการแจ้งชำรุดไม่สำเร็จ" : "กำลังโหลดทะเบียนสินทรัพย์"}</p><Button variant="outline" onClick={()=>{void retryAssets();void retryStaff();void retryDamage();}}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-6">
@@ -582,7 +587,7 @@ const AssetManagementPage = () => {
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">มูลค่ารวม</p>
                 <p className="text-2xl font-bold text-foreground mt-1">฿{formatMoney(totalCost)}</p>
-                <p className="text-xs text-muted-foreground mt-1">ปัจจุบัน ฿{formatMoney(totalValue)}</p>
+                <p className="text-xs text-muted-foreground mt-1">ค่าที่บันทึก ฿{formatMoney(totalValue)}</p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <BarChart3 className="w-6 h-6 text-blue-500" />
@@ -595,7 +600,7 @@ const AssetManagementPage = () => {
           <CardContent className="pt-5 pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ค่าเสื่อมราคาสะสม</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ค่าเสื่อมราคาประมาณการ</p>
                 <p className="text-2xl font-bold text-amber-600 mt-1">฿{formatMoney(depreciation)}</p>
                 <div className="mt-2">
                   <Progress value={depreciationPercent} className="h-1.5" />
@@ -737,7 +742,7 @@ const AssetManagementPage = () => {
                         </TableCell>
                         <TableCell>
                           {r.photo_url ? (
-                            <img loading="lazy" decoding="async" src={r.photo_url} alt={r.asset_name} className="w-10 h-10 rounded-lg object-cover border shadow-sm" />
+                            <AssetPhoto src={r.photo_url} alt={r.asset_name} className="w-10 h-10 rounded-lg object-cover border shadow-sm" />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center border">
                               <ImageIcon className="w-4 h-4 text-muted-foreground" />
@@ -800,7 +805,7 @@ const AssetManagementPage = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-0.5">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailAsset(r)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`ดูรายละเอียด ${r.asset_code}`} onClick={() => setDetailAsset(r)}>
                               <Eye className="w-4 h-4 text-muted-foreground" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setQrAsset(r)} title="QR Code">
@@ -808,10 +813,10 @@ const AssetManagementPage = () => {
                             </Button>
                             {canManage && (
                               <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditAsset({ ...r, photos: Array.isArray(r.photos) ? r.photos : [] }); setPhotoFiles([]); }}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`แก้ไข ${r.asset_code}`} onClick={() => { setEditAsset({ ...r, photos: Array.isArray(r.photos) ? r.photos : [] }); setPhotoFiles([]); }}>
                                   <Edit className="w-4 h-4 text-muted-foreground" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(r.id)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`ลบ ${r.asset_code}`} onClick={() => handleDelete(r.id)}>
                                   <Trash2 className="w-4 h-4 text-destructive" />
                                 </Button>
                               </>
@@ -1055,7 +1060,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
           </Select>
           {getCategoryDef(form.category) && (
             <p className="text-[10px] text-muted-foreground mt-1">
-              อายุใช้งานมาตรฐาน: {getCategoryDef(form.category)!.usefulLife} ปี
+              อายุใช้งานมาตรฐาน: {getCategoryDef(form.category)?.usefulLife} ปี
             </p>
           )}
         </div>
@@ -1191,7 +1196,7 @@ const AssetForm = ({ mode, form, setForm, personnel, photoFiles, setPhotoFiles, 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
             {existingPhotos.map((url, i) => (
               <div key={`ex-${i}`} className="relative group">
-                <img loading="lazy" decoding="async" src={url} alt="" className="w-full h-20 object-cover rounded border" />
+                <AssetPhoto src={url} alt="" className="w-full h-20 object-cover rounded border" />
                 <button
                   type="button"
                   onClick={() => removeExistingPhoto(i)}
@@ -1243,7 +1248,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
       {/* Photos gallery */}
       {photos.length > 0 && (
         <div className="space-y-2">
-          <img loading="lazy" decoding="async" src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover rounded-lg border" />
+          <AssetPhoto src={photos[activePhoto]} alt={asset.asset_name} className="w-full h-64 object-cover rounded-lg border" />
           {photos.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {photos.map((p, i) => (
@@ -1252,7 +1257,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
                   onClick={() => setActivePhoto(i)}
                   className={`shrink-0 ${i === activePhoto ? "ring-2 ring-primary" : ""}`}
                 >
-                  <img loading="lazy" decoding="async" src={p} alt="" className="w-16 h-16 object-cover rounded border" />
+                  <AssetPhoto src={p} alt="" className="w-16 h-16 object-cover rounded border" />
                 </button>
               ))}
             </div>
@@ -1269,7 +1274,7 @@ const AssetDetailView = ({ asset, personnel, formatMoney, getAssetAge, getUsageP
         )}
         <div><span className="text-muted-foreground">จำนวน:</span> {asset.quantity || 1} ชิ้น</div>
         <div><span className="text-muted-foreground">ราคา:</span> <span className="font-mono">฿{formatMoney(Number(asset.acquisition_cost))}</span></div>
-        <div><span className="text-muted-foreground">มูลค่าปัจจุบัน:</span> <span className="font-mono text-emerald-600">฿{formatMoney(Number(asset.current_value || 0))}</span></div>
+        <div><span className="text-muted-foreground">มูลค่าประมาณการที่บันทึก:</span> <span className="font-mono text-emerald-600">฿{formatMoney(Number(asset.current_value || 0))}</span></div>
         <div><span className="text-muted-foreground">วันที่ได้มา:</span> {asset.acquisition_date || "-"}</div>
         <div><span className="text-muted-foreground">อายุ:</span> {getAssetAge(asset.acquisition_date)}</div>
         <div><span className="text-muted-foreground">อายุกำหนด:</span> {asset.useful_life_years || "-"} ปี</div>

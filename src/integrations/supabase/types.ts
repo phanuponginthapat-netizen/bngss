@@ -1568,6 +1568,7 @@ export type Database = {
           serial_number: string | null
           status: string
           supplier: string | null
+          updated_at: string
           useful_life_years: number | null
           warranty_until: string | null
         }
@@ -1602,6 +1603,7 @@ export type Database = {
           serial_number?: string | null
           status?: string
           supplier?: string | null
+          updated_at?: string
           useful_life_years?: number | null
           warranty_until?: string | null
         }
@@ -1636,6 +1638,7 @@ export type Database = {
           serial_number?: string | null
           status?: string
           supplier?: string | null
+          updated_at?: string
           useful_life_years?: number | null
           warranty_until?: string | null
         }

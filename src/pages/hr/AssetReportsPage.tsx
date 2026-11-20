@@ -26,11 +26,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { registerThaiFont } from "@/lib/jspdfThai";
 
-const ASSET_CATEGORIES = [
-  "ครุภัณฑ์สำนักงาน", "ครุภัณฑ์คอมพิวเตอร์", "ครุภัณฑ์การศึกษา",
-  "ครุภัณฑ์งานบ้านงานครัว", "ครุภัณฑ์ยานพาหนะ", "ครุภัณฑ์โฆษณาและเผยแพร่",
-  "สิ่งก่อสร้าง", "วัสดุสิ้นเปลือง",
-];
+import { ASSET_CATEGORIES } from "@/lib/assetCategories";
 
 const COLORS = [
   "hsl(var(--primary))", "hsl(var(--accent))", "#10b981", "#f59e0b",
@@ -59,7 +55,7 @@ const AssetReportsPage = () => {
   const [filterCondition, setFilterCondition] = useState("all");
   const [search, setSearch] = useState("");
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading, error, refetch } = useQuery({
     queryKey: ["assets-report"],
     queryFn: async () =>
       fetchAllRows((from, to) =>
@@ -125,6 +121,7 @@ const AssetReportsPage = () => {
 
   // Export Excel
   const exportExcel = () => {
+    if (isLoading || error) return;
     try {
       const wb = XLSX.utils.book_new();
 
@@ -177,6 +174,7 @@ const AssetReportsPage = () => {
 
   // Export PDF — A4 landscape, Thai font (TH Sarabun), autoTable for clean layout
   const exportPDF = async () => {
+    if (isLoading || error) return;
     try {
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       await registerThaiFont(doc);
@@ -292,6 +290,8 @@ const AssetReportsPage = () => {
   const clearFilters = () => {
     setSearch(""); setFilterCategory("all"); setFilterLocation("all"); setFilterCondition("all");
   };
+
+  if (isLoading || error) return <div role="status" className="p-6 space-y-3"><p>{error ? "อ่านข้อมูลรายงานสินทรัพย์ไม่สำเร็จ" : "กำลังโหลดรายงานสินทรัพย์"}</p><Button variant="outline" onClick={()=>void refetch()}>ลองใหม่</Button></div>;
 
   return (
     <div className="space-y-6">
