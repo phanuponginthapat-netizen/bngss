@@ -1,3 +1,8 @@
+import { useParentChildren } from "@/hooks/useParentChildren";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { dashboardTermDates } from "@/lib/dashboardTerm";
+import { loadFamilyDashboardHomework } from "@/lib/dashboardHomework";
+import { familyHomeworkLabels } from "@/lib/homeworkFamilyStatus";
 import DashboardIntroGrid from "./DashboardIntroGrid";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 import { IdCardPhoto } from "@/components/IdCardPhoto";
@@ -18,23 +23,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
-import { sanitizeStorageKey } from "@/lib/uploadFallback";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toBE } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import HomeworkReplies from "@/components/homework/HomeworkReplies";
 import {
   GraduationCap, Sparkles, Calendar, Bell, BookOpen,
   ClipboardList, FileText, Heart, ArrowRight, CheckCircle2, XCircle, Clock,
   User as UserIcon, Upload, Thermometer, Wind, Award, TrendingUp, TrendingDown,
   Timer, Layers, BookMarked, AlertTriangle,
 } from "lucide-react";
-import { saveErrorMessage } from "@/lib/saveError";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
@@ -44,8 +42,12 @@ const StudentDashboard = () => {
   const { lang } = useLanguage();
   const { userId, isParent, isStudent } = useUserRole();
   const navigate = useNavigate();
+  const { children, isLoading: childrenLoading, error: childrenError } = useParentChildren();
+  const [childId, setChildId] = useState("");
+  const selectedChild = children.find(child=>child.id === childId) ?? children[0];
+  const qc = useQueryClient();
   // ตารางสอนของนั กเรียนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น
-  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady, periods, error: termError } = useAcademicYear();
   const currentBE = currentAcademicYear;
   const gradeSemester = familyGradeSemester(isParent || isStudent, currentSemester);
   const L = (th: string, en: string) => (lang === "th" ? th : en);
@@ -58,17 +60,19 @@ const StudentDashboard = () => {
     return L("สวัสดีตอนเย็น", "Good Evening");
   })();
 
-  const { data, isLoading, error: dashboardError } = useQuery({
-    queryKey: ["student_dashboard", userId, isParent, currentAcademicYear, currentSemester, schoolDate],
-    enabled: !!userId && termReady,
+  const { data, isLoading, error: dashboardError, refetch: retryDashboard } = useQuery({
+    queryKey: ["student_dashboard", userId, isParent, currentAcademicYear, currentSemester, schoolDate, selectedChild?.id],
+    enabled: !!userId && termReady && (!isParent || !childrenLoading),
     queryFn: async () => {
+      if (!userId) throw new Error("กรุณาเข้าสู่ระบบ");
+      const dates = dashboardTermDates(periods, currentAcademicYear, currentSemester);
       // Parents see their linked child (students.parent_user_id/_2); students see themselves.
       const base = supabase
         .from("students")
         .select("id, prefix, first_name, last_name, student_code, classroom_id, photo_url");
       const { data: student, error: studentError } = isParent
-        ? await base.or(`parent_user_id.eq.${userId},parent_user_id_2.eq.${userId}`).order("student_code").limit(1).maybeSingle()
-        : await base.eq("auth_user_id", userId!).maybeSingle();
+        ? selectedChild ? await base.eq("id", selectedChild.id).maybeSingle() : {data:null,error:null}
+        : await base.eq("auth_user_id", userId).maybeSingle();
       if (studentError) throw studentError;
 
       if (!student) {
@@ -91,17 +95,12 @@ const StudentDashboard = () => {
         student.classroom_id
           ? supabase.from("classrooms").select("name, grade_level, homeroom_teacher").eq("id", student.classroom_id).maybeSingle()
           : Promise.resolve({ data: null } as any),
-        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").is("subject_id", null).eq("student_id", student.id).order("id").range(from,to)).then(data=>({data,error:null})),
-        supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
-          .eq("student_id", student.id).order("record_date", { ascending: false }).limit(5),
+        fetchAllRows((from,to)=>supabase.from("attendance").select("status, attendance_date").is("subject_id", null).eq("period", 0).eq("student_id", student.id).gte("attendance_date", dates.start).lte("attendance_date", dates.end).order("id").range(from,to)).then(data=>({data,error:null})),
+        fetchAllRows((from,to)=>supabase.from("behavior_records").select("id, behavior_type, description, record_date, points")
+          .eq("student_id", student.id).gte("record_date", dates.start).lte("record_date", dates.end).order("record_date", { ascending: false }).order("id").range(from,to)).then(data=>({data,error:null})),
         supabase.from("student_leaves").select("id, status, start_date, end_date, reason")
-          .eq("student_id", student.id).order("start_date", { ascending: false }).limit(5),
-        supabase.from("task_assignments")
-          .select("id, title, description, due_date, status, submitted_at, grade, feedback, submission_text, submission_file_url, annotated_file_url, replies, subjects(name_th)")
-          .eq("assigned_to_student_id", student.id)
-          .eq("task_type", "homework")
-          .order("due_date", { ascending: true, nullsFirst: false })
-          .limit(10),
+          .eq("student_id", student.id).gte("end_date", dates.start).lte("start_date", dates.end).order("start_date", { ascending: false }).limit(5),
+        loadFamilyDashboardHomework(student, dates).then(data=>({data,error:null})),
         student.classroom_id
           ? supabase.from("schedules").select("period, start_time, end_time, day_of_week, teacher_name, subjects(name_th, code)")
               .eq("classroom_id", student.classroom_id).eq("day_of_week", todayDow)
@@ -111,7 +110,7 @@ const StudentDashboard = () => {
         supabase.from("news_posts").select("id, title, category, published_at")
           .eq("is_published", true).order("created_at", { ascending: false }).limit(5),
         supabase.from("academic_events").select("id, title, event_date, event_type")
-          .gte("event_date", todayStr).order("event_date").limit(5),
+          .gte("event_date", todayStr > dates.start ? todayStr : dates.start).lte("event_date", dates.end).order("event_date").limit(5),
       ]);
       requireSuccessfulReads([classroom, attendance, behavior, leaves, homework, schedule, news, events]);
 
@@ -140,7 +139,7 @@ const StudentDashboard = () => {
         classroom: (classroom as any)?.data || null,
         rate, present, absent, late, leaveDays,
         positiveB, negativeB, totalPoints,
-        recentBehavior: behavior.data || [],
+        recentBehavior: (behavior.data || []).slice(0, 5),
         recentLeaves: leaves.data || [],
         homework: homework.data || [],
         todaySchedule: schedule.data || [],
@@ -155,7 +154,7 @@ const StudentDashboard = () => {
     : "";
 
   // ── Enhanced student KPIs: GPA, upcoming exams, recent grades, sparkline trends ──
-  const { data: gpaData } = useQuery({
+  const { data: gpaData, error: gpaError } = useQuery({
     queryKey: ["student_gpa", data?.student?.student_code, currentAcademicYear, gradeSemester],
     enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
@@ -173,32 +172,9 @@ const StudentDashboard = () => {
     },
   });
 
-  const { data: upcomingExams } = useQuery({
-    queryKey: ["student_upcoming_exams", data?.student?.classroom_id],
-    enabled: !!data?.student,
-    queryFn: async () => {
-      const todayStr = todayBangkok();
-      // Try academic_events with exam type first
-      const { data: ev } = await supabase
-        .from("academic_events")
-        .select("id, title, event_date, event_type")
-        .gte("event_date", todayStr)
-        .or(`event_type.eq.exam,event_type.eq.sob,event_type.ilike.%exam%`)
-        .order("event_date", { ascending: true })
-        .limit(5);
-      if (ev && ev.length > 0) return ev;
-      // fallback to any upcoming events
-      const { data: fallback } = await supabase
-        .from("academic_events")
-        .select("id, title, event_date, event_type")
-        .gte("event_date", todayStr)
-        .order("event_date", { ascending: true })
-        .limit(5);
-      return fallback || [];
-    },
-  });
+  const upcomingExams = data?.events ?? [];
 
-  const { data: recentGrades } = useQuery({
+  const { data: recentGrades, error: gradesError } = useQuery({
     queryKey: ["student_recent_grades", data?.student?.student_code, currentAcademicYear, gradeSemester],
     enabled: !!data?.student?.student_code && termReady,
     queryFn: async () => {
@@ -214,12 +190,13 @@ const StudentDashboard = () => {
     },
   });
 
-  const pendingHomeworkCount = (data?.homework || []).filter((h: any) => !h.submitted_at && h.status !== "done").length;
-  const overdueHomeworkCount = (data?.homework || []).filter((h: any) => h.due_date && new Date(h.due_date) < new Date(new Date().toDateString()) && !h.submitted_at).length;
+  const pendingHomeworkCount = (data?.homework || []).filter((h: any) => (h.status === "not_submitted" || h.status === "needs_revision")).length;
+  const overdueHomeworkCount = (data?.homework || []).filter((h: any) => h.due_date && h.due_date < schoolDate && (h.status === "not_submitted" || h.status === "needs_revision")).length;
 
   return (
     <div className="space-y-6">
-      {dashboardError && <p role="alert" className="text-sm text-destructive">โหลดข้อมูลนักเรียนไม่สำเร็จ กรุณาลองใหม่</p>}
+      {(dashboardError || termError || childrenError || gpaError || gradesError) && <div role="alert" className="text-sm text-destructive">โหลดข้อมูลไม่สำเร็จ <Button variant="outline" onClick={() => { void retryDashboard(); void qc.invalidateQueries({queryKey:["student_gpa"]}); void qc.invalidateQueries({queryKey:["student_recent_grades"]}); void qc.invalidateQueries({queryKey:["academic-periods"]}); void qc.invalidateQueries({queryKey:["semester-config"]}); }}>ลองใหม่</Button></div>}
+      {isParent && children.length > 1 && <Select value={selectedChild?.id ?? ""} onValueChange={setChildId}><SelectTrigger aria-label="เลือกบุตรหลาน" className="w-full sm:w-72"><SelectValue /></SelectTrigger><SelectContent>{children.map(child=><SelectItem key={child.id} value={child.id}>{child.first_name} {child.last_name}</SelectItem>)}</SelectContent></Select>}
       {/* Hero */}
       <DashboardIntroGrid>
       <div className="gradient-hero rounded-2xl p-6 text-primary-foreground relative overflow-hidden min-h-[180px]">
@@ -242,7 +219,7 @@ const StudentDashboard = () => {
                 <p className="text-sm opacity-90 truncate">
                   {data?.student?.student_code && <span>{L("รหัส", "Code")}: {data.student.student_code} · </span>}
                   {data?.classroom && <span>{data.classroom.grade_level}/{data.classroom.name} · </span>}
-                  <span className="opacity-80">{L("ปีการศึกษา", "Year")} {currentBE}</span>
+                  <span className="opacity-80">{L("ปีการศึกษา", "Year")} {currentBE} · {L("เทอม", "Term")} {currentSemester}</span>
                 </p>
               </div>
             </div>
@@ -294,7 +271,7 @@ const StudentDashboard = () => {
         <div><Suspense fallback={<Skeleton className="h-full w-full" />}><MascotHeroWidget /></Suspense></div>
       </DashboardIntroGrid>
 
-      {!data?.student && !isLoading && (
+      {!data?.student && !isLoading && !dashboardError && !termError && (
         <Card className="border border-border/50 shadow-elevated rounded-2xl">
           <CardContent className="py-10 text-center">
             <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
@@ -309,7 +286,7 @@ const StudentDashboard = () => {
       <DailyTaskBar />
 
       {/* ── Modern KPI: GPA, Attendance %, Homework, Exams, Recent Grades ── */}
-      {data?.student && (
+      {data?.student && !dashboardError && !termError && !childrenError && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Award className="w-4 h-4 text-primary" /> {L("ภาพรวมการเรียนของฉัน", "My Learning Overview")}
@@ -344,9 +321,9 @@ const StudentDashboard = () => {
                       <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
                         <Award className="w-5 h-5 text-primary-foreground" />
                       </div>
-                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{gpaData?.count || 0} {L("วิชา", "subjects")}</Badge>
+                      <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{gpaError ? "—" : gpaData?.count ?? "—"} {L("วิชา", "subjects")}</Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground font-medium">{L("เกรดเฉลี่ย (GPA)", "My GPA")}</p>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("เกรดเฉลี่ย (GPA)", "My GPA")} · {L("เทอม", "Term")} {gradeSemester}</p>
                     <p className="text-2xl font-extrabold tabular-nums">{gpaData?.gpa || "—"}</p>
                     <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
                       {(gpaData?.avgNum || 0) >= 3 ? <><TrendingUp className="w-3 h-3 text-success" /> {L("ดีมาก", "Excellent")}</> : (gpaData?.avgNum || 0) >= 2 ? <><TrendingUp className="w-3 h-3 text-amber-500" /> {L("พอใช้", "Average")}</> : gpaData?.gpa === "—" ? L("ยังไม่มีคะแนน", "No grades yet") : <><TrendingDown className="w-3 h-3 text-destructive" /> {L("ต้องพัฒนา", "Needs improvement")}</>}
@@ -408,7 +385,7 @@ const StudentDashboard = () => {
                       {overdueHomeworkCount > 0 ? <span className="text-destructive font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {L(`เกินกำหนด ${overdueHomeworkCount}`, `Overdue ${overdueHomeworkCount}`)}</span> : `${L("ทั้งหมด", "Total")} ${(data.homework || []).length} ${L("ชิ้น", "items")}`}
                     </p>
                     <div className="mt-2">
-                      {pendingHomeworkCount === 0 ? (
+                      {pendingHomeworkCount === 0 && data.homework.length > 0 ? (
                         <div className="h-[28px] flex items-center justify-center rounded-lg bg-success/10 text-[10px] text-success font-medium">✓ {L("ส่งครบแล้ว", "All submitted")}</div>
                       ) : (
                         <div className="h-[28px] rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 flex items-center justify-center text-[10px] font-medium text-amber-700">{L(`เหลือ ${pendingHomeworkCount} งาน`, `${pendingHomeworkCount} pending`)}</div>
@@ -462,8 +439,8 @@ const StudentDashboard = () => {
                       </div>
                       <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-0">{recentGrades?.length || 0} {L("รายการ", "items")}</Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground font-medium">{L("คะแนนล่าสุด", "Recent Grades")}</p>
-                    <p className="text-2xl font-extrabold tabular-nums">{recentGrades && recentGrades.length > 0 ? recentGrades[0].grade || recentGrades[0].total_score || "—" : "—"}</p>
+                    <p className="text-[11px] text-muted-foreground font-medium">{L("คะแนนล่าสุด", "Recent Grades")} · {L("เทอม", "Term")} {gradeSemester}</p>
+                    <p className="text-2xl font-extrabold tabular-nums">{recentGrades && recentGrades.length > 0 ? recentGrades[0].grade ?? recentGrades[0].total_score ?? "—" : "—"}</p>
                     <p className="text-[10px] text-muted-foreground mt-1 truncate">
                       {recentGrades && recentGrades.length > 0 ? `${recentGrades[0].subjects?.name_th || recentGrades[0].subjects?.code || L("วิชา", "Subject")} · ${recentGrades[0].total_score ?? ""}` : L("ยังไม่มีคะแนน", "No grades yet")}
                     </p>
@@ -487,7 +464,7 @@ const StudentDashboard = () => {
       )}
 
       {/* Today schedule + Homework */}
-      {data?.student && (
+      {data?.student && !dashboardError && !termError && !childrenError && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card onClick={() => navigate("/dashboard/academic/schedule")} className="border border-border/50 shadow-elevated rounded-2xl cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all">
             <CardHeader className="pb-2">
@@ -525,7 +502,7 @@ const StudentDashboard = () => {
                 <div className="w-7 h-7 rounded-lg gradient-warning flex items-center justify-center">
                   <BookOpen className="w-3.5 h-3.5 text-primary-foreground" />
                 </div>
-                {L("การบ้าน/งานที่ได้รับมอบหมาย", "Homework Assignments")}
+                {L("การบ้าน/งานที่ได้รับมอบหมาย", "Homework Assignments")} · {L("เทอม", "Term")} {currentSemester}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -534,7 +511,17 @@ const StudentDashboard = () => {
               ) : (
                 <div className="space-y-1.5">
                   {data.homework.map((h: any) => (
-                    <HomeworkRow key={h.id} h={h} lang={lang} L={L} userId={userId} studentName={`${data.student?.first_name || ""} ${data.student?.last_name || ""}`.trim() || "นักเรียน"} />
+                    <div key={h.id} className="flex items-start gap-3 rounded-lg bg-muted/40 p-3">
+                      <BookOpen className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="text-sm font-semibold break-words">{h.title}</p>
+                        <Badge variant={h.status === "graded" ? "default" : "secondary"}>{familyHomeworkLabels[h.status as keyof typeof familyHomeworkLabels]}</Badge>
+                        {h.due_date && <p className="text-xs text-muted-foreground">{L("กำหนดส่ง", "Due")} {new Date(h.due_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US")}</p>}
+                        {h.score !== null && <p className="text-xs font-semibold text-primary">{L("คะแนนครู", "Teacher score")}: {h.score}{h.maxScore !== null ? ` / ${h.maxScore}` : ""}</p>}
+                        {h.feedback && <p className="text-xs text-muted-foreground break-words">{h.feedback}</p>}
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => navigate(h.destination)}>{isParent || h.status !== "not_submitted" ? L("ดูงาน", "View") : L("ทำงาน", "Open")}</Button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -544,7 +531,7 @@ const StudentDashboard = () => {
       )}
 
       {/* คะแนนของฉัน — กราฟใยแมงมุม 8 กลุ่มสาระ */}
-      {data?.student && (
+      {data?.student && !dashboardError && !termError && !childrenError && (
         <Suspense fallback={<Skeleton className="h-80 rounded-2xl" />}>
           <MyRadarWidget studentCode={data.student.student_code} />
         </Suspense>
@@ -614,149 +601,6 @@ const StudentDashboard = () => {
       </div>
 
     </div>
-  );
-};
-
-const MiniKpi = ({ icon: Icon, label, value, gradient }: any) => (
-  <Card className="border border-border/50 shadow-elevated rounded-2xl overflow-hidden">
-    <CardContent className="p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl ${gradient} flex items-center justify-center shrink-0 shadow-sm`}>
-        <Icon className="w-5 h-5 text-primary-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] text-muted-foreground font-medium truncate">{label}</p>
-        <p className="text-xl font-bold text-foreground leading-tight mt-0.5">{value}</p>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-const isImageUrl = (u?: string | null) => !!u && /\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(u);
-
-const HomeworkRow = ({ h, lang, L, userId, studentName }: {
-  h: any; lang: string; L: (t: string, e: string) => string;
-  userId: string | null | undefined; studentName: string;
-}) => {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState(h.submission_text || "");
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const overdue = h.due_date && h.status !== "done" && new Date(h.due_date) < new Date(new Date().toDateString());
-  const submitted = h.status === "done" || !!h.submitted_at;
-  const reviewed = !!h.annotated_file_url;
-
-  const submit = async () => {
-    setBusy(true);
-    try {
-      let fileUrl: string | null = h.submission_file_url || null;
-      if (file) {
-        const path = sanitizeStorageKey(`homework/${h.id}/${Date.now()}_${file.name}`);
-        const { data: up, error: upErr } = await supabase.storage.from("homework-files").upload(path, file, { upsert: true, contentType: file.type || undefined });
-        if (upErr) throw upErr;
-        const { data: signed } = await supabase.storage.from("homework-files").createSignedUrl(up.path, 60 * 60 * 24 * 365 * 5);
-        fileUrl = signed?.signedUrl || null;
-      }
-      const { error } = await supabase.from("task_assignments").update({
-        submission_text: text.trim() || null,
-        submission_file_url: fileUrl,
-        submitted_at: new Date().toISOString(),
-        status: "done",
-      }).eq("id", h.id);
-      if (error) throw error;
-      toast.success(L("ส่งงานสำเร็จ", "Submitted"));
-      qc.invalidateQueries({ queryKey: ["student_dashboard"] });
-      setOpen(false);
-    } catch (e: any) {
-      toast.error(saveErrorMessage(e));
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <>
-      <div className={`flex items-start gap-2 p-2 rounded-lg ${reviewed ? "bg-primary/5 border border-primary/30" : submitted ? "bg-emerald-50 dark:bg-emerald-950/20" : overdue ? "bg-rose-50 dark:bg-rose-950/20" : "bg-muted/40"}`}>
-        {reviewed ? <Sparkles className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-          : submitted ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-          : overdue ? <XCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
-          : <ClipboardList className="w-3.5 h-3.5 text-warning mt-0.5 shrink-0" />}
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold truncate">{h.title}</p>
-          <p className="text-[10px] text-muted-foreground truncate">
-            {h.subjects?.name_th && `${h.subjects.name_th} · `}
-            {h.due_date ? `${L("ส่งภายใน", "Due")} ${new Date(h.due_date).toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short" })}` : ""}
-            {submitted && ` · ${L("ส่งแล้ว", "Submitted")}`}
-            {reviewed && ` · ${L("ครูตรวจแล้ว", "Reviewed")}`}
-            {h.grade != null && ` · ${L("คะแนน", "Grade")}: ${h.grade}`}
-          </p>
-          {h.feedback && <p className="text-[10px] text-primary mt-0.5 italic truncate">💬 {h.feedback}</p>}
-        </div>
-        <Button size="sm" variant={submitted ? "ghost" : "outline"} className="h-7 px-2 text-[10px]" onClick={() => setOpen(true)}>
-          {submitted ? L("ดู / ตอบกลับ", "View / Reply") : L("ส่งงาน", "Submit")}
-        </Button>
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg sm:max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{h.title}</DialogTitle></DialogHeader>
-          {h.description && <p className="text-xs text-muted-foreground whitespace-pre-wrap">{h.description}</p>}
-
-          {/* Teacher's reviewed image takes priority */}
-          {reviewed && isImageUrl(h.annotated_file_url) && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-primary">📝 {L("รูปที่ครูตรวจ", "Teacher's review")}</p>
-              <img loading="lazy" decoding="async" src={h.annotated_file_url} alt="reviewed" className="w-full rounded border border-primary/40" />
-            </div>
-          )}
-          {h.submission_file_url && (
-            <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground">{L("ไฟล์ที่ส่ง", "Your submission")}</p>
-              {isImageUrl(h.submission_file_url) ? (
-                <img loading="lazy" decoding="async" src={h.submission_file_url} alt="submission" className="w-full max-h-60 object-contain rounded border border-border bg-muted/30" />
-              ) : (
-                <a href={h.submission_file_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">📎 {L("เปิดไฟล์", "Open file")}</a>
-              )}
-            </div>
-          )}
-          {h.grade != null && (
-            <div className="rounded-lg bg-primary/5 border border-primary/30 p-2 text-sm">
-              <span className="font-semibold">{L("คะแนน", "Grade")}: </span>{h.grade}
-              {h.feedback && <p className="text-xs text-foreground mt-1">💬 {h.feedback}</p>}
-            </div>
-          )}
-
-          {/* Inline conversation */}
-          <div className="border-t border-border pt-2">
-            <p className="text-xs font-semibold mb-1">{L("สนทนา (ตอบกลับครูได้ทันที)", "Conversation (reply inline)")}</p>
-            <HomeworkReplies
-              taskId={h.id}
-              replies={h.replies || []}
-              currentUserId={userId}
-              currentRole="student"
-              currentName={studentName}
-              invalidateKeys={[["student_dashboard"], ["hw_submissions"]]}
-              compact
-            />
-          </div>
-
-          {/* Submit / re-submit area */}
-          {!reviewed && (
-            <div className="border-t border-border pt-2 space-y-2">
-              <p className="text-xs font-semibold">{submitted ? L("แก้ไขการส่งงาน", "Update submission") : L("ส่งการบ้าน", "Submit homework")}</p>
-              <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={L("เขียนคำตอบ / หมายเหตุ...", "Write your answer / note...")} rows={3} />
-              <Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              <Button onClick={submit} disabled={busy} className="w-full" size="sm">
-                <Upload className="w-3.5 h-3.5 mr-1" />
-                {busy ? L("กำลังส่ง...", "Sending...") : submitted ? L("ส่งใหม่", "Resubmit") : L("ส่งงาน", "Submit")}
-              </Button>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>{L("ปิด", "Close")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 };
 

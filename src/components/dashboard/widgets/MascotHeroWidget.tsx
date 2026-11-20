@@ -1,3 +1,5 @@
+import { requireSuccessfulReads } from "@/lib/dataReliability";
+import { familyGradeSemester } from "@/lib/familyGrades";
 import { weightedChartAverage } from "@/lib/chartMetrics";
 import { useAcademicYear } from "@/hooks/useAcademicYear";
 import { useMemo, useState, useEffect } from "react";
@@ -80,6 +82,7 @@ export default function MascotHeroWidget() {
   const {currentAcademicYear: yearBE, currentSemester, isReady} = useAcademicYear();
   const _currentAY = yearBE - BE_OFFSET;
   const { role, userId } = useUserRole();
+  const studentSemester = familyGradeSemester(role === "student", currentSemester);
   const { lang } = useLanguage();
   const weather = useWeatherData();
   const mascot = useMascotSettings();
@@ -124,6 +127,7 @@ export default function MascotHeroWidget() {
           .gte("event_date", today).lte("event_date", in7.slice(0, 10))
           .order("event_date", { ascending: true }).limit(1),
       ]);
+      requireSuccessfulReads([unread, upcoming]);
       return {
         unreadCount: unread.count || 0,
         latestUnread: unread.data?.[0]?.title as string | undefined,
@@ -203,7 +207,7 @@ export default function MascotHeroWidget() {
 
   // Radar
   const { data: studentRadar, error: studentRadarError } = useQuery({
-    queryKey: ["mascot_student_radar_groups", userId, _currentAY, currentSemester],
+    queryKey: ["mascot_student_radar_groups", userId, _currentAY, studentSemester],
     enabled: !!userId && role === "student" && isReady,
     queryFn: async () => {
       const { data: stu, error: identityError } = await supabase.from("students")
@@ -212,7 +216,7 @@ export default function MascotHeroWidget() {
       if (!stu?.student_code) return [] as any[];
       const prev = _currentAY - 1;
       const [scores, subjects] = await Promise.all([
-        fetchAllRows((from,to)=>supabase.from("student_scores").select("subject_id,total_score,academic_year").eq("student_code", stu.student_code).in("academic_year",[_currentAY,prev]).eq("semester",currentSemester).not("total_score","is",null).order("id").range(from,to)),
+        fetchAllRows((from,to)=>supabase.from("student_scores").select("subject_id,total_score,academic_year").eq("student_code", stu.student_code).in("academic_year",[_currentAY,prev]).eq("semester",studentSemester).not("total_score","is",null).order("id").range(from,to)),
         fetchAllRows((from,to)=>supabase.from("subjects").select("id,name_th").order("id").range(from,to)),
       ]);
       const subjMap = new Map<string, SubjectGroup["key"]>();

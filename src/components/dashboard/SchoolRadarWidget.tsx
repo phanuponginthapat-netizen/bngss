@@ -64,23 +64,10 @@ export default function SchoolRadarWidget() {
           .eq("semester", semester)
           .not("total_score", "is", null).order("id").range(from, to));
 
-      // เทอมปัจจุบันยังไม่มีคะแนน → ถอยไปเทอมล่าสุดที่มีข้อมูล
-      // (เทอม 2 ว่าง → เทอม 1 ปีเดียวกัน / เทอม 1 ว่าง → เทอม 2 ของปีก่อน)
-      let year = currentAcademicYear;
-      let semester = currentSemester;
-      let fellBack = false;
-      let scores = await loadScores(year, semester);
-      if (!scores.some((r) => r.academic_year === year)) {
-        const fbYear = semester === 1 ? year - 1 : year;
-        const fbSemester = semester === 1 ? 2 : 1;
-        const fbScores = await loadScores(fbYear, fbSemester);
-        if (fbScores.some((r) => r.academic_year === fbYear)) {
-          year = fbYear;
-          semester = fbSemester;
-          scores = fbScores;
-          fellBack = true;
-        }
-      }
+      const year = currentAcademicYear;
+      const semester = currentSemester;
+      const fellBack = false;
+      const scores = await loadScores(year, semester);
       const prevYear = year - 1;
 
       const subjects = await fetchAllRows((from, to) =>

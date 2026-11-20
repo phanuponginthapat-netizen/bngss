@@ -15,4 +15,10 @@ describe("live homework updates", () => {
   it("does not refresh homework for unrelated tables", () => {
     expect(homeworkRealtimeKeys("students")).toEqual([]);
   });
+  it("refreshes family widgets for all homework formats", () => {
+    for (const table of ["task_assignments","homework_assignments","homework_submissions"]) {
+      expect(homeworkRealtimeKeys(table)).toContainEqual(["student_dashboard"]);
+      expect(homeworkRealtimeKeys(table)).toContainEqual(["teacher_pending_grading"]);
+    }
+  });
 });

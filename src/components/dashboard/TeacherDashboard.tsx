@@ -1,3 +1,6 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { dashboardTermDates } from "@/lib/dashboardTerm";
+import { familyHomeworkStatus } from "@/lib/homeworkFamilyStatus";
 import DashboardIntroGrid from "./DashboardIntroGrid";
 import { resolveDigestStatuses } from "../../../supabase/functions/_shared/attendanceDigest";
 import { loadDashboardAttendance, attendanceRate } from "@/lib/dashboardAttendance";
@@ -202,7 +205,7 @@ const TeacherDashboard = () => {
   const { userId } = useUserRole();
   const { homeroomClassroomIds, homeroomClassrooms, hasHomeroom } = useHomeroomClassrooms();
   // ตารางสอนตองจัดใหอยู่ในภาคเรียนปัจจุบันเทานั้ น เพือไมใหขอมูลเทอมเกาโผลมาแสดงซ้ำ
-  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady, error: termError } = useAcademicYear();
+  const { currentAcademicYear, currentSemester, today: schoolDate, isReady: termReady, error: termError, periods } = useAcademicYear();
   const currentBE = currentAcademicYear;
   const weather = useWeatherData();
 
@@ -222,9 +225,10 @@ const TeacherDashboard = () => {
 
   // Homeroom data
   const { data: homeroomData, isLoading: homeroomLoading, error: homeroomError } = useQuery({
-    queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate],
-    enabled: hasHomeroom && !!homeroomClassroomIds?.length,
+    queryKey: ["homeroom_dashboard", userId, homeroomClassroomIds, schoolDate, currentAcademicYear, currentSemester],
+    enabled: hasHomeroom && !!homeroomClassroomIds?.length && termReady,
     queryFn: async () => {
+      const dates = dashboardTermDates(periods, currentAcademicYear, currentSemester);
       const classIds = homeroomClassroomIds;
       if (!classIds?.length) throw new Error("Homeroom unavailable");
       const { data: studentList, error: studentError } = await supabase.from("students")
@@ -235,12 +239,12 @@ const TeacherDashboard = () => {
 
       const today = todayBangkok();
       const [attendance, behavior, leaves, homeVisits, sdq, faceLogs, lateSetting] = await Promise.all([
-        supabase.from("attendance").select("id, status, student_id").in("student_id", studentIds).eq("attendance_date", today).is("subject_id",null),
-        supabase.from("behavior_records").select("id, behavior_type, description, record_date")
-          .in("student_id", studentIds).order("record_date", { ascending: false }).limit(10),
+        supabase.from("attendance").select("id, status, student_id").in("student_id", studentIds).eq("attendance_date", today).is("subject_id",null).eq("period",0),
+        fetchAllRows((f,t)=>supabase.from("behavior_records").select("id, behavior_type, description, record_date")
+          .in("student_id", studentIds).gte("record_date", dates.start).lte("record_date", dates.end).order("id").range(f,t)).then(data=>({data,error:null})),
         supabase.from("student_leaves").select("id, status").in("student_id", studentIds),
-        supabase.from("home_visits").select("id").in("classroom_id", classIds),
-        supabase.from("sdq_records").select("id").in("student_id", studentIds),
+        fetchAllRows((f,t)=>supabase.from("home_visits").select("id").in("classroom_id", classIds).eq("academic_year", toCE(currentAcademicYear)).eq("semester", currentSemester).order("id").range(f,t)).then(data=>({data,error:null})),
+        fetchAllRows((f,t)=>supabase.from("sdq_records").select("id").in("student_id", studentIds).eq("academic_year", toCE(currentAcademicYear)).gte("created_at", `${dates.start}T00:00:00+07:00`).lte("created_at", `${dates.end}T23:59:59.999+07:00`).order("id").range(f,t)).then(data=>({data,error:null})),
         supabase.from("face_scan_logs").select("student_id, scan_time, scan_type").in("student_id", studentIds).eq("scan_date", today).in("scan_type", ["entry","assembly"]),
         supabase.from("school_settings").select("setting_value").eq("setting_key", "clock_late_threshold").maybeSingle(),
       ]);
@@ -348,27 +352,37 @@ const TeacherDashboard = () => {
 
   // ── Enhanced KPIs: pending grading, remediation (0 ร มส), attendance trend 7d  ──
   const { data: pendingGradingCount, error: gradingError, isLoading: gradingLoading } = useQuery({
-    queryKey: ["teacher_pending_grading", userId],
-    enabled: !!userId,
+    queryKey: ["teacher_pending_grading", userId, currentAcademicYear, currentSemester],
+    enabled: !!userId && termReady,
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("task_assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("assigned_by", userId!)
-        .eq("task_type", "homework")
-        .not("submitted_at", "is", null)
-        .is("grade", null)
-        .limit(1);
-      if (error) throw error;
-      return count || 0;
+      const dates = dashboardTermDates(periods, currentAcademicYear, currentSemester);
+      const tasks = await fetchAllRows((from,to)=>supabase.from("task_assignments")
+        .select("id,submissions,submitted_at,grade").eq("assigned_by", userId ?? "").eq("task_type", "homework")
+        .gte("assigned_date", dates.start).lte("assigned_date", dates.end).order("id").range(from,to));
+      let count = 0;
+      for (const task of tasks) {
+        if (task.submitted_at && task.grade === null) count++;
+        if (task.submissions && typeof task.submissions === "object" && !Array.isArray(task.submissions)) {
+          count += Object.values(task.submissions).filter(s => s && typeof s === "object" && !Array.isArray(s) && familyHomeworkStatus(s as {status?:string}) === "submitted").length;
+        }
+      }
+      const worksheets = await fetchAllRows((from,to)=>supabase.from("homework_assignments").select("id")
+        .eq("created_by", userId ?? "").gte("created_at", `${dates.start}T00:00:00+07:00`).lte("created_at", `${dates.end}T23:59:59.999+07:00`).order("id").range(from,to));
+      for (let offset=0;offset<worksheets.length;offset+=100) {
+        const rows = await fetchAllRows((from,to)=>supabase.from("homework_submissions").select("id")
+          .in("assignment_id", worksheets.slice(offset,offset+100).map(w=>w.id)).eq("status", "submitted").order("id").range(from,to));
+        count += rows.length;
+      }
+      return count;
     },
   });
 
   const { data: remediationData, error: remediationError, isLoading: remediationLoading } = useQuery({
-    queryKey: ["teacher_remediation", homeroomClassroomIds],
-    enabled: hasHomeroom && !!homeroomClassroomIds?.length,
+    queryKey: ["teacher_remediation", homeroomClassroomIds, currentAcademicYear, currentSemester],
+    enabled: hasHomeroom && !!homeroomClassroomIds?.length && termReady,
     queryFn: async () => {
-      const ids = homeroomClassroomIds!;
+      const ids = homeroomClassroomIds;
+      if (!ids?.length) throw new Error("ยังไม่มีห้องประจำชั้น");
       // get student ids in homeroom
       const { data: studs, error: studentError } = await supabase.from("students").select("id").in("classroom_id", ids).eq("status", "active");
       if (studentError) throw studentError;
@@ -378,6 +392,7 @@ const TeacherDashboard = () => {
         .from("grade_remediation")
         .select("id, original_grade, status", { count: "exact" })
         .in("student_id", sids)
+        .eq("academic_year", String(currentAcademicYear)).eq("term", `${currentSemester}/${currentAcademicYear}`)
         .neq("status", "ผ่าน")
         .limit(5);
       if (error) throw error;
@@ -450,7 +465,7 @@ const TeacherDashboard = () => {
               <h1 className="text-2xl font-bold mb-1">{getGreeting()}{displayName ? `, ${displayName}` : ""} 👋</h1>
               <p className="text-sm opacity-90">
                 {hasHomeroom && classroomName && <span>ประจำชั้น {classroomName} · </span>}
-                <span className="opacity-80">ปีการศึกษา {currentBE}</span>
+                <span className="opacity-80">ปีการศึกษา {currentBE} · เทอม {currentSemester}</span>
               </p>
             </div>
 
@@ -903,6 +918,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
   subject: any; enrollmentCount: number; schedules: any[]; navigate: any; personnelId?: string; userId?: string | null;
 }) => {
   const qc = useQueryClient();
+  const { currentAcademicYear, currentSemester, periods, isReady: termReady } = useAcademicYear();
   const [createOpen, setCreateOpen] = useState(false);
   const [hwTitle, setHwTitle] = useState("");
   const [hwDesc, setHwDesc] = useState("");
@@ -916,32 +932,22 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
   const DAY_NAMES = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
   // Homework assigned for this subject
-  const { data: homeworkList = [] } = useQuery({
-    queryKey: ["subject_homework", subject.id, userId],
-    enabled: !!userId,
+  const { data: homeworkList = [], error: homeworkError } = useQuery({
+    queryKey: ["subject_homework", subject.id, userId, currentAcademicYear, currentSemester],
+    enabled: !!userId && termReady,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("task_assignments")
-        .select("*")
-        .eq("subject_id", subject.id)
-        .eq("assigned_by", userId!)
-        .eq("task_type", "homework")
-        .order("created_at", { ascending: false })
-        .limit(30);
-      // Group by title+due_date (one row per student under the hood)
-      const seen = new Map<string, any>();
-      (data || []).forEach((t: any) => {
-        const key = `${t.title}-${t.due_date}`;
-        if (!seen.has(key)) {
-          seen.set(key, { ...t, _count: 1, _submitted: t.submitted_at ? 1 : 0, _ids: [t.id] });
-        } else {
-          const g = seen.get(key);
-          g._count++;
-          if (t.submitted_at) g._submitted++;
-          g._ids.push(t.id);
-        }
+      const dates = dashboardTermDates(periods, currentAcademicYear, currentSemester);
+      const tasks = await fetchAllRows((from,to)=>supabase.from("task_assignments").select("*")
+        .eq("subject_id", subject.id).eq("assigned_by", userId ?? "").eq("task_type", "homework")
+        .gte("assigned_date", dates.start).lte("assigned_date", dates.end).order("created_at", {ascending:false}).order("id").range(from,to));
+      const rooms = [...new Set(tasks.map(t=>t.classroom_id).filter((id): id is string=>!!id))];
+      const students = rooms.length ? await fetchAllRows((from,to)=>supabase.from("students").select("id,classroom_id").in("classroom_id", rooms).eq("status", "active").order("id").range(from,to)) : [];
+      return tasks.map(t=> {
+        const recipients = t.assigned_to_student_id ? [t.assigned_to_student_id] : students.filter(st=>st.classroom_id===t.classroom_id).map(st=>st.id);
+        const submissions = t.submissions && typeof t.submissions === "object" && !Array.isArray(t.submissions) ? t.submissions : {};
+        const submitted = t.assigned_to_student_id ? Number(!!t.submitted_at) : recipients.filter(id=>familyHomeworkStatus((submissions as Record<string,{status?:string}>)[id]) !== "not_submitted").length;
+        return {...t, _count:recipients.length, _submitted:submitted, _ids:[t.id]};
       });
-      return [...seen.values()];
     },
   });
 
@@ -1128,7 +1134,7 @@ const SubjectTabContent = ({ subject, enrollmentCount, schedules, navigate, pers
           </Dialog>
         </CardHeader>
         <CardContent>
-          {homeworkList.length === 0 ? (
+          {homeworkError ? <p role="alert" className="text-destructive text-sm">โหลดการบ้านไม่สำเร็จ</p> : homeworkList.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-6">ยังไม่มีการบ้านที่สั่ง</p>
           ) : (
             <div className="space-y-2">

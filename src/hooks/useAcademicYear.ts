@@ -141,6 +141,7 @@ export function useAcademicYear() {
   }, [currentAcademicYear]);
 
   return {
+    periods,
     config,
     currentAcademicYear,
     currentSemester,

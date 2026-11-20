@@ -1,3 +1,5 @@
+import { probationResults } from "@/lib/probationResults";
+import { dashboardTermDates } from "@/lib/dashboardTerm";
 import DashboardIntroGrid from "./DashboardIntroGrid";
 import React, { lazy, Suspense } from "react";
 import DailyTaskBar from "./DailyTaskBar";
@@ -36,7 +38,7 @@ const DirectorDashboard = () => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { userId } = useUserRole();
-  const { currentAcademicYear: currentBE, today, isReady: termReady } = useAcademicYear();
+  const { currentAcademicYear: currentBE, today, currentSemester, periods, error: termError, isReady: termReady } = useAcademicYear();
   const weather = useWeatherData();
   const L = (th: string, en: string) => (lang === "th" ? th : en);
 
@@ -57,9 +59,10 @@ const DirectorDashboard = () => {
     : "";
 
   const { data: stats, isLoading, error: statsError, refetch: retryStats } = useQuery({
-    queryKey: ["director_dashboard_stats", userId, today, lang],
-    enabled: Boolean(userId),
+    queryKey: ["director_dashboard_stats", userId, today, lang, currentBE, currentSemester],
+    enabled: Boolean(userId) && termReady,
     queryFn: async () => {
+      const dates = dashboardTermDates(periods, currentBE, currentSemester);
       const [
         students, personnel, classrooms, attendance,
         studentLeaves, staffLeaves, news, events,
@@ -73,7 +76,7 @@ const DirectorDashboard = () => {
         supabase.from("staff_leaves").select("id, status"),
         supabase.from("news_posts").select("id, title, is_published").eq("is_published", true).order("created_at", { ascending: false }).limit(5),
         supabase.from("academic_events").select("id, title, event_date").gte("event_date", todayBangkok()).order("event_date").limit(5),
-        supabase.from("behavior_records").select("behavior_type"),
+        fetchAllRows((from,to)=>supabase.from("behavior_records").select("behavior_type").gte("record_date", dates.start).lte("record_date", dates.end).order("id").range(from,to)).then(data=>({data,error:null})),
         supabase.from("pa_agreements").select("id, status"),
         supabase.from("staff_evaluations").select("id"),
         supabase.from("documents").select("id, status"),
@@ -150,18 +153,21 @@ const DirectorDashboard = () => {
 
   // ── Extra KPIs: avg GPA, budget remaining, at-risk (simplified DigitalTwin) ──
   const { data: directorExtras, isLoading: extrasLoading, error: extrasError, refetch: retryExtras } = useQuery({
-    queryKey: ["director_extras", userId, currentBE],
+    queryKey: ["director_extras", userId, currentBE, currentSemester],
     enabled: Boolean(userId) && termReady,
     queryFn: async () => {
-      const [scores, budgetTx, remediation, warnings, sdq] = await Promise.all([
-        fetchAllRows((f, t) => supabase.from("student_scores").select("grade_point, total_score").eq("academic_year", currentBE - 543).not("grade_point", "is", null).order("id").range(f, t)).then(data => ({ data })),
-        fetchAllRows((f, t) => supabase.from("budget_transactions").select("transaction_type, amount").order("id").range(f, t)).then(data => ({ data })),
-        (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).neq("status", "ผ่าน").limit(1),
-        supabase.from("early_warning_alerts").select("id", { count: "exact", head: true }),
-        supabase.from("sdq_records").select("id", { count: "exact", head: true }),
+      const dates = dashboardTermDates(periods, currentBE, currentSemester);
+      const [scores, budgetTx, remediation, warnings, sdq, scoreStudents, scoreSubjects] = await Promise.all([
+        fetchAllRows((f, t) => supabase.from("student_scores").select("student_code,subject_id,grade_point, total_score").eq("academic_year", currentBE - 543).eq("semester", currentSemester).not("grade_point", "is", null).order("id").range(f, t)).then(data => ({ data })),
+        fetchAllRows((f, t) => supabase.from("budget_transactions").select("transaction_type, amount").gte("transaction_date", dates.start).lte("transaction_date", dates.end).order("id").range(f, t)).then(data => ({ data })),
+        (supabase as any).from("grade_remediation").select("id", { count: "exact", head: true }).eq("academic_year", String(currentBE)).eq("term", `${currentSemester}/${currentBE}`).neq("status", "ผ่าน").limit(1),
+        supabase.from("early_warning_alerts").select("id", { count: "exact", head: true }).gte("generated_at", `${dates.start}T00:00:00+07:00`).lte("generated_at", `${dates.end}T23:59:59.999+07:00`),
+        supabase.from("sdq_records").select("id", { count: "exact", head: true }).eq("academic_year", currentBE-543).gte("created_at", `${dates.start}T00:00:00+07:00`).lte("created_at", `${dates.end}T23:59:59.999+07:00`),
+        fetchAllRows((f,t)=>supabase.from("students").select("id,student_code").order("id").range(f,t)).then(data=>({data,error:null})),
+        fetchAllRows((f,t)=>supabase.from("subjects").select("id,credits").order("id").range(f,t)).then(data=>({data,error:null})),
       ]);
-      requireSuccessfulReads([scores, budgetTx, remediation, warnings, sdq]);
-      const pts = (scores.data || []).map((s: any) => Number(s.grade_point)).filter((n: number) => !isNaN(n) && n >= 0);
+      requireSuccessfulReads([scores, budgetTx, remediation, warnings, sdq, scoreStudents, scoreSubjects]);
+      const pts = probationResults(scores.data, scoreStudents.data, scoreSubjects.data).map(s=>s.gpax);
       const avgGpa = pts.length ? (pts.reduce((a: number, b: number) => a + b, 0) / pts.length).toFixed(2) : "—";
       const totalIncome = (budgetTx.data || []).filter((t: any) => t.transaction_type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
       const totalExpense = (budgetTx.data || []).filter((t: any) => t.transaction_type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
@@ -204,7 +210,7 @@ const DirectorDashboard = () => {
                 {getGreeting()}{displayName ? `, ${displayName}` : ""}
               </h1>
               <p className="text-sm opacity-80">
-                {L("ภาพรวมเชิงบริหาร · ปีการศึกษา", "Executive Overview · Academic Year")} {currentBE}
+                {L("ภาพรวมเชิงบริหาร · ปีการศึกษา", "Executive Overview · Academic Year")} {currentBE} · {L("เทอม", "Term")} {currentSemester}
               </p>
             </div>
 
@@ -274,8 +280,8 @@ const DirectorDashboard = () => {
       {/* ทางลัดงานประจำวัน — วางไว้ก่่อนส่วนสรุปภาระงาน */}
       <DailyTaskBar />
 
-      {(statsError || extrasError) && <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryExtras(); }}>ลองใหม่</Button></div>}
-      {!statsError && !extrasError && <>
+      {(statsError || extrasError || termError) && <div role="alert" className="flex flex-wrap items-center gap-3 text-destructive"><span>โหลดข้อมูลภาพรวมไม่สำเร็จ</span><Button variant="outline" onClick={() => { retryStats(); retryExtras(); }}>ลองใหม่</Button></div>}
+      {!statsError && !extrasError && !termError && <>
       {/* Strategic KPIs — modern gradient cards with sparkline, stagger 0.1s, skeleton + empty states */}
       {(isLoading || extrasLoading) ? (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">

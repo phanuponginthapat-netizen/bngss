@@ -100,7 +100,7 @@ export function useGlobalRealtime() {
        notifications: [["notifications"], ["my_notifications", userId]],
        inbox_items: [["my_inbox_items", userId]],
       profiles: [["dashboard_user_profile"]],
-      student_scores: [["student_scores"]],
+      student_scores: [["student_scores"], ["student_gpa"], ["student_recent_grades"], ["my_radar_scores"], ["school_subject_group_scores"], ["mascot_student_radar_groups"], ["mascot_staff_subject_radar"], ["director_extras"]],
       student_column_scores: [["student_column_scores"]],
       subject_score_columns: [["subject_score_columns"]],
       student_leaves: [["student_leaves"], ["mascot_stats"]],
@@ -181,7 +181,7 @@ export function useGlobalRealtime() {
         filter,
         (payload: any) => {
           if (table === "academic_periods" || table === "school_settings") clearCurrentPeriodCache();
-          const keys: string[][] = [[table]];
+          const keys: string[][] = [[table], ["dashboard_stats_v3"], ["director_dashboard_stats"]];
           const extra = extraKeys[table];
           if (extra) keys.push(...extra);
           if (["students", "classrooms", "attendance", "face_scan_logs", "behavior_records", "student_leaves", "task_assignments", "homework_assignments", "homework_submissions", "enrollments", "subjects"].includes(table)) {

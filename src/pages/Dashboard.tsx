@@ -1,3 +1,5 @@
+import { fetchAllRows } from "@/lib/fetchAllRows";
+import { dashboardTermDates } from "@/lib/dashboardTerm";
 import React, { useEffect, lazy, Suspense } from "react";
 import DashboardIntroGrid from "@/components/dashboard/DashboardIntroGrid";
 import { bkkDateISO, todayBangkok } from "@/lib/dateBE";
@@ -60,7 +62,7 @@ const Dashboard = () => {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const { role, userId } = useUserRole();
-  const { currentAcademicYear: currentBE, today: schoolDate } = useAcademicYear();
+  const { currentAcademicYear: currentBE, today: schoolDate, currentSemester, periods, isReady: termReady, error: termError } = useAcademicYear();
   const weather = useWeatherData();
   const { appName } = useSystemSettings();
 
@@ -86,16 +88,24 @@ const Dashboard = () => {
 
   // Global realtime is handled by DashboardLayout's useGlobalRealtime()
 
-  const { data: stats, isLoading, error: statsError, refetch: retryStats } = useQuery({
+  const { data: stats, isLoading, error: statsQueryError, refetch: retryStats } = useQuery({
     // Role dashboards fetch their own scoped data. Running the full admin
     // aggregation for every user delayed the first render and could leave
     // lower-privilege dashboards appearing empty while denied queries settled.
-    enabled: role === "admin",
-    queryKey: ["dashboard_stats_v3", userId, schoolDate, lang],
+    enabled: role === "admin" && termReady,
+    queryKey: ["dashboard_stats_v3", userId, schoolDate, lang, currentBE, currentSemester],
     queryFn: async () => {
       // One server-side aggregation instead of ~20 separate reads.
       const [{ data: raw, error }, attendance] = await Promise.all([supabase.rpc("get_admin_dashboard_stats"), loadDashboardAttendance(schoolDate)]);
       if (error) throw error;
+      const dates = dashboardTermDates(periods, currentBE, currentSemester);
+      const [behavior, visits, sdq, enrollments, homeroom] = await Promise.all([
+        fetchAllRows((f,t)=>supabase.from("behavior_records").select("behavior_type").gte("record_date", dates.start).lte("record_date", dates.end).order("id").range(f,t)),
+        fetchAllRows((f,t)=>supabase.from("home_visits").select("id").eq("academic_year", currentBE-543).eq("semester", currentSemester).order("id").range(f,t)),
+        fetchAllRows((f,t)=>supabase.from("sdq_records").select("id").eq("academic_year", currentBE-543).gte("created_at", `${dates.start}T00:00:00+07:00`).lte("created_at", `${dates.end}T23:59:59.999+07:00`).order("id").range(f,t)),
+        fetchAllRows((f,t)=>supabase.from("enrollments").select("id").eq("academic_year", currentBE-543).eq("semester", currentSemester).eq("status", "active").order("id").range(f,t)),
+        fetchAllRows((f,t)=>supabase.from("homeroom_records").select("id").eq("academic_year", currentBE-543).eq("semester", currentSemester).order("id").range(f,t)),
+      ]);
       const s = (raw || {}) as Record<string, any>;
       const num = (v: unknown) => Number(v || 0);
       const { day, rate: attendanceRate } = attendance;
@@ -151,12 +161,12 @@ const Dashboard = () => {
         totalAssetValue: num(s.total_asset_value),
         damagedAssets: num(s.damaged_assets),
         totalAssets: num(s.total_assets),
-        positiveB: num(s.positive_b),
-        negativeB: num(s.negative_b),
-        sdqCount: num(s.sdq_count),
-        enrollments: num(s.enrollments_active),
-        homeroomRecords: num(s.homeroom_records_total),
-        homeVisits: num(s.home_visits_total),
+        positiveB: behavior.filter(b=>b.behavior_type === "positive").length,
+        negativeB: behavior.filter(b=>b.behavior_type === "negative").length,
+        sdqCount: sdq.length,
+        enrollments: enrollments.length,
+        homeroomRecords: homeroom.length,
+        homeVisits: visits.length,
         totalDocuments: num(s.total_documents),
         recentNews: (s.recent_news || []) as any[],
         upcomingEvents: (s.upcoming_events || []) as any[],
@@ -170,6 +180,7 @@ const Dashboard = () => {
     refetchOnMount: true,
   });
 
+  const statsError = statsQueryError || termError;
   const formatMoney = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
@@ -249,7 +260,7 @@ const Dashboard = () => {
           <h1 className="text-2xl sm:text-4xl font-extrabold mb-1 tracking-tight drop-shadow-sm break-words">
             {getGreeting()}{displayName ? `, ${displayName}` : ""} <span className="inline-block animate-bounce">👋</span>
           </h1>
-          <p className="text-xs sm:text-sm opacity-90 font-medium break-words">{L("ภาพรวมโรงเรียน • ปีการศึกษา", "School Overview • Academic Year")} {currentBE} · {todayBE}</p>
+          <p className="text-xs sm:text-sm opacity-90 font-medium break-words">{L("ภาพรวมโรงเรียน • ปีการศึกษา", "School Overview • Academic Year")} {currentBE} · {L("เทอม", "Term")} {currentSemester} · {todayBE}</p>
           <div className="flex flex-wrap gap-2 mt-3">
             {weather.hasCoords && weather.temperature !== null && (
               <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-white/20">
