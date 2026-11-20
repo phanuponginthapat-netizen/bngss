@@ -114,10 +114,11 @@ interface StudentProps {
   teacherAttachments?: Attachment[];
   invalidateKeys?: any[][];
   readOnly?: boolean;
+  maxScore?: number | null;
 }
 
 export function StudentSubmissionPanel({
-  taskId, studentId, studentName, submissions, teacherAttachments = [], invalidateKeys = [], readOnly,
+  taskId, studentId, studentName, submissions, teacherAttachments = [], invalidateKeys = [], readOnly, maxScore,
 }: StudentProps) {
   const qc = useQueryClient();
   const mine = submissions?.[studentId];
@@ -212,11 +213,11 @@ export function StudentSubmissionPanel({
         <div className="flex items-center gap-2 flex-wrap">
           {mine.status === "graded" ? (
             <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-              <CheckCircle2 className="w-3 h-3 mr-1" /> ได้คะแนนแล้ว: {mine.grade ?? "-"}
+              <CheckCircle2 className="w-3 h-3 mr-1" /> คะแนนครู: {mine.grade ?? "ยังไม่ระบุ"}{maxScore != null ? ` / ${maxScore}` : ""}
             </Badge>
           ) : (
             <Badge className="bg-sky-100 text-sky-700 border-sky-200">
-              <CheckCircle2 className="w-3 h-3 mr-1" /> ส่งแล้ว
+              <CheckCircle2 className="w-3 h-3 mr-1" /> ส่งแล้ว · รอตรวจ
             </Badge>
           )}
           <span className="text-muted-foreground">
@@ -257,6 +258,9 @@ export function StudentSubmissionPanel({
           <p>ยังไม่ส่งงาน</p>
         )}
         {teacherAttachments.length > 0 && <AttachmentList attachments={teacherAttachments} dense />}
+        {mine?.text && <p className="whitespace-pre-wrap border rounded-md p-2 text-foreground">งานที่เคยส่ง: {mine.text}</p>}
+        {!!mine?.attachments?.length && <AttachmentList attachments={mine.attachments} dense />}
+        {!!mine?.teacher_annotations?.length && <AttachmentList attachments={mine.teacher_annotations} dense />}
         <SubmissionTimeline history={mine?.history} />
       </div>
     );
@@ -270,6 +274,8 @@ export function StudentSubmissionPanel({
             <RotateCcw className="w-3.5 h-3.5" /> ครูส่งกลับให้แก้ไข
           </div>
           {mine.feedback && <p className="text-amber-900">ครู: {mine.feedback}</p>}
+          {mine.text && <p className="whitespace-pre-wrap text-foreground">งานที่เคยส่ง: {mine.text}</p>}
+          {!!mine.attachments?.length && <AttachmentList attachments={mine.attachments} dense />}
         </div>
       )}
 

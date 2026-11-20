@@ -23,6 +23,7 @@ import MediaCaptureButtons from "./MediaCaptureButtons";
 import { saveErrorMessage } from "@/lib/saveError";
 import { hasWorksheetAnswer } from "@/lib/worksheetGrading";
 import { worksheetNotice } from "@/lib/worksheetNotifications";
+import { familyHomeworkScore, familyHomeworkLabels, familyHomeworkStatus } from "@/lib/homeworkFamilyStatus";
 
 interface Props {
   open: boolean;
@@ -48,6 +49,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
   const [retryLoad, setRetryLoad] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [fullWindow, setFullWindow] = useState(true);
+  const [savedSubmission, setSavedSubmission] = useState<any>(null);
 
   useEffect(() => { if (open) setFullWindow(true); }, [open]);
 
@@ -60,7 +62,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
     if (!open) return;
     let active = true;
     setLoading(true); setLoadError(null); setAssignment(null); setPdfSignedUrl(null);
-    setAnswers({}); setAttachments([]); setSubmissionId(null); setStatus("draft");
+    setAnswers({}); setAttachments([]); setSubmissionId(null); setStatus("draft"); setSavedSubmission(null);
     (async () => {
       try {
         if (!assignmentId || !studentId) throw new Error("ไม่พบบัญชีนักเรียนหรือใบงาน");
@@ -76,6 +78,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
         }
         if (!active) return;
         setAssignment(a); setPdfSignedUrl(url);
+        setSavedSubmission(s);
         setSubmissionId((s as any)?.id || null); setAnswers((s as any)?.answers || {});
         setAttachments((s as any)?.attachments || []); setStatus((s as any)?.status || "draft");
       } catch (error: any) { if (active) setLoadError(saveErrorMessage(error)); }
@@ -300,6 +303,7 @@ export function HomeworkAnswerDialog({ open, onOpenChange, assignmentId, student
         )}
 
         <div className="flex flex-wrap justify-end gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 bg-background">
+          {!loading && !loadError && <div className="mr-auto min-w-0 space-y-1 text-sm"><p className="font-semibold">{familyHomeworkLabels[familyHomeworkStatus({ status })]}{familyHomeworkScore(savedSubmission) !== null ? ` · คะแนนครู ${familyHomeworkScore(savedSubmission)}${assignment?.total_score != null ? ` / ${assignment.total_score}` : ""}` : ""}</p>{savedSubmission?.feedback && <p className="text-muted-foreground whitespace-pre-wrap max-h-20 overflow-auto">ครู: {savedSubmission.feedback}</p>}{savedSubmission?.submitted_at && <p className="text-xs text-muted-foreground">ส่งเมื่อ {new Date(savedSubmission.submitted_at).toLocaleString("th-TH")}</p>}</div>}
           {readOnly ? (
             <span className="text-sm text-muted-foreground self-center">{viewOnly ? "ดูใบงานของลูก" : status === "graded" ? "ตรวจแล้ว" : "ส่งแล้ว — รอตรวจ"}</span>
           ) : (

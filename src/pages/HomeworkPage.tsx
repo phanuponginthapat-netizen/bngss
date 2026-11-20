@@ -28,6 +28,7 @@ import { Sparkles, FileEdit, ClipboardList } from "lucide-react";
 import { StudentSubmissionPanel, TeacherGradingPanel, type SubmissionsMap } from "@/components/homework/HomeworkSubmission";
 import { type Attachment } from "@/lib/homeworkStorage";
 import { saveErrorMessage } from "@/lib/saveError";
+import { familyHomeworkStatus, familyHomeworkScore, familyHomeworkLabels, matchesFamilyHomework, type FamilyHomeworkFilter } from "@/lib/homeworkFamilyStatus";
 
 function TeacherAttachmentsList({ items }: { items: Attachment[] }) {
   if (!items || items.length === 0) return null;
@@ -63,31 +64,36 @@ const HomeworkPage = () => {
   });
 
   // Parent: resolve linked children (returns student rows with classroom_id)
-  const { children: parentChildren } = useParentChildren();
+  const { children: parentChildren, error: childrenError, refetch: retryChildren } = useParentChildren();
+  const [selectedChildId, setSelectedChildId] = useState("");
+  const selectedChild = parentChildren.find(child => child.id === selectedChildId) ?? parentChildren[0];
+  const [familyFilter, setFamilyFilter] = useState<FamilyHomeworkFilter>("all");
 
   // Student: resolve student record by auth_user_id (primary) → student_code (fallback)
   const { data: studentRow } = useQuery({
-    queryKey: ["hw-student-row", userId, me?.student_code, isParent, parentChildren?.[0]?.id],
+    queryKey: ["hw-student-row", userId, me?.student_code, isParent, selectedChild?.id],
     enabled: isStudentLike && !!userId,
     queryFn: async () => {
       // Parent: pick the first linked child (homework currently shows a single context)
       if (isParent) {
-        return parentChildren?.[0] ? { id: parentChildren[0].id, classroom_id: parentChildren[0].classroom_id } : null;
+        return selectedChild ? { id: selectedChild.id, classroom_id: selectedChild.classroom_id } : null;
       }
       // Student: try auth_user_id first
-      const { data: byAuth } = await supabase
+      const { data: byAuth, error: authStudentError } = await supabase
         .from("students")
         .select("id,classroom_id")
-        .eq("auth_user_id", userId!)
+        .eq("auth_user_id", userId ?? "")
         .maybeSingle();
+      if (authStudentError) throw authStudentError;
       if (byAuth) return byAuth;
       // Fallback: by student_code
       if (me?.student_code) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("students")
           .select("id,classroom_id")
           .eq("student_code", me.student_code)
           .maybeSingle();
+        if (error) throw error;
         return data;
       }
       return null;
@@ -253,21 +259,20 @@ const HomeworkPage = () => {
     queryKey: ["homework-list", role, userId, studentRow?.classroom_id],
     enabled: !!role && !!userId,
     queryFn: async () => {
+      return fetchAllRows((from, to) => {
       let q = supabase
         .from("task_assignments")
         .select("id,title,description,due_date,assigned_date,subject_id,classroom_id,assigned_by,replies,attachments,submissions,status,max_score,subjects(name_th,code),classrooms(name)")
         .eq("task_type", "homework")
-        .order("assigned_date", { ascending: false })
-        .limit(100);
+        .order("assigned_date", { ascending: false }).order("id").range(from, to);
       if (isStudentLike) {
-        if (!studentRow?.classroom_id) return [];
+        if (!studentRow?.classroom_id) return Promise.resolve({ data: [], error: null });
         q = q.eq("classroom_id", studentRow.classroom_id);
       } else if (isTeacher) {
         q = q.eq("assigned_by", userId!);
       }
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      return q;
+      });
     },
   });
 
@@ -491,6 +496,8 @@ const HomeworkPage = () => {
       </div>
 
 
+      {isParent && parentChildren.length > 1 && <Select value={selectedChild?.id || ""} onValueChange={id => { setSelectedChildId(id); setFamilyFilter("all"); }}><SelectTrigger className="w-full sm:w-80" aria-label="เลือกบุตรหลาน"><SelectValue /></SelectTrigger><SelectContent>{parentChildren.map(child => <SelectItem key={child.id} value={child.id}>{child.first_name} {child.last_name}</SelectItem>)}</SelectContent></Select>}
+      {isStudentLike && <div className="flex flex-wrap gap-1" aria-label="สถานะการบ้าน">{(["all", "not_submitted", "submitted", "graded", "needs_revision"] as const).map(value => <Button key={value} size="sm" variant={familyFilter === value ? "secondary" : "ghost"} onClick={() => setFamilyFilter(value)}>{value === "all" ? "ทั้งหมด / ประวัติการส่ง" : familyHomeworkLabels[value]}</Button>)}</div>}
       {isLoading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline mr-2" /> กำลังโหลด...</div>}
 
       {!isLoading && (() => {
@@ -504,11 +511,11 @@ const HomeworkPage = () => {
           );
         }
 
-        // For students: hide rows already submitted/graded (keep needs_revision & not-yet-submitted)
+        // Submitted and graded work stays visible to students and linked parents.
         const filtered = isStudentLike && studentRow?.id
           ? list.filter((hw: any) => {
               const sub = (hw.submissions as SubmissionsMap | null)?.[studentRow.id];
-              return !sub || sub.status === "needs_revision";
+              return matchesFamilyHomework(familyFilter, sub);
             })
           : list;
 
@@ -517,7 +524,7 @@ const HomeworkPage = () => {
             <Card><CardContent className="py-16 text-center text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
               {isStudentLike
-                ? (list.length === 0 ? "ยังไม่มีการบ้านสำหรับห้องของคุณ" : "ส่งงานครบทุกชิ้นแล้ว 🎉")
+                ? (list.length === 0 ? "ยังไม่มีการบ้านสำหรับห้องของคุณ" : "ไม่มีการบ้านในสถานะที่เลือก")
                 : (isTeacher ? "คุณยังไม่ได้สั่งการบ้าน — กด \"สั่งการบ้าน\" เพื่อเริ่ม" : "ยังไม่มีการบ้าน")}
             </CardContent></Card>
           );
@@ -533,7 +540,7 @@ const HomeworkPage = () => {
           const subjectLabel = hw.subjects?.name_th || hw.subjects?.code || "อื่นๆ";
           const classLabel = hw.classrooms?.name || "";
           if (!groupsMap.has(key)) groupsMap.set(key, { key, subjectLabel, classLabel, items: [] });
-          groupsMap.get(key)!.items.push(hw);
+          groupsMap.get(key)?.items.push(hw);
         });
         const groups = Array.from(groupsMap.values()).sort((a, b) => a.subjectLabel.localeCompare(b.subjectLabel, "th"));
 
@@ -618,18 +625,18 @@ const HomeworkPage = () => {
       })()}
 
       {/* ===== Rich homework section ===== */}
-      {(richError || listError || richSubmissionsError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านหรือการส่งใบงานไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); retryRichSubmissions(); }}>ลองใหม่</Button></div>}
+      {(richError || listError || richSubmissionsError || childrenError) && <div className="border-t pt-4 space-y-2"><p className="text-destructive">อ่านรายการการบ้านหรือการส่งใบงานไม่สำเร็จ</p><Button variant="outline" onClick={() => { retryRich(); retryList(); retryRichSubmissions(); retryChildren(); }}>ลองใหม่</Button></div>}
       {richList.length > 0 && isStudentLike && (
         <section className="space-y-2 border-t pt-5">
             <h2 className="text-base font-semibold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" /> ใบงาน / Liveworksheet ({richList.length})
             </h2>
           <div className="space-y-2">
-            {richList.map((a: any) => (
+            {richList.filter((a: any) => matchesFamilyHomework(familyFilter, richSubmissions.find(s => s.assignment_id === a.id))).map((a: any) => (
               <Card key={a.id} data-notif-id={a.id} className="overflow-hidden border-border/60 scroll-mt-24">
                 <div className={`h-1 ${richSubmissions.find(s => s.assignment_id === a.id)?.status === "graded" ? "bg-success/70" : "bg-primary/40"}`} />
                 <CardHeader className="pb-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><CardTitle className="text-lg break-words">{a.title}</CardTitle><CardDescription className="flex flex-wrap gap-2 items-center mt-2"><Badge variant="outline"><Sparkles className="h-3 w-3 mr-1" />ใบงานออนไลน์</Badge>{a.subjects?.name_th && <span>{a.subjects.name_th}</span>}{a.classrooms?.name && <Badge variant="outline">{a.classrooms.name}</Badge>}</CardDescription></div><Badge variant="secondary">{({ draft: "บันทึกร่าง", submitted: "ส่งแล้ว · รอตรวจ", graded: "ตรวจแล้ว", needs_revision: "แก้ไขแล้วส่งใหม่" } as Record<string, string>)[richSubmissions.find(s => s.assignment_id === a.id)?.status] || "ยังไม่ได้ส่ง"}</Badge></div></CardHeader>
-                <CardContent className="space-y-3"><div className="flex gap-3 flex-wrap text-sm text-muted-foreground">{a.due_date && <span className="flex gap-1 items-center"><CalendarDays className="h-4 w-4" />กำหนดส่ง {new Date(a.due_date).toLocaleDateString("th-TH")}</span>}<span>{(a.pdf_path ? a.worksheet_fields || [] : a.answer_fields || []).length} ช่องตอบ</span>{a.total_score !== null && <span>เต็ม {a.total_score} คะแนน</span>}{richSubmissions.find(s => s.assignment_id === a.id)?.status === "graded" && richSubmissions.find(s => s.assignment_id === a.id)?.score != null && <span className="font-semibold text-success">ได้ {richSubmissions.find(s => s.assignment_id === a.id)?.score} คะแนน</span>}</div>{a.description && <p className="text-sm whitespace-pre-wrap">{a.description}</p>}{richSubmissions.find(s => s.assignment_id === a.id)?.feedback && <p className="text-sm border-l-2 border-primary pl-3">{richSubmissions.find(s => s.assignment_id === a.id)?.feedback}</p>}<div className="flex justify-end"><Button size="sm" variant={isParent ? "outline" : "default"} disabled={!studentRow?.id || !!richSubmissionsError} onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}><FileEdit className="h-4 w-4 mr-1" />{isParent ? "ดูใบงานของลูก" : ["submitted", "graded"].includes(richSubmissions.find(s => s.assignment_id === a.id)?.status) ? "ดูงานที่ส่ง" : richSubmissions.find(s => s.assignment_id === a.id)?.status === "draft" ? "ทำต่อ" : "ทำใบงาน"}</Button></div></CardContent>
+                <CardContent className="space-y-3"><div className="flex gap-3 flex-wrap text-sm text-muted-foreground">{a.due_date && <span className="flex gap-1 items-center"><CalendarDays className="h-4 w-4" />กำหนดส่ง {new Date(a.due_date).toLocaleDateString("th-TH")}</span>}<span>{(a.pdf_path ? a.worksheet_fields || [] : a.answer_fields || []).length} ช่องตอบ</span>{a.total_score !== null && <span>เต็ม {a.total_score} คะแนน</span>}{richSubmissions.find(s => s.assignment_id === a.id)?.status === "graded" && familyHomeworkScore(richSubmissions.find(s => s.assignment_id === a.id)) != null && <span className="font-semibold text-success">คะแนนครู {familyHomeworkScore(richSubmissions.find(s => s.assignment_id === a.id))} คะแนน</span>}</div>{a.description && <p className="text-sm whitespace-pre-wrap">{a.description}</p>}{richSubmissions.find(s => s.assignment_id === a.id)?.feedback && <p className="text-sm border-l-2 border-primary pl-3">{richSubmissions.find(s => s.assignment_id === a.id)?.feedback}</p>}<div className="flex justify-end"><Button size="sm" variant={isParent ? "outline" : "default"} disabled={!studentRow?.id || !!richSubmissionsError} onClick={() => { setAnswerAssignmentId(a.id); setAnswerOpen(true); }}><FileEdit className="h-4 w-4 mr-1" />{isParent ? "ดูใบงานของลูก" : ["submitted", "graded"].includes(richSubmissions.find(s => s.assignment_id === a.id)?.status) ? "ดูงานที่ส่ง" : richSubmissions.find(s => s.assignment_id === a.id)?.status === "draft" ? "ทำต่อ" : "ทำใบงาน"}</Button></div></CardContent>
               </Card>
             ))}
           </div>
@@ -652,6 +659,7 @@ function HomeworkDetailCard({
   userId: string | null; studentRow: any; fullName: string; onDelete: (hw: any) => void;
 }) {
   const subs = (hw.submissions as SubmissionsMap) || {};
+  const mine = studentRow?.id ? subs[studentRow.id] : null;
   const total = Object.keys(subs).length;
   const pending = Object.values(subs).filter((s: any) => s.status === "submitted").length;
   const due = hw.due_date ? new Date(hw.due_date) : null;
@@ -688,6 +696,7 @@ function HomeworkDetailCard({
             </CardDescription>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {isStudentLike && <Badge variant="outline" className={familyHomeworkStatus(mine) === "graded" ? "border-success/40 text-success" : familyHomeworkStatus(mine) === "not_submitted" ? "border-warning/40 text-warning" : "border-primary/40 text-primary"}>{familyHomeworkLabels[familyHomeworkStatus(mine)]}</Badge>}
             {(isAdmin || isDirector || hw.assigned_by === userId) && <EditHomeworkButton hw={hw} />}
             {(isAdmin || isDirector || hw.assigned_by === userId) && (
               <Button variant="ghost" size="sm" onClick={() => onDelete(hw)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
@@ -737,6 +746,7 @@ function HomeworkDetailCard({
             teacherAttachments={(hw.attachments as Attachment[]) || []}
             invalidateKeys={[["homework-list"]]}
             readOnly={isParent}
+            maxScore={hw.max_score}
           />
         ) : null}
       </CardContent>
