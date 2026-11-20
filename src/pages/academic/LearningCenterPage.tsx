@@ -22,6 +22,7 @@ import { usePeriodSchedule } from "@/lib/periodSchedule";
 import { notifyRole } from "@/lib/notify";
 import { BE_OFFSET } from "@/lib/dateBE";
 import { saveErrorMessage } from "@/lib/saveError";
+import AssetPhoto from "@/components/assets/AssetPhoto";
 
 function fmtDateTh(s: string) {
   try {
@@ -536,23 +537,22 @@ export default function LearningCenterPage() {
             {rooms.map((r: any) => {
               const active = selectedRoomId === r.id;
               return (
-                <button
+                <div
                   key={r.id}
-                  onClick={() => setSelectedRoomId(r.id)}
                   className={`flex-shrink-0 rounded-lg border overflow-hidden text-left transition w-44 ${active ? "border-primary ring-2 ring-primary/30 shadow-md" : "border-border hover:border-primary/50"}`}
                 >
                   {r.image_url ? (
-                    <img src={r.image_url} alt={r.name} className="w-full h-20 object-cover" />
+                    <AssetPhoto src={r.image_url} alt={r.name} className="w-full h-20 object-cover" />
                   ) : (
                     <div className={`w-full h-20 flex items-center justify-center ${ROOM_TILE[r.color || "emerald"] || ROOM_TILE.emerald}`}>
                       <BookOpen className="w-8 h-8" />
                     </div>
                   )}
-                  <div className="p-2">
+                  <Button variant="ghost" onClick={() => setSelectedRoomId(r.id)} className="p-2 h-auto w-full flex-col items-start rounded-none">
                     <div className="font-semibold text-sm line-clamp-1">{r.name}</div>
                     <div className="text-[11px] text-muted-foreground line-clamp-1">{r.location || "—"}{r.capacity ? ` · ${r.capacity} คน` : ""}</div>
-                  </div>
-                </button>
+                  </Button>
+                </div>
               );
             })}
           </div>

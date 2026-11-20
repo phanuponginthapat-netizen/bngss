@@ -13,6 +13,7 @@ import { Plus, Pencil, Trash2, DoorOpen, Image as ImageIcon, X, Upload } from "l
 import { toast } from "sonner";
 import { swal } from "@/lib/swal";
 import { saveErrorMessage } from "@/lib/saveError";
+import AssetPhoto from "@/components/assets/AssetPhoto";
 
 type Room = {
   id: string;
@@ -48,17 +49,20 @@ export default function SpecialRoomsPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     const { data, error } = await supabase
       .from("special_rooms")
       .select("*")
       .order("sort_order")
       .order("name");
-    if (error) toast.error(saveErrorMessage(error));
-    setRooms((data as Room[]) || []);
+    if (error) setLoadError(saveErrorMessage(error));
+    else setRooms((data as Room[]) || []);
     setLoading(false);
   };
 
@@ -131,12 +135,14 @@ export default function SpecialRoomsPage() {
       image_url,
     };
     if (editing) {
-      const { error } = await supabase.from("special_rooms").update(payload).eq("id", editing.id);
+      const { data, error } = await supabase.from("special_rooms").update(payload).eq("id", editing.id).select("id").single();
       if (error) { setSaving(false); return toast.error(saveErrorMessage(error)); }
+      if (!data) { setSaving(false); return toast.error("ไม่สามารถแก้ไขห้องได้ กรุณาตรวจสอบสิทธิ์แล้วลองใหม่"); }
       toast.success("อัปเดตห้องเรียบร้อย");
     } else {
-      const { error } = await supabase.from("special_rooms").insert(payload);
+      const { data, error } = await supabase.from("special_rooms").insert(payload).select("id").single();
       if (error) { setSaving(false); return toast.error(saveErrorMessage(error)); }
+      if (!data) { setSaving(false); return toast.error("ไม่สามารถเพิ่มห้องได้ กรุณาลองใหม่"); }
       toast.success("เพิ่มห้องเรียบร้อย");
     }
     setSaving(false);
@@ -146,15 +152,18 @@ export default function SpecialRoomsPage() {
 
   const remove = async (r: Room) => {
     if (!(await swal.confirm({ title: `ลบห้อง "${r.name}"?`, text: "การจองห้องนี้จะไม่ถูกลบ แต่จะไม่ผูกกับห้อง", danger: true }))) return;
-    const { error } = await supabase.from("special_rooms").delete().eq("id", r.id);
-    if (error) return toast.error(saveErrorMessage(error));
+    setDeletingId(r.id);
+    const { data, error } = await supabase.from("special_rooms").delete().eq("id", r.id).select("id").single();
+    setDeletingId(null);
+    if (error || !data) return toast.error(error ? saveErrorMessage(error) : "ไม่สามารถลบห้องได้ กรุณาตรวจสอบสิทธิ์แล้วลองใหม่");
     toast.success("ลบเรียบร้อย");
     load();
   };
 
   const toggleActive = async (r: Room) => {
-    const { error } = await supabase.from("special_rooms").update({ is_active: !r.is_active }).eq("id", r.id);
+    const { data, error } = await supabase.from("special_rooms").update({ is_active: !r.is_active }).eq("id", r.id).select("id").single();
     if (error) return toast.error(saveErrorMessage(error));
+    if (!data) return toast.error("ไม่สามารถเปลี่ยนสถานะห้องได้ กรุณาลองใหม่");
     load();
   };
 
@@ -188,13 +197,15 @@ export default function SpecialRoomsPage() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">กำลังโหลด…</TableCell></TableRow>
+              ) : loadError ? (
+                <TableRow><TableCell colSpan={7} className="text-center py-8"><p className="text-destructive">{loadError}</p><Button variant="outline" onClick={load}>ลองใหม่</Button></TableCell></TableRow>
               ) : rooms.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground">ยังไม่มีห้องพิเศษ — กด "เพิ่มห้องพิเศษ" เพื่อเริ่ม</TableCell></TableRow>
               ) : rooms.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
                     {r.image_url ? (
-                      <img loading="lazy" decoding="async" src={r.image_url} alt={r.name} className="w-14 h-14 object-cover rounded-md border" />
+                      <AssetPhoto src={r.image_url} alt={r.name} className="w-14 h-14 object-cover rounded-md border" />
                     ) : (
                       <div className={`w-14 h-14 rounded-md border flex items-center justify-center ${COLOR_TILE[r.color || "emerald"] || COLOR_TILE.emerald}`}>
                         <DoorOpen className="w-6 h-6" />
@@ -217,7 +228,7 @@ export default function SpecialRoomsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="icon" variant="ghost" aria-label="แก้ไขห้อง" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
-                    <Button size="icon" variant="ghost" aria-label="ลบห้อง" onClick={() => remove(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    <Button size="icon" variant="ghost" aria-label="ลบห้อง" disabled={deletingId !== null} onClick={() => remove(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -280,7 +291,7 @@ export default function SpecialRoomsPage() {
               <div className="flex items-center gap-3 mt-1">
                 {photoPreview ? (
                   <div className="relative">
-                    <img loading="lazy" decoding="async" src={photoPreview} alt="preview" className="w-24 h-24 rounded-md border object-cover" />
+                    <AssetPhoto src={photoPreview} alt="รูปห้อง" className="w-24 h-24 rounded-md border object-cover" />
                     <button type="button" onClick={resetPhoto} className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5">
                       <X className="w-3 h-3" />
                     </button>

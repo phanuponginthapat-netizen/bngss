@@ -540,6 +540,13 @@
       "when": 1795149078723,
       "tag": "0076_restore_asset_update_timestamp",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1795150895625,
+      "tag": "0077_restore_special_room_management",
+      "breakpoints": true
     }
   ]
 }
