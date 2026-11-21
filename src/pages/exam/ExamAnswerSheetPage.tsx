@@ -57,6 +57,19 @@ export default function ExamAnswerSheetPage() {
     },
   });
 
+  const [mode, setMode] = useState<"blank" | "named">(sp.get("mode") === "named" ? "named" : "blank");
+  const { data: roster = [], isLoading: rosterLoading, error: rosterError } = useQuery({
+    queryKey: ["exam-roster", exam?.classroom_id],
+    enabled: !!exam?.classroom_id && mode === "named",
+    queryFn: async () => {
+      const { data, error } = await supabase.from("students")
+        .select("id, student_code, prefix, first_name, last_name")
+        .eq("classroom_id", exam!.classroom_id).eq("status", "active").order("student_code");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   if (!exam) return <p className="p-6">กำลังโหลด...</p>;
   const count = Math.min(Math.max(exam.question_count || 20, 1), MAX_PER_PAGE * 8);
   const layout = (sheet?.layout_config as any) || {};
@@ -84,7 +97,7 @@ export default function ExamAnswerSheetPage() {
   );
 
   // ครึ่งแผ่นแสดงข้อ qFrom..qFrom+qCount-1 (1-based)
-  const HalfSheet = ({ qFrom, qCount, pageNo }: { qFrom: number; qCount: number; pageNo: number }) => (
+  const HalfSheet = ({ qFrom, qCount, pageNo, student }: { qFrom: number; qCount: number; pageNo: number; student?: { code: string; name: string; no: number } }) => (
     <div className="relative" style={{ width: "140.5mm", height: "194mm", padding: "8mm", boxSizing: "border-box", border: "0.3mm solid black" }}>
       {/* 4 corner fiducials (top-left has extra dot = orientation reference) */}
       <Fiducial pos="left-[3mm] top-[3mm]" orientation />
@@ -116,7 +129,14 @@ export default function ExamAnswerSheetPage() {
       {pageNo === 1 && (
         <div className="grid grid-cols-2 gap-2 mb-2 border-b pb-2">
           <div className="text-[10px]">
-            <p className="mb-1">ชื่อ-นามสกุล: <span className="border-b border-dotted inline-block w-full">&nbsp;</span></p>
+            {student ? (
+              <>
+                <p className="mb-1">ชื่อ-นามสกุล: <b>{student.name}</b></p>
+                <p className="mb-1">เลขที่: <b>{student.no}</b> · รหัส: <b>{student.code}</b></p>
+              </>
+            ) : (
+              <p className="mb-1">ชื่อ-นามสกุล: <span className="border-b border-dotted inline-block w-full">&nbsp;</span></p>
+            )}
             <p>วันที่: <span className="border-b border-dotted inline-block w-24">&nbsp;</span></p>
           </div>
           <div>
@@ -134,7 +154,7 @@ export default function ExamAnswerSheetPage() {
                     <td className="border border-black px-0.5 text-center font-bold">{d}</td>
                     {Array.from({ length: digits }).map((_, i) => (
                       <td key={i} className="border border-black px-0.5 text-center">
-                        <div className="w-2.5 h-2.5 rounded-full border border-black mx-auto" />
+                        <div className={`w-2.5 h-2.5 rounded-full border border-black mx-auto ${student && student.code[i] === d ? "bg-black" : ""}`} />
                       </td>
                     ))}
                   </tr>
@@ -203,10 +223,20 @@ export default function ExamAnswerSheetPage() {
       pages.push({ halves: pageHalves });
     }
   }
+  // แบบระบุรายบุคคล: ฝนรหัสให้เฉพาะรหัสที่มีจำนวนหลักตรงกับกระดาษ (ไม่ตัด/เติมเอง)
+  const sheetsFor = (roster as any[])
+    .map((r, i) => ({ code: String(r.student_code || ""), name: `${r.prefix || ""}${r.first_name || ""} ${r.last_name || ""}`.trim(), no: i + 1 }))
+    .filter((r) => r.code.length === digits && /^\d+$/.test(r.code));
+  const skipped = (roster as any[]).length - sheetsFor.length;
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 print:bg-white print:p-0 print:m-0">
-      <div className="max-w-5xl mx-auto mb-4 flex justify-end gap-2 print:hidden">
+      <div className="max-w-5xl mx-auto mb-4 flex justify-end gap-2 flex-wrap items-center print:hidden">
+        <div className="mr-auto flex rounded-lg border bg-white p-1 text-sm">
+          <button type="button" onClick={() => setMode("blank")} className={`px-3 py-1 rounded ${mode === "blank" ? "bg-primary text-primary-foreground" : ""}`}>แผ่นเปล่า</button>
+          <button type="button" onClick={() => setMode("named")} className={`px-3 py-1 rounded ${mode === "named" ? "bg-primary text-primary-foreground" : ""}`}>ระบุรายบุคคล</button>
+        </div>
+        {mode === "named" && !rosterLoading && <span className="text-xs text-gray-600">{sheetsFor.length} คน{skipped > 0 ? ` · ข้าม ${skipped} คนที่รหัสไม่ใช่ ${digits} หลัก` : ""}</span>}
         <SheetDesigner
           layout={layout}
           digits={digits}
@@ -222,13 +252,16 @@ export default function ExamAnswerSheetPage() {
 
       <AutoPrint enabled={sp.get("autoprint") === "1" && !!exam} />
 
-      {pages.map((page, pi) => (
+      {mode === "named" && rosterError && <p className="max-w-5xl mx-auto mb-4 text-destructive print:hidden">โหลดรายชื่อนักเรียนไม่สำเร็จ — ลองรีเฟรชหน้า</p>}
+      {mode === "named" && !exam.classroom_id && <p className="max-w-5xl mx-auto mb-4 text-destructive print:hidden">ข้อสอบนี้ยังไม่ได้ระบุห้องเรียน จึงพิมพ์แบบระบุรายบุคคลไม่ได้</p>}
+      {mode === "named" && rosterLoading && <p className="max-w-5xl mx-auto mb-4 print:hidden">กำลังโหลดรายชื่อ…</p>}
+      {(mode === "named" ? sheetsFor : [undefined]).flatMap((student, si) => pages.map((page, pi) => (
         <div
-          key={pi}
+          key={`${si}-${pi}`}
           className="answer-page bg-white shadow-lg mx-auto relative print:shadow-none flex mb-4 print:mb-0"
           style={{ width: "281mm", height: "194mm", boxSizing: "border-box", pageBreakAfter: "always" }}
         >
-          <HalfSheet qFrom={page.halves[0]?.qFrom ?? 1} qCount={page.halves[0]?.qCount ?? 0} pageNo={pi + 1} />
+          <HalfSheet qFrom={page.halves[0]?.qFrom ?? 1} qCount={page.halves[0]?.qCount ?? 0} pageNo={pi + 1} student={student} />
           {/* เส้นปะกลาง สำหรับพับ/ตัด */}
           <div
             className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center justify-between"
@@ -238,12 +271,12 @@ export default function ExamAnswerSheetPage() {
             <div className="w-px h-full border-l border-dashed border-gray-500" />
             <span className="text-[8px] text-gray-500 rotate-90 mb-2">✂ พับ/ตัดตรงนี้</span>
           </div>
-          {page.halves[1] && <HalfSheet qFrom={page.halves[1].qFrom} qCount={page.halves[1].qCount} pageNo={pi + 1} />}
+          {page.halves[1] && <HalfSheet qFrom={page.halves[1].qFrom} qCount={page.halves[1].qCount} pageNo={pi + 1} student={page.halves[1].qFrom === 1 ? student : undefined} />}
           {pages.length > 1 && (
             <div className="absolute bottom-1 right-2 text-[9px] text-gray-500">หน้า {pi + 1}/{pages.length}</div>
           )}
         </div>
-      ))}
+      )))}
 
       <style>{`
         @media print {

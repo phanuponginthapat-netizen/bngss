@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { saveErrorMessage } from "@/lib/saveError";
 import { Camera, Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { gradeAnswers, answerKeyProblem, cleanStudentCode } from "@/lib/examGrading";
+import { gradeAnswers, answerKeyProblem, cleanStudentCode, reviewReasons } from "@/lib/examGrading";
 import { resolveStorageUrl } from "@/lib/storageUrl";
 
 export default function ExamScanPage() {
@@ -30,7 +30,7 @@ export default function ExamScanPage() {
   const { data: questions = [] } = useQuery({
     queryKey: ["exam-q", id],
     enabled: !!id,
-    queryFn: async () => { const r = await supabase.from("exam_questions").select("question_no,correct_answer").eq("exam_id", id).order("question_no"); if (r.error) throw r.error; return r.data || []; },
+    queryFn: async () => { const r = await supabase.from("exam_questions").select("question_no,correct_answer,scoring_mode").eq("exam_id", id).order("question_no"); if (r.error) throw r.error; return r.data || []; },
   });
   const { data: sheet } = useQuery({
     queryKey: ["exam-sheet", id],
@@ -110,6 +110,14 @@ export default function ExamScanPage() {
         if (dupErr) throw dupErr;
         existingId = existing?.[0]?.id ?? null;
       }
+      const reasons = reviewReasons({
+        studentCode, studentFound: !!studentId, duplicate: !!existingId,
+        blank: g.blank, total, multiMarked: Number(data.multi_marked_count) || 0,
+        confidence: typeof data.confidence === "number" ? data.confidence : null,
+      });
+      subPayload.review_reasons = reasons;
+      subPayload.review_status = reasons.length ? "review" : "ok";
+      subPayload.gradebook_pushed_at = null;
       const { error: subErr } = existingId
         ? await supabase.from("exam_submissions").update(subPayload).eq("id", existingId)
         : await supabase.from("exam_submissions").insert(subPayload);

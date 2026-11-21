@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AnswerKeyEditor from "@/components/exam/AnswerKeyEditor";
 import { Printer, ScanLine, BarChart3, FileText } from "lucide-react";
 
 export default function ExamDetailPage() {
@@ -36,6 +37,8 @@ export default function ExamDetailPage() {
           <Button asChild><Link to={`/dashboard/exam/${id}/scan`}><ScanLine className="w-4 h-4 mr-1"/>ตรวจกระดาษคำตอบ</Link></Button>
         </div>
       </div>
+
+      <AnswerKeyEditor examId={id!} questions={questions as any[]} expectedCount={Number(exam.question_count) || 0} />
 
       <Card className="p-5">
         <h2 className="font-semibold mb-3">เนื้อหาข้อสอบ ({(questions as any[]).length} ข้อ)</h2>

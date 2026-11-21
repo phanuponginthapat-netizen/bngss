@@ -5466,6 +5466,7 @@ export type Database = {
           question_no: number
           question_text: string
           reference: string | null
+          scoring_mode: string
         }
         Insert: {
           bloom_level?: string | null
@@ -5480,6 +5481,7 @@ export type Database = {
           question_no: number
           question_text: string
           reference?: string | null
+          scoring_mode?: string
         }
         Update: {
           bloom_level?: string | null
@@ -5494,6 +5496,7 @@ export type Database = {
           question_no?: number
           question_text?: string
           reference?: string | null
+          scoring_mode?: string
         }
         Relationships: [
           {
@@ -5546,11 +5549,14 @@ export type Database = {
           correct_map: Json
           created_at: string
           exam_id: string
+          gradebook_pushed_at: string | null
           graded_at: string
           graded_by: string | null
           graded_image_url: string | null
           id: string
           percentage: number
+          review_reasons: string[]
+          review_status: string
           scan_image_url: string | null
           score: number
           student_code_detected: string | null
@@ -5563,11 +5569,14 @@ export type Database = {
           correct_map?: Json
           created_at?: string
           exam_id: string
+          gradebook_pushed_at?: string | null
           graded_at?: string
           graded_by?: string | null
           graded_image_url?: string | null
           id?: string
           percentage?: number
+          review_reasons?: string[]
+          review_status?: string
           scan_image_url?: string | null
           score?: number
           student_code_detected?: string | null
@@ -5580,11 +5589,14 @@ export type Database = {
           correct_map?: Json
           created_at?: string
           exam_id?: string
+          gradebook_pushed_at?: string | null
           graded_at?: string
           graded_by?: string | null
           graded_image_url?: string | null
           id?: string
           percentage?: number
+          review_reasons?: string[]
+          review_status?: string
           scan_image_url?: string | null
           score?: number
           student_code_detected?: string | null
