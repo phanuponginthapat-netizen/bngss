@@ -21,8 +21,8 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 async function accessToken(): Promise<string> {
-  const client_id = Deno.env.get("GOOGLE_CLIENT_ID");
-  const client_secret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+  const client_id = Deno.env.get("GOOGLE_CLIENT_ID") || Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
+  const client_secret = Deno.env.get("GOOGLE_CLIENT_SECRET") || Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
   const refresh_token = Deno.env.get("GOOGLE_DRIVE_REFRESH_TOKEN");
   if (!client_id || !client_secret || !refresh_token) {
     throw new Error("ยังไม่ได้ตั้ง GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_DRIVE_REFRESH_TOKEN");
