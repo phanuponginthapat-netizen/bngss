@@ -189,6 +189,8 @@
             }
             var n = document.getElementById("ldr-name");
             if (n) { n.textContent = name; n.style.display = "block"; }
+            // ตั้งชื่อแท็บจาก CMS ตั้งแต่ก่อน React โหลด (หลัง mount เส้นทางแต่ละหน้าจะกำหนด title เอง)
+            document.title = name;
             var brand = document.getElementById("ldr-brand");
             if (brand) {
               if (b.logo) {

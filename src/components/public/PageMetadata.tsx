@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { useCmsSettingsBulk } from "@/hooks/useCmsSettings";
 
 export const PUBLIC_PAGE_TITLES: Record<string, string> = {
-  "/": "โรงเรียนบ้านหนองเงือก",
+  // หน้าแรก ("/") ใช้ชื่อโรงเรียนจาก CMS เสมอ ไม่เขียนชื่อตายไว้ที่นี่
   "/about/history": "ประวัติสถานศึกษา",
   "/about/vision": "วิสัยทัศน์และพันธกิจ",
   "/about/philosophy": "ปรัชญาของโรงเรียน",
@@ -53,7 +53,8 @@ export default function PageMetadata({ title, description, schema }: {
     }
   }, [pathname]);
   const { data: settings } = useCmsSettingsBulk();
-  const school = settings?.school_name || "โรงเรียนบ้านหนองเงือก";
+  const school = settings?.school_name || "โรงเรียน";
+  const appName = settings?.app_name || school;
   const dynamicTitle = pathname.startsWith("/ar/p/") ? "งาน AR แหล่งเรียนรู้"
     : pathname.startsWith("/ar/") ? "สื่อ AR แหล่งเรียนรู้"
     : pathname.startsWith("/p/") ? "โปรไฟล์สาธารณะ"
@@ -62,11 +63,11 @@ export default function PageMetadata({ title, description, schema }: {
     : pathname.startsWith("/page/") ? "ข้อมูลโรงเรียน"
     : pathname.startsWith("/dashboard") ? "พื้นที่ทำงานโรงเรียน"
     : "ไม่พบหน้าที่ต้องการ";
-  const page = title || PUBLIC_PAGE_TITLES[pathname] || dynamicTitle;
-  const fullTitle = page === school ? `${school} | BNG Smart School` : `${page} | ${school}`;
+  const page = title || PUBLIC_PAGE_TITLES[pathname] || (pathname === "/" ? school : dynamicTitle);
+  const fullTitle = page === school ? `${school} | ${appName}` : `${page} | ${school}`;
   const summary = description || (pathname === "/"
-    ? `ติดตามข่าวสาร กิจกรรม ปฏิทิน และข้อมูลบุคลากรของ${school} พร้อมบริการ BNG Smart School สำหรับชุมชนโรงเรียน`
-    : `${page} — ข้อมูลจาก${school} ผ่านเว็บไซต์ BNG Smart School พร้อมข่าวสารและช่องทางติดต่อโรงเรียน`);
+    ? `ติดตามข่าวสาร กิจกรรม ปฏิทิน และข้อมูลบุคลากรของ${school} พร้อมบริการ ${appName} สำหรับชุมชนโรงเรียน`
+    : `${page} — ข้อมูลจาก${school} ผ่านเว็บไซต์ ${appName} พร้อมข่าวสารและช่องทางติดต่อโรงเรียน`);
   const url = `https://bngss.online${pathname}`;
   const schoolSchema = pathname === "/" ? {
     "@context": "https://schema.org", "@type": "School", name: school, url,
