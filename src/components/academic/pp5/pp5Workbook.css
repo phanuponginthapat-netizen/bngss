@@ -2,8 +2,15 @@
 .pp5-workbook-full {position:fixed;inset:0;z-index:80;border-radius:0;height:100dvh;}
 .pp5-grid-scroll { min-height:360px;height:60vh;overflow:auto;background:hsl(var(--muted));padding:16px;flex:1;overscroll-behavior:contain; }
 .pp5-sheet {position:relative; background:var(--pp5-paper);color:var(--pp5-ink);flex-shrink:0;}
-.pp5-cell {position:absolute;display:flex;box-sizing:border-box;overflow:hidden;padding:0 3px;line-height:1;cursor:cell;}
+.pp5-cell {position:absolute;display:flex;box-sizing:border-box;overflow:hidden;padding:0 3px;line-height:1.15;cursor:cell;}
 .pp5-cell span {width:100%;display:block;}
+.pp5-frame{position:relative;flex-shrink:0;}
+.pp5-corner,.pp5-colheads,.pp5-rowheads{position:sticky;z-index:5;background:hsl(var(--muted));font:11px system-ui,sans-serif;color:hsl(var(--muted-foreground));}
+.pp5-corner{position:absolute;left:0;top:0;width:40px;height:22px;z-index:6;border-right:1px solid hsl(var(--border));border-bottom:1px solid hsl(var(--border));}
+.pp5-colheads{position:sticky;top:-16px;margin-left:40px;height:22px;}
+.pp5-rowheads{position:sticky;left:-16px;width:40px;top:0;}
+.pp5-colhead,.pp5-rowhead{position:absolute;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border-right:1px solid hsl(var(--border));border-bottom:1px solid hsl(var(--border));}
+.pp5-colhead{top:0;height:22px;}.pp5-rowhead{left:0;width:40px;}
 .pp5-cell-editable {background:hsl(var(--primary)/0.04);outline:1px solid hsl(var(--border)/0.5);outline-offset:-1px;}
 .pp5-cell-selected {outline:2px solid hsl(var(--primary));outline-offset:-2px;z-index:2;}
 .pp5-print-sheet .pp5-cell {cursor:default;}
