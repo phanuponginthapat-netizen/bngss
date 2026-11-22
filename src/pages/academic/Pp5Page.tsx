@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import PP5AutoImportDialog from "@/components/academic/PP5AutoImportDialog";
 import { Megaphone, CheckCircle2 } from "lucide-react";
 import PP5AttendanceMatrix from "@/components/academic/PP5AttendanceMatrix";
+import Pp5ExcelWorkbook from "@/components/academic/pp5/Pp5ExcelWorkbook";
 import { swal } from "@/lib/swal";
 import { CalendarClock, Sparkles } from "lucide-react";
 import { KEY_COMPETENCIES, DESIRABLE_CHARACTERISTICS, READ_THINK_WRITE_STANDARDS } from "@/lib/obecStandards";
@@ -2121,8 +2122,9 @@ const Pp5Page = () => {
         <p className="text-sm text-muted-foreground">บันทึกคะแนน ตัดเกรด ประเมินผล และจัดการผลการเรียนประจำรายวิชา</p>
       </div>
 
-      <Tabs defaultValue="entry">
+      <Tabs defaultValue="excel">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap whitespace-nowrap max-w-full">
+          <TabsTrigger value="excel" className="gap-2"><FileSpreadsheet className="w-4 h-4" />สมุดงาน Excel</TabsTrigger>
           <TabsTrigger value="entry" className="gap-2">
             <BookOpen className="w-4 h-4" />
             บันทึกคะแนน
@@ -2140,6 +2142,7 @@ const Pp5Page = () => {
             จัดการไฟล์ ปพ.5
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="excel"><Pp5ExcelWorkbook /></TabsContent>
         <TabsContent value="entry"><ScoreEntryTab /></TabsContent>
         <TabsContent value="assessment"><AssessmentTab /></TabsContent>
         <TabsContent value="scores"><ScoreViewTab /></TabsContent>

@@ -1,0 +1,10 @@
+.pp5-workbook { --pp5-paper: hsl(0 0% 100%); --pp5-ink: hsl(0 0% 0%); display:flex;flex-direction:column;min-width:0; border:1px solid hsl(var(--border));border-radius:4px; overflow:hidden; background:hsl(var(--background)); }
+.pp5-workbook-full {position:fixed;inset:0;z-index:80;border-radius:0;height:100dvh;}
+.pp5-grid-scroll { min-height:360px;height:60vh;overflow:auto;background:hsl(var(--muted));padding:16px;flex:1;overscroll-behavior:contain; }
+.pp5-sheet {position:relative; background:var(--pp5-paper);color:var(--pp5-ink);flex-shrink:0;}
+.pp5-cell {position:absolute;display:flex;box-sizing:border-box;overflow:hidden;padding:0 3px;line-height:1;cursor:cell;}
+.pp5-cell span {width:100%;display:block;}
+.pp5-cell-editable {background:hsl(var(--primary)/0.04);outline:1px solid hsl(var(--border)/0.5);outline-offset:-1px;}
+.pp5-cell-selected {outline:2px solid hsl(var(--primary));outline-offset:-2px;z-index:2;}
+.pp5-print-sheet .pp5-cell {cursor:default;}
+@media(max-width:640px){.pp5-grid-scroll{padding:8px;}.pp5-workbook-full .pp5-grid-scroll{min-height:0;}.pp5-workbook [role=tab]{height:36px;}}

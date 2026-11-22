@@ -11614,6 +11614,60 @@ export type Database = {
           },
         ]
       }
+      pp5_workbooks: {
+        Row: {
+          academic_year: number
+          cells: Json
+          classroom_id: string
+          id: string
+          revision: number
+          semester: number
+          student_codes: string[]
+          subject_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          academic_year: number
+          cells?: Json
+          classroom_id: string
+          id?: string
+          revision?: number
+          semester: number
+          student_codes?: string[]
+          subject_id: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Update: {
+          academic_year?: number
+          cells?: Json
+          classroom_id?: string
+          id?: string
+          revision?: number
+          semester?: number
+          student_codes?: string[]
+          subject_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pp5_workbooks_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pp5_workbooks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pp6_files: {
         Row: {
           academic_year: number
@@ -17492,6 +17546,15 @@ export type Database = {
       }
       can_access_eform_attachment: {
         Args: { _eform_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_edit_pp5_workbook: {
+        Args: {
+          _classroom: string
+          _semester: number
+          _subject: string
+          _year: number
+        }
         Returns: boolean
       }
       can_sign_reflection: {

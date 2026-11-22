@@ -45,3 +45,6 @@ scripts/kiosk/facegate-agent/models/
 # Private signing keys must never be committed
 *.pem
 extension/_metadata/
+
+# Generated PP5 layout is served from its durable asset pointer
+public/templates/pp5-layout.json

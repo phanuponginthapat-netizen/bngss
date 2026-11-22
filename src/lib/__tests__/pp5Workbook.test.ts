@@ -1,0 +1,20 @@
+import { describe,it,expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { bindWorkbookSources,createWorkbookReader,validateWorkbookTerm,WorkbookTemplate,workbookPrintSlices } from '../pp5Workbook';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+const templatePath=existsSync('public/templates/pp5-layout.json')?'public/templates/pp5-layout.json':'/tmp/pp5-test-layout.json';
+if(!existsSync(templatePath))execFileSync('lovable-assets',['get','--file','public/templates/pp5-layout.asset.json','--output',templatePath]);
+const template=JSON.parse(readFileSync(templatePath,'utf8')) as WorkbookTemplate;
+const base={students:[{id:'s1',student_code:'2693',prefix:'เด็กชาย',first_name:'ทดสอบ',last_name:'ระบบ'}],subject:{code:'ศ21101',name_th:'ศิลปะ',weight_assignment:70,weight_midterm:10,weight_final:20},classroom:{grade_level:'ม.1'},teacher:'ครูทดสอบ',cms:{school_name:'โรงเรียนทดสอบ'},year:2026,semester:1,columns:[],scores:[],totals:[]};
+describe('PP5 workbook source integrity',()=>{
+ it('preserves template print breaks for each score page',()=>{const sheet=template.sheets.find(s=>s.name==='คะแนน1');if(!sheet)throw new Error('sheet missing');expect(sheet.breaks).toEqual([21,35]);expect(workbookPrintSlices(sheet).map(b=>b[2])).toEqual([21,35,45]);});
+ it('evaluates nested formulas without shared-parser corruption',()=>{const r=createWorkbookReader(template,bindWorkbookSources({...base,columns:[{id:'c',column_type:'assignment',max_score:10}],scores:[{student_id:'s1',column_id:'c',score:10}]}));expect(r.read('คะแนน1','AQ8')).toBe(70);expect(r.read('นักเรียน','N57')).toBe(1);});
+ it('keeps absent final outcomes blank',()=>{expect(createWorkbookReader(template,bindWorkbookSources(base)).read('คะแนน1','AQ8')).toBe('');});
+ it('binds only the explicit term and system student code, clearing source identities',()=>{const v=bindWorkbookSources(base);expect(v['Home!F4']).toBe(1);expect(v['Home!F5']).toBe(2569);expect(v['นักเรียน!C6']).toBe('2693');expect(v['นักเรียน!D6']).toBe('');expect(v['นักเรียน!C7']).toBe('');});
+ it('rejects missing and Buddhist-era storage terms rather than crossing terms',()=>{expect(()=>validateWorkbookTerm(2569,1)).toThrow();expect(()=>validateWorkbookTerm(2026,0)).toThrow();});
+ it('keeps imported totals unchanged rather than recomputing them',()=>{const v=bindWorkbookSources({...base,totals:[{student_code:'2693',total_score:82.5,grade:'4'}]});const r=createWorkbookReader(template,v);expect(r.read('คะแนน1','AQ8')).toBe(82.5);expect(r.read('คะแนน1','AR8')).toBe('4');});
+ it('evaluates the original cross-sheet formulas with actual system values',()=>{const r=createWorkbookReader(template,bindWorkbookSources(base));expect(r.read('คะแนน1','C8')).toBe('2693');expect(r.read('คะแนน1','D8')).toContain('ทดสอบ');expect(r.read('คะแนน1','C9')).toBe('');});
+ it('keeps an absent score blank instead of inventing zero',()=>{const v=bindWorkbookSources({...base,columns:[{id:'c1',column_type:'assignment',max_score:10,column_name:'งาน1'}]});expect(v['คะแนน1!F8']).toBe('');});
+ it('refuses to truncate columns beyond the original template',()=>{expect(()=>bindWorkbookSources({...base,columns:Array.from({length:15},(_,i)=>({id:String(i),column_type:'assignment'}))})).toThrow();});
+});
