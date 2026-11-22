@@ -1,5 +1,5 @@
 """Compile a privacy-cleared PP5 template without reserializing Excel drawing/layout parts."""
-import sys,json,re,zipfile,copy
+import sys,json,re,zipfile,copy,base64,mimetypes,posixpath
 from pathlib import Path
 import openpyxl
 from openpyxl.utils import get_column_letter,range_boundaries
@@ -21,7 +21,7 @@ for s in w:
 styles=[]
 for st in w._cell_styles:
  f=w._fonts[st.fontId];a=w._alignments[st.alignmentId];b=w._borders[st.borderId]
- styles.append({'font':f.name or 'EucrosiaUPC','size':f.sz or 14,'bold':bool(f.b),'italic':bool(f.i),'align':a.horizontal or 'general','vertical':a.vertical or 'bottom','wrap':bool(a.wrap_text),'rotation':a.text_rotation or 0,'border':{k:getattr(b,k).style for k in ['left','right','top','bottom']},'locked':w._protections[st.protectionId].locked})
+ styles.append({'font':f.name or 'EucrosiaUPC','size':f.sz or 14,'bold':bool(f.b),'italic':bool(f.i),'align':a.horizontal or 'general','vertical':a.vertical or 'bottom','wrap':bool(a.wrap_text),'shrink':bool(a.shrinkToFit),'numberFormat':openpyxl.styles.numbers.BUILTIN_FORMATS.get(st.numFmtId,w._number_formats[st.numFmtId-164] if st.numFmtId>=164 and st.numFmtId-164<len(w._number_formats) else 'General'),'rotation':a.text_rotation or 0,'border':{k:getattr(b,k).style for k in ['left','right','top','bottom']},'locked':w._protections[st.protectionId].locked})
 sheets=[]
 for i,s in enumerate(w):
  area=str(s.print_area);match=re.search(r'\$(\w+)\$(\d+):\$(\w+)\$(\d+)',area)
@@ -31,7 +31,32 @@ for i,s in enumerate(w):
  for k,d in s.column_dimensions.items():
   for c in range(d.min or openpyxl.utils.column_index_from_string(k), (d.max or openpyxl.utils.column_index_from_string(k))+1):widths[str(c)]=0 if d.hidden else d.width
  sheets.append({'name':s.title,'file':f'xl/worksheets/sheet{i+1}.xml','bounds':bounds,'cells':cells,'widths':widths,'heights':{str(r):0 if s.row_dimensions[r].hidden else (s.row_dimensions[r].height or s.sheet_format.defaultRowHeight or 15) for r in range(1,101)},'merges':[str(m) for m in s.merged_cells if m.min_row<=100],'breaks':[b.id for b in s.col_breaks.brk],'rowBreaks':[b.id for b in s.row_breaks.brk],'repeat':s.print_title_cols,'orientation':s.page_setup.orientation or 'portrait','scale':s.page_setup.scale or 100,'margins':{k:getattr(s.page_margins,k) for k in ['left','right','top','bottom']},'printable':bool(area),'hidden':s.sheet_state!='visible'})
-Path('public/templates/pp5-layout.json').write_text(json.dumps({'sheets':sheets,'styles':styles,'names':{n:d.attr_text for n,d in w.defined_names.items() if not d.attr_text.startswith('[')}},ensure_ascii=False,separators=(',',':')))
+media={}
+with zipfile.ZipFile(source) as z:
+ for i,s in enumerate(w):
+  meta=sheets[i];meta.update({'repeatRows':s.print_title_rows,'paperSize':s.page_setup.paperSize or '9','pageOrder':s.page_setup.pageOrder or 'downThenOver','fitToPage':bool(s.sheet_properties.pageSetUpPr and s.sheet_properties.pageSetUpPr.fitToPage),'fitWidth':s.page_setup.fitToWidth,'fitHeight':s.page_setup.fitToHeight,'centerHorizontal':bool(s.print_options.horizontalCentered),'centerVertical':bool(s.print_options.verticalCentered),'drawings':[]})
+  path=f'xl/worksheets/sheet{i+1}.xml';root=E.fromstring(z.read(path));drawing=root.find('s:drawing',ns)
+  if drawing is None:continue
+  relns={'r':'http://schemas.openxmlformats.org/package/2006/relationships'}
+  rel=E.fromstring(z.read(f'xl/worksheets/_rels/sheet{i+1}.xml.rels'));rid=drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+  target=next(e.get('Target') for e in rel if e.get('Id')==rid);dp=posixpath.normpath(posixpath.join('xl/worksheets',target))
+  dr=E.fromstring(z.read(dp));rels=E.fromstring(z.read(posixpath.join(posixpath.dirname(dp),'_rels',posixpath.basename(dp)+'.rels')))
+  targets={e.get('Id'):posixpath.normpath(posixpath.join(posixpath.dirname(dp),e.get('Target'))) for e in rels if e.get('TargetMode')!='External'}
+  dns={'x':'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing','a':'http://schemas.openxmlformats.org/drawingml/2006/main'}
+  for anchor in dr:
+   cd=anchor.find('x:clientData',dns)
+   if cd is not None and cd.get('fPrintsWithSheet') in ['0','false']:continue
+   pic=anchor.find('x:pic',dns);fr=anchor.find('x:from',dns);to=anchor.find('x:to',dns)
+   if pic is None or fr is None:continue
+   blip=pic.find('.//a:blip',dns)
+   if blip is None:continue
+   key=targets.get(blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed'))
+   if not key or not key.endswith(('.png','.jpg','.jpeg','.gif')):continue
+   if key not in media:media[key]='data:'+str(mimetypes.guess_type(key)[0])+';base64,'+base64.b64encode(z.read(key)).decode()
+   point=lambda e:{k:int(e.find('x:'+k,dns).text) for k in ['col','colOff','row','rowOff']}
+   extent=pic.find('.//a:xfrm/a:ext',dns)
+   meta['drawings'].append({'media':key,'from':point(fr),'to':point(to) if to is not None else None,'width':int(extent.get('cx'))/9525 if extent is not None else 0,'height':int(extent.get('cy'))/9525 if extent is not None else 0})
+Path('public/templates/pp5-layout.json').write_text(json.dumps({'sheets':sheets,'styles':styles,'media':media,'names':{n:d.attr_text for n,d in w.defined_names.items() if not d.attr_text.startswith('[')}},ensure_ascii=False,separators=(',',':')))
 with zipfile.ZipFile(source) as z,zipfile.ZipFile('public/templates/pp5-template.xlsx','w',zipfile.ZIP_DEFLATED) as out:
  strings=E.fromstring(z.read('xl/sharedStrings.xml'));used=set();roots={}
  for i,s in enumerate(w):

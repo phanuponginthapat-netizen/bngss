@@ -5,9 +5,10 @@ const { decode_cell, encode_cell, decode_range } = utils;
 export type CellValue = string | number;
 export type WorkbookCells = Record<string, CellValue>;
 export interface TemplateCell { v: CellValue | null; f: string | null; s: number }
-export interface TemplateStyle { font: string; size: number; bold: boolean; italic: boolean; align: string; vertical: string; wrap: boolean; rotation: number; border: Record<string,string|null>; locked: boolean }
-export interface TemplateSheet { name: string; file: string; bounds: number[]; cells: Record<string,TemplateCell>; widths: Record<string,number>; heights: Record<string,number>; merges: string[]; breaks: number[]; rowBreaks: number[]; repeat: string | null; orientation: string; scale: number; margins: Record<string,number>; printable: boolean; hidden: boolean }
-export interface WorkbookTemplate { sheets: TemplateSheet[]; styles: TemplateStyle[]; names: Record<string,string> }
+export interface TemplateStyle { font: string; size: number; bold: boolean; italic: boolean; align: string; vertical: string; wrap: boolean; shrink?:boolean; numberFormat?:string; rotation: number; border: Record<string,string|null>; locked: boolean }
+export interface TemplateDrawing { media:string; from:{col:number;colOff:number;row:number;rowOff:number}; to?:{col:number;colOff:number;row:number;rowOff:number}|null; width:number; height:number }
+export interface TemplateSheet { name: string; file: string; bounds: number[]; cells: Record<string,TemplateCell>; widths: Record<string,number>; heights: Record<string,number>; merges: string[]; breaks: number[]; rowBreaks: number[]; repeat: string | null; repeatRows?:string|null; paperSize?:string; pageOrder?:string; fitToPage?:boolean; fitWidth?:number|null; fitHeight?:number|null; centerHorizontal?:boolean; centerVertical?:boolean; drawings?:TemplateDrawing[]; orientation: string; scale: number; margins: Record<string,number>; printable: boolean; hidden: boolean }
+export interface WorkbookTemplate { sheets: TemplateSheet[]; styles: TemplateStyle[]; media?:Record<string,string>; names: Record<string,string> }
 export const workbookKey = (sheet: string, ref: string) => `${sheet}!${ref}`;
 export const BOOKLET_SHEETS = ['ปก','นักเรียน','เกณฑ์','ตัวชีวัด','เวลาเรียน_ม','คะแนนตัวชี้วัด','คะแนน1','คุณลักษณะรายข้อ','คิดวิเคราะห์รายข้อ','สมรรถนะรายด้าน','สรุปตัดสินผลการเรียน','คำอธิบาย','บันทึกข้อความ','รายงาน1','แผนภูมิ'];
 export function createWorkbookReader(template: WorkbookTemplate, values: WorkbookCells) {
@@ -76,5 +77,6 @@ export async function exportWorkbook(template:WorkbookTemplate,values:WorkbookCe
  }
  return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
-export function sheetGeometry(sheet:TemplateSheet,bounds=sheet.bounds){const [c1,r1,c2,r2]=bounds;const x:Record<number,number>={},y:Record<number,number>={};let width=0,height=0;for(let c=c1;c<=c2;c++){x[c]=width;width+=sheet.widths[c]===0?0:(sheet.widths[c]??8.43)*7+5;}for(let r=r1;r<=r2;r++){y[r]=height;height+=(sheet.heights[r]??15)*4/3;}return {x,y,width,height};}
+export function excelColumnPixels(width:number){return width===0?0:Math.floor(((256*width+Math.floor(128/7))/256)*7);}
+export function sheetGeometry(sheet:TemplateSheet,bounds=sheet.bounds){const [c1,r1,c2,r2]=bounds;const x:Record<number,number>={},y:Record<number,number>={};let width=0,height=0;for(let c=c1;c<=c2;c++){x[c]=width;width+=excelColumnPixels(sheet.widths[c]??8.43);}for(let r=r1;r<=r2;r++){y[r]=height;height+=(sheet.heights[r]??15)*4/3;}return {x,y,width,height};}
 export function workbookPrintSlices(sheet:TemplateSheet){const [c1,r1,c2,r2]=sheet.bounds;const stops=[...sheet.breaks.filter(c=>c>=c1&&c<c2),c2];let from=c1;return stops.map(stop=>{const result=[from,r1,stop,r2];from=stop+1;return result;});}
